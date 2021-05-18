@@ -1,0 +1,35 @@
+<mat-toolbar>
+    <mat-toolbar-row>
+
+        <div class="left-side">
+            <button mat-icon-button>
+                <mat-icon>menu</mat-icon>
+            </button>
+        </div>
+
+        <span class="spacer"></span>
+        <div class="right-side">
+            <!-- <div class="theme-switch">
+                <mat-icon>dark_mode</mat-icon>
+                <mat-slide-toggle (change)='toggleTheme()'></mat-slide-toggle>
+                <mat-icon>light_mode</mat-icon>
+            </div> -->
+            <button mat-icon-button (click)='navigateToLoginRoute()'>
+                <mat-icon>{{ true ? 'login' : 'logout' }}</mat-icon>
+            </button>
+        </div>
+
+    </mat-toolbar-row>
+</mat-toolbar>
+
+<div class="nav-container">
+    <nav mat-tab-nav-bar  mat-align-tabs="center">
+        <a
+            *ngFor='let route of mainRoutes'
+            mat-tab-link
+            (click)='navigateTo(route)'
+            [active]='selectedRoute === route'
+            [disabled]='route.disabled'
+        >{{ route.name }}</a>
+      </nav>
+</div>

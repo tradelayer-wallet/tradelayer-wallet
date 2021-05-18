@@ -1,1 +1,30 @@
-/* You can add global styles to this file, and also import other style files */
+@use '~@angular/material' as mat;
+@include mat.core();
+
+$tradelayer-wallet-primary: mat.define-palette(mat.$indigo-palette);
+$tradelayer-wallet-accent: mat.define-palette(mat.$pink-palette, A200, A100, A400);
+
+$tradelayer-wallet-warn: mat.define-palette(mat.$red-palette);
+
+$tradelayer-wallet-theme: mat.define-light-theme((
+  color: (
+    primary: $tradelayer-wallet-primary,
+    accent: $tradelayer-wallet-accent,
+    warn: $tradelayer-wallet-warn,
+  )
+));
+
+@include mat.all-component-themes($tradelayer-wallet-theme);
+
+html, body { height: 100%; }
+body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+body {
+  background-color: rgb(37, 26, 26);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
