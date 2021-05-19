@@ -16,7 +16,7 @@ const NG_MODULES = [
   BrowserModule,
   AppRoutingModule,
   BrowserAnimationsModule,
-  CommonModule
+  CommonModule,
 ];
 
 const TL_MODULES = [

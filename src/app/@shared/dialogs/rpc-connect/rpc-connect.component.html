@@ -1,7 +1,33 @@
-<mat-dialog-content class="mat-typography">
-    Login to the RPC;
-</mat-dialog-content>
-<mat-dialog-actions align="end">
-    <button mat-button mat-dialog-close>Cancel</button>
-    <button mat-button [mat-dialog-close]="true" cdkFocusInitial>Install</button>
-  </mat-dialog-actions>
+<div class="dialog-container">
+    <h1>Connect to the Local NODE</h1>
+    <mat-dialog-content class="mat-typography">
+
+    <div class="content-container">
+        <mat-form-field class="example-form-field">
+            <mat-label>Host</mat-label>
+            <input matInput type="text" [(ngModel)]='host'>
+        </mat-form-field>     
+
+        <mat-form-field class="example-form-field">
+            <mat-label>Port</mat-label>
+            <input matInput type="number" [(ngModel)]='port'>
+        </mat-form-field>    
+
+        <mat-form-field class="example-form-field">
+            <mat-label>Useername</mat-label>
+            <input matInput type="text" [(ngModel)]='username'>
+        </mat-form-field>    
+
+        <mat-form-field class="example-form-field">
+            <mat-label>Password</mat-label>
+            <input matInput type="password" [(ngModel)]='password'>
+        </mat-form-field>    
+    </div>
+    </mat-dialog-content>
+    <p class='message'> {{ message }}</p>
+
+    <mat-dialog-actions align="center">
+    <button mat-button (click)='connect()'>Connect</button>
+    </mat-dialog-actions>
+    <mat-spinner diameter='50' *ngIf='loading'></mat-spinner>
+</div>

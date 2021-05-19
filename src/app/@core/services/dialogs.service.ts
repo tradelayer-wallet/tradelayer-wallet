@@ -23,6 +23,6 @@ export class DialogService {
     openDialog(dialogType: DialogTypes) {
         const dialog = dialogs[dialogType];
         if (!dialog) return;
-        this.matDialogService.open(dialog);
+        this.matDialogService.open(dialog, { disableClose: true });
     }
   }
