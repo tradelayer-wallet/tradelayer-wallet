@@ -1,4 +1,5 @@
 import { Injectable } from "@angular/core";
+import { HttpClient, } from "@angular/common/http";
 
 export interface RPCCredentials {
   host: string,
@@ -14,7 +15,9 @@ export interface RPCCredentials {
 export class RpcService {
     private _isConnected: boolean = false;
 
-    constructor() {}
+    constructor(
+      private http: HttpClient,
+    ) {}
 
     get isConnected() {
         return this._isConnected;
@@ -28,7 +31,14 @@ export class RpcService {
       console.log('connecting');
       console.log(credentials)
       return new Promise((res, rej) => {
-        setTimeout(() => res(false), 3000);
+        setTimeout(() => {
+          const isReady = this.call(credentials);
+          res(isReady)
+        }, 2000)
       })
+    }
+
+    call(credentials: RPCCredentials) {
+      return false
     }
   }

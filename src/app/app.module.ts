@@ -11,12 +11,13 @@ import { ThemeModule } from './@theme/theme.module';
 
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { CommonModule } from '@angular/common';
-
+import { HttpClientModule } from '@angular/common/http';
 const NG_MODULES = [
   BrowserModule,
   AppRoutingModule,
   BrowserAnimationsModule,
   CommonModule,
+  HttpClientModule
 ];
 
 const TL_MODULES = [
