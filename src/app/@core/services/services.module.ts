@@ -1,8 +1,11 @@
 import { NgModule } from '@angular/core';
+import { RpcService } from './rpc.service';
 
 
 @NgModule({ 
-    providers: [],
+    providers: [
+        RpcService,
+    ],
 })
 
 export class ServicesModule { }
