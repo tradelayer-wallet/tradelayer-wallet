@@ -39,6 +39,22 @@ export class RpcService {
     }
 
     call(credentials: RPCCredentials) {
+      const options = JSON.stringify({
+        id: 0,
+        method: "help",
+        params: []
+      });
+
+      this.http.post(
+        'http://localhost:9332',
+        options,
+        {
+          headers: {
+            'Authorization': 'Basic dXNlcjpwYXNzd3JvZA==',
+
+          }
+        }
+      ).subscribe(e => console.log(e));
       return false
     }
   }
