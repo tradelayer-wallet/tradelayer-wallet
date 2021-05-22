@@ -1,7 +1,6 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpHeaders, } from "@angular/common/http";
-import { catchError } from 'rxjs/operators'
-import { of } from "rxjs";
+
 export interface RPCCredentials {
   host: string,
   port: number,

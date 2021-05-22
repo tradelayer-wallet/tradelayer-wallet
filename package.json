@@ -4,8 +4,8 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "dev:norpc": "ng serve --configuration norpc",
     "build": "ng build",
-    "watch": "ng build --watch --configuration development",
     "watch:el": "ng build --base-href ./ --watch --configuration development",
     "el": "electron ."
   },

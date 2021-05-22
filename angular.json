@@ -64,6 +64,21 @@
               "extractLicenses": false,
               "sourceMap": true,
               "namedChunks": true
+            },
+            "norpc": {
+              "buildOptimizer": false,
+              "optimization": false,
+              "vendorChunk": true,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true,
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.norpc.ts"
+                }
+              ],
+              "baseHref": "/"
             }
           },
           "defaultConfiguration": "production"
@@ -76,6 +91,9 @@
             },
             "development": {
               "browserTarget": "tradelayer-wallet:build:development"
+            },
+            "norpc": {
+              "browserTarget": "tradelayer-wallet:build:norpc"
             }
           },
           "defaultConfiguration": "development"
