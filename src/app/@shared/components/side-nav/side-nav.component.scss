@@ -3,6 +3,7 @@ mat-drawer-container {
         position: fixed;
         height: 100%;
         width: 40%;
+        max-width: 20rem;
         z-index: 100;
 
         background-color: rgb(50, 40, 40);
