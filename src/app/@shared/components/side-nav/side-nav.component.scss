@@ -1,0 +1,73 @@
+mat-drawer-container {
+    mat-drawer {
+        position: fixed;
+        height: 100%;
+        width: 40%;
+        z-index: 100;
+
+        background-color: rgb(50, 40, 40);
+        box-shadow: 0 0 1rem 0.1rem black;
+        display: flex;
+        flex-direction: column;
+        .side-nav-header {
+            background-color: rgb(20, 20, 20);
+            color: wheat;
+            font-size: 1.5rem;
+            height: 4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: black;
+        }
+        .side-nav-links {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem;
+            a {
+                color: whitesmoke;
+                text-decoration: none;
+                padding: 0.25rem 0;
+                transition: color 0.25s;
+                &:hover {
+                    color: gray
+                }
+            }
+        }
+        mat-accordion {
+            display: flex;
+            flex-direction: column;
+            mat-expansion-panel {
+                margin: unset !important;
+                border-radius: unset !important;
+                mat-expansion-panel-header {
+                    border: 1px solid black;
+                    background-color: #367588;
+                    mat-panel-title {
+                        justify-content: center;
+                    }
+                }
+                .expanded-container {
+                    background-color: black;
+                    display: flex;
+                    flex-direction: column;
+                    .expanded-item {
+                        width: 100%;
+                        background-color: rgb(50, 50, 50);
+                        color: whitesmoke;
+                        padding: 0.5rem;
+                        text-align: center;
+                        cursor: pointer;
+                        &:hover {
+                            filter: invert(1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+::ng-deep .mat-expansion-panel-body {
+    padding: 0 !important;
+}

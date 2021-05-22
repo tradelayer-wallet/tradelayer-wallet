@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
+import { MenuService } from 'src/app/@core/services/menu.service';
 // import { Themes, ThemesService } from 'src/app/@services/themes.services';
 
 @Component({
@@ -38,6 +39,7 @@ export class HeaderComponent {
 
   constructor(
     private router: Router,
+    private menuService: MenuService,
   ) { }
 
   get mainRoutes(){
@@ -60,5 +62,9 @@ export class HeaderComponent {
   navigateToLoginRoute() {
     this.router.navigateByUrl('login');
     this.selectedRoute = null;
+  }
+
+  toggleSideBar() {
+    this.menuService.toggleSideBar();
   }
 }

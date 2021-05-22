@@ -27,6 +27,12 @@ body {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    user-select: none;
+}
+
+.drawer-container {
+  background-color: rgb(37, 26, 26);
+  height: 100%;
 }
 
 /* Chrome, Safari, Edge, Opera */

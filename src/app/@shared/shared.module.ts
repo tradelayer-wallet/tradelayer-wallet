@@ -10,6 +10,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { RPCConnectDialog } from './dialogs/rpc-connect/rpc-connect.component';
 import { CommonModule } from '@angular/common';
+import { SideNavComponent } from './components/side-nav/side-nav.component';
+import { MatSidenavModule } from '@angular/material/sidenav'; 
+import { MatExpansionModule } from '@angular/material/expansion'; 
 
 @NgModule({
     imports: [
@@ -19,14 +22,17 @@ import { CommonModule } from '@angular/common';
         MatButtonModule,
         MatInputModule,
         MatProgressSpinnerModule,
+        MatSidenavModule,
+        MatExpansionModule,
     ],
     declarations: [
         RPCConnectDialog,
+        SideNavComponent,
     ],
     exports: [
         RPCConnectDialog,
+        SideNavComponent,
         MatProgressSpinnerModule,
-
     ]
 })
 

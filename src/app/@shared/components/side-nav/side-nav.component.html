@@ -1,0 +1,62 @@
+<mat-drawer-container class='drawer-container' >
+    <mat-drawer #sideNav autoFocus MatDrawerMode='over'>
+        <div class="side-nav-header">
+            TradeLayer
+        </div>
+        <div class="side-nav-links">
+            <a href='#'>Transaction Log</a>
+            <a href='#'>White lists</a>
+            <a href='#'>Trade Channel Manager</a>
+        </div>
+        <mat-accordion>
+            <mat-expansion-panel class='probno' hideToggle>
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    LTC Pairs
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <div class="expanded-container">
+                    <div class="expanded-item">LTC/dUSD</div>
+                    <div class="expanded-item">LTC/ALL</div>
+                    <div class="expanded-item">LTC/USDL</div>
+                    <div class="expanded-item">LTC/sLTC</div>               
+                </div>
+            </mat-expansion-panel>
+            
+            <mat-expansion-panel hideToggle>
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    Oracle Contracts
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <div class="expanded-container">
+                    <div class="expanded-item">LTC/USD-Oracle-PERP</div>
+                    <div class="expanded-item">LTC/USD-Oracle-DEC21</div>
+                    <div class="expanded-item">LTC/USD-Oracle-SEP21</div>
+                    <div class="expanded-item">LTC/BTC-Oracle-PERP</div>
+                    <div class="expanded-item">ALL/USD-Oracle-PERP</div>
+                    <div class="expanded-item">LTC/USD-Oracle-PERP</div>
+                    <div class="expanded-item">ALL/LTC-Oracle-PERP</div>                
+                </div>
+            </mat-expansion-panel>
+
+            <mat-expansion-panel hideToggle>
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    Native Contracts
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <div class="expanded-container">
+                    <div class="expanded-item">ALL/LTC-Native-PERP</div>
+                    <div class="expanded-item">LTC/USD-Native-PERP</div>
+                    <div class="expanded-item">LTC/EUR-Oracle-SEP21</div>
+                    <div class="expanded-item">LTC/CNY-Oracle-PERP</div>
+                    <div class="expanded-item">LTC/JPY-Oracle-PERP</div>               
+                </div>
+            </mat-expansion-panel>
+        </mat-accordion>
+    </mat-drawer>
+    <mat-drawer-content>
+        <ng-content></ng-content>
+    </mat-drawer-content>
+</mat-drawer-container>
