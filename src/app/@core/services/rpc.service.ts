@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core";
-import { HttpClient, } from "@angular/common/http";
+import { HttpClient, HttpHeaders, } from "@angular/common/http";
+import { XmlrpcService } from "angular2-xmlrpc";
 
 export interface RPCCredentials {
   host: string,
@@ -15,8 +16,12 @@ export interface RPCCredentials {
 export class RpcService {
     private _isConnected: boolean = false;
 
+    private rpcHost: string = '';
+    private authToken: string = '';
+
     constructor(
       private http: HttpClient,
+      private xmlrpcService: XmlrpcService
     ) {}
 
     get isConnected() {
@@ -24,37 +29,55 @@ export class RpcService {
     }
 
     set isConnected(value: boolean) {
-        this. isConnected = value;
+        this._isConnected = value;
     }
 
     connect(credentials: RPCCredentials) {
-      console.log('connecting');
-      console.log(credentials)
-      return new Promise((res, rej) => {
-        setTimeout(() => {
-          const isReady = this.call(credentials);
-          res(isReady)
-        }, 2000)
+      return new Promise(async (res, rej) => {
+        try {
+          const isReady = await this._checkConnection(credentials);
+          if (isReady) this._setConnection(credentials);
+          res(isReady);
+        } catch (error) {
+          rej(error);
+        }
       })
     }
 
-    call(credentials: RPCCredentials) {
-      const options = JSON.stringify({
-        id: 0,
-        method: "help",
-        params: []
-      });
-
-      this.http.post(
-        'http://localhost:9332',
-        options,
-        {
-          headers: {
-            'Authorization': 'Basic dXNlcjpwYXNzd3JvZA==',
-
-          }
-        }
-      ).subscribe(e => console.log(e));
-      return false
+    private async _checkConnection(credentials: RPCCredentials) {
+      const result = await this.rpc('tl_getinfo', [], credentials);
+      const { error, data } = result;
+      if (!error && data?.block > 0) return true;
+      return false;
     }
+
+    async rpc(method: string, params: any[] = [], credentials?: RPCCredentials) {
+      try {
+        const url = credentials ? `http://${credentials.host}:${credentials.port}` : this.rpcHost;
+        const authToken = credentials ? window.btoa(`${credentials.username}:${credentials.password}`) : this.authToken;
+        const id = Date.now();
+        const body = { id, method, params };
+        const headers = this._getHeaders(authToken);
+        const methodRes = await this.http.post(url, JSON.stringify(body), { headers })
+          .toPromise() as { error: any, result: any };
+
+        const { error, result } = methodRes;
+        if (error || !result) return { error: error.message || 'Error with RPC call' };
+        return { data: result };
+      } catch (err) {
+        return { error: err.message }
+      }
+    }
+
+    private _setConnection(credentials: RPCCredentials) {
+      this.isConnected = true;
+      const url = `http://${credentials.host}:${credentials.port}`;
+      this.rpcHost = url;
+      this.authToken = window.btoa(`${credentials.username}:${credentials.password}`);
+    }
+
+    private _getHeaders(token: string) {
+      return new HttpHeaders().set('Authorization', `Basic ${token}`);
+    }
+
   }
