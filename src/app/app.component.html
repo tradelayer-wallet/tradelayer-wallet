@@ -1,3 +1,6 @@
-<tl-layout>
+<tl-layout *ngIf='isConnected; else spinner'>
     <router-outlet></router-outlet>
 </tl-layout>
+<ng-template #spinner>
+    <mat-spinner diameter='100' ></mat-spinner>
+</ng-template>

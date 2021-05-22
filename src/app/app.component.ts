@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { RpcService } from './@core/services/rpc.service';
 
 @Component({
   selector: 'tl-root',
@@ -6,5 +7,11 @@ import { Component } from '@angular/core';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
-  constructor() {}
+  constructor(
+    private rpcService: RpcService,
+  ) {}
+
+  get isConnected() {
+    return this.rpcService.isConnected;
+  }
 }

@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpHeaders, } from "@angular/common/http";
-import { XmlrpcService } from "angular2-xmlrpc";
-
+import { catchError } from 'rxjs/operators'
+import { of } from "rxjs";
 export interface RPCCredentials {
   host: string,
   port: number,
@@ -21,7 +21,6 @@ export class RpcService {
 
     constructor(
       private http: HttpClient,
-      private xmlrpcService: XmlrpcService
     ) {}
 
     get isConnected() {
@@ -60,7 +59,6 @@ export class RpcService {
         const headers = this._getHeaders(authToken);
         const methodRes = await this.http.post(url, JSON.stringify(body), { headers })
           .toPromise() as { error: any, result: any };
-
         const { error, result } = methodRes;
         if (error || !result) return { error: error.message || 'Error with RPC call' };
         return { data: result };
@@ -70,6 +68,7 @@ export class RpcService {
     }
 
     private _setConnection(credentials: RPCCredentials) {
+      window.localStorage.setItem('nodeConnection', JSON.stringify(credentials));
       this.isConnected = true;
       const url = `http://${credentials.host}:${credentials.port}`;
       this.rpcHost = url;

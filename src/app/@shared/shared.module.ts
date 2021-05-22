@@ -25,6 +25,8 @@ import { CommonModule } from '@angular/common';
     ],
     exports: [
         RPCConnectDialog,
+        MatProgressSpinnerModule,
+
     ]
 })
 
