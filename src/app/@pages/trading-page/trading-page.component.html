@@ -1,3 +1,37 @@
 <div class="tl-container">
     <tl-markets-toolbar></tl-markets-toolbar>
+    <mat-grid-list cols='8' gutterSize='10' rowHeight="120px" class="md-layout md-alignment-top-center">
+        <mat-grid-tile colspan='3' rowspan='4' class='md-small-hide'>
+            <mat-card color='accent'>
+                <mat-card-header>Orderbook</mat-card-header>
+            </mat-card>
+        </mat-grid-tile>
+
+        <mat-grid-tile colspan='2' rowspan='3'>
+            <mat-card color='accent'>
+                <mat-card-header>Buy/Sell</mat-card-header>
+            </mat-card>
+        </mat-grid-tile>
+
+        <mat-grid-tile colspan='3' rowspan='2'>
+            <mat-card color='accent'>
+                <mat-card-header>Recent Trades</mat-card-header>
+            </mat-card>
+        </mat-grid-tile>
+        <mat-grid-tile colspan='3' rowspan='2'>
+            <mat-card color='accent'>
+                <mat-card-header>Recent Trades</mat-card-header>
+            </mat-card>
+        </mat-grid-tile>
+        <mat-grid-tile colspan='2' rowspan='1'>
+            <mat-card color='accent'>
+                <mat-card-header>Inverse Contract</mat-card-header>
+            </mat-card>
+        </mat-grid-tile>
+        <mat-grid-tile colspan='8' rowspan='2'>
+            <mat-card color='accent'>
+                <mat-card-header>Positions/Active/Fills/Pending/Balances</mat-card-header>
+            </mat-card>
+        </mat-grid-tile>
+    </mat-grid-list>
 </div>
