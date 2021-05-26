@@ -1,1 +1,52 @@
-<div class="tl-containr"> Login Container</div>
+<div class="login-page-container">
+    <mat-tab-group color='accent' backgroundColor='primary' mat-align-tabs="center" dynamicHeight>
+        <mat-tab label="Login">
+            <mat-tab-group color='accent' mat-align-tabs="center" dynamicHeight>
+                <mat-tab label='from JSON'>
+                    <form class='form'>
+                        <div class='input-file'>
+                            <button type="button" mat-raised-button (click)="fileInput.click()">Choose File</button>
+                            <input hidden #fileInput type="file" id="file">
+                            <span class='selected-file'>No file Selected</span>
+                        </div>
+                        <mat-form-field>
+                            <mat-label>Password</mat-label>
+                            <input type='password' matInput>
+                        </mat-form-field>
+                        <button mat-raised-button color="primary">Login</button>
+                    </form>
+                </mat-tab>
+                <mat-tab label='from privkey'>
+                    <form class='form'>
+                        <mat-form-field>
+                            <mat-label>Key</mat-label>
+                            <input type='password' matInput>
+                        </mat-form-field>
+                        <mat-form-field>
+                            <mat-label>Password</mat-label>
+                            <input type='password' matInput>
+                        </mat-form-field>
+                        <button mat-raised-button color="primary">Login</button>
+                    </form>
+                </mat-tab>
+            </mat-tab-group>
+        </mat-tab>
+        <mat-tab label="Register">
+            <form class='form'>
+                <mat-form-field>
+                    <mat-label>User</mat-label>
+                    <input type='text' matInput>
+                </mat-form-field>
+                <mat-form-field >
+                    <mat-label>Password</mat-label>
+                    <input type='password' matInput>
+                </mat-form-field>
+                <mat-form-field >
+                    <mat-label>Confirm Password</mat-label>
+                    <input type='password' matInput>
+                </mat-form-field>
+                <button mat-raised-button color="primary">Register</button>
+            </form>
+        </mat-tab>
+      </mat-tab-group>
+</div>

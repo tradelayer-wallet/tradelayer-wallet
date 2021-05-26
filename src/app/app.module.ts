@@ -12,6 +12,7 @@ import { ThemeModule } from './@theme/theme.module';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
+import { MatTabsModule } from '@angular/material/tabs';
 const NG_MODULES = [
   BrowserModule,
   AppRoutingModule,
