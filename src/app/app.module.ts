@@ -12,7 +12,8 @@ import { ThemeModule } from './@theme/theme.module';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
-import { MatTabsModule } from '@angular/material/tabs';
+import { ToastrModule } from 'ngx-toastr';
+
 const NG_MODULES = [
   BrowserModule,
   AppRoutingModule,
@@ -26,6 +27,13 @@ const TL_MODULES = [
   PagesModule,
   SharedModule,
   ThemeModule,
+  ToastrModule.forRoot({
+    maxOpened: 8,
+    newestOnTop: false,
+    positionClass: 'toast-bottom-right',
+    preventDuplicates: true,
+    timeOut: 3000,
+  }),
 ];
 
 const imports = [

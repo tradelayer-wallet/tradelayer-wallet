@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { RpcService } from './@core/services/rpc.service';
 import { environment } from '../environments/environment';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'tl-root',
