@@ -1,0 +1,27 @@
+<div class="markets-toolbar">
+    <div class="market-types-container">
+        <mat-tab-group mat-align-tabs="center" dynamicHeight (selectedIndexChange)="selectMarketType($event)">
+            <mat-tab 
+                *ngFor='let marketType of marketsTypes' 
+                [disabled]='marketType.disabled'
+            >
+                <ng-template mat-tab-label >
+                    <img class='market-icon' [src]='marketType.icon' alt='icon'/>
+                    <span class='market-pair-span'> {{ marketType.name }} </span>
+                </ng-template>
+                <div class="markets-container" *ngIf='marketsFromSelectedMarketType?.length'>
+                    <mat-tab-group mat-align-tabs="center" dynamicHeight backgroundColor='primary'>
+                        <mat-tab 
+                            *ngFor='let market of marketsFromSelectedMarketType' 
+                            [disabled]='market.disabled' 
+                            [label]='market.name'
+                        >
+                        </mat-tab>
+                    </mat-tab-group>
+                </div>
+            </mat-tab>
+        </mat-tab-group>
+    </div>
+
+
+</div>
