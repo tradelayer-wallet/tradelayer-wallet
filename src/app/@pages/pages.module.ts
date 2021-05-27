@@ -12,6 +12,7 @@ import { TradingPageComponent } from './trading-page/trading-page.component';
 
 import { MarketsToolbarComponent } from './trading-page/markets-toolbar/markets-toolbar.component'; 
 import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule } from '@angular/forms';
 
 @NgModule({
     imports: [
@@ -23,6 +24,7 @@ import { CommonModule } from '@angular/common';
         MatCardModule,
         MatGridListModule,
         CommonModule,
+        ReactiveFormsModule,
     ],
     declarations: [
         LoginPageComponent,
