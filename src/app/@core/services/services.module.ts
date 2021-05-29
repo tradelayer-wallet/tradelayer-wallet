@@ -3,6 +3,7 @@ import { RpcService } from './rpc.service';
 import { DialogService } from './dialogs.service';
 import { MenuService } from './menu.service';
 import { AuthService } from './auth.service';
+import { AddressService } from './address.service';
 
 @NgModule({
     providers: [
@@ -10,6 +11,7 @@ import { AuthService } from './auth.service';
         DialogService,
         MenuService,
         AuthService,
+        AddressService,
     ],
 })
 

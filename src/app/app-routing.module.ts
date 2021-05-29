@@ -6,6 +6,7 @@ import { LoginPageComponent } from './@pages/login-page/login-page.component';
 import { TradingPageComponent } from './@pages/trading-page/trading-page.component';
 
 import { RPCGuard } from './@core/guards/rpc.guard';
+import { AuthGuard } from './@core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -15,7 +16,6 @@ export const routes: Routes = [
         {
           path: '',
           component: HomePageComponent,
-          canActivate: [RPCGuard]
         },
         {
           path: 'login',
@@ -24,6 +24,7 @@ export const routes: Routes = [
         {
           path: 'trading',
           component: TradingPageComponent,
+          canActivate: [AuthGuard]
         }
       ],
   },

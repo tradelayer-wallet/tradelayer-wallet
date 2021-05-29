@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
+import { AuthService } from 'src/app/@core/services/auth.service';
 import { MenuService } from 'src/app/@core/services/menu.service';
 // import { Themes, ThemesService } from 'src/app/@services/themes.services';
 
@@ -40,6 +41,7 @@ export class HeaderComponent {
   constructor(
     private router: Router,
     private menuService: MenuService,
+    private authService: AuthService,
   ) { }
 
   get mainRoutes(){
@@ -54,6 +56,10 @@ export class HeaderComponent {
     this._selectedRoute = value;
   }
 
+  get isLoggedIn() {
+    return this.authService.isLoggedIn;
+  }
+
   navigateTo(route: any) {
     this.selectedRoute = route;
     this.router.navigateByUrl(route.link);
@@ -62,6 +68,10 @@ export class HeaderComponent {
   navigateToLoginRoute() {
     this.router.navigateByUrl('login');
     this.selectedRoute = null;
+  }
+
+  logOut() {
+    this.authService.logout();
   }
 
   toggleSideBar() {

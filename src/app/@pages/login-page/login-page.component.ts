@@ -61,8 +61,7 @@ export class LoginPageComponent implements OnInit {
   register() {
     console.log('Register')
     const password = this.registerForm.value.password;
-    console.log({password})
-    this.authService.register();
+    this.authService.register(password);
   }
 
 
