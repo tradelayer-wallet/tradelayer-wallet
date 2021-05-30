@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from 'src/app/@core/services/auth.service';
+import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { MenuService } from 'src/app/@core/services/menu.service';
 // import { Themes, ThemesService } from 'src/app/@services/themes.services';
 
@@ -42,6 +43,7 @@ export class HeaderComponent {
     private router: Router,
     private menuService: MenuService,
     private authService: AuthService,
+    private dialogService: DialogService,
   ) { }
 
   get mainRoutes(){
@@ -71,6 +73,8 @@ export class HeaderComponent {
   }
 
   logOut() {
+    const encKey = this.authService.encKey;
+    this.dialogService.openEncKeyDialog(encKey);
     this.authService.logout();
   }
 

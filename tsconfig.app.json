@@ -3,7 +3,12 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./out-tsc/app",
-    "types": []
+    "types": ["node"],
+    "paths": {
+      "stream": [
+        "node_modules/readable-stream"
+      ],
+    },
   },
   "files": [
     "src/main.ts",

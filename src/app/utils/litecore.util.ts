@@ -1,5 +1,6 @@
 import * as btc from 'bitcoinjs-lib';
-
+import { IKeyPair } from '../@core/services/address.service';
+import { AES, enc } from 'crypto-js';
 const tLTC = {
     messagePrefix: '\x19Litecoin Signed Message:\n',
     bip32: { public: 0x043587cf, private: 0x04358394 },
@@ -16,6 +17,23 @@ export const generateRandomAddress = () => {
     return { address, wifKey };
 };
 
+export const encryptKeyPair = (keypair: IKeyPair[], pass: string) => {
+    const message = JSON.stringify(keypair);
+    return AES.encrypt(message, pass).toString();
+}
+
+export const decryptKeyPair = (key: string, pass: string) => {
+    try {
+        const decrypted = AES.decrypt(key, pass);
+        const dStr = decrypted.toString(enc.Utf8);
+        return JSON.parse(dStr);
+    } catch(err) {
+        return null;
+    }
+}
+
 export default {
     generateRandomAddress,
+    encryptKeyPair,
+    decryptKeyPair,
 };

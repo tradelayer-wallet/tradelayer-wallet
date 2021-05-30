@@ -1,6 +1,6 @@
 <div class="login-page-container">
     <mat-tab-group color='accent' backgroundColor='primary' mat-align-tabs="center" dynamicHeight>
-        <mat-tab label="Login">
+        <mat-tab label="Add">
             <mat-tab-group color='accent' mat-align-tabs="center" dynamicHeight>
                 <mat-tab label='from JSON'>
                     <form class='form' [formGroup]='loginFormFile'>
@@ -19,7 +19,6 @@
                                 type="file"
                                 id="file"
                                 (change)='onFileSelect($event, fileInput.value)'
-                                accept="application/JSON"
                             >
                             <span class='selected-file'>{{ loginFormFile.value.jsonFile || 'Please Select file'}}</span>
                         </div>
@@ -30,7 +29,7 @@
                         <button type='button' (click)='loginWithJsonFile()' [disabled]='!loginFormFile.valid' mat-raised-button color="primary">Login</button>
                     </form>
                 </mat-tab>
-                <mat-tab label='from privkey'>
+                <mat-tab label='from privkey' disabled>
                     <form class='form' [formGroup]='loginFormPrivKey'>
                         <mat-form-field>
                             <mat-label>Key</mat-label>
@@ -45,7 +44,7 @@
                 </mat-tab>
             </mat-tab-group>
         </mat-tab>
-        <mat-tab label="Register">
+        <mat-tab label="Create New">
             <form class='form'  [formGroup]='registerForm'>
                 <mat-form-field >
                     <mat-label>Password</mat-label>
@@ -62,7 +61,7 @@
                     mat-raised-button
                     color="primary"
                 >
-                    Register
+                    Create
                 </button>
             </form>
         </mat-tab>
