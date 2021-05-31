@@ -2,13 +2,16 @@ import { Injectable } from "@angular/core";
 
 export interface IMarketType {
     name: string,
-    markets: any[],
+    markets: IMarket[],
     icon: string,
     disabled: boolean,
 }
 
 export interface IMarket {
-    pair: string,
+    name: string;
+    disabled: boolean;
+    F_tokenName: string,
+    S_tokenName: string,
 }
 
 @Injectable({
@@ -22,20 +25,28 @@ export class MarketsService {
             name: 'LTC',
             markets: [
                 {
-                    name: 'LTC/ID1',
+                    name: 'ID1/LTC',
                     disabled: false,
+                    F_tokenName: 'ID1',
+                    S_tokenName: 'LTC'
                 },
                 {
-                    name: 'LTC/ID2',
+                    name: 'ID2/LTC',
                     disabled: false,
+                    F_tokenName: 'ID2',
+                    S_tokenName: 'LTC'
                 },
                 {
-                    name: 'LTC/ID3',
+                    name: 'ID3/LTC',
                     disabled: false,
+                    F_tokenName: 'ID3',
+                    S_tokenName: 'LTC'
                 },
                 {
-                    name: 'LTC/ID4',
+                    name: 'ID4/LTC',
                     disabled: false,
+                    F_tokenName: 'ID4',
+                    S_tokenName: 'LTC'
                 },
             ],
             icon: 'https://bitcoin-capital.bg/wp-content/uploads/2019/07/1920px-LTC-400-min-300x300.png',
@@ -52,16 +63,22 @@ export class MarketsService {
             name: 'ALL',
             markets: [
                 {
-                    name: 'ALL/ID1',
+                    name: 'ID1/ALL',
                     disabled: false,
+                    F_tokenName: 'ID1',
+                    S_tokenName: 'ALL'
                 },
                 {
-                    name: 'ALL/ID2',
+                    name: 'ID2/ALL',
                     disabled: false,
+                    F_tokenName: 'ID2',
+                    S_tokenName: 'ALL'
                 },
                 {
-                    name: 'ALL/ID3',
+                    name: 'ID3/ALL',
                     disabled: false,
+                    F_tokenName: 'ID3',
+                    S_tokenName: 'ALL'
                 },
             ],
             icon: 'https://cdn.discordapp.com/attachments/749975407838888058/817037799739490344/ALLFancyLogo.png',
@@ -70,6 +87,7 @@ export class MarketsService {
     ];
 
     private _selectedMarketType: IMarketType = this.marketsTypes[0];
+    private _selectedMarket: IMarket = this.selectedMarketType.markets[0];
 
     constructor() {}
 
@@ -77,15 +95,24 @@ export class MarketsService {
         return this._marketsTypes;
     }
 
-    get selectedMarketType() {
+    get selectedMarketType(): IMarketType {
         return this._selectedMarketType;
     }
     
     set selectedMarketType(value: IMarketType) {
         this._selectedMarketType = value;
+        this._selectedMarket = this.marketsFromSelectedMarketType[0];
     }
 
-    get marketsFromSelectedMarketType() {
+    get marketsFromSelectedMarketType(): IMarket[] {
         return this.selectedMarketType.markets;
+    }
+
+    get selectedMarket(): IMarket {
+        return this._selectedMarket;
+    }
+
+    set selectedMarket(value: IMarket) {
+        this._selectedMarket = value;
     }
 }

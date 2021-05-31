@@ -10,7 +10,7 @@
                     <span class='market-pair-span'> {{ marketType.name }} </span>
                 </ng-template>
                 <div class="markets-container" *ngIf='marketsFromSelectedMarketType?.length'>
-                    <mat-tab-group mat-align-tabs="center" dynamicHeight backgroundColor='primary'>
+                    <mat-tab-group #marketsTabGroup mat-align-tabs="center" dynamicHeight backgroundColor='primary' (selectedIndexChange)="selectMarket($event)">
                         <mat-tab 
                             *ngFor='let market of marketsFromSelectedMarketType' 
                             [disabled]='market.disabled' 

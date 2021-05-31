@@ -13,6 +13,12 @@ import { TradingPageComponent } from './trading-page/trading-page.component';
 import { MarketsToolbarComponent } from './trading-page/markets-toolbar/markets-toolbar.component'; 
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
+import { TradingGridComponent } from './trading-page/main-trading-grid/trading-grid.component';
+import { BuySellCardComponent } from './trading-page/main-trading-grid/buy-sell-card/buy-sell-card.component';
+import { OrderbookCardComponent } from './trading-page/main-trading-grid/orderbook-card/orderbook-card.component';
+import { MatIconModule } from '@angular/material/icon'; 
+
+
 
 @NgModule({
     imports: [
@@ -25,11 +31,15 @@ import { ReactiveFormsModule } from '@angular/forms';
         MatGridListModule,
         CommonModule,
         ReactiveFormsModule,
+        MatIconModule,
     ],
     declarations: [
         LoginPageComponent,
         TradingPageComponent,
         MarketsToolbarComponent,
+        TradingGridComponent,
+        BuySellCardComponent,
+        OrderbookCardComponent,
     ]
 })
 

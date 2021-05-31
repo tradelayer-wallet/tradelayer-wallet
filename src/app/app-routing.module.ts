@@ -24,7 +24,7 @@ export const routes: Routes = [
         {
           path: 'trading',
           component: TradingPageComponent,
-          canActivate: [AuthGuard]
+          // canActivate: [AuthGuard]
         }
       ],
   },

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ViewChild, ViewChildren } from '@angular/core';
 import { IMarketType, MarketsService } from 'src/app/@core/services/markets.service';
 
 @Component({
@@ -7,6 +7,7 @@ import { IMarketType, MarketsService } from 'src/app/@core/services/markets.serv
   styleUrls: ['./markets-toolbar.component.scss']
 })
 export class MarketsToolbarComponent {
+    @ViewChildren('marketsTabGroup') marketsTabGroup: any;
  
     constructor(
         private marketsService: MarketsService,
@@ -25,6 +26,11 @@ export class MarketsToolbarComponent {
     }
 
     selectMarketType(marketTypeIndex: number) {
-        this.marketsService.selectedMarketType = this.marketsTypes[marketTypeIndex]
+        this.marketsService.selectedMarketType = this.marketsTypes[marketTypeIndex];
+        this.marketsTabGroup.forEach((gr: any) => gr.selectedIndex = 0);
+    }
+
+    selectMarket(marketIndex: number) {
+        this.marketsService.selectedMarket = this.marketsFromSelectedMarketType[marketIndex];
     }
 }
