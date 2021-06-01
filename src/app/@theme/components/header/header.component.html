@@ -14,6 +14,7 @@
                 <mat-slide-toggle (change)='toggleTheme()'></mat-slide-toggle>
                 <mat-icon>light_mode</mat-icon>
             </div> -->
+            <div class='address'> {{ publicAddress }} </div>
             <button mat-icon-button (click)='isLoggedIn ? logOut() : navigateToLoginRoute()'>
                 <mat-icon>{{ isLoggedIn ? 'logout' : 'login' }}</mat-icon>
             </button>

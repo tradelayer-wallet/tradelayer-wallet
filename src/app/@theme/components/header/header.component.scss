@@ -5,6 +5,12 @@ mat-toolbar {
       }
       .right-side {
         display: flex;
+        .address {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.7rem;
+        }
         // .theme-switch {
         //   margin-right: 3rem;
         //   display: flex;

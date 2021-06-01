@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
+import { AddressService } from 'src/app/@core/services/address.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { MenuService } from 'src/app/@core/services/menu.service';
@@ -44,6 +45,7 @@ export class HeaderComponent {
     private menuService: MenuService,
     private authService: AuthService,
     private dialogService: DialogService,
+    private addressService: AddressService,
   ) { }
 
   get mainRoutes(){
@@ -60,6 +62,13 @@ export class HeaderComponent {
 
   get isLoggedIn() {
     return this.authService.isLoggedIn;
+  }
+
+
+  get publicAddress() {
+    return this.isLoggedIn
+      ? this.addressService.activeKeyPair?.address
+      : null;
   }
 
   navigateTo(route: any) {
