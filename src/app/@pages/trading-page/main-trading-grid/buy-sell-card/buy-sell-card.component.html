@@ -4,13 +4,13 @@
         <mat-form-field appearance="outline" floatLabel="always" color='red' >
             <input matInput type="number" placeholder="0">
             <span class='prefix' matPrefix>Amount: </span>
-            <span class='sufix' matSuffix>{{ selectedMarket.F_tokenName }}</span>
+            <span class='sufix' matSuffix>{{ selectedMarket.first_token.shortName }}</span>
             <mat-hint>buy max: 0.00 / sell max: 0.00</mat-hint>
           </mat-form-field>
         <mat-form-field appearance="outline" floatLabel="always" color='red' >
             <input matInput type="number" placeholder="0">
             <span class='prefix' matPrefix>Price: </span>
-            <span class='sufix' matSuffix>{{ selectedMarket.S_tokenName }}</span>
+            <span class='sufix' matSuffix>{{ selectedMarket.second_token.shortName }}</span>
             <mat-hint>current price: 0.00</mat-hint>
           </mat-form-field>
     </mat-card-content>

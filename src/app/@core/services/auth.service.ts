@@ -4,6 +4,7 @@ import { ToastrService } from "ngx-toastr";
 import ltcUtils from '../../utils/litecore.util'
 import { AddressService, IKeyPair } from "./address.service";
 import { DialogService, DialogTypes } from "./dialogs.service";
+import { SocketService } from "./socket.service";
 
 @Injectable({
     providedIn: 'root',
@@ -17,6 +18,7 @@ export class AuthService {
         private addressService: AddressService,
         private dialogService: DialogService,
         private toastrService: ToastrService,
+        private socketService: SocketService,
     ) {}
 
     get isLoggedIn() {
@@ -26,8 +28,7 @@ export class AuthService {
     register(pass: string) {
         const pair = ltcUtils.generateRandomAddress() as IKeyPair;
         if (pair.address && pair.wifKey) {
-            this.addressService.addDecryptedKeyPair(pair);
-            this.router.navigateByUrl('trading');
+            this.login(pair);
         };
 
         this.encKey = ltcUtils.encryptKeyPair(this.addressService.keyPairs, pass);
@@ -49,9 +50,11 @@ export class AuthService {
             ? pair.forEach((p: IKeyPair) => this.addressService.addDecryptedKeyPair(p))
             : this.addressService.addDecryptedKeyPair(pair);
         this.router.navigateByUrl('trading');
+        this.socketService.socketConnect();
     }
 
     logout() {
+        this.socketService.disconnect();
         this.addressService.removeAllKeyPairs();
         this.router.navigateByUrl('login');
     }

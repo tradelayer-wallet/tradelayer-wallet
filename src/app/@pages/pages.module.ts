@@ -17,6 +17,7 @@ import { TradingGridComponent } from './trading-page/main-trading-grid/trading-g
 import { BuySellCardComponent } from './trading-page/main-trading-grid/buy-sell-card/buy-sell-card.component';
 import { OrderbookCardComponent } from './trading-page/main-trading-grid/orderbook-card/orderbook-card.component';
 import { MatIconModule } from '@angular/material/icon'; 
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 
 
@@ -32,6 +33,7 @@ import { MatIconModule } from '@angular/material/icon';
         CommonModule,
         ReactiveFormsModule,
         MatIconModule,
+        MatProgressSpinnerModule,
     ],
     declarations: [
         LoginPageComponent,
