@@ -3,6 +3,7 @@ import { Router } from "@angular/router";
 import { ToastrService } from "ngx-toastr";
 import ltcUtils from '../../utils/litecore.util'
 import { AddressService, IKeyPair } from "./address.service";
+import { BalanceService } from "./balance.service";
 import { DialogService, DialogTypes } from "./dialogs.service";
 import { SocketService } from "./socket.service";
 
@@ -19,6 +20,7 @@ export class AuthService {
         private dialogService: DialogService,
         private toastrService: ToastrService,
         private socketService: SocketService,
+        private balanceService: BalanceService,
     ) {}
 
     get isLoggedIn() {
@@ -47,7 +49,10 @@ export class AuthService {
 
     login(pair: IKeyPair | IKeyPair[]) {
         Array.isArray(pair)
-            ? pair.forEach((p: IKeyPair) => this.addressService.addDecryptedKeyPair(p))
+            ? pair.forEach((p: IKeyPair) => {
+                    this.addressService.addDecryptedKeyPair(p);
+                    this.balanceService.updateLtcBalanceForAddress(p.address);
+                })
             : this.addressService.addDecryptedKeyPair(pair);
         this.router.navigateByUrl('trading');
         this.socketService.socketConnect();

@@ -14,7 +14,16 @@
                 <mat-slide-toggle (change)='toggleTheme()'></mat-slide-toggle>
                 <mat-icon>light_mode</mat-icon>
             </div> -->
-            <div class='address'> {{ publicAddress }} </div>
+            <div class='address' *ngIf='publicAddress'>
+                <span> {{ publicAddress }}  </span>
+                <span 
+                    *ngIf='addressesBalance[publicAddress]?.confirmed_balance; else spinner' 
+                    class='balance'
+                    (click)='updateBalance()'
+                >
+                    ({{ addressesBalance[publicAddress].confirmed_balance }} LTC)
+                </span>
+            </div>
             <button mat-icon-button (click)='isLoggedIn ? logOut() : navigateToLoginRoute()'>
                 <mat-icon>{{ isLoggedIn ? 'logout' : 'login' }}</mat-icon>
             </button>
@@ -34,3 +43,7 @@
         >{{ route.name }}</a>
       </nav>
 </div>
+
+<ng-template #spinner>
+    <mat-spinner style='margin-left: 0.25rem' diameter='20' ></mat-spinner>
+</ng-template>

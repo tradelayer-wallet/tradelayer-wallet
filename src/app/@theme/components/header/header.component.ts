@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AddressService } from 'src/app/@core/services/address.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
+import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { MenuService } from 'src/app/@core/services/menu.service';
 // import { Themes, ThemesService } from 'src/app/@services/themes.services';
@@ -46,6 +47,7 @@ export class HeaderComponent {
     private authService: AuthService,
     private dialogService: DialogService,
     private addressService: AddressService,
+    private balanceService: BalanceService,
   ) { }
 
   get mainRoutes(){
@@ -64,11 +66,14 @@ export class HeaderComponent {
     return this.authService.isLoggedIn;
   }
 
-
   get publicAddress() {
     return this.isLoggedIn
       ? this.addressService.activeKeyPair?.address
       : null;
+  }
+
+  get addressesBalance() {
+    return this.balanceService.addressesBalance
   }
 
   navigateTo(route: any) {
@@ -89,5 +94,11 @@ export class HeaderComponent {
 
   toggleSideBar() {
     this.menuService.toggleSideBar();
+  }
+
+  updateBalance() {
+    if (this.publicAddress){
+      this.balanceService.updateLtcBalanceForAddress(this.publicAddress);
+    }
   }
 }

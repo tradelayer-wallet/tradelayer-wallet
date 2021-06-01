@@ -10,6 +10,15 @@ mat-toolbar {
           align-items: center;
           justify-content: center;
           font-size: 0.7rem;
+          .balance {
+            margin-left: 0.25rem;
+            transition: color 0.25s;
+            cursor: pointer;
+            font-size: 0.8rem;
+            &:hover {
+              color: orange;
+            }
+          }
         }
         // .theme-switch {
         //   margin-right: 3rem;

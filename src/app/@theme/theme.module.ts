@@ -10,6 +10,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { HeaderComponent } from './components/header/header.component';
 import { BrowserModule } from '@angular/platform-browser';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 const MAT_MODULES = [
   MatToolbarModule,
@@ -18,6 +19,7 @@ const MAT_MODULES = [
   MatButtonModule,
   MatTabsModule,
   MatSlideToggleModule,
+  MatProgressSpinnerModule,
 ];
 
 @NgModule({
