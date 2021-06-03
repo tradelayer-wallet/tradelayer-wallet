@@ -3,12 +3,16 @@ import { Socket } from "socket.io-client";
 import { io } from 'socket.io-client'
 import { environment } from '../../../environments/environment';
 
+export enum SocketEmits {
+    LTC_INSTANT_TRADE = 'LTC_INSTANT_TRADE',
+}
+
 @Injectable({
     providedIn: 'root',
 })
 
 export class SocketService {
-    private _socket: Socket | null = null
+    private _socket: Socket | null = null;
 
     constructor() {}
 
@@ -17,6 +21,7 @@ export class SocketService {
     }
 
     get socket() {
+        if (!this._socket) this._socket = io(this.socketServerUrl); 
         return this._socket
     }
 

@@ -14,7 +14,8 @@ export const generateRandomAddress = () => {
     const keyPair = btc.ECPair.makeRandom({ network: tLTC });
     const { address } = btc.payments.p2pkh({ pubkey: keyPair.publicKey, network: tLTC });
     const wifKey = keyPair.toWIF();
-    return { address, wifKey };
+    const pubKey = keyPair.publicKey
+    return { address, wifKey, pubKey };
 };
 
 export const encryptKeyPair = (keypair: IKeyPair[], pass: string) => {
@@ -30,6 +31,12 @@ export const decryptKeyPair = (key: string, pass: string) => {
     } catch(err) {
         return null;
     }
+}
+
+export const getPubKey = (wifKey: string) => {
+    const hm = btc.ECPair.fromWIF(wifKey, tLTC);
+    console.log(hm.publicKey.toString('utf8'));
+    return ''
 }
 
 export default {

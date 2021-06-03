@@ -27,9 +27,9 @@ export class AuthService {
         return this.addressService.keyPairs.length > 0;
     }
 
-    register(pass: string) {
-        const pair = ltcUtils.generateRandomAddress() as IKeyPair;
-        if (pair.address && pair.wifKey) {
+    async register(pass: string) {
+        const pair = await this.addressService.generateNewKeyPair() as IKeyPair;
+        if (pair.address && pair.privKey, pair.pubKey) {
             this.login(pair);
         };
 
@@ -39,7 +39,7 @@ export class AuthService {
 
     loginFromKeyFile(key: string, pass: string) {
         const res = ltcUtils.decryptKeyPair(key, pass) as IKeyPair[];
-        if (res?.length && res[0].address && res[0].wifKey) {
+        if (res?.length && res[0].address && res[0].pubKey && res[0].privKey) {
             this.login(res);
         } else {
             this.toastrService.error('Wrong Password or keyFile', 'Error');

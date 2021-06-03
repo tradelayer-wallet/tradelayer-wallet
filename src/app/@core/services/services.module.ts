@@ -7,6 +7,7 @@ import { AddressService } from './address.service';
 import { SocketService } from './socket.service';
 import { ApiService } from './api.service';
 import { BalanceService } from './balance.service';
+import { TradeService } from './trade.service';
 
 @NgModule({
     providers: [
@@ -18,6 +19,7 @@ import { BalanceService } from './balance.service';
         SocketService,
         ApiService,
         BalanceService,
+        TradeService,
     ],
 })
 

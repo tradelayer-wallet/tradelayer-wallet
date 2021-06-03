@@ -1,8 +1,10 @@
 import { Injectable } from "@angular/core";
+import { RpcService } from "./rpc.service";
 
 export interface IKeyPair {
-    address: string,
-    wifKey: string,
+    address: string;
+    pubKey: string;
+    privKey: string;
 }
 
 @Injectable({
@@ -12,7 +14,9 @@ export interface IKeyPair {
 export class AddressService {
     private _keyPairs: IKeyPair[] = [];
     private _activeKeyPair: IKeyPair | null = null;
-    constructor() {}
+    constructor(
+        private rpcService: RpcService,
+    ) {}
     
     get keyPairs() {
         return this._keyPairs;
@@ -38,5 +42,22 @@ export class AddressService {
     removeAllKeyPairs() {
         this.keyPairs = [];
         this.activeKeyPair = null;
+    }
+
+    async generateNewKeyPair() {
+        const gnaRes = await this.rpcService.rpc('getnewaddress');
+        if (gnaRes.error || !gnaRes.data) return null;
+        const address = gnaRes.data;
+
+        const dpkRes = await this.rpcService.rpc('dumpprivkey', [address]);
+        if (dpkRes.error || !dpkRes.data) return null;
+        const privKey = dpkRes.data;
+
+        const vaRes = await this.rpcService.rpc('validateaddress', [address]);
+        if (vaRes.error || !vaRes.data?.pubkey) return null;
+        const pubKey = vaRes.data.pubkey;
+
+        const keyPair: IKeyPair = { address, privKey, pubKey}
+        return keyPair;
     }
 }
