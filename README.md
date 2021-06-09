@@ -18,7 +18,8 @@ http://localhost:4200/
 
 The default credentials for the login are:
 
--Host = localhost 
--Port = 9332 
--User = user 
--Password =    
+- Host = localhost 
+- Port = 9332 
+- User = user 
+- Password =    
+
