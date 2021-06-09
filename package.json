@@ -25,6 +25,7 @@
     "bip39": "^3.0.4",
     "bitcoinjs-lib": "^5.2.0",
     "buffer": "^5.7.1",
+    "crypto": "^1.0.1",
     "crypto-js": "^4.0.0",
     "file-saver": "^2.0.5",
     "litecore-lib": "^0.13.22",
