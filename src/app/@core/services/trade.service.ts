@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
 import { getPubKey } from "src/app/utils/litecore.util";
 import { AddressService } from "./address.service";
+import { RpcService } from "./rpc.service";
 import { SocketEmits, SocketService } from "./socket.service";
 
 export interface ITradeConf {
@@ -22,6 +23,7 @@ export class TradeService {
         private socketService: SocketService,
         private toasterService: ToastrService,
         private addressService: AddressService,
+        private rpcService: RpcService,
     ) {
         this.handleSocketEvents()
     }
@@ -33,6 +35,7 @@ export class TradeService {
     get socket() {
         return this.socketService.socket;
     }
+
     initTrade(tradeConf: ITradeConf) {
         if (tradeConf.propIdForSale === 999 ) {
             this.handleLTCInstantTrade(tradeConf);
@@ -52,8 +55,81 @@ export class TradeService {
     }
 
     private handleSocketEvents() {
+        let multySigAddress: any;
         this.socket.on('TRADE_REJECTION', (reason) => {
-            this.toasterService.error('Trade Rejected', `Reason: ${reason}`);
+            this.toasterService.error('Trade Rejected', `Reason: ${reason || 'Reason Not Found'}`);
+        });
+
+        this.socket.on('CHANNEL_PUB_KEY', async (cpPubKey: string) => {
+            if (!cpPubKey) {
+                this.toasterService.error('Trade Building Faild', `Trade Building Faild`);
+                return;
+            }
+            const pubKeysArray = [cpPubKey, this.keyPair?.pubKey];
+            const amaRes = await this.rpcService.rpc('addmultisigaddress', [2, pubKeysArray]);
+            if (amaRes.error || !amaRes.data) {
+                this.toasterService.error('Trade Building Faild', `Trade Building Faild`);
+            } else {
+                multySigAddress = amaRes.data.address;
+                console.log("s")
+                this.socket.emit('MULTYSIG_DATA', amaRes.data);
+            }
+        });
+
+        this.socket.on('COMMIT_TX', async (data: any) => {
+            if (data?.cpCommitTx?.txid && data?.cpCommitTx.vout && data?.tradeConf) {
+                const rawHex = await this.buildLTCInstantTrade(data);
+                if (!rawHex) return;
+                this.socket.emit('RAW_HEX', rawHex)
+            }
+        });
+
+        this.socket.on('SIGNED_RAWTX', async (rawTxForSigning) => {
+            const signRes = await this.rpcService.rpc('signrawtransaction', [rawTxForSigning]);
+            if (signRes.error || !signRes.data || !signRes.data.complete || !signRes.data.hex) {
+                this.toasterService.error('Singing fail', `Trade Building Faild`);
+            } else {
+                const srawtxRes = await this.rpcService.rpc('sendrawtransaction', [signRes.data.hex]);
+                console.log({srawtxRes, signRes});
+                if (srawtxRes.error || !srawtxRes.data ) {
+                    this.toasterService.error(srawtxRes.error || 'sending fail',`Trade Building Faild`);
+                } else {
+                    this.toasterService.success('TRANSACTION SENDED!', `${srawtxRes.data}`);
+                }
+            }
+
         })
+    }
+    
+    private async buildLTCInstantTrade(data: any){
+        const { tradeConf, cpCommitTx } = data;
+        const bbData: number = await this.getBestBlock(10);
+        const { propIdDesired, amountDeisred, amountForSale, clientAddress, cpAddress } = tradeConf;
+        const cpitLTCOptions = [ propIdDesired, amountDeisred.toString(), amountForSale.toString(), bbData ];
+        const cpitRes = await this.rpcService.rpc('tl_createpayload_instant_ltc_trade', cpitLTCOptions)
+        if (cpitRes.error || !cpitRes.data) {
+            this.toasterService.error('Creating payload Failed', `Trade Building Faild`);
+        }
+
+        const clientVins = await this.rpcService.getUnspentsForFunding(clientAddress, amountForSale);
+        if (clientVins.error || !clientVins.data?.length) {
+            this.toasterService.error(clientVins.error || 'Trade Building Faild', `Trade Building Faild`);
+        }
+        const vins = [cpCommitTx, ...clientVins.data];
+        const bLTCit = await this.rpcService.buildLTCInstantTrade(vins, cpitRes.data, clientAddress, amountForSale.toString(), cpAddress);
+        if (bLTCit.error || !bLTCit.data) {
+            this.toasterService.error(bLTCit.error || 'Trade Building Faild', `Trade Building Faild`);
+        }
+        return bLTCit.data;
+    }
+
+    protected async getBestBlock(n: number) {
+        const bbRes = await this.rpcService.getBestBlock();
+        if (bbRes.error || !bbRes.data || !bbRes.data.height) {
+            this.toasterService.error('Get best block hash failed', `Trade Building Faild`);
+        }
+
+        const height = bbRes.data.height + n;
+        return height;
     }
 }

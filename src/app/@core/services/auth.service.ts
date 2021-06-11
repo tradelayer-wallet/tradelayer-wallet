@@ -55,7 +55,7 @@ export class AuthService {
                 })
             : this.addressService.addDecryptedKeyPair(pair);
         this.router.navigateByUrl('trading');
-        this.socketService.socketConnect();
+        // this.socketService.socketConnect();
     }
 
     logout() {

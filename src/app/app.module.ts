@@ -29,10 +29,10 @@ const TL_MODULES = [
   ThemeModule,
   ToastrModule.forRoot({
     maxOpened: 8,
-    newestOnTop: false,
+    newestOnTop: true,
     positionClass: 'toast-bottom-right',
-    preventDuplicates: true,
-    timeOut: 3000,
+    preventDuplicates: false,
+    timeOut: 1500,
   }),
 ];
 
