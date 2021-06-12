@@ -18,6 +18,7 @@ import { BuySellCardComponent } from './trading-page/main-trading-grid/buy-sell-
 import { OrderbookCardComponent } from './trading-page/main-trading-grid/orderbook-card/orderbook-card.component';
 import { MatIconModule } from '@angular/material/icon'; 
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
 
 
 
@@ -38,6 +39,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     declarations: [
         LoginPageComponent,
         TradingPageComponent,
+        PortfolioPageComponent,
         MarketsToolbarComponent,
         TradingGridComponent,
         BuySellCardComponent,

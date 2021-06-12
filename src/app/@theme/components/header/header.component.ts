@@ -28,8 +28,7 @@ export class HeaderComponent {
     {
       id: 3,
       name: 'Portfolio',
-      link: '#',
-      disabled: true,
+      link: 'portfolio',
     },
     {
       id: 4,
