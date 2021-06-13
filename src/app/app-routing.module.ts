@@ -30,6 +30,7 @@ export const routes: Routes = [
         {
           path: 'portfolio',
           component: PortfolioPageComponent,
+          canActivate: [AuthGuard]
         },
       ],
   },

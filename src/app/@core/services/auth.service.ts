@@ -52,6 +52,7 @@ export class AuthService {
             ? pair.forEach((p: IKeyPair) => {
                     this.addressService.addDecryptedKeyPair(p);
                     this.balanceService.updateLtcBalanceForAddress(p.address);
+                    this.balanceService.updateTokensBalanceForAddress(p.address)
                 })
             : this.addressService.addDecryptedKeyPair(pair);
         this.router.navigateByUrl('trading');

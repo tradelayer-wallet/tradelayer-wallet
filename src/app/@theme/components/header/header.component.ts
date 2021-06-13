@@ -72,7 +72,7 @@ export class HeaderComponent {
   }
 
   get addressesBalance() {
-    return this.balanceService.addressesBalance
+    return this.balanceService.structuredLTCBalances;
   }
 
   navigateTo(route: any) {
@@ -99,5 +99,9 @@ export class HeaderComponent {
     if (this.publicAddress){
       this.balanceService.updateLtcBalanceForAddress(this.publicAddress);
     }
+  }
+
+  getTotalOfAddress(address: string) {
+    return this.addressesBalance.find(e => e.address === address);
   }
 }

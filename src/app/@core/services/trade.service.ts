@@ -2,8 +2,10 @@ import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
 import { getPubKey } from "src/app/utils/litecore.util";
 import { AddressService } from "./address.service";
+import { BalanceService } from "./balance.service";
 import { RpcService } from "./rpc.service";
 import { SocketEmits, SocketService } from "./socket.service";
+import { TxsService } from "./txs.service";
 
 export interface ITradeConf {
     propIdForSale: number;
@@ -24,6 +26,8 @@ export class TradeService {
         private toasterService: ToastrService,
         private addressService: AddressService,
         private rpcService: RpcService,
+        private balanceService: BalanceService,
+        private txsService: TxsService,
     ) {
         this.handleSocketEvents()
     }
@@ -71,7 +75,6 @@ export class TradeService {
                 this.toasterService.error('Trade Building Faild', `Trade Building Faild`);
             } else {
                 multySigAddress = amaRes.data.address;
-                console.log("s")
                 this.socket.emit('MULTYSIG_DATA', amaRes.data);
             }
         });
@@ -90,11 +93,18 @@ export class TradeService {
                 this.toasterService.error('Singing fail', `Trade Building Faild`);
             } else {
                 const srawtxRes = await this.rpcService.rpc('sendrawtransaction', [signRes.data.hex]);
-                console.log({srawtxRes, signRes});
                 if (srawtxRes.error || !srawtxRes.data ) {
                     this.toasterService.error(srawtxRes.error || 'sending fail',`Trade Building Faild`);
                 } else {
                     this.toasterService.success('TRANSACTION SENDED!', `${srawtxRes.data}`);
+                    this.txsService.addTxToPending(srawtxRes.data);
+                    setTimeout(() => {
+                        if (this.keyPair?.address) {
+                            this.balanceService.updateLtcBalanceForAddress(this.keyPair?.address);
+                            this.balanceService.updateTokensBalanceForAddress(this.keyPair?.address);
+                        }
+                    }, 2000);
+
                 }
             }
 

@@ -19,6 +19,8 @@ import { OrderbookCardComponent } from './trading-page/main-trading-grid/orderbo
 import { MatIconModule } from '@angular/material/icon'; 
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
+import { BottomCardComponent } from './trading-page/main-trading-grid/bottom-card/bottom-card.component';
+import { PendingTxsComponent } from './trading-page/main-trading-grid/bottom-card/pending-txs/pending-txs.component';
 
 
 
@@ -44,6 +46,8 @@ import { PortfolioPageComponent } from './portfolio-page/portfolio-page.componen
         TradingGridComponent,
         BuySellCardComponent,
         OrderbookCardComponent,
+        BottomCardComponent,
+        PendingTxsComponent,
     ]
 })
 
