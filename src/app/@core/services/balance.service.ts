@@ -94,4 +94,9 @@ export class BalanceService {
                 reserve: parseFloat(d.reserve),
             }));
     }
+
+    removeAllAddresses() {
+        this._addressesBalance = {};
+        this._addressesTokensBalance = {};
+    }
 }
