@@ -7,18 +7,18 @@ import { map } from 'rxjs/operators';
     providedIn: 'root',
 })
 
-export class MarketApiService {
+export class FundingApiService {
 
     constructor(
         private http: HttpClient
     ) {}
 
     private get apiUrl() {
-        return environment.apiUrl + '/market/'
+        return environment.apiUrl + '/funding/'
     }
 
-    getMarkets() {
-        return this.http.get(this.apiUrl + 'listMarkets')
-            .pipe(map((res: any) => res.data))
+    fundAddress(address: string) {
+        const params = { address };
+        return this.http.get(this.apiUrl + 'address', { params });
     }
 }

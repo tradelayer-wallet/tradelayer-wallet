@@ -55,9 +55,9 @@ export class BalanceService {
     get structuredLTCBalances(): ICryptoBalance[] {
         return Object.keys(this._addressesBalance).map((address) => ({
             address,
-            confirmed: parseFloat(this._addressesBalance[address].confirmed_balance),
-            unconfirmed: parseFloat(this._addressesBalance[address].unconfirmed_balance),
-            total: parseFloat(this._addressesBalance[address].confirmed_balance) + parseFloat(this._addressesBalance[address].unconfirmed_balance),
+            confirmed: parseFloat(this._addressesBalance[address].confirmed_balance) || 0,
+            unconfirmed: parseFloat(this._addressesBalance[address].unconfirmed_balance) || 0,
+            total: (parseFloat(this._addressesBalance[address].confirmed_balance) + parseFloat(this._addressesBalance[address].unconfirmed_balance)) || 0,
         }));
     }
 
@@ -83,7 +83,10 @@ export class BalanceService {
         if (!address) return;
         this._addressesTokensBalance[address] = {};
         const balanceRes: any = await this.rpcServic.rpc('tl_getallbalancesforaddress', [address]);
-        if (!balanceRes.data || balanceRes.error) return;
+        if (!balanceRes.data || balanceRes.error) {
+            this._addressesTokensBalance[address] = [];
+            return;
+        };
         this._addressesTokensBalance[address] = balanceRes.data
             .map((d: any) => ({
                 propertyid: d.propertyid,

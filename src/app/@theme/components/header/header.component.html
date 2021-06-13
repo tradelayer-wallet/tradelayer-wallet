@@ -17,7 +17,7 @@
             <div class='address' *ngIf='publicAddress'>
                 <span> {{ publicAddress }}  </span>
                 <span 
-                    *ngIf='getTotalOfAddress(publicAddress)?.total; else spinner' 
+                    *ngIf='getTotalOfAddress(publicAddress); else spinner' 
                     class='balance'
                     (click)='updateBalance()'
                 >

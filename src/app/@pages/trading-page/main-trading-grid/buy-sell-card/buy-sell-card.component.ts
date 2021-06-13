@@ -52,11 +52,13 @@ export class BuySellCardComponent implements OnInit {
         const propIdForSale = this.selectedMarket.second_token.propertyId;
         if (propIdForSale === 999) {
             const price = this.buySellGroup.value['price']
-            const balance = this.balanceService.addressesBalance[this.currentAddress].confirmed_balance;
+            const balance = this.balanceService.structuredLTCBalances.find(b => b.address === this.currentAddress)?.total;
+            if (!balance) return '-';
+            if ((balance / price) <= 0) return '-';
             return (balance / price).toFixed(4);
         }
       }
-      return '0';
+      return '-';
     }
 
     handleBuy() {

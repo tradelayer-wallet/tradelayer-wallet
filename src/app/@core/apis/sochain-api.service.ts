@@ -13,11 +13,11 @@ export class SoChainApiService {
         private http: HttpClient
     ) {}
 
-    get apiUrl() {
+    private get apiUrl() {
         return 'https://sochain.com/api/v2/';
     }
 
-    get NETWORK(): string {
+    private get NETWORK(): string {
         return environment.network
     }
 
