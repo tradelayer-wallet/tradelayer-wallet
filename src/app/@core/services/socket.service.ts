@@ -21,14 +21,14 @@ export class SocketService {
     }
 
     get socket() {
-        if (!this._socket) this._socket = io(this.socketServerUrl); 
-        return this._socket
+        if (!this._socket) return this.socketConnect();
+        return this._socket;
     }
 
     socketConnect() {
-        this._socket = io(this.socketServerUrl);
-        
+        this._socket = io(this.socketServerUrl, { reconnection: false });
         this.dataFeedSubscriber();
+        return this._socket;
     }
 
     disconnect() {
@@ -38,8 +38,9 @@ export class SocketService {
     };
 
     private dataFeedSubscriber() {
-        this._socket?.on('dataFeed', (data) => {
+        this.socket.on('dataFeed', (data) => {
             console.log(data)
         })
+ 
     }
 }

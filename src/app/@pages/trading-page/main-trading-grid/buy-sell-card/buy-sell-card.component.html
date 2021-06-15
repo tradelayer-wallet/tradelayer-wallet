@@ -15,6 +15,7 @@
               buy max: {{ getMaxAmount(true)}} / sell max: {{ getMaxAmount(false)}}
             </mat-hint>
         </mat-form-field>
+        <span *ngIf='isLoggedIn' style="margin-top: 1.5rem; color: whitesmoke">TOTAL: {{(buySellGroup.value['price'] * buySellGroup.value['amount']).toFixed(4)}}</span>
     </mat-card-content>
     <mat-card-footer>
             <button 
@@ -23,11 +24,11 @@
               (click)='handleBuy()'
               [disabled]='getButtonDisabled(true)'
             >BUY</button>
-            <button
+            <!-- <button
               mat-raised-button
               color="warn"
               (click)='handleSell()'
               [disabled]='getButtonDisabled(false)'
-            >SELL</button>
+            >SELL</button> -->
     </mat-card-footer>
 </mat-card>

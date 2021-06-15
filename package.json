@@ -3,10 +3,11 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
-    "dev:norpc": "ng serve --configuration norpc",
     "build": "ng build",
-    "watch:el": "ng build --base-href ./ --watch --configuration development",
+    "dev:norpc": "ng serve --configuration norpc",
+    "start": "npm run el",
+    "build:watch": "ng build --base-href ./ --watch --configuration development",
+    "build:watch:prod": "ng build --base-href ./ --watch --configuration production",
     "el": "electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"

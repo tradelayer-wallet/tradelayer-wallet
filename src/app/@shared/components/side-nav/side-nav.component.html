@@ -4,9 +4,9 @@
             TradeLayer
         </div>
         <div class="side-nav-links">
-            <a href='#'>Transaction Log</a>
-            <a href='#'>White lists</a>
-            <a href='#'>Trade Channel Manager</a>
+            <a href='#' (click)="openLink()">Transaction Log</a>
+            <a href='#' (click)="openLink()">White lists</a>
+            <a href='#' (click)="openLink()">Trade Channel Manager</a>
         </div>
         <mat-accordion>
             <mat-expansion-panel hideToggle>
@@ -16,10 +16,10 @@
                 </mat-panel-title>
               </mat-expansion-panel-header>
               <div class="expanded-container">
-                  <div class="expanded-item">LTC/dUSD</div>
-                  <div class="expanded-item">LTC/ALL</div>
-                  <div class="expanded-item">LTC/USDL</div>
-                  <div class="expanded-item">LTC/sLTC</div>               
+                  <div  (click)="openLink()" class="expanded-item">LTC/dUSD</div>
+                  <div  (click)="openLink()" class="expanded-item">LTC/ALL</div>
+                  <div  (click)="openLink()" class="expanded-item">LTC/USDL</div>
+                  <div  (click)="openLink()" class="expanded-item">LTC/sLTC</div>               
               </div>
             </mat-expansion-panel>
             <mat-expansion-panel class='probno' hideToggle>
@@ -29,10 +29,10 @@
                   </mat-panel-title>
                 </mat-expansion-panel-header>
                 <div class="expanded-container">
-                    <div class="expanded-item">LTC/dUSD</div>
-                    <div class="expanded-item">LTC/ALL</div>
-                    <div class="expanded-item">LTC/USDL</div>
-                    <div class="expanded-item">LTC/sLTC</div>               
+                    <div (click)="openLink()" class="expanded-item">LTC/dUSD</div>
+                    <div (click)="openLink()" class="expanded-item">LTC/ALL</div>
+                    <div (click)="openLink()" class="expanded-item">LTC/USDL</div>
+                    <div (click)="openLink()" class="expanded-item">LTC/sLTC</div>               
                 </div>
             </mat-expansion-panel>
             
@@ -43,13 +43,13 @@
                   </mat-panel-title>
                 </mat-expansion-panel-header>
                 <div class="expanded-container">
-                    <div class="expanded-item">LTC/USD-Oracle-PERP</div>
-                    <div class="expanded-item">LTC/USD-Oracle-DEC21</div>
-                    <div class="expanded-item">LTC/USD-Oracle-SEP21</div>
-                    <div class="expanded-item">LTC/BTC-Oracle-PERP</div>
-                    <div class="expanded-item">ALL/USD-Oracle-PERP</div>
-                    <div class="expanded-item">LTC/USD-Oracle-PERP</div>
-                    <div class="expanded-item">ALL/LTC-Oracle-PERP</div>                
+                    <div (click)="openLink()" class="expanded-item">LTC/USD-Oracle-PERP</div>
+                    <div (click)="openLink()" class="expanded-item">LTC/USD-Oracle-DEC21</div>
+                    <div (click)="openLink()" class="expanded-item">LTC/USD-Oracle-SEP21</div>
+                    <div (click)="openLink()" class="expanded-item">LTC/BTC-Oracle-PERP</div>
+                    <div (click)="openLink()" class="expanded-item">ALL/USD-Oracle-PERP</div>
+                    <div (click)="openLink()" class="expanded-item">LTC/USD-Oracle-PERP</div>
+                    <div (click)="openLink()" class="expanded-item">ALL/LTC-Oracle-PERP</div>                
                 </div>
             </mat-expansion-panel>
 
@@ -60,11 +60,11 @@
                   </mat-panel-title>
                 </mat-expansion-panel-header>
                 <div class="expanded-container">
-                    <div class="expanded-item">ALL/LTC-Native-PERP</div>
-                    <div class="expanded-item">LTC/USD-Native-PERP</div>
-                    <div class="expanded-item">LTC/EUR-Oracle-SEP21</div>
-                    <div class="expanded-item">LTC/CNY-Oracle-PERP</div>
-                    <div class="expanded-item">LTC/JPY-Oracle-PERP</div>               
+                    <div (click)="openLink()" class="expanded-item">ALL/LTC-Native-PERP</div>
+                    <div (click)="openLink()" class="expanded-item">LTC/USD-Native-PERP</div>
+                    <div (click)="openLink()" class="expanded-item">LTC/EUR-Oracle-SEP21</div>
+                    <div (click)="openLink()" class="expanded-item">LTC/CNY-Oracle-PERP</div>
+                    <div (click)="openLink()" class="expanded-item">LTC/JPY-Oracle-PERP</div>               
                 </div>
             </mat-expansion-panel>
         </mat-accordion>

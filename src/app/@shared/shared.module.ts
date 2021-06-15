@@ -16,6 +16,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatCardModule } from '@angular/material/card';
 import { EncKeyDialog } from './dialogs/enc-key/enc-key.component';
 import { ClipboardModule } from '@angular/cdk/clipboard'; 
+import { DisconnectedLineComponent } from './components/disconnected-line/disconnected-line.component';
+import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
 
 @NgModule({
     imports: [
@@ -34,12 +36,16 @@ import { ClipboardModule } from '@angular/cdk/clipboard';
         RPCConnectDialog,
         EncKeyDialog,
         SideNavComponent,
+        DisconnectedLineComponent,
+        CommingSoonDialog
     ],
     exports: [
         RPCConnectDialog,
         EncKeyDialog,
         SideNavComponent,
         MatProgressSpinnerModule,
+        DisconnectedLineComponent,
+        CommingSoonDialog
     ]
 })
 

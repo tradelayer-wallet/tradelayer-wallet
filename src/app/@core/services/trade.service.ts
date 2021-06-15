@@ -1,6 +1,5 @@
 import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
-import { getPubKey } from "src/app/utils/litecore.util";
 import { AddressService } from "./address.service";
 import { BalanceService } from "./balance.service";
 import { RpcService } from "./rpc.service";
@@ -41,15 +40,17 @@ export class TradeService {
     }
 
     initTrade(tradeConf: ITradeConf) {
+        if (tradeConf.amountDeisred > 5) {
+            this.toasterService.warning('For this test Version You cant buy more than 5 Tokens in Single trade!', 'Too big amount!');
+            return;
+        }
         if (tradeConf.propIdForSale === 999 ) {
             this.handleLTCInstantTrade(tradeConf);
         } else {
-            console.log('STILL IN DEVELOPMENT');
         }
     }
 
     private handleLTCInstantTrade(tradeConf: ITradeConf) {
-        console.log('LTC INSTANT TRADE');
         const _tradeConf: ITradeConf = {
             ...tradeConf,
             clientPubKey: this.keyPair?.pubKey,

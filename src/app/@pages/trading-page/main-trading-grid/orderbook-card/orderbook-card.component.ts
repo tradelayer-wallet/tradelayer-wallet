@@ -8,28 +8,28 @@ export interface PeriodicElement {
 }
 
 const ELEMENT_DATA_SELL: PeriodicElement[] = [
-  {price: 362.45, amount: 2, total: 724},
-  {price: 362.45, amount: 2, total: 724},
-  {price: 362.65, amount: 2, total: 724},
-  {price: 362.23, amount: 2, total: 724},
-  {price: 362.16, amount: 2, total: 724},
-  {price: 362.65, amount: 2, total: 724},
-  {price: 362.23, amount: 2, total: 724},
-  {price: 362.16, amount: 2, total: 724},
-  {price: 362.16, amount: 2, total: 724},
+  {price: 999.99, amount: 999, total: 1},
+  {price: 888.88, amount: 888, total: 1},
+  {price: 777.77, amount: 777, total: 1},
+  {price: 666.66, amount: 666, total: 1},
+  {price: 555.55, amount: 555, total: 1},
+  {price: 444.44, amount: 444, total: 1},
+  {price: 333.33, amount: 333, total: 1},
+  {price: 222.22, amount: 222, total: 1},
+  {price: 111.11, amount: 111, total: 1},
 
 ];
 
 const ELEMENT_DATA_BUY: PeriodicElement[] = [
-  {price: 362.45, amount: 2, total: 724},
-  {price: 362.45, amount: 2, total: 724},
-  {price: 362.65, amount: 2, total: 724},
-  {price: 362.23, amount: 2, total: 724},
-  {price: 362.16, amount: 2, total: 724},
-  {price: 362.65, amount: 2, total: 724},
-  {price: 362.23, amount: 2, total: 724},
-  {price: 362.16, amount: 2, total: 724},
-  {price: 362.16, amount: 2, total: 724},
+  {price: 99.99, amount: 999, total: 724},
+  {price: 88.88, amount: 888, total: 724},
+  {price: 77.77, amount: 777, total: 724},
+  {price: 66.66, amount: 666, total: 724},
+  {price: 55.55, amount: 555, total: 724},
+  {price: 44.44, amount: 444, total: 724},
+  {price: 33.33, amount: 333, total: 724},
+  {price: 22.22, amount: 222, total: 724},
+  {price: 11.11, amount: 111, total: 724},
 ];
 
 @Component({

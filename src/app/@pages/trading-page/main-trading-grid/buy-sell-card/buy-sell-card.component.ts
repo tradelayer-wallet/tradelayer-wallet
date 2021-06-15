@@ -42,7 +42,7 @@ export class BuySellCardComponent implements OnInit {
     private buildForms() {
       this.buySellGroup = this.fb.group({
         price: [null, [Validators.required, Validators.min(0)]],
-        amount: [null, [Validators.required, Validators.min(0.1)]],
+        amount: [null, [Validators.required, Validators.min(0.01)]],
       })
     }
 
@@ -71,10 +71,10 @@ export class BuySellCardComponent implements OnInit {
       if (!propIdForSale || !propIdDesired || !amountForSale || !amountDeisred) return;
       const tradeConf: ITradeConf = { propIdForSale, propIdDesired, amountForSale, amountDeisred };
       this.tradeService.initTrade(tradeConf);
+      this.buySellGroup.reset();
     }
 
     handleSell() {
-      console.log('Sell')
     }
 
     getButtonDisabled(isBuy: boolean) {

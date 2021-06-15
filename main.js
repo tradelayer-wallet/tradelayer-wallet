@@ -1,7 +1,6 @@
 const { app, BrowserWindow, globalShortcut } = require('electron')
 const url = require("url");
 const path = require("path");
-
 let mainWindow
 
 const loadUrl = (w) => {
@@ -16,14 +15,14 @@ const loadUrl = (w) => {
 
 function createWindow () {
   mainWindow = new BrowserWindow({
-    width: 1027,
-    height: 768,
+    width: 1280,
+    height: 800,
     webPreferences: {
       nodeIntegration: true
     }
   })
   // Open the DevTools.
-  mainWindow.webContents.openDevTools()
+  mainWindow.webContents.openDevTools();
 
   loadUrl(mainWindow);
 

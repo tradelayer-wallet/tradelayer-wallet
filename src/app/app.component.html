@@ -1,4 +1,4 @@
-<tl-side-nav>
+<tl-side-nav *ngIf='serverConnected; else disconnectedComponent'>
     <tl-layout *ngIf='isConnected; else spinner'>
         <router-outlet></router-outlet>
     </tl-layout>
@@ -6,3 +6,7 @@
         <mat-spinner diameter='100' ></mat-spinner>
     </ng-template>
 </tl-side-nav>
+
+<ng-template #disconnectedComponent>
+    <tl-disconnected-line *ngIf='!serverConnected'></tl-disconnected-line>
+</ng-template>

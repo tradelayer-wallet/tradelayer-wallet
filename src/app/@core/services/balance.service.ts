@@ -87,12 +87,19 @@ export class BalanceService {
             this._addressesTokensBalance[address] = [];
             return;
         };
-        this._addressesTokensBalance[address] = balanceRes.data
-            .map((d: any) => ({
+        this._addressesTokensBalance[address] = await Promise.all(balanceRes.data
+            .map(async (d: any) => ({
                 propertyid: d.propertyid,
+                name: await this.getTokenName(d.propertyid),
                 balance: parseFloat(d.balance),
                 reserve: parseFloat(d.reserve),
-            }));
+            })));
+    }
+
+    private async getTokenName(id: number) {
+        const gpRes = await this.rpcServic.rpc('tl_getproperty', [id]);
+        if (gpRes.error || !gpRes.data?.name) return '-';
+        return gpRes.data.name;
     }
 
     removeAllAddresses() {
