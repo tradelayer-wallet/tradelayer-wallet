@@ -76,7 +76,7 @@ export class AuthService {
     }
 
     logout() {
-        this.socketService.disconnect();
+        // this.socketService.disconnect();
         this.addressService.removeAllKeyPairs();
         this.balanceService.removeAllAddresses();
         this.router.navigateByUrl('login');
