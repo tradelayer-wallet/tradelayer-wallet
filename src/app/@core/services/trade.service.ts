@@ -81,10 +81,12 @@ export class TradeService {
         });
 
         this.socket.on('COMMIT_TX', async (data: any) => {
-            if (data?.cpCommitTx?.txid && data?.tradeConf && data?.msData_cp) {
+            if (data?.cpCommitTx?.txid && data?.tradeConf) {
                 const rawHex = await this.buildLTCInstantTrade(data);
                 if (!rawHex) return;
                 this.socket.emit('RAW_HEX', rawHex)
+            } else {
+                this.toasterService.error('Building Raw Tx fail', `Trade Building Faild`);
             }
         });
 
