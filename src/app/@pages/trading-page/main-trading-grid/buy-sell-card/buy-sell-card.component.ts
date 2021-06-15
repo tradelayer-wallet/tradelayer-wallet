@@ -41,7 +41,7 @@ export class BuySellCardComponent implements OnInit {
 
     private buildForms() {
       this.buySellGroup = this.fb.group({
-        price: [null, [Validators.required, Validators.min(0)]],
+        price: [null, [Validators.required, Validators.min(0.001)]],
         amount: [null, [Validators.required, Validators.min(0.01)]],
       })
     }

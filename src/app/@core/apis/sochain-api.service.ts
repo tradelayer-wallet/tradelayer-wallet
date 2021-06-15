@@ -25,4 +25,9 @@ export class SoChainApiService {
         const url = `${this.apiUrl}get_address_balance/${this.NETWORK}/`;
         return this.http.get(url + address);
     }
+
+    getTxUnspents(address: string) {
+        const url = `${this.apiUrl}get_tx_unspent/${this.NETWORK}/`;
+        return this.http.get(url + address);
+    }
 }

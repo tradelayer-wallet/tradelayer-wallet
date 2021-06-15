@@ -81,7 +81,7 @@ export class TradeService {
         });
 
         this.socket.on('COMMIT_TX', async (data: any) => {
-            if (data?.cpCommitTx?.txid && data?.cpCommitTx.vout && data?.tradeConf) {
+            if (data?.cpCommitTx?.txid && data?.tradeConf && data?.msData_cp) {
                 const rawHex = await this.buildLTCInstantTrade(data);
                 if (!rawHex) return;
                 this.socket.emit('RAW_HEX', rawHex)
@@ -114,6 +114,11 @@ export class TradeService {
     
     private async buildLTCInstantTrade(data: any){
         const { tradeConf, cpCommitTx } = data;
+        const _cpCommitTx = {
+            txid: cpCommitTx.txid,
+            vout: 2,
+            amount: 0.00036,
+        };
         const bbData: number = await this.getBestBlock(10);
         const { propIdDesired, amountDeisred, amountForSale, clientAddress, cpAddress } = tradeConf;
         const cpitLTCOptions = [ propIdDesired, amountDeisred.toString(), amountForSale.toString(), bbData ];
@@ -126,7 +131,7 @@ export class TradeService {
         if (clientVins.error || !clientVins.data?.length) {
             this.toasterService.error(clientVins.error || 'Trade Building Faild', `Trade Building Faild`);
         }
-        const vins = [cpCommitTx, ...clientVins.data];
+        const vins = [_cpCommitTx, ...clientVins.data];
         const bLTCit = await this.rpcService.buildLTCInstantTrade(vins, cpitRes.data, clientAddress, amountForSale.toString(), cpAddress);
         if (bLTCit.error || !bLTCit.data) {
             this.toasterService.error(bLTCit.error || 'Trade Building Faild', `Trade Building Faild`);
