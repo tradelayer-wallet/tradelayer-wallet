@@ -21,7 +21,7 @@
                     class='balance'
                     (click)='updateBalance()'
                 >
-                    ({{ getTotalOfAddress(publicAddress)?.total?.toFixed(6) }} LTC)
+                    ({{ getTotalOfAddress(publicAddress).toFixed(6) }} LTC)
                 </span>
             </div>
             <button mat-icon-button (click)='isLoggedIn ? logOut() : navigateToLoginRoute()'>

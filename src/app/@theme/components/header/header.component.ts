@@ -102,6 +102,8 @@ export class HeaderComponent {
   }
 
   getTotalOfAddress(address: string) {
-    return this.addressesBalance.find(e => e.address === address);
+    const balance = this.addressesBalance.find(e => e.address === address);
+    if (!balance) return 0;
+    return balance?.unconfirmed < 0 ? balance?.total : balance?.confirmed;
   }
 }
