@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
 import { AddressService } from "./address.service";
 import { BalanceService } from "./balance.service";
+import { LoadingService } from "./loading.service";
 import { RpcService } from "./rpc.service";
 import { SocketEmits, SocketService } from "./socket.service";
 import { TxsService } from "./txs.service";
@@ -27,6 +28,7 @@ export class TradeService {
         private rpcService: RpcService,
         private balanceService: BalanceService,
         private txsService: TxsService,
+        private loadingService: LoadingService,
     ) {
         this.handleSocketEvents()
     }
@@ -51,6 +53,7 @@ export class TradeService {
     }
 
     private handleLTCInstantTrade(tradeConf: ITradeConf) {
+        this.loadingService.isLoading = true;
         const _tradeConf: ITradeConf = {
             ...tradeConf,
             clientPubKey: this.keyPair?.pubKey,
@@ -63,17 +66,20 @@ export class TradeService {
         let multySigAddress: any;
         this.socket.on('TRADE_REJECTION', (reason) => {
             this.toasterService.error('Trade Rejected', `Reason: ${reason || 'Reason Not Found'}`);
+            this.loadingService.isLoading = false;
         });
 
         this.socket.on('CHANNEL_PUB_KEY', async (cpPubKey: string) => {
             if (!cpPubKey) {
                 this.toasterService.error('Trade Building Faild', `Trade Building Faild`);
+                this.loadingService.isLoading = false;
                 return;
             }
             const pubKeysArray = [cpPubKey, this.keyPair?.pubKey];
             const amaRes = await this.rpcService.rpc('addmultisigaddress', [2, pubKeysArray]);
             if (amaRes.error || !amaRes.data) {
                 this.toasterService.error('Trade Building Faild', `Trade Building Faild`);
+                this.loadingService.isLoading = false;
             } else {
                 multySigAddress = amaRes.data.address;
                 this.socket.emit('MULTYSIG_DATA', amaRes.data);
@@ -83,10 +89,14 @@ export class TradeService {
         this.socket.on('COMMIT_TX', async (data: any) => {
             if (data?.cpCommitTx?.txid && data?.tradeConf) {
                 const rawHex = await this.buildLTCInstantTrade(data);
-                if (!rawHex) return;
+                if (!rawHex) {
+                    this.loadingService.isLoading = false;
+                    return
+                };
                 this.socket.emit('RAW_HEX', rawHex)
             } else {
                 this.toasterService.error('Building Raw Tx fail', `Trade Building Faild`);
+                this.loadingService.isLoading = false;
             }
         });
 
@@ -94,11 +104,13 @@ export class TradeService {
             const { hex, prevTxsData } = signData;
             if (!hex || !prevTxsData) {
                 this.toasterService.error('Singing fail', `Trade Building Faild: Err Code: 1`);
+                this.loadingService.isLoading = false;
                 return;
             }
             const signRes = await this.rpcService.rpc('signrawtransaction', [hex, [prevTxsData]]);
             if (signRes.error || !signRes.data || !signRes.data.complete || !signRes.data.hex) {
                 this.toasterService.error('Singing fail', `Trade Building Faild: Err Code: 2`);
+                this.loadingService.isLoading = false;
             } else {
                 let counter = 0;
                 const trickySend = async () => {
@@ -106,12 +118,16 @@ export class TradeService {
                     counter++
                     const srawtxRes = await this.rpcService.rpc('sendrawtransaction', [signRes.data.hex]);
                     if (srawtxRes.error || !srawtxRes.data ) {
-                        counter < 25
-                            ? trickySend()
-                            : this.toasterService.error(srawtxRes.error || 'sending fail',`Trade Building Faild`);
+                        if (counter < 25) {
+                            trickySend()
+                        } else {
+                            this.toasterService.error(srawtxRes.error || 'sending fail',`Trade Building Faild`);
+                            this.loadingService.isLoading = false
+                        }
                     } else {
                         this.toasterService.success('TRANSACTION SENDED!', `${srawtxRes.data}`);
                         this.txsService.addTxToPending(srawtxRes.data);
+                        this.loadingService.isLoading = false
                         setTimeout(() => {
                             if (this.keyPair?.address) {
                                 this.balanceService.updateLtcBalanceForAddress(this.keyPair?.address);

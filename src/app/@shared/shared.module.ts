@@ -18,6 +18,7 @@ import { EncKeyDialog } from './dialogs/enc-key/enc-key.component';
 import { ClipboardModule } from '@angular/cdk/clipboard'; 
 import { DisconnectedLineComponent } from './components/disconnected-line/disconnected-line.component';
 import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
+import { OverlayLoadingComponent } from './components/overlay-loading/overlay-loading.component';
 
 @NgModule({
     imports: [
@@ -37,7 +38,8 @@ import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet'
         EncKeyDialog,
         SideNavComponent,
         DisconnectedLineComponent,
-        CommingSoonDialog
+        CommingSoonDialog,
+        OverlayLoadingComponent,
     ],
     exports: [
         RPCConnectDialog,
@@ -45,7 +47,8 @@ import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet'
         SideNavComponent,
         MatProgressSpinnerModule,
         DisconnectedLineComponent,
-        CommingSoonDialog
+        CommingSoonDialog,
+        OverlayLoadingComponent,
     ]
 })
 

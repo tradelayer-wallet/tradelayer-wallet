@@ -9,6 +9,7 @@ import { ApiService } from './api.service';
 import { BalanceService } from './balance.service';
 import { TradeService } from './trade.service';
 import { TxsService } from './txs.service';
+import { LoadingService } from './loading.service';
 
 @NgModule({
     providers: [
@@ -22,6 +23,7 @@ import { TxsService } from './txs.service';
         BalanceService,
         TradeService,
         TxsService,
+        LoadingService,
     ],
 })
 

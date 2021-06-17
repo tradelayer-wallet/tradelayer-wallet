@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
+import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RPCCredentials, RpcService } from 'src/app/@core/services/rpc.service';
 
 @Component({
@@ -18,17 +19,18 @@ export class RPCConnectDialog {
 
   constructor(
     private rpcService: RpcService,
-    public dialogRef: MatDialogRef<RPCConnectDialog>
+    public dialogRef: MatDialogRef<RPCConnectDialog>,
+    private loadingService: LoadingService,
   ) {}
 
   async connect() {
     this.message = ' ';
-    this.loading = true;
+    this.loadingService.isLoading = true;
 
     const { host, port, username, password } = this;
     const credentials: RPCCredentials = { host, port, username, password };
     const isConnected = await this.rpcService.connect(credentials);
-    this.loading = false;
+    this.loadingService.isLoading = false;
     if (!isConnected) {
       this.message = 'Please try again! ';
     } else {
