@@ -90,25 +90,38 @@ export class TradeService {
             }
         });
 
-        this.socket.on('SIGNED_RAWTX', async (rawTxForSigning) => {
-            const signRes = await this.rpcService.rpc('signrawtransaction', [rawTxForSigning]);
+        this.socket.on('SIGNED_RAWTX', async (signData) => {
+            const { hex, prevTxsData } = signData;
+            if (!hex || !prevTxsData) {
+                this.toasterService.error('Singing fail', `Trade Building Faild: Err Code: 1`);
+                return;
+            }
+            const signRes = await this.rpcService.rpc('signrawtransaction', [hex, [prevTxsData]]);
             if (signRes.error || !signRes.data || !signRes.data.complete || !signRes.data.hex) {
-                this.toasterService.error('Singing fail', `Trade Building Faild`);
+                this.toasterService.error('Singing fail', `Trade Building Faild: Err Code: 2`);
             } else {
-                const srawtxRes = await this.rpcService.rpc('sendrawtransaction', [signRes.data.hex]);
-                if (srawtxRes.error || !srawtxRes.data ) {
-                    this.toasterService.error(srawtxRes.error || 'sending fail',`Trade Building Faild`);
-                } else {
-                    this.toasterService.success('TRANSACTION SENDED!', `${srawtxRes.data}`);
-                    this.txsService.addTxToPending(srawtxRes.data);
-                    setTimeout(() => {
-                        if (this.keyPair?.address) {
-                            this.balanceService.updateLtcBalanceForAddress(this.keyPair?.address);
-                            this.balanceService.updateTokensBalanceForAddress(this.keyPair?.address);
-                        }
-                    }, 2000);
-
+                let counter = 0;
+                const trickySend = async () => {
+                    await new Promise((res) => setTimeout(() => res(true), 500));
+                    counter++
+                    const srawtxRes = await this.rpcService.rpc('sendrawtransaction', [signRes.data.hex]);
+                    if (srawtxRes.error || !srawtxRes.data ) {
+                        counter < 25
+                            ? trickySend()
+                            : this.toasterService.error(srawtxRes.error || 'sending fail',`Trade Building Faild`);
+                    } else {
+                        this.toasterService.success('TRANSACTION SENDED!', `${srawtxRes.data}`);
+                        this.txsService.addTxToPending(srawtxRes.data);
+                        setTimeout(() => {
+                            if (this.keyPair?.address) {
+                                this.balanceService.updateLtcBalanceForAddress(this.keyPair?.address);
+                                this.balanceService.updateTokensBalanceForAddress(this.keyPair?.address);
+                            }
+                        }, 2000);
+    
+                    }
                 }
+                trickySend();
             }
 
         })
