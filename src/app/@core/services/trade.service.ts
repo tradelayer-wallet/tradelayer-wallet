@@ -63,7 +63,6 @@ export class TradeService {
     }
 
     private handleSocketEvents() {
-        let multySigAddress: any;
         this.socket.on('TRADE_REJECTION', (reason) => {
             this.toasterService.error('Trade Rejected', `Reason: ${reason || 'Reason Not Found'}`);
             this.loadingService.isLoading = false;
@@ -81,7 +80,6 @@ export class TradeService {
                 this.toasterService.error('Trade Building Faild', `Trade Building Faild`);
                 this.loadingService.isLoading = false;
             } else {
-                multySigAddress = amaRes.data.address;
                 this.socket.emit('MULTYSIG_DATA', amaRes.data);
             }
         });
@@ -114,11 +112,11 @@ export class TradeService {
             } else {
                 let counter = 0;
                 const trickySend = async () => {
-                    await new Promise((res) => setTimeout(() => res(true), 500));
                     counter++
                     const srawtxRes = await this.rpcService.rpc('sendrawtransaction', [signRes.data.hex]);
                     if (srawtxRes.error || !srawtxRes.data ) {
                         if (counter < 25) {
+                            await new Promise((res) => setTimeout(() => res(true), 500));
                             trickySend()
                         } else {
                             this.toasterService.error(srawtxRes.error || 'sending fail',`Trade Building Faild`);
