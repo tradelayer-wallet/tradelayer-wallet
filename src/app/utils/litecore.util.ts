@@ -33,11 +33,10 @@ export const decryptKeyPair = (key: string, pass: string) => {
     }
 }
 
-export const getPubKey = (wifKey: string) => {
-    const hm = btc.ECPair.fromWIF(wifKey, tLTC);
-    console.log(hm.publicKey.toString('utf8'));
-    return ''
-}
+// export const getPubKey = (wifKey: string) => {
+//     const hm = btc.ECPair.fromWIF(wifKey, tLTC);
+//     return ''
+// }
 
 export default {
     generateRandomAddress,

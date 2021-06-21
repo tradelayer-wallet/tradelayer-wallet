@@ -28,8 +28,7 @@ export class HeaderComponent {
     {
       id: 3,
       name: 'Portfolio',
-      link: '#',
-      disabled: true,
+      link: 'portfolio',
     },
     {
       id: 4,
@@ -73,7 +72,7 @@ export class HeaderComponent {
   }
 
   get addressesBalance() {
-    return this.balanceService.addressesBalance
+    return this.balanceService.structuredLTCBalances;
   }
 
   navigateTo(route: any) {
@@ -100,5 +99,11 @@ export class HeaderComponent {
     if (this.publicAddress){
       this.balanceService.updateLtcBalanceForAddress(this.publicAddress);
     }
+  }
+
+  getTotalOfAddress(address: string) {
+    const balance = this.addressesBalance.find(e => e.address === address);
+    if (!balance) return 0;
+    return balance?.unconfirmed < 0 ? balance?.total : balance?.confirmed;
   }
 }

@@ -62,7 +62,7 @@ export class RpcService {
         if (error || !result) return { error: error.message || 'Error with RPC call' };
         return { data: result };
       } catch (err) {
-        return { error: err.message }
+        return { error: err.error?.error?.message || 'Undifined Error' }
       }
     }
 
@@ -102,7 +102,7 @@ export class RpcService {
       if (!vins?.length || !payload || !refAddress || !price || !changeAddress) return { error: 'Missing argumetns for building LTC Instant Trade' };
 
       const sumVinsAmount = vins.map(vin => vin.amount).reduce((a, b) => a + b, 0);
-      if (sumVinsAmount < price) {
+      if (sumVinsAmount < parseFloat(price)) {
         return { error: 'Error with vins' };
       }
       const tl_createrawtx_inputAll = async () => {
@@ -116,7 +116,7 @@ export class RpcService {
       };
       const crtxiRes: any = await tl_createrawtx_inputAll();
       if (crtxiRes.error || !crtxiRes.data) return { error: 'Error with creating raw tx' };
-      const change = (sumVinsAmount - (parseFloat(price) + 0.001)).toFixed(4);
+      const change = (sumVinsAmount - (parseFloat(price) + 0.0005)).toFixed(4);
       const _crtxrRes: any = await this.rpc('tl_createrawtx_reference', [crtxiRes.data, changeAddress, change]);
       if (_crtxrRes.error || !_crtxrRes.data) return { error: _crtxrRes.error || 'Error with adding referance address' };
 
@@ -136,7 +136,7 @@ export class RpcService {
         let res: any[] = [];
         lusRes.data.forEach((u: any) => {
           const amountSum = res.map(r => r.amount).reduce((a, b) => a + b, 0);
-          if (amountSum < minAmount) res.push(u);
+          if (amountSum < (minAmount + 0.1)) res.push(u);
         });
         return { data: res.map(u => ({vout: u.vout, txid: u.txid, amount: u.amount})) };
       }

@@ -1,0 +1,15 @@
+.home-page-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 800px;
+    h1 {
+        margin: 3.5rem;
+    }
+    img {
+        border-radius: 100%;
+        border: 1px solid black;
+        transform: scale(0.75);
+    }
+}

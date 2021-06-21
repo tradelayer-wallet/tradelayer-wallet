@@ -1,8 +1,10 @@
-<tl-side-nav>
-    <tl-layout *ngIf='isConnected; else spinner'>
+<tl-side-nav *ngIf='serverConnected; else disconnectedComponent'>
+    <tl-layout>
         <router-outlet></router-outlet>
     </tl-layout>
-    <ng-template #spinner>
-        <mat-spinner diameter='100' ></mat-spinner>
-    </ng-template>
 </tl-side-nav>
+
+<ng-template #disconnectedComponent>
+    <tl-disconnected-line *ngIf='!serverConnected'></tl-disconnected-line>
+</ng-template>
+<overlay-loading *ngIf='isLoading'></overlay-loading>

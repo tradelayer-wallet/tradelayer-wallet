@@ -3,13 +3,37 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
-    "dev:norpc": "ng serve --configuration norpc",
     "build": "ng build",
-    "watch:el": "ng build --base-href ./ --watch --configuration development",
+    "dev:norpc": "ng serve --configuration norpc",
+    "start": "npm run el",
+    "build:watch": "ng build --base-href ./ --watch --configuration development",
+    "build:watch:prod": "ng build --base-href ./ --watch --configuration production",
     "el": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "el:build": "webpack --config el-webpack.config"
+  },
+  "build": {
+    "appId": "tl.wallet.1",
+    "productName": "TradeLayer Wallet",
+    "files": [
+      "dist/**/*",
+      "main.js"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "dist"
+    },
+    "asar": false,
+    "nsis":{
+      "oneClick": false,
+      "allowToChangeInstallationDirectory":true
+      },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
   },
   "private": true,
   "main": "main.js",
@@ -27,6 +51,7 @@
     "bip39": "^3.0.4",
     "bitcoinjs-lib": "^5.2.0",
     "buffer": "^5.7.1",
+    "crypto": "^1.0.1",
     "crypto-js": "^4.0.0",
     "file-saver": "^2.0.5",
     "litecore-lib": "^0.13.22",
@@ -53,6 +78,8 @@
     "karma-coverage": "~2.0.3",
     "karma-jasmine": "~4.0.0",
     "karma-jasmine-html-reporter": "^1.5.0",
-    "typescript": "~4.2.3"
+    "typescript": "~4.2.3",
+    "webpack": "^5.36.2",
+    "webpack-cli": "^4.7.2"
   }
 }

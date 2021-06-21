@@ -1,7 +1,6 @@
 const { app, BrowserWindow, globalShortcut } = require('electron')
 const url = require("url");
 const path = require("path");
-
 let mainWindow
 
 const loadUrl = (w) => {
@@ -16,14 +15,14 @@ const loadUrl = (w) => {
 
 function createWindow () {
   mainWindow = new BrowserWindow({
-    width: 1027,
-    height: 768,
+    width: 1280,
+    height: 800,
     webPreferences: {
       nodeIntegration: true
     }
   })
   // Open the DevTools.
-  mainWindow.webContents.openDevTools()
+   mainWindow.webContents.openDevTools();
 
   loadUrl(mainWindow);
 
@@ -46,6 +45,20 @@ app.on('activate', function () {
   console.log('activate')
   if (mainWindow === null) createWindow()
 })
+
+app.on('browser-window-focus', function () {
+  globalShortcut.register("CommandOrControl+R", () => {
+      console.log("CommandOrControl+R is pressed: Shortcut Disabled");
+  });
+  globalShortcut.register("F5", () => {
+      console.log("F5 is pressed: Shortcut Disabled");
+  });
+});
+
+app.on('browser-window-blur', function () {
+  globalShortcut.unregister('CommandOrControl+R');
+  globalShortcut.unregister('F5');
+});
 
 try {
   require('electron-reloader')(module, {

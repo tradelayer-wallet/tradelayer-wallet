@@ -41,8 +41,8 @@ export class BuySellCardComponent implements OnInit {
 
     private buildForms() {
       this.buySellGroup = this.fb.group({
-        price: [null, [Validators.required, Validators.min(0)]],
-        amount: [null, [Validators.required, Validators.min(0.1)]],
+        price: [null, [Validators.required, Validators.min(0.01)]],
+        amount: [null, [Validators.required, Validators.min(0.01)]],
       })
     }
 
@@ -52,11 +52,13 @@ export class BuySellCardComponent implements OnInit {
         const propIdForSale = this.selectedMarket.second_token.propertyId;
         if (propIdForSale === 999) {
             const price = this.buySellGroup.value['price']
-            const balance = this.balanceService.addressesBalance[this.currentAddress].confirmed_balance;
+            const balance = this.balanceService.structuredLTCBalances.find(b => b.address === this.currentAddress)?.total;
+            if (!balance) return '-';
+            if ((balance / price) <= 0) return '-';
             return (balance / price).toFixed(4);
         }
       }
-      return '0';
+      return '-';
     }
 
     handleBuy() {
@@ -69,10 +71,10 @@ export class BuySellCardComponent implements OnInit {
       if (!propIdForSale || !propIdDesired || !amountForSale || !amountDeisred) return;
       const tradeConf: ITradeConf = { propIdForSale, propIdDesired, amountForSale, amountDeisred };
       this.tradeService.initTrade(tradeConf);
+      this.buySellGroup.reset();
     }
 
     handleSell() {
-      console.log('Sell')
     }
 
     getButtonDisabled(isBuy: boolean) {

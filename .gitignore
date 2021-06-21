@@ -2,6 +2,7 @@
 
 # compiled output
 /dist
+/el-dist
 /tmp
 /out-tsc
 /release

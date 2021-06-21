@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
-import { RpcService } from './@core/services/rpc.service';
-import { environment } from '../environments/environment';
-import { ToastrService } from 'ngx-toastr';
+
+import { SocketService } from './@core/services/socket.service';
+import { LoadingService } from './@core/services/loading.service';
 
 @Component({
   selector: 'tl-root',
@@ -10,11 +10,15 @@ import { ToastrService } from 'ngx-toastr';
 })
 export class AppComponent {
   constructor(
-    private rpcService: RpcService,
+    private socketService: SocketService,
+    private loadingService: LoadingService
   ) {}
 
-  get isConnected() {
-    if (environment.rpcRequire === false) return true;
-    return this.rpcService.isConnected;
+  get isLoading(): boolean {
+    return this.loadingService.isLoading;
+  }
+
+  get serverConnected() {
+    return this.socketService.socket?.connected;
   }
 }

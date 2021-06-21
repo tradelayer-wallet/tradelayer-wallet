@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { Socket } from "socket.io-client";
 import { io } from 'socket.io-client'
 import { environment } from '../../../environments/environment';
+import { LoadingService } from "./loading.service";
 
 export enum SocketEmits {
     LTC_INSTANT_TRADE = 'LTC_INSTANT_TRADE',
@@ -14,21 +15,25 @@ export enum SocketEmits {
 export class SocketService {
     private _socket: Socket | null = null;
 
-    constructor() {}
+    constructor(
+        private loadingService: LoadingService,
+    ) {}
 
     private get socketServerUrl(): string {
         return environment.socketServerUrl;
     }
 
     get socket() {
-        if (!this._socket) this._socket = io(this.socketServerUrl); 
-        return this._socket
+        if (!this._socket) return this.socketConnect();
+        return this._socket;
     }
 
     socketConnect() {
-        this._socket = io(this.socketServerUrl);
-        
+        this.loadingService.isLoading = true;
+        this._socket = io(this.socketServerUrl, { reconnection: false, requestTimeout: 2000 });
         this.dataFeedSubscriber();
+        this.handleMainSocketEvents()
+        return this._socket;
     }
 
     disconnect() {
@@ -37,9 +42,17 @@ export class SocketService {
         }
     };
 
+    private handleMainSocketEvents() {
+        if (this.socket) {
+            this.socket.on('connect', () => this.loadingService.isLoading = false);
+            this.socket.on('connect_error', () => this.loadingService.isLoading = false)
+        }
+    }
+
     private dataFeedSubscriber() {
-        this._socket?.on('dataFeed', (data) => {
+        this.socket.on('dataFeed', (data) => {
             console.log(data)
         })
+ 
     }
 }

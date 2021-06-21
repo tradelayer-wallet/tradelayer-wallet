@@ -13,16 +13,21 @@ export class SoChainApiService {
         private http: HttpClient
     ) {}
 
-    get apiUrl() {
+    private get apiUrl() {
         return 'https://sochain.com/api/v2/';
     }
 
-    get NETWORK(): string {
+    private get NETWORK(): string {
         return environment.network
     }
 
     getAddressBalance(address: string) {
         const url = `${this.apiUrl}get_address_balance/${this.NETWORK}/`;
+        return this.http.get(url + address);
+    }
+
+    getTxUnspents(address: string) {
+        const url = `${this.apiUrl}get_tx_unspent/${this.NETWORK}/`;
         return this.http.get(url + address);
     }
 }

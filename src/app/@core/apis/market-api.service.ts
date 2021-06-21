@@ -13,7 +13,7 @@ export class MarketApiService {
         private http: HttpClient
     ) {}
 
-    get apiUrl() {
+    private get apiUrl() {
         return environment.apiUrl + '/market/'
     }
 

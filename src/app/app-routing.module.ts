@@ -7,6 +7,7 @@ import { TradingPageComponent } from './@pages/trading-page/trading-page.compone
 
 import { RPCGuard } from './@core/guards/rpc.guard';
 import { AuthGuard } from './@core/guards/auth.guard';
+import { PortfolioPageComponent } from './@pages/portfolio-page/portfolio-page.component';
 
 export const routes: Routes = [
   {
@@ -25,7 +26,12 @@ export const routes: Routes = [
           path: 'trading',
           component: TradingPageComponent,
           // canActivate: [AuthGuard]
-        }
+        },
+        {
+          path: 'portfolio',
+          component: PortfolioPageComponent,
+          canActivate: [AuthGuard]
+        },
       ],
   },
 ];
