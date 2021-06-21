@@ -30,12 +30,12 @@ export class HeaderComponent {
       name: 'Portfolio',
       link: 'portfolio',
     },
-    {
-      id: 4,
-      name: 'Taxes',
-      link: '#',
-      disabled: true,
-    }
+    // {
+    //   id: 4,
+    //   name: 'Taxes',
+    //   link: '#',
+    //   disabled: true,
+    // }
   ];
 
   private _selectedRoute: any = this._mainRoutes[0];

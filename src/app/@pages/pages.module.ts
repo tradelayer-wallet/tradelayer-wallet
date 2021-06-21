@@ -21,7 +21,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
 import { BottomCardComponent } from './trading-page/main-trading-grid/bottom-card/bottom-card.component';
 import { PendingTxsComponent } from './trading-page/main-trading-grid/bottom-card/pending-txs/pending-txs.component';
-
+import { MatTooltipModule } from '@angular/material/tooltip'; 
 
 
 @NgModule({
@@ -37,6 +37,7 @@ import { PendingTxsComponent } from './trading-page/main-trading-grid/bottom-car
         ReactiveFormsModule,
         MatIconModule,
         MatProgressSpinnerModule,
+        MatTooltipModule,
     ],
     declarations: [
         LoginPageComponent,

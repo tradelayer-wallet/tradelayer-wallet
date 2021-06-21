@@ -2,16 +2,16 @@
   "name": "tradelayer-wallet",
   "version": "0.0.0",
   "scripts": {
-    "ng": "ng",
-    "build": "ng build",
+
     "dev:norpc": "ng serve --configuration norpc",
-    "start": "npm run el",
-    "build:watch": "ng build --base-href ./ --watch --configuration development",
-    "build:watch:prod": "ng build --base-href ./ --watch --configuration production",
-    "el": "electron .",
+    "build:dev": "ng build --base-href ./ --watch --configuration development",
+    "build:prod:watch": "ng build --base-href ./ --watch --configuration production",
+    "build:prod": "ng build --base-href ./ --configuration production",
+    "el:build": "webpack --config el-webpack.config",
+    "start": "npm run start:el",
+    "start:el": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "el:build": "webpack --config el-webpack.config"
+    "dist": "electron-builder"
   },
   "build": {
     "appId": "tl.wallet.1",
