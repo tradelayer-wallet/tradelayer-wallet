@@ -99,45 +99,67 @@ export class TradeService {
         });
 
         this.socket.on('SIGNED_RAWTX', async (signData) => {
+            // await new Promise(res => setTimeout(() => res(true), 5000));
             const { hex, prevTxsData } = signData;
             if (!hex || !prevTxsData) {
                 this.toasterService.error('Singing fail', `Trade Building Faild: Err Code: 1`);
                 this.loadingService.isLoading = false;
                 return;
             }
-            const signRes = await this.rpcService.rpc('signrawtransaction', [hex, [prevTxsData]]);
-            if (signRes.error || !signRes.data || !signRes.data.complete || !signRes.data.hex) {
-                this.toasterService.error('Singing fail', `Trade Building Faild: Err Code: 2`);
-                this.loadingService.isLoading = false;
-            } else {
-                let counter = 0;
-                const trickySend = async () => {
-                    counter++
-                    const srawtxRes = await this.rpcService.rpc('sendrawtransaction', [signRes.data.hex]);
-                    if (srawtxRes.error || !srawtxRes.data ) {
-                        if (counter < 25) {
-                            await new Promise((res) => setTimeout(() => res(true), 500));
-                            trickySend()
-                        } else {
-                            this.toasterService.error(srawtxRes.error || 'sending fail',`Trade Building Faild`);
-                            this.loadingService.isLoading = false
-                        }
+            let signCount = 0;
+            const signLoop = async () => {
+                signCount++
+                const signRes = await this.rpcService.rpc('signrawtransaction', [hex, [prevTxsData]]);
+                if (signRes.error || !signRes.data || !signRes.data.complete || !signRes.data.hex) {
+                    if (signCount < 10) {
+                        console.log({signCount,signRes,signData})
+                        await new Promise(res => setTimeout(() => res(true), 500));
+                        signLoop();
                     } else {
-                        this.toasterService.success('TRANSACTION SENDED!', `${srawtxRes.data}`);
-                        this.txsService.addTxToPending(srawtxRes.data);
-                        this.loadingService.isLoading = false
-                        setTimeout(() => {
-                            if (this.keyPair?.address) {
-                                this.balanceService.updateLtcBalanceForAddress(this.keyPair?.address);
-                                this.balanceService.updateTokensBalanceForAddress(this.keyPair?.address);
-                            }
-                        }, 2000);
-    
+                        const errorMessage = signRes.error?.message || `Trade Building Faild`;
+                        this.toasterService.error('Singing fail', errorMessage);
+                        this.loadingService.isLoading = false;
                     }
+                } else {
+                    let sendCount = 0;
+                    const loopSend = async () => {
+                        sendCount++;
+                        const srawtxRes = await this.rpcService.rpc('sendrawtransaction', [signRes.data.hex]);
+                        if (srawtxRes.error || !srawtxRes.data ) {
+                            if (sendCount < 10) {
+                                console.log({sendCount,srawtxRes,signData})
+                                await new Promise(res => setTimeout(() => res(true), 500));
+                                loopSend();
+                            } else {
+                                //"code":-26,"message":"256: absurdly-high-fee"
+                                const errorMessage = signRes.error?.message || `Trade Building Faild`;
+                                this.toasterService.error(srawtxRes.error || 'Sending fail', errorMessage);
+                                this.loadingService.isLoading = false
+                            }
+                        } else {
+                            this.toasterService.success('TRANSACTION SENT!', `${srawtxRes.data}`);
+                            const txInfoRes = await this.rpcService.rpc('tl_gettransaction', [srawtxRes.data]);
+                            if (txInfoRes.error || !txInfoRes.data ) {
+                                this.toasterService.error('Error with getting Info about sended TX');
+                                this.txsService.addTxToPending(srawtxRes.data, 0);
+                                this.loadingService.isLoading = false;
+                            } else {
+                                const { txid, fee } = txInfoRes.data;
+                                this.txsService.addTxToPending(txid, fee);
+                                this.loadingService.isLoading = false;
+                            }
+                            setTimeout(() => {
+                                if (this.keyPair?.address) {
+                                    this.balanceService.updateLtcBalanceForAddress(this.keyPair?.address);
+                                    this.balanceService.updateTokensBalanceForAddress(this.keyPair?.address);
+                                }
+                            }, 2000);
+                        }
+                    }
+                    loopSend();
                 }
-                trickySend();
             }
-
+            signLoop();
         })
     }
     

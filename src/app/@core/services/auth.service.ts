@@ -7,6 +7,7 @@ import { ApiService } from "./api.service";
 import { BalanceService } from "./balance.service";
 import { DialogService, DialogTypes } from "./dialogs.service";
 import { SocketService } from "./socket.service";
+import { TxsService } from "./txs.service";
 
 @Injectable({
     providedIn: 'root',
@@ -23,6 +24,7 @@ export class AuthService {
         private socketService: SocketService,
         private balanceService: BalanceService,
         private apiService: ApiService,
+        private txsService: TxsService,
     ) {}
 
     get isLoggedIn() {
@@ -79,6 +81,7 @@ export class AuthService {
         // this.socketService.disconnect();
         this.addressService.removeAllKeyPairs();
         this.balanceService.removeAllAddresses();
+        this.txsService.pendingTxs = [];
         this.router.navigateByUrl('login');
     }
 }

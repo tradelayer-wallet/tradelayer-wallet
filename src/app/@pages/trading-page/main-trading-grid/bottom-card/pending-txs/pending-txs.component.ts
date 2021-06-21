@@ -8,7 +8,7 @@ import { TxsService } from 'src/app/@core/services/txs.service';
 })
 
 export class PendingTxsComponent implements OnInit {
-    displayedColumns: string[] = ['id', 'status', 'txid'];
+    displayedColumns: string[] = ['id', 'status', 'txid', 'fee'];
     constructor(
       private txsService: TxsService,
     ) {}

@@ -1,14 +1,18 @@
 import { Injectable } from "@angular/core";
+import { ToastrService } from "ngx-toastr";
 import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 
 export enum TXSTATUS {
     PENDING = 'PENDING',
+    SUCCESS = 'SUCCESS',
+    FAILED = 'FAILD',
 }
 
 export interface IPedningTXS {
     txid: string;
     status: TXSTATUS;
+    fee: number;
 }
 
 @Injectable({
@@ -20,6 +24,7 @@ export class TxsService {
     constructor(
         private socketService: SocketService,
         private rpcService: RpcService,
+        private toasterService: ToastrService,
     ) {
         this.checkPendingTxs();
     }
@@ -32,9 +37,9 @@ export class TxsService {
         this._pendingTxs = value;
     }
 
-    addTxToPending(txid: string) {
-        const txObj = { txid: txid, status: TXSTATUS.PENDING };
-        this._pendingTxs = [...this.pendingTxs, txObj]
+    addTxToPending(txid: string, fee: number) {
+        const txObj = { txid, status: TXSTATUS.PENDING, fee };
+        this._pendingTxs = [...this.pendingTxs, txObj];
     }
 
     removeFromPendingTxs(txid: string) {
@@ -50,9 +55,19 @@ export class TxsService {
                 const res = await this.rpcService.rpc('tl_gettransaction', [txid]);
                 if (res.error || !res.data) return;
                 if (res.data.confirmations > 0) {
-                    this.removeFromPendingTxs(txid)
+                    const isValid = res.data.valid;
+                    this.pendingToReady(txid, isValid);
                 }
             });
         })
+    }
+
+    private pendingToReady(txid: string, isValid: boolean) {
+        const obj = this.pendingTxs.find(e => e.txid === txid);
+        if (obj) obj.status = isValid ? TXSTATUS.SUCCESS : TXSTATUS.FAILED;
+
+        isValid
+            ? this.toasterService.success(`Transaction: ${txid} is Valid`, 'Transaction succeed')
+            : this.toasterService.error(`Transaction: ${txid} is Invalid!`, 'Transaction Fail');
     }
 }

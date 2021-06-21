@@ -10,7 +10,30 @@
     "build:watch:prod": "ng build --base-href ./ --watch --configuration production",
     "el": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "el:build": "webpack --config el-webpack.config"
+  },
+  "build": {
+    "appId": "tl.wallet.1",
+    "productName": "TradeLayer Wallet",
+    "files": [
+      "dist/**/*",
+      "main.js"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "dist"
+    },
+    "asar": false,
+    "nsis":{
+      "oneClick": false,
+      "allowToChangeInstallationDirectory":true
+      },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
   },
   "private": true,
   "main": "main.js",
@@ -55,6 +78,8 @@
     "karma-coverage": "~2.0.3",
     "karma-jasmine": "~4.0.0",
     "karma-jasmine-html-reporter": "^1.5.0",
-    "typescript": "~4.2.3"
+    "typescript": "~4.2.3",
+    "webpack": "^5.36.2",
+    "webpack-cli": "^4.7.2"
   }
 }
