@@ -15,7 +15,7 @@ import { TxsService } from "./txs.service";
 
 export class AuthService {
     public encKey: string = '';
-
+    savedFromUrl: string = '';
     constructor(
         private router: Router,
         private addressService: AddressService,
@@ -73,7 +73,7 @@ export class AuthService {
                 this.balanceService.updateLtcBalanceForAddress(pair.address);
                 this.balanceService.updateTokensBalanceForAddress(pair.address)
             }
-        this.router.navigateByUrl('trading');
+        this.router.navigateByUrl(this.savedFromUrl);
         // this.socketService.socketConnect();
     }
 

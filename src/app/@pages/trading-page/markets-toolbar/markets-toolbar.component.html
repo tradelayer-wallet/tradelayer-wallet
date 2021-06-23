@@ -6,8 +6,8 @@
                 [disabled]='marketType.disabled'
             >
                 <ng-template mat-tab-label>
-                    <img class='market-icon' [src]='marketType.icon' [matTooltip]="marketType.disabled ?  'Available Soon!' : ''" alt='icon'/>
-                    <span class='market-pair-span' [matTooltip]="marketType.disabled ?  'Available Soon!' : ''"> {{ marketType.name }} </span>
+                    <img class='market-icon' [src]='marketType.icon' [matTooltip]="marketType.disabled ?  'Comming Soon!' : ''" alt='icon'/>
+                    <span class='market-pair-span' [matTooltip]="marketType.disabled ?  'Comming Soon!' : ''"> {{ marketType.name }} </span>
                 </ng-template>
                 <div class="markets-container" *ngIf='marketsFromSelectedMarketType?.length'>
                     <mat-tab-group #marketsTabGroup mat-align-tabs="center" dynamicHeight backgroundColor='primary' (selectedIndexChange)="selectMarket($event)">
@@ -15,7 +15,7 @@
                             *ngFor='let market of marketsFromSelectedMarketType' 
                             [disabled]='market.disabled' 
                             [label]='market.pairString'
-                            [matTooltip]='market.disabled ? "Available Soon" : ""'
+                            [matTooltip]='market.disabled ? "Comming Soon" : ""'
                         >
                             <p style='height: 5px;'></p>
                         </mat-tab>
