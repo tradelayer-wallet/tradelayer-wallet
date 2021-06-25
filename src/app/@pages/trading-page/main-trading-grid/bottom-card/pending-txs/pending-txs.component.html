@@ -1,4 +1,4 @@
-<mat-table [dataSource]="pendingTxs" *ngIf='pendingTxs?.length'>
+<mat-table [dataSource]="pendingTxs">
     <ng-container matColumnDef="id" sticky>
       <mat-header-cell *matHeaderCellDef># </mat-header-cell>
       <mat-cell *matCellDef="let element; let i = index"> {{ i }} </mat-cell>
