@@ -1,6 +1,18 @@
 # Trade-Layer Wallet
 
-- The tradelayer wallet development branch. For stable builds please checkout prod.
+
+This is the  stable MVP of the tradelayer wallet, please note that the wallet requires its own local node to run. Which can be downloaded from 
+https://github.com/BlockPo/BlockPo-to-Tradelayer
+
+The wallet is decentralized and thus cannot work without your own local node for signing. The sync time is around ~5 hours so please be patient! The exe comes attached with some build instructions. Find them attached here.
+
+For Windows
+https://github.com/BlockPo/BlockPo-to-Tradelayer/blob/master/doc/build-windows.md
+For OSX
+https://github.com/BlockPo/BlockPo-to-Tradelayer/blob/master/doc/build-osx.md
+For UNIX
+https://github.com/BlockPo/BlockPo-to-Tradelayer/blob/master/doc/build-unix.md
+
 
 
 ## Install
