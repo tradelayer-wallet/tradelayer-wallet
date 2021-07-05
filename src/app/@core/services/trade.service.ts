@@ -49,7 +49,12 @@ export class TradeService {
         if (tradeConf.propIdForSale === 999 ) {
             this.handleLTCInstantTrade(tradeConf);
         } else {
+            this.handleTokenTokenTrade(tradeConf);
         }
+    }
+
+    private handleTokenTokenTrade(tradeConf: ITradeConf) {
+        console.log({tradeConf});
     }
 
     private handleLTCInstantTrade(tradeConf: ITradeConf) {

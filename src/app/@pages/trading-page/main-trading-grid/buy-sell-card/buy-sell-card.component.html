@@ -19,16 +19,17 @@
     </mat-card-content>
     <mat-card-footer>
             <button 
-              mat-raised-button color="green" 
+              mat-raised-button
               color="success"
               (click)='handleBuy()'
               [disabled]='getButtonDisabled(true)'
             >BUY</button>
-            <!-- <button
+            <button
+              *ngIf='selectedMarket.second_token.propertyId !== 999'
               mat-raised-button
               color="warn"
               (click)='handleSell()'
               [disabled]='getButtonDisabled(false)'
-            >SELL</button> -->
+            >SELL</button>
     </mat-card-footer>
 </mat-card>

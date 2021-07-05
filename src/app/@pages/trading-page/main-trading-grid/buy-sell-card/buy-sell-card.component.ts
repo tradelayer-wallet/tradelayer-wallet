@@ -36,7 +36,7 @@ export class BuySellCardComponent implements OnInit {
     }
 
     ngOnInit() {
-      this.buildForms()
+      this.buildForms();
     }
 
     private buildForms() {
@@ -48,17 +48,27 @@ export class BuySellCardComponent implements OnInit {
 
     getMaxAmount(isBuy: boolean) {
       if (this.buySellGroup.controls['price']?.value === 0 || !this.currentAddress) return '-';
+      const price = this.buySellGroup.value['price']
       if (isBuy) {
         const propIdForSale = this.selectedMarket.second_token.propertyId;
         if (propIdForSale === 999) {
-            const price = this.buySellGroup.value['price']
             const balance = this.balanceService.structuredLTCBalances.find(b => b.address === this.currentAddress)?.total;
             if (!balance) return '-';
             if ((balance / price) <= 0) return '-';
             return (balance / price).toFixed(4);
+        } else {
+          const balance = this.balanceService.addressesTokensBalanceForAddress?.find(t => t.propertyid === propIdForSale)?.balance;
+          if (!balance) return '-';
+          if ((balance / price) <= 0) return '-';
+          return (balance / price).toFixed(4);
         }
+      } else {
+        const propIdForBuy = this.selectedMarket.first_token.propertyId;
+        const balance = this.balanceService.addressesTokensBalanceForAddress?.find(t => t.propertyid === propIdForBuy)?.balance;
+        if (!balance) return '-';
+        if ((balance / price) <= 0) return '-';
+        return (balance / price).toFixed(4);
       }
-      return '-';
     }
 
     handleBuy() {
@@ -81,7 +91,9 @@ export class BuySellCardComponent implements OnInit {
       if (isBuy) {
         const v = this.buySellGroup.value.amount < parseFloat(this.getMaxAmount(true));
         return !this.buySellGroup.valid || !v;
+      } else {
+        const v = this.buySellGroup.value.amount < parseFloat(this.getMaxAmount(false));
+        return !this.buySellGroup.valid || !v;
       }
-      return true;
     }
 }
