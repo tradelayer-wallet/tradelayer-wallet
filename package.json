@@ -32,7 +32,8 @@
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "dist/assets/icon.png"
     }
   },
   "private": true,
