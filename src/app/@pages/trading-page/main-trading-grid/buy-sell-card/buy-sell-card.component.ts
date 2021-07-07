@@ -52,19 +52,25 @@ export class BuySellCardComponent implements OnInit {
       if (isBuy) {
         const propIdForSale = this.selectedMarket.second_token.propertyId;
         if (propIdForSale === 999) {
-            const balance = this.balanceService.structuredLTCBalances.find(b => b.address === this.currentAddress)?.total;
+            const balances = this.balanceService.structuredLTCBalances;
+            if (!balances?.length) return '-';
+            const balance = balances.find(b => b.address === this.currentAddress)?.total;
             if (!balance) return '-';
             if ((balance / price) <= 0) return '-';
             return (balance / price).toFixed(4);
         } else {
-          const balance = this.balanceService.addressesTokensBalanceForAddress?.find(t => t.propertyid === propIdForSale)?.balance;
+          const balances = this.balanceService.addressesTokensBalanceForAddress;
+          if (!balances?.length) return '-';
+          const balance = balances.find(t => t.propertyid === propIdForSale)?.balance;
           if (!balance) return '-';
           if ((balance / price) <= 0) return '-';
           return (balance / price).toFixed(4);
         }
       } else {
         const propIdForBuy = this.selectedMarket.first_token.propertyId;
-        const balance = this.balanceService.addressesTokensBalanceForAddress?.find(t => t.propertyid === propIdForBuy)?.balance;
+        const balances = this.balanceService.addressesTokensBalanceForAddress;
+        if (!balances?.length) return '-';
+        const balance = balances.find(t => t.propertyid === propIdForBuy)?.balance;
         if (!balance) return '-';
         if ((balance / price) <= 0) return '-';
         return (balance / price).toFixed(4);
@@ -85,6 +91,16 @@ export class BuySellCardComponent implements OnInit {
     }
 
     handleSell() {
+      const { price, amount } = this.buySellGroup.value;
+      const market = this.selectedMarket;
+      const propIdForSale = market.first_token.propertyId;
+      const propIdDesired = market.second_token.propertyId;
+      const amountForSale = parseFloat((amount).toFixed(4));
+      const amountDeisred = parseFloat((amount * price).toFixed(4));
+      if (!propIdForSale || !propIdDesired || !amountForSale || !amountDeisred) return;
+      const tradeConf: ITradeConf = { propIdForSale, propIdDesired, amountForSale, amountDeisred };
+      this.tradeService.initTrade(tradeConf);
+      this.buySellGroup.reset();
     }
 
     getButtonDisabled(isBuy: boolean) {

@@ -128,6 +128,35 @@ export class RpcService {
       return crtxoRes;
     }
 
+    async buildTokenTokenTrade(vins: any[], payload: string, changeAddress: string, refAddress: string) {
+      if (!vins?.length || !payload || !refAddress || !changeAddress) return { error: 'Missing argumetns for building Token/Token Trade' };
+      const sumVinsAmount = vins.map(vin => vin.amount).reduce((a, b) => a + b, 0);
+
+      const tl_createrawtx_inputAll = async () => {
+        let hex = '';
+        for (const vin of vins) {
+            const crtxiRes: any = await this.rpc('tl_createrawtx_input', [hex, vin.txid, vin.vout]);
+            if (crtxiRes.error || !crtxiRes.data) return { error: 'Error with creating raw tx' };
+            hex = crtxiRes.data;
+        }
+        return { data: hex };
+      };
+
+      const crtxiRes: any = await tl_createrawtx_inputAll();
+      if (crtxiRes.error || !crtxiRes.data) return { error: 'Error with creating raw tx' };
+      const change = (sumVinsAmount - 0.0005).toFixed(4);
+
+      const _crtxrRes: any = await this.rpc('tl_createrawtx_reference', [crtxiRes.data, changeAddress, change]);
+      if (_crtxrRes.error || !_crtxrRes.data) return { error: _crtxrRes.error || 'Error with adding referance address' };
+
+      const crtxrRes: any = await this.rpc('tl_createrawtx_reference', [_crtxrRes.data, refAddress]);
+      if (crtxrRes.error || !crtxrRes.data) return { error: crtxrRes.error || 'Error with adding referance address' };
+
+      const crtxoRes: any = await this.rpc('tl_createrawtx_opreturn', [crtxrRes.data, payload]);
+      if (crtxoRes.error || !crtxoRes.data) return { error: 'Error with adding payload' };
+      return crtxoRes;
+    }
+
     async getUnspentsForFunding(address: string, minAmount: number) {
       const lusRes = await this.rpc('listunspent', [0, 999999999, [address]]);
       if (lusRes.error || !lusRes.data?.length) {

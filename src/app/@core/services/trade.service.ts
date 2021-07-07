@@ -54,7 +54,13 @@ export class TradeService {
     }
 
     private handleTokenTokenTrade(tradeConf: ITradeConf) {
-        console.log({tradeConf});
+        this.loadingService.isLoading = true;
+        const _tradeConf: ITradeConf = {
+            ...tradeConf,
+            clientPubKey: this.keyPair?.pubKey,
+            clientAddress: this.keyPair?.address,
+        };
+        this.socket.emit(SocketEmits.TOKEN_TOKEN_TRADE, _tradeConf);
     }
 
     private handleLTCInstantTrade(tradeConf: ITradeConf) {
@@ -90,10 +96,14 @@ export class TradeService {
         });
 
         this.socket.on('COMMIT_TX', async (data: any) => {
-            if (data?.cpCommitTx?.txid && data?.tradeConf) {
-                const rawHex = await this.buildLTCInstantTrade(data);
+            console.log(data);
+            if (data?.cpCommitTx?.utxoData?.txid && data?.tradeConf) {
+                const rawHex = data?.tradeConf?.propIdForSale === 999
+                    ? await this.buildLTCInstantTrade(data)
+                    : await this.buildTokenTokenTrade(data);
                 if (!rawHex) {
                     this.loadingService.isLoading = false;
+                    this.toasterService.error('Building Raw Tx fail', `Trade Building Faild`);
                     return
                 };
                 this.socket.emit('RAW_HEX', rawHex)
@@ -168,13 +178,36 @@ export class TradeService {
         })
     }
     
+    private async extractUnspentDataFromTx(txid: string, channelAddress: string) {
+        const gtRes = await this.rpcService.rpc('gettransaction', [txid]);
+        console.log({gtRes,txid, channelAddress })
+        if (gtRes.error || !gtRes.data?.hex) {
+            this.toasterService.error('Error!', `Error!`);
+            return null;
+        }
+        const dRawTxRes = await this.rpcService.rpc('decoderawtransaction', [gtRes.data.hex]);
+        if (dRawTxRes.error || !dRawTxRes.data?.vout?.length) {
+            this.toasterService.error('Error!', `Error!`);
+            return null;
+        }
+        const utxo = dRawTxRes.data.vout.find((u: any) => u?.scriptPubKey?.addresses?.[0] === channelAddress);
+
+        if (!utxo || !utxo.n || !utxo.value) {
+            this.toasterService.error('Error!', `Error!`);
+            return null
+        }
+        const data = {
+            txid,
+            vout: utxo.n,
+            amount: parseFloat(utxo.value),
+        };
+        return data;
+    }
+
     private async buildLTCInstantTrade(data: any){
         const { tradeConf, cpCommitTx } = data;
-        const _cpCommitTx = {
-            txid: cpCommitTx.txid,
-            vout: 2,
-            amount: 0.00036,
-        };
+        const _cpCommitTx = cpCommitTx.utxoData;
+        if (!_cpCommitTx) this.toasterService.error('Error', `Error!`);
         const bbData: number = await this.getBestBlock(10);
         const { propIdDesired, amountDeisred, amountForSale, clientAddress, cpAddress } = tradeConf;
         const cpitLTCOptions = [ propIdDesired, amountDeisred.toString(), amountForSale.toString(), bbData ];
@@ -193,6 +226,33 @@ export class TradeService {
             this.toasterService.error(bLTCit.error || 'Trade Building Faild', `Trade Building Faild`);
         }
         return bLTCit.data;
+    }
+
+    private async buildTokenTokenTrade(data: any) {
+        const { tradeConf, cpCommitTx } = data;
+        const channelAddress = cpCommitTx.channelAddress.address;
+        const _cpCommitTx = cpCommitTx.utxoData;
+        if (!_cpCommitTx) this.toasterService.error('Error', `Error!`);
+        const bbData: number = await this.getBestBlock(10);
+        const { propIdDesired, amountDeisred, propIdForSale, amountForSale, clientAddress, cpAddress } = tradeConf;
+        const cpitOptions = [ propIdForSale, amountForSale.toString(), propIdDesired, amountDeisred.toString(), bbData ];
+        const cpitRes = await this.rpcService.rpc('tl_createpayload_instant_trade', cpitOptions)
+        if (cpitRes.error || !cpitRes.data) this.toasterService.error('Creating payload Failed', `Trade Building Faild`);
+        const commitData = [ clientAddress, channelAddress, propIdForSale,  amountForSale.toString() ];
+        const ctcRes = await this.rpcService.rpc('tl_commit_tochannel', commitData);
+        if (ctcRes.error || !ctcRes.data) this.toasterService.error('Commit Tokens to Channel Fail', `Fail`);
+        const _clientCommitTx = await this.extractUnspentDataFromTx(ctcRes.data, channelAddress);
+        if (!_clientCommitTx) this.toasterService.error('Error', `Error!`);
+        const clientVins = await this.rpcService.getUnspentsForFunding(clientAddress, 0.0005);
+        if (clientVins.error || !clientVins.data?.length) {
+            this.toasterService.error(clientVins.error || 'Trade Building Faild', `Trade Building Faild`);
+        }
+        const vins = [_cpCommitTx, _clientCommitTx, ...clientVins.data];
+        const bit = await this.rpcService.buildTokenTokenTrade(vins, cpitRes.data, clientAddress, cpAddress);
+        if (bit.error || !bit.data) {
+            this.toasterService.error(bit.error || 'Trade Building Faild', `Trade Building Faild`);
+        }
+        return bit.data;
     }
 
     protected async getBestBlock(n: number) {

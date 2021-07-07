@@ -6,6 +6,7 @@ import { LoadingService } from "./loading.service";
 
 export enum SocketEmits {
     LTC_INSTANT_TRADE = 'LTC_INSTANT_TRADE',
+    TOKEN_TOKEN_TRADE = 'TOKEN_TOKEN_TRADE',
 }
 
 @Injectable({
