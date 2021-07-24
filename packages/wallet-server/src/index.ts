@@ -21,18 +21,6 @@ class FastifyServer {
     }
 
     initSocketScript() {
-        // const socketScript = new SocketScript();
-        // const rpcConenctionOptions = {
-        //     user: 'user',
-        //     pass: 'passwrod',
-        // };
-        // socketScript.connect(rpcConenctionOptions).then((isConnected: boolean) => {
-        //     if (!isConnected) return;
-        //     socketScript.initListener({
-        //         address: 'ms51vD4rsaR3m7ueN1d1wyFFTHXBEJL8Cr',
-        //         logs: true,
-        //     });
-        // });
     }
 }
 
@@ -40,4 +28,3 @@ const port: number = 6654;
 const serverOptions: FastifyServerOptions = {};
 const myServer = new FastifyServer(port, serverOptions);
 myServer.start();
-myServer.initSocketScript();

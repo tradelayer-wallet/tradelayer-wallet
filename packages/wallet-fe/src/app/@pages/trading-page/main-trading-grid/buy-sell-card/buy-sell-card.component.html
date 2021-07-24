@@ -1,0 +1,32 @@
+<mat-card color='accent'>
+    <mat-card-header></mat-card-header>
+    <mat-card-content [formGroup]='buySellGroup'>
+        <mat-form-field appearance="outline" floatLabel="always" color='red' >
+          <input matInput type="number" placeholder="0" formControlName="price">
+          <span class='prefix' matPrefix>Price: </span>
+          <span class='sufix' matSuffix>{{ selectedMarket.second_token.shortName }}</span>
+          <mat-hint>current price: 0.00</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline" floatLabel="always" color='red' >
+            <input matInput type="number" placeholder="0" formControlName="amount">
+            <span class='prefix' matPrefix>Amount: </span>
+            <span class='sufix' matSuffix>{{ selectedMarket.first_token.shortName }}</span>
+            <mat-hint *ngIf='isLoggedIn'>
+              buy max: {{ getMaxAmount(true)}} / sell max: {{ getMaxAmount(false)}}
+            </mat-hint>
+        </mat-form-field>
+        <span *ngIf='isLoggedIn' style="margin-top: 1.5rem; color: whitesmoke">TOTAL: {{(buySellGroup.value['price'] * buySellGroup.value['amount']).toFixed(4)}}</span>
+    </mat-card-content>
+    <mat-card-footer>
+            <button 
+              mat-raised-button
+              color="success"
+              (click)='handleBuySell(true)'
+            >BUY</button>
+            <button
+              mat-raised-button
+              color="warn"
+              (click)='handleBuySell(false)'
+            >SELL</button>
+    </mat-card-footer>
+</mat-card>

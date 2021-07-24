@@ -1,0 +1,23 @@
+.disconnected-line {
+    display: flex;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 0.5rem 0.1rem black;
+    justify-content: center;
+    align-items: center;
+    padding: 0.25rem;
+    color: whitesmoke;
+    z-index: 999;
+    span {
+        padding: 0 0.25rem;
+        color: yellow;
+        cursor: pointer;
+        transition: color 0.25s;
+        &:hover { 
+            color: gray;
+        }
+    }
+}

@@ -4,8 +4,8 @@
   "description": "Server-side of the TradeLayer wallet",
   "main": "./src/index.ts",
   "scripts": {
-    "build": "webpack",
-    "build:watch": "webpack --watch"
+    "build": "webpack --config ./webpack.config.js",
+    "build:watch": "webpack --watch --config ./webpack.config.js"
   },
   "author": "Valentin Peshev",
   "license": "ISC",

@@ -1,0 +1,63 @@
+<div class="portfolio-page-container">
+    <mat-card>
+        <mat-card-header>Crypto Balance</mat-card-header>
+        <mat-card-content>
+            <mat-table [dataSource]="cryptoBalance" *ngIf='cryptoBalance?.length'>
+                <ng-container matColumnDef="address" sticky>
+                  <mat-header-cell *matHeaderCellDef>Address </mat-header-cell>
+                  <mat-cell *matCellDef="let element"> {{element.address}} </mat-cell>
+                </ng-container>
+            
+                <ng-container matColumnDef="total" >
+                    <mat-header-cell *matHeaderCellDef>Total </mat-header-cell>
+                    <mat-cell *matCellDef="let element"> {{element.total}} </mat-cell>
+                </ng-container>
+        
+                <ng-container matColumnDef="confirmed" sticky>
+                  <mat-header-cell *matHeaderCellDef>Available Balance </mat-header-cell>
+                  <mat-cell *matCellDef="let element"> {{element.confirmed}} </mat-cell>
+                </ng-container>
+            
+                <ng-container matColumnDef="unconfirmed" sticky>
+                    <mat-header-cell *matHeaderCellDef>Unavailable Balance </mat-header-cell>
+                    <mat-cell *matCellDef="let element"> {{element.unconfirmed}} </mat-cell>
+                </ng-container>
+
+                <mat-header-row *matHeaderRowDef="cryptoBalanceColumns; sticky: true"></mat-header-row>
+            
+                <mat-row *matRowDef="let row; columns: cryptoBalanceColumns;"></mat-row>
+              </mat-table>
+        </mat-card-content>
+    </mat-card>
+
+    <mat-card>
+        <mat-card-header>Tokens Balance</mat-card-header>
+        <mat-card-content>
+            <mat-table [dataSource]="tokensBalances" *ngIf='tokensBalances?.length'>
+                <ng-container matColumnDef="propertyid" sticky>
+                  <mat-header-cell *matHeaderCellDef>Token Id </mat-header-cell>
+                  <mat-cell *matCellDef="let element"> {{element.propertyid}} </mat-cell>
+                </ng-container>
+            
+                <ng-container matColumnDef="name" >
+                    <mat-header-cell *matHeaderCellDef>Token Name </mat-header-cell>
+                    <mat-cell *matCellDef="let element"> {{element.name || '-'}} </mat-cell>
+                </ng-container>
+        
+                <ng-container matColumnDef="balance" sticky>
+                  <mat-header-cell *matHeaderCellDef>Balance </mat-header-cell>
+                  <mat-cell *matCellDef="let element"> {{element.balance}} </mat-cell>
+                </ng-container>
+            
+                <ng-container matColumnDef="reserve" sticky>
+                    <mat-header-cell *matHeaderCellDef>Reserve </mat-header-cell>
+                    <mat-cell *matCellDef="let element"> {{element.reserve}} </mat-cell>
+                </ng-container>
+
+                <mat-header-row *matHeaderRowDef="tokensBalanceColums; sticky: true"></mat-header-row>
+            
+                <mat-row *matRowDef="let row; columns: tokensBalanceColums;"></mat-row>
+              </mat-table>
+        </mat-card-content>
+    </mat-card>
+</div>

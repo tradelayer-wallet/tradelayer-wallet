@@ -1,0 +1,49 @@
+<mat-toolbar>
+    <mat-toolbar-row>
+
+        <div class="left-side">
+            <button mat-icon-button (click)='toggleSideBar()'>
+                <mat-icon>menu</mat-icon>
+            </button>
+        </div>
+
+        <span class="spacer"></span>
+        <div class="right-side">
+            <!-- <div class="theme-switch">
+                <mat-icon>dark_mode</mat-icon>
+                <mat-slide-toggle (change)='toggleTheme()'></mat-slide-toggle>
+                <mat-icon>light_mode</mat-icon>
+            </div> -->
+            <div class='address' *ngIf='publicAddress'>
+                <span> {{ publicAddress }}  </span>
+                <span 
+                    *ngIf='getTotalOfAddress(publicAddress) >= 0; else spinner' 
+                    class='balance'
+                    (click)='updateBalance()'
+                >
+                    ({{ getTotalOfAddress(publicAddress).toFixed(6) }} LTC)
+                </span>
+            </div>
+            <button mat-icon-button (click)='isLoggedIn ? logOut() : navigateToLoginRoute()'>
+                <mat-icon>{{ isLoggedIn ? 'logout' : 'login' }}</mat-icon>
+            </button>
+        </div>
+
+    </mat-toolbar-row>
+</mat-toolbar>
+
+<div class="nav-container">
+    <nav mat-tab-nav-bar  mat-align-tabs="center">
+        <a
+            *ngFor='let route of mainRoutes'
+            mat-tab-link
+            (click)='navigateTo(route)'
+            [active]='selectedRoute === route'
+            [disabled]='route.disabled'
+        >{{ route.name }}</a>
+      </nav>
+</div>
+
+<ng-template #spinner>
+    <mat-spinner style='margin-left: 0.25rem' diameter='20' ></mat-spinner>
+</ng-template>

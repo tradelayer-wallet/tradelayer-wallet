@@ -6,5 +6,6 @@
     "sourceMap": false,
     "target": "ES5",
     "module": "commonjs",
-  }
+  },
+  "include": ["builder/**/*"],
 }

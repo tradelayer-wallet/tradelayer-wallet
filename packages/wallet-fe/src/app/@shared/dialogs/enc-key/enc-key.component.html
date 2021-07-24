@@ -1,0 +1,11 @@
+<div class="dialog-container">
+    <div class="title">Save your encrypted Key for address</div>
+    <div class="content-container">
+        <div class='textarea'>{{ data }}</div>
+    </div>
+    <div class="buttons">
+        <button mat-raised-button [cdkCopyToClipboard]="data" color="primary">Copy to Clipboard</button>
+        <button mat-raised-button (click)='save()' color="primary">Save</button>
+        <button mat-raised-button (click)='close()' color="warn">Close</button>
+    </div>
+</div>

@@ -2,7 +2,7 @@ const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 
 module.exports = {
-  entry: './builder/electron-builder.ts',
+  entry: path.resolve(__dirname, 'electron-builder.ts'),
   mode: 'production',
   target: 'node',
   module: {

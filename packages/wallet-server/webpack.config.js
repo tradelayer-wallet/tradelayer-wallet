@@ -19,7 +19,7 @@ module.exports = {
   },
   output: {
     filename: 'server.min.js',
-    path: path.resolve(__dirname, '../../dist'),
+    path: path.resolve(__dirname, '../../dist/server'),
     libraryTarget: 'umd',
     libraryExport: 'default'
   },
