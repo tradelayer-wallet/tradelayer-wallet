@@ -1,0 +1,60 @@
+{
+  "name": "tradelayer-wallet",
+  "version": "1.0.0",
+  "description": "Official Tradelayer Wallet",
+  "author": "Valentin Peshev",
+  "license": "ISC",
+  "main": "./dist/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "electron:pack": "electron-builder --dir",
+    "electron:dist": "electron-builder",
+    "electron:build": "webpack --config ./builder/builder-webpack.config.js",
+    "electron:build:watch": "webpack --config ./builder/builder-webpack.config.js --watch",
+    "server:build": "npm run build --prefix ./packages/wallet-server/",
+    "server:build:watch": "npm run build:watch --prefix ./packages/wallet-server/",
+    "all:install": "npm install & npm install --prefix ./packages/wallet-server/",
+    "all:build": "npm run server:build & npm run electron:build"
+  },
+  "build": {
+    "appId": "tl.wallet.1",
+    "productName": "TradeLayer Wallet",
+    "files": [
+      "dist/**/*",
+      "electron/electron-builder.js"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "dist"
+    },
+    "asar": false,
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "dist/assets/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "dist/assets/icon.png"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^14.17.5",
+    "electron": "^13.1.7",
+    "electron-builder": "^22.11.7",
+    "electron-reloader": "^1.2.1",
+    "ts-loader": "^9.2.4",
+    "typescript": "^4.3.5",
+    "webpack": "^5.46.0",
+    "webpack-cli": "^4.7.2",
+    "webpack-node-externals": "^3.0.0"
+  }
+}

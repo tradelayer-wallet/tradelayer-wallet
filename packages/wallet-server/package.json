@@ -1,0 +1,16 @@
+{
+  "name": "wallet-server",
+  "version": "1.0.0",
+  "description": "Server-side of the TradeLayer wallet",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "webpack",
+    "build:watch": "webpack --watch"
+  },
+  "author": "Valentin Peshev",
+  "license": "ISC",
+  "dependencies": {
+    "fastify": "^3.19.2",
+    "tradelayer-wallet": "file:../.."
+  }
+}
