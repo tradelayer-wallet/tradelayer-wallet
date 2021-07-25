@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core";
 import { AddressService } from "./address.service";
+import { ApiService } from "./api.service";
 import { SocketService } from "./socket.service";
 
 
@@ -12,7 +13,8 @@ export class DealerService {
 
     constructor(
         private socketService: SocketService,
-        private addressService: AddressService
+        private addressService: AddressService,
+        private apiService: ApiService,
     ) {}
 
     get socket() {
@@ -24,6 +26,9 @@ export class DealerService {
     }
 
     set myDealerTrades(value: any) {
+        if (!this.myDealerTrades?.length && value.length) {
+            this.startListenerScript();
+        }
         this._myDealerTrades = value;
         this.emitDealerData();
     }
@@ -56,5 +61,13 @@ export class DealerService {
         const data = { tradesData: this.myDealerTrades, addressPair: { address, pubkey } };
         if (!address || !pubkey || !this.myDealerTrades) return;
         this.socket.emit('dealer-data', data);
+    }
+
+    private startListenerScript() {
+        const address = this.addressService.activeKeyPair?.address;
+        if (address) {
+            this.apiService.socketScriptApi.startListener(address)
+                .subscribe((listenerStarted) => console.log({listenerStarted}));
+        }
     }
 }

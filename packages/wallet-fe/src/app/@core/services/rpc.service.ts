@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { SocketScriptApiService } from "../apis/ss-api.service";
+import { ApiService } from "./api.service";
 
 export interface RPCCredentials {
   host: string,
@@ -21,7 +22,7 @@ export class RpcService {
 
     constructor(
       private http: HttpClient,
-      private socketApiService: SocketScriptApiService
+      private apiService: ApiService,
     ) {}
 
     get isConnected() {
@@ -48,7 +49,7 @@ export class RpcService {
     }
 
     private _sendCredsToHomeApi(credentials: RPCCredentials) {
-      this.socketApiService.connect(credentials)
+      this.apiService.socketScriptApi.connect(credentials)
         .subscribe((res: any) => console.log({res}));
     }
   

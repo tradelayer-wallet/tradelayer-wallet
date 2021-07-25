@@ -21,7 +21,6 @@ export class AuthService {
         private addressService: AddressService,
         private dialogService: DialogService,
         private toastrService: ToastrService,
-        private socketService: SocketService,
         private balanceService: BalanceService,
         private apiService: ApiService,
         private txsService: TxsService,

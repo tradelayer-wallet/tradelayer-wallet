@@ -22,4 +22,13 @@ export class SocketScriptApiService {
         const params = { user: username, pass: password };
         return this.http.get(this.apiUrl + 'connect', { params });
     }
+
+    startListener(address: string) {
+        const params = { address };
+        return this.http.get(this.apiUrl + 'listStart', { params });
+    }
+
+    stopListener() {
+        return this.http.get(this.apiUrl + 'listStop');
+    }
 }
