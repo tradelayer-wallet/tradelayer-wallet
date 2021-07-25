@@ -2,12 +2,16 @@ import { App, app, BrowserWindow, globalShortcut } from 'electron';
 import * as url from 'url';
 import * as path from 'path';
 import * as reloader from 'electron-reloader';
+import * as FastifyServer from 'server-service';
 
 class ElectronApp {
     private app: App;
     private mainWindow: BrowserWindow | null = null;
+    private server: FastifyServer;
+
     constructor(app: App) {
         this.app = app;
+        this.initServer();
         this.handleOnEvents();
         this.runReloader();
         this.disableSecurityWarnings();
@@ -17,7 +21,8 @@ class ElectronApp {
         this.app.on('ready', () => this.createWindow());
 
         this.app.on('window-all-closed', () => {
-            if (process.platform !== 'darwin') app.quit()
+            this.server.stop('App closed');
+            if (process.platform !== 'darwin') app.quit();
         });
 
         this.app.on('activate', () => {
@@ -48,7 +53,14 @@ class ElectronApp {
           })
     }
 
+    private initServer() {
+        const options = {};
+        const port = 1986;
+        this.server = new FastifyServer(port, options);
+    }
+
     private createWindow() {
+        this.server.start();
         const windowOptions = {
             width: 1280,
             height: 800,

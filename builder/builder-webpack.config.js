@@ -22,5 +22,10 @@ module.exports = {
     libraryTarget: 'umd',
     libraryExport: 'default'
   },
-  externals: [nodeExternals()],
+  externals: [
+    {
+      'server-service': './server'
+    },
+    nodeExternals(),
+  ],
 };

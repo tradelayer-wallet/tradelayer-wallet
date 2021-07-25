@@ -18,7 +18,7 @@ module.exports = {
     extensions: ['.ts', '.js'],
   },
   output: {
-    filename: 'server.min.js',
+    filename: 'index.js',
     path: path.resolve(__dirname, '../../dist/server'),
     libraryTarget: 'umd',
     libraryExport: 'default'
