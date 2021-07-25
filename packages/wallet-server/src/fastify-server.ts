@@ -1,25 +1,43 @@
 import Fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
+// todo: declare the type;
+import * as SocketScript from './tlss.min.js';
+import { handleRoutes } from './routes';
 
 export class FastifyServer {
-    private server: FastifyInstance;
+    private _server: FastifyInstance;
+    private _socketScript: SocketScript;
     constructor(
         private port: number, 
         options: FastifyServerOptions,
     ) {
-        this.server = Fastify(options);
+        this._server = Fastify(options);
     }
 
-     start() {
+    get server() {
+        return this._server
+    }
+
+    get socketScript() {
+        return this._socketScript;
+    }
+
+    start() {
+        this.initSocketScript();
+        this.handleRoutes();
         this.server.listen(this.port)
-            .then((address) => console.log(`Fastify Server Started: ${address}`))
             .catch((error) => this.stop(error.message));
     }
 
     stop(message: string) {
-        console.log(message);
+        this.server.log.error(message);
         process.exit(1);
     }
 
-    initSocketScript() {
+    private handleRoutes() {
+        handleRoutes(this.server, this.socketScript);
+    }
+
+    private initSocketScript() {
+        this._socketScript = new SocketScript();
     }
 }

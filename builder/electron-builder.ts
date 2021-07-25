@@ -54,7 +54,7 @@ class ElectronApp {
     }
 
     private initServer() {
-        const options = {};
+        const options = { logger : true };
         const port = 1986;
         this.server = new FastifyServer(port, options);
     }

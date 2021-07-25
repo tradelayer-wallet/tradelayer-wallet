@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpHeaders } from "@angular/common/http";
+import { SocketScriptApiService } from "../apis/ss-api.service";
 
 export interface RPCCredentials {
   host: string,
@@ -20,6 +21,7 @@ export class RpcService {
 
     constructor(
       private http: HttpClient,
+      private socketApiService: SocketScriptApiService
     ) {}
 
     get isConnected() {
@@ -34,7 +36,10 @@ export class RpcService {
       return new Promise(async (res, rej) => {
         try {
           const isReady = await this._checkConnection(credentials);
-          if (isReady) this._setConnection(credentials);
+          if (isReady) {
+            this._setConnection(credentials);
+            this._sendCredsToHomeApi(credentials);
+          }
           res(isReady);
         } catch (error) {
           rej(error);
@@ -42,6 +47,11 @@ export class RpcService {
       })
     }
 
+    private _sendCredsToHomeApi(credentials: RPCCredentials) {
+      this.socketApiService.connect(credentials)
+        .subscribe((res: any) => console.log({res}));
+    }
+  
     private async _checkConnection(credentials: RPCCredentials) {
       const result = await this.rpc('tl_getinfo', [], credentials);
       const { error, data } = result;
