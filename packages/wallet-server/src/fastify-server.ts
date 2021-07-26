@@ -1,6 +1,6 @@
 import Fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
 // todo: declare the type;
-import * as SocketScript from './tlss.min.js';
+import SocketScript from './socket-script';
 import { handleRoutes } from './routes';
 
 export class FastifyServer {

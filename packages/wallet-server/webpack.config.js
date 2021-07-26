@@ -26,6 +26,8 @@ module.exports = {
   externals: [
     'long',
     'pino-pretty',
+    'bufferutil',
+    'utf-8-validate'
   ],
   optimization: {
     minimizer: [
