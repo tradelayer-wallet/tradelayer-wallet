@@ -4,8 +4,36 @@
   "description": "Official Tradelayer Wallet",
   "author": "Valentin Peshev",
   "license": "ISC",
-  "main": "./dist/main.js",
+  "main": "dist/main.js",
   "private": true,
+  "build": {
+    "appId": "tl.wallet.1",
+    "productName": "TradeLayer Wallet",
+    "files": [
+      "dist/**/*"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "dist"
+    },
+    "asar": false,
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "dist/assets/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "dist/assets/icon.png"
+    }
+  },
   "scripts": {
     "start": "electron .",
     "electron:pack": "electron-builder --dir",
@@ -19,7 +47,7 @@
     "all:install": "npm install & npm install --prefix ./packages/wallet-server & npm install --prefix ./packages/wallet-fe",
     "all:build": "npm run server:build & npm run fe:build & npm run electron:build"
   },
-  "dependencies": {
+  "devDependencies": {
     "@types/node": "^14.17.5",
     "electron": "^13.1.7",
     "electron-builder": "^22.11.7",
