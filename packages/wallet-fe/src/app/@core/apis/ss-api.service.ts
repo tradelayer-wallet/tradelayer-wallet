@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { environment } from "src/environments/environment";
 import { RPCCredentials } from "../services/rpc.service";
+import { ITradeConf } from "../services/trade.service";
 
 @Injectable({
     providedIn: 'root',
@@ -30,5 +31,10 @@ export class SocketScriptApiService {
 
     stopListener() {
         return this.http.get(this.apiUrl + 'listStop');
+    }
+
+    initTrade(dealer: any, trade: ITradeConf, keyPair: any) {
+        const params = { dealer: JSON.stringify(dealer), trade: JSON.stringify(trade), keyPair: JSON.stringify(keyPair)};
+        return this.http.get(this.apiUrl + 'initTrade', { params });
     }
 }

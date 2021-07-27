@@ -5,8 +5,7 @@ import ltcUtils from '../../utils/litecore.util'
 import { AddressService, IKeyPair } from "./address.service";
 import { ApiService } from "./api.service";
 import { BalanceService } from "./balance.service";
-import { DialogService, DialogTypes } from "./dialogs.service";
-import { SocketService } from "./socket.service";
+import { DialogService } from "./dialogs.service";
 import { TxsService } from "./txs.service";
 
 @Injectable({
@@ -73,11 +72,9 @@ export class AuthService {
                 this.balanceService.updateTokensBalanceForAddress(pair.address)
             }
         this.router.navigateByUrl(this.savedFromUrl);
-        // this.socketService.socketConnect();
     }
 
     logout() {
-        // this.socketService.disconnect();
         this.addressService.removeAllKeyPairs();
         this.balanceService.removeAllAddresses();
         this.txsService.pendingTxs = [];

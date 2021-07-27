@@ -22,7 +22,7 @@ export class SocketService {
     ) {}
 
     private get socketServerUrl(): string {
-        return environment.socketServerUrl;
+        return environment.homeApiUrl;
     }
 
     get socket() {
@@ -32,7 +32,7 @@ export class SocketService {
 
     socketConnect() {
         this.loadingService.isLoading = true;
-        this._socket = io(this.socketServerUrl, { reconnection: false, requestTimeout: 2000 });
+        this._socket = io(this.socketServerUrl);
         this.handleMainSocketEvents()
         return this._socket;
     }

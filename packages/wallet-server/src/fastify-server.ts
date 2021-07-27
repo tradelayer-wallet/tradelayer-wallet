@@ -2,6 +2,7 @@ import Fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
 // todo: declare the type;
 import SocketScript from './socket-script';
 import { handleRoutes } from './routes';
+import * as SocketsService from './sockets';
 
 export class FastifyServer {
     private _server: FastifyInstance;
@@ -23,6 +24,7 @@ export class FastifyServer {
 
     start() {
         this.initSocketScript();
+        this.handleSockets();
         this.handleRoutes();
         this.server.listen(this.port)
             .catch((error) => this.stop(error.message));
@@ -35,6 +37,11 @@ export class FastifyServer {
 
     private handleRoutes() {
         handleRoutes(this.server, this.socketScript);
+    }
+
+    private handleSockets() {
+        SocketsService.initServerConnection();
+        SocketsService.initWalletConnection(this.server, this.socketScript);
     }
 
     private initSocketScript() {

@@ -59,8 +59,9 @@ export abstract class Receiver {
 
     protected init(_host: string): void {
         const host = `http://${_host}:9876`;
-        this.socket = io(host);
-        this.socket.on('connect', this.onConnection.bind(this));
+            this.socket = io(host, { timeout: 1000, reconnectionAttempts: 2 });
+            this.socket.on('connect', this.onConnection.bind(this));
+            this.socket.on('connect_error', () => this.terminateTrade(`Cant create Stablish Connection with ${host}`));
     }
 
     protected close(): void {

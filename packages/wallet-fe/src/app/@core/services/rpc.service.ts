@@ -1,6 +1,5 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpHeaders } from "@angular/common/http";
-import { SocketScriptApiService } from "../apis/ss-api.service";
 import { ApiService } from "./api.service";
 
 export interface RPCCredentials {
