@@ -17,7 +17,6 @@ export const socketRoutes = (socketScript: SocketScript) => {
         });
     
         fastify.get('/listStart', (request, reply) => {
-            console.log("listStart!");
             const { address } = request.query as { address: string };
             if (!address) {
                 reply.send(false);

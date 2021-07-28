@@ -3,7 +3,6 @@ import { Subject } from "rxjs";
 import { Socket } from "socket.io-client";
 import { io } from 'socket.io-client'
 import { environment } from '../../../environments/environment';
-import { LoadingService } from "./loading.service";
 
 export enum SocketEmits {
     LTC_INSTANT_TRADE = 'LTC_INSTANT_TRADE',
@@ -16,13 +15,19 @@ export enum SocketEmits {
 
 export class SocketService {
     private _socket: Socket | null = null;
+    private _apiServerConnected: boolean = false;
 
-    constructor(
-        private loadingService: LoadingService,
-    ) {}
+    apiServerWaiting: boolean = true;
+    localServerWaiting: boolean = true;
+
+    constructor() {}
 
     private get socketServerUrl(): string {
         return environment.homeApiUrl;
+    }
+
+    get apiServerConnected() {
+        return this._apiServerConnected;
     }
 
     get socket() {
@@ -30,9 +35,13 @@ export class SocketService {
         return this._socket;
     }
 
+    get serversWaiting(): boolean {
+        return this.apiServerWaiting || this.localServerWaiting;
+    }
+
     socketConnect() {
-        this.loadingService.isLoading = true;
-        this._socket = io(this.socketServerUrl);
+        this.localServerWaiting = true;
+        this._socket = io(this.socketServerUrl, { reconnectionAttempts: 2 });
         this.handleMainSocketEvents()
         return this._socket;
     }
@@ -43,10 +52,43 @@ export class SocketService {
         }
     };
 
+    apiReconnect() {
+        this.apiServerWaiting = true;
+        this.socket.emit('api-recoonect');
+    }
+
     private handleMainSocketEvents() {
         if (this.socket) {
-            this.socket.on('connect', () => this.loadingService.isLoading = false);
-            this.socket.on('connect_error', () => this.loadingService.isLoading = false)
+            this.socket.on('connect', () => {
+                console.log(`Connect to the local Server`);
+                this.localServerWaiting = false;
+            });
+
+            this.socket.on('connect_error', () => {
+                console.log(`Local Server Connection Error`);
+                this.localServerWaiting = false;
+            });
+
+            this.socket.on('disconnect', () => {
+                console.log(`Disconnected from the Local Server`);
+            });
+
+            this.socket.on('server_connect', () => {
+                console.log(`Connect to the API Server`);
+                this._apiServerConnected = true;
+                this.apiServerWaiting = false;
+            });
+
+            this.socket.on('server_connect_error', () => {
+                console.log(`API Server Connection Error`);
+                this._apiServerConnected = false;
+                this.apiServerWaiting = false;
+            });
+
+            this.socket.on('server_disconnect', () => {
+                console.log(`Disconnected from the API Server`);
+                this._apiServerConnected = false;
+            });
         }
     }
 }

@@ -31,6 +31,7 @@ class WalletSocketSevice {
 
     private onConnection(socket: Socket) {
         console.log(`FE app Connected`);
+        initServerConnection();
         this.startBlockCounting(socket);
         this.handleFromWalletToServer(socket, 'orderbook-market-filter');
         this.handleFromWalletToServer(socket, 'update-orderbook');
@@ -38,6 +39,8 @@ class WalletSocketSevice {
 
         this.handleFromServerToWallet(socket, 'orderbook-data');
         this.handleFromServerToWallet(socket, 'aksfor-orderbook-update');
+
+        socket.on('api-recoonect', () => initServerConnection());
     }
 
     private handleFromServerToWallet(socket: Socket, eventName:string) {
@@ -70,16 +73,26 @@ class WalletSocketSevice {
 class ServerSocketService {
     public socket: SocketClient;
     constructor() {
+        console.log('hmmmm');
         const host = 'http://66.228.57.16:76'
-        this.socket = io(host, { timeout: 1000, reconnectionAttempts: 2 });
+        this.socket = io(host, { reconnection: false });
         this.handleEvents();
     }
 
     private handleEvents() {
-        this.socket.on('connect', this.onConnection);
-    }
+        this.socket.on('connect', () => {
+            console.log(`Connected to the API Server`);
+            walletSocketSevice.io.emit('server_connect');
+        });
 
-    private onConnection() {
-        console.log(`Connected to the API Server`);
+        this.socket.on('disconnect', () => {
+            console.log(`Disconnected from the API Server`);
+            walletSocketSevice.io.emit('server_disconnect');
+        });
+
+        this.socket.on('connect_error', () => {
+            console.log(`API Server Connection Error`);
+            walletSocketSevice.io.emit('server_connect_error');
+        });
     }
 }

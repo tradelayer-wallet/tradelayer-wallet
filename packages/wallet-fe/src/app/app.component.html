@@ -1,10 +1,11 @@
-<tl-side-nav *ngIf='serverConnected; else disconnectedComponent'>
-    <tl-layout>
+<tl-side-nav *ngIf='apiServerConnected && isRPCConnected; else disconnectedLines'>
+    <tl-layout *ngIf='isRPCConnected'>
         <router-outlet></router-outlet>
     </tl-layout>
 </tl-side-nav>
 
-<ng-template #disconnectedComponent>
-    <tl-disconnected-line *ngIf='!serverConnected'></tl-disconnected-line>
+<ng-template #disconnectedLines>
+    <tl-disconnected-line serverType='LOCAL' *ngIf='isRPCConnected && !serverConnected'></tl-disconnected-line>
+    <tl-disconnected-line serverType='API' *ngIf='isRPCConnected && serverConnected && !apiServerConnected'></tl-disconnected-line>
 </ng-template>
 <overlay-loading *ngIf='isLoading'></overlay-loading>

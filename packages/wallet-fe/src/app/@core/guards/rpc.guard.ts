@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { CanActivate, Router } from '@angular/router';
 import { DialogService, DialogTypes } from '../services/dialogs.service';
 import { RpcService } from '../services/rpc.service';
-import { environment } from '../../../environments/environment';
 
 @Injectable({
     providedIn: 'root',
@@ -15,7 +14,6 @@ export class RPCGuard implements CanActivate {
     ) {}
 
     async canActivate(): Promise<boolean> {
-        if (environment.rpcRequire === false) return true;
         const isConnected = this.rpcService.isConnected;
         if (isConnected) return this.rpcService.isConnected;
     

@@ -40,7 +40,6 @@ export class FastifyServer {
     }
 
     private handleSockets() {
-        SocketsService.initServerConnection();
         SocketsService.initWalletConnection(this.server, this.socketScript);
     }
 

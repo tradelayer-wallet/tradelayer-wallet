@@ -1,7 +1,8 @@
 import { Component } from '@angular/core';
+import { LoadingService } from './@core/services/loading.service';
+import { RpcService } from './@core/services/rpc.service';
 
 import { SocketService } from './@core/services/socket.service';
-import { LoadingService } from './@core/services/loading.service';
 
 @Component({
   selector: 'tl-root',
@@ -11,14 +12,23 @@ import { LoadingService } from './@core/services/loading.service';
 export class AppComponent {
   constructor(
     private socketService: SocketService,
-    private loadingService: LoadingService
-  ) {}
+    private loadginService: LoadingService,
+    private rpcService: RpcService,
+  ) { }
 
   get isLoading(): boolean {
-    return this.loadingService.isLoading;
+    return this.socketService.serversWaiting || this.loadginService.isLoading;
   }
 
   get serverConnected() {
     return this.socketService.socket?.connected;
+  }
+
+  get apiServerConnected() {
+    return this.socketService.apiServerConnected;
+  }
+
+  get isRPCConnected() {
+    return this.rpcService.isConnected;
   }
 }
