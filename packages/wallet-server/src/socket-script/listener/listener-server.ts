@@ -1,4 +1,3 @@
-import { createServer } from "http";
 import { Server, Socket } from "socket.io";
 import { TClient } from "../common/types";
 import { Listener } from "./listener";
@@ -39,8 +38,9 @@ export class ListenerServer {
   }
 
   private init(): void {
+    console.log(`init Listener Script`, this.port);
     const socketOptions = { cors: { origin: "*", methods: ["GET", "POST"] } };
-    this.io = new Server(this.port, socketOptions)
+    this.io = require('socket.io')(this.port, { socketOptions });
     this.io.on("connection", this.onConnection.bind(this));
   }
 

@@ -59,7 +59,6 @@ export abstract class Receiver {
 
     protected init(_host: string): void {
         const host = `http://${_host}:9876`;
-        console.log({host});
             this.socket = io(host);
             this.socket.on('connect', this.onConnection.bind(this));
             this.socket.on('connect_error', (err) => {
