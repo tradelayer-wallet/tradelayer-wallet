@@ -5,12 +5,12 @@ import { LITOptions, TradeTypes } from "../socket-script/common/types";
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
         fastify.get('/connect', (request, reply) => {
-            const { user, pass } = request.query as { user: string, pass: string};
-            if (!user || !pass ) {
+            const { user, pass, port } = request.query as { user: string, pass: string, port: number};
+            if (!user || !pass || !port) {
                 reply.send(false);
                 return;
             };
-            socketScript.connect({ user, pass })
+            socketScript.connect({ user, pass, port })
                 .then((isConnected: boolean) => {
                     reply.send(isConnected);
                 });
