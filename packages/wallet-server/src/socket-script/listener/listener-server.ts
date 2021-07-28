@@ -1,9 +1,10 @@
-import { Socket } from "socket.io";
+import { createServer } from "http";
+import { Server, Socket } from "socket.io";
 import { TClient } from "../common/types";
 import { Listener } from "./listener";
 
 export class ListenerServer {
-    private io: any;
+    private io: Server;
     private port: number;
     private address: string;
     private pubkey: string;
@@ -38,9 +39,12 @@ export class ListenerServer {
   }
 
   private init(): void {
-    const io = require('scoket.io');
-    this.io = io(this.port);
-    console.log(`Start Listener Server on port ${this.port}`);
+    const httpServer = createServer();
+    const socketOptions = { cors: { origin: "*", methods: ["GET", "POST"] } };
+    httpServer.listen(this.port, () => {
+      console.log(`Start Listener Server on port ${this.port}`);
+    });
+    this.io = new Server(httpServer, socketOptions);
     this.io.on("connection", this.onConnection.bind(this));
   }
 
