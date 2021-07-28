@@ -39,16 +39,13 @@ export class ListenerServer {
   }
 
   private init(): void {
-    const httpServer = createServer();
     const socketOptions = { cors: { origin: "*", methods: ["GET", "POST"] } };
-    httpServer.listen(this.port, () => {
-      console.log(`Start Listener Server on port ${this.port}`);
-    });
-    this.io = new Server(httpServer, socketOptions);
+    this.io = new Server(this.port, socketOptions)
     this.io.on("connection", this.onConnection.bind(this));
   }
 
   private onConnection(socket: Socket): void {
+    console.log(`CONNECTION !`)
     new Listener(socket, this.address, this.pubkey, this.client, this.logs);
   }
 }
