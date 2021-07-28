@@ -73,7 +73,6 @@ class WalletSocketSevice {
 class ServerSocketService {
     public socket: SocketClient;
     constructor() {
-        console.log('hmmmm');
         const host = 'http://66.228.57.16:76'
         this.socket = io(host, { reconnection: false });
         this.handleEvents();
