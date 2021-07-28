@@ -19,8 +19,8 @@ export class SocketScriptApiService {
     }
 
     connect(creds: RPCCredentials) {
-        const { username, password } = creds;
-        const params = { user: username, pass: password };
+        const { username, password, port } = creds;
+        const params = { user: username, pass: password, port };
         return this.http.get(this.apiUrl + 'connect', { params });
     }
 

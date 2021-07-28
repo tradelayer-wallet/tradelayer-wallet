@@ -48,7 +48,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
                         address: keyPairObj.address,
                         pubkey: keyPairObj.pubKey,
                     };
-                    const options = { logs: false, send: false };
+                    const options = { logs: true, send: false };
                     const trade = socketScript.ltcInstantTrade(host, tradeOptions, options);
                     trade.onReady().then(onReady => {
                         reply.send(onReady);
