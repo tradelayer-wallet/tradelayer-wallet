@@ -33,8 +33,8 @@ export class SocketScriptApiService {
         return this.http.get(this.apiUrl + 'listStop');
     }
 
-    initTrade(dealer: any, trade: ITradeConf, keyPair: any) {
-        const params = { dealer: JSON.stringify(dealer), trade: JSON.stringify(trade), keyPair: JSON.stringify(keyPair)};
+    initTrade(trade: ITradeConf, keyPair: any) {
+        const params = { trade: JSON.stringify(trade), keyPair: JSON.stringify(keyPair)};
         return this.http.get(this.apiUrl + 'initTrade', { params });
     }
 }

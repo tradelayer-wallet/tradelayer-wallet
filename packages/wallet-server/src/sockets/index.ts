@@ -15,6 +15,7 @@ export const initServerConnection = () => {
 
 class WalletSocketSevice {
     public io: Server;
+    public currentSocket: Socket;
     private socketScript: SocketScript;
     private lastBlock: number = 0;
 
@@ -31,20 +32,14 @@ class WalletSocketSevice {
 
     private onConnection(socket: Socket) {
         console.log(`FE app Connected`);
+        this.currentSocket = socket;
         initServerConnection();
         this.startBlockCounting(socket);
         this.handleFromWalletToServer(socket, 'orderbook-market-filter');
         this.handleFromWalletToServer(socket, 'update-orderbook');
         this.handleFromWalletToServer(socket, 'dealer-data');
 
-        this.handleFromServerToWallet(socket, 'orderbook-data');
-        this.handleFromServerToWallet(socket, 'aksfor-orderbook-update');
-
         socket.on('api-recoonect', () => initServerConnection());
-    }
-
-    private handleFromServerToWallet(socket: Socket, eventName:string) {
-        serverSocketService.socket.on(eventName, (data: any) => socket.emit(eventName, data));
     }
 
     private handleFromWalletToServer(socket: Socket, eventName: string) {
@@ -93,5 +88,14 @@ class ServerSocketService {
             console.log(`API Server Connection Error`);
             walletSocketSevice.io.emit('server_connect_error');
         });
+
+        this.handleFromServerToWallet('error_message');
+        this.handleFromServerToWallet('opened-positions');
+        this.handleFromServerToWallet('orderbook-data');
+        this.handleFromServerToWallet('aksfor-orderbook-update');
+    }
+    
+    private handleFromServerToWallet(eventName:string) {
+        this.socket.on(eventName, (data: any) => walletSocketSevice.currentSocket.emit(eventName, data));
     }
 }

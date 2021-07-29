@@ -43,48 +43,52 @@ export class TradeService {
     }
 
     initNewTrade(trade: ITradeConf) {
-        this._initTrade(trade);
+        // this._initTrade(trade);
+        this.__initNewTrade(trade);
     }
 
-    private async _initTrade(tradeConf: ITradeConf) {
-        const savedDealer = await this.checkSavedDealers(tradeConf);
-        if (savedDealer) return ;
-        const dealerObj: any = await this.getDealerFromServer(tradeConf);
-        if (!dealerObj) {
-            this.dealerService.addToDealerTrades(tradeConf);
-            return;
-        }
-        const { dealer, unfilled } = dealerObj;
-        if (unfilled) tradeConf.amount = dealer.amount;
-        await this.tradeWithDealer(dealer.conn, tradeConf);
-        if (unfilled) this._initTrade(unfilled);
+    private async __initNewTrade(trade: ITradeConf) {
+        const res = await this.ssApi.initTrade(trade, this.keyPair).toPromise();
     }
 
-    private async checkSavedDealers(tradeConf: ITradeConf) {
-        const { savedDelalers } = window.localStorage;
-        if (!savedDelalers?.length) return false;
-        for (let i = 0; i < savedDelalers.length; i++) {
-            const isGoodDeal = await this.askDealerForTrade(savedDelalers[i], tradeConf);
-            if (isGoodDeal) {
-                this.tradeWithDealer(savedDelalers[i], tradeConf);
-                return true;
-            }
-        }
-        return false;
-    }
+    // private async _initTrade(tradeConf: ITradeConf) {
+    //     const savedDealer = await this.checkSavedDealers(tradeConf);
+    //     if (savedDealer) return ;
+    //     const dealerObj: any = await this.getDealerFromServer(tradeConf);
+    //     if (!dealerObj) {
+    //         this.dealerService.addToDealerTrades(tradeConf);
+    //         return;
+    //     }
+    //     const { dealer, unfilled } = dealerObj;
+    //     if (unfilled) tradeConf.amount = dealer.amount;
+    //     await this.tradeWithDealer(dealer.conn, tradeConf);
+    //     if (unfilled) this._initTrade(unfilled);
+    // }
 
-    private async getDealerFromServer(tradeConf: ITradeConf) {
-        return await this.apiService.tradeApi.findDealerByTrade(tradeConf).toPromise();
-    }
+    // private async checkSavedDealers(tradeConf: ITradeConf) {
+    //     const { savedDelalers } = window.localStorage;
+    //     if (!savedDelalers?.length) return false;
+    //     for (let i = 0; i < savedDelalers.length; i++) {
+    //         const isGoodDeal = await this.askDealerForTrade(savedDelalers[i], tradeConf);
+    //         if (isGoodDeal) {
+    //             this.tradeWithDealer(savedDelalers[i], tradeConf);
+    //             return true;
+    //         }
+    //     }
+    //     return false;
+    // }
 
-    private async tradeWithDealer(dealer: any, tradeConf: ITradeConf) {
-        const result = await this.ssApi.initTrade(dealer, tradeConf, this.keyPair).toPromise();
-        console.log({result});
-    }
+    // private async getDealerFromServer(tradeConf: ITradeConf) {
+    //     return await this.apiService.tradeApi.findDealerByTrade(tradeConf).toPromise();
+    // }
 
-    private async askDealerForTrade(dealer: any, tradeConf: ITradeConf) {
-        //
-        return false;
-    }
+    // private async tradeWithDealer(dealer: any, tradeConf: ITradeConf) {
+    //     const result = await this.ssApi.initTrade(dealer, tradeConf, this.keyPair).toPromise();
+    //     console.log({result});
+    // }
+
+    // private async askDealerForTrade(dealer: any, tradeConf: ITradeConf) {
+    //     return false;
+    // }
 
 }

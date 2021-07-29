@@ -1,7 +1,6 @@
 import { FastifyInstance } from "fastify"
 import SocketScript from "../socket-script";
-import { LITOptions, TradeTypes } from "../socket-script/common/types";
-
+import { serverSocketService } from '../sockets'
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
         fastify.get('/connect', (request, reply) => {
@@ -31,32 +30,15 @@ export const socketRoutes = (socketScript: SocketScript) => {
         });
     
         fastify.get('/initTrade', (request, reply) => {
-            const { dealer, trade, keyPair } = request.query as { dealer: string, trade: string, keyPair: string };
+            const { trade, keyPair } = request.query as { trade: string, keyPair: string };
             try {
-                const dealerObj = JSON.parse(dealer);
                 const tradeObj = JSON.parse(trade);
                 const keyPairObj = JSON.parse(keyPair);
-                if (tradeObj.propIdForSale === 999 || tradeObj.propIdDesired === 999) {
-                    const isBuy = tradeObj.propIdForSale === 999; 
-                    const host = dealerObj.ip;
-                    const tradeOptions: LITOptions = {
-                        type: TradeTypes.LTC_INSTANT_TRADE,
-                        propertyid: isBuy ? tradeObj.propIdDesired : tradeObj.propIdForSale,
-                        amount: tradeObj.amount,
-                        price: tradeObj.price,
-                        address: keyPairObj.address,
-                        pubkey: keyPairObj.pubKey,
-                    };
-                    const options = { logs: true, send: false };
-                    const trade = socketScript.ltcInstantTrade(host, tradeOptions, options);
-                    trade.onReady().then(onReady => {
-                        reply.send(onReady);
-                    })
-                } else {
-                    reply.send({ data: 'half-Success!' });
-                }
+                const { address, pubKey } = keyPairObj;
+                serverSocketService.socket.emit('init-trade', {...tradeObj, address, pubKey});
+                reply.send({data: 'Sent'});
             } catch(error) {
-                reply.send({ error: error.message || 'Fail building Trade' });
+                reply.send({ error: error.message });
             }
         });
 

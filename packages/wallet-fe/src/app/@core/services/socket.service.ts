@@ -1,4 +1,5 @@
 import { Injectable } from "@angular/core";
+import { ToastrService } from "ngx-toastr";
 import { Subject } from "rxjs";
 import { Socket } from "socket.io-client";
 import { io } from 'socket.io-client'
@@ -20,7 +21,9 @@ export class SocketService {
     apiServerWaiting: boolean = true;
     localServerWaiting: boolean = true;
 
-    constructor() {}
+    constructor(
+        private toasterService: ToastrService,
+    ) {}
 
     private get socketServerUrl(): string {
         return environment.homeApiUrl;
@@ -88,6 +91,14 @@ export class SocketService {
             this.socket.on('server_disconnect', () => {
                 console.log(`Disconnected from the API Server`);
                 this._apiServerConnected = false;
+            });
+
+            this.socket.on('error_message', (message: string) => {
+                this.toasterService.error(message || `Undefined Error`, 'Error');
+            });
+
+            this.socket.on('opened-positions', (openedPositions: any[]) => {
+                console.log(openedPositions);
             });
         }
     }
