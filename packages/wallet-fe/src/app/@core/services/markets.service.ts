@@ -38,6 +38,9 @@ export class MarketsService {
         private socketServic: SocketService,
     ) {
         this.getMarkets();
+        this.socket.on('server_connect', () => {
+            this.getMarkets();
+        });
     }
 
     get marketsTypes() {
