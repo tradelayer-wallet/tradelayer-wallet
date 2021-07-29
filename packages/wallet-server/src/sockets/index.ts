@@ -93,6 +93,11 @@ class ServerSocketService {
         this.handleFromServerToWallet('opened-positions');
         this.handleFromServerToWallet('orderbook-data');
         this.handleFromServerToWallet('aksfor-orderbook-update');
+
+        this.socket.on('new-channel', (trade: any) => {
+            console.log(`New Channel Opened!`);
+            console.log(trade);
+        });
     }
     
     private handleFromServerToWallet(eventName:string) {
