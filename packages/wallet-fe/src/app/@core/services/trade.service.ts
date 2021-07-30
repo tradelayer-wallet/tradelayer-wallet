@@ -53,6 +53,7 @@ export class TradeService {
         });
 
         this.socket.on('trade:saved', (message: string) => {
+            this.loadingService.isLoading = false;
             this.toastrService.success(message || `Unknow Message`, "Success");
         });
 
