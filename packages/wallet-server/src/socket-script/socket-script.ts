@@ -101,6 +101,8 @@ class Buyer {
     }
 
     private terminateTrade(reason: string = 'No info'): void {
+        console.log(`TRADE TERMINATED! REASON: ${reason}`);
+        if (this.readyRes) this.readyRes({ error: reason });
         this.socket.emit('TERMINATE_TRADE', reason);
     }
 
@@ -247,7 +249,6 @@ class Seller {
         this.handleOnEvents();
         this.initTrade();
         this.onReady();
-
     } 
 
     onReady() {
@@ -257,6 +258,8 @@ class Seller {
     }
 
     private terminateTrade(reason: string = 'No info'): void {
+        console.log(`TRADE TERMINATED! REASON: ${reason}`);
+        if (this.readyRes) this.readyRes({ error: reason });
         this.socket.emit('TERMINATE_TRADE', reason);
     }
 
