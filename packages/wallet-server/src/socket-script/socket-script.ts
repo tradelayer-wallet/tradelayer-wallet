@@ -78,6 +78,8 @@ export class SocketScript {
 
 class Buyer {
     private multySigChannelData: MSChannelData;
+    private readyRes: (value: { data?: any, error?: any }) => void;
+    private readyPromise: Promise<{data?: any, error?: any}>
 
     constructor(
         private tradeInfo: ITradeInfo, 
@@ -87,6 +89,15 @@ class Buyer {
         private socket: Socket,
     ) { 
         this.handleOnEvents();
+        this.readyPromise = new Promise((res) => {
+            this.readyRes = res;
+        });
+    }
+
+    onReady(cb: (error?: any, data?: any) => void) {
+        this.readyPromise.then(res => {
+            cb(res.error, res.data);
+        });
     }
 
     private terminateTrade(reason: string = 'No info'): void {
@@ -99,11 +110,11 @@ class Buyer {
         this.socket.on('SELLER:MS_DATA', this.onMSData.bind(this));
         this.socket.on('SELLER:COMMIT_UTXO', this.onCommitUTXO.bind(this));
         this.socket.on('SELLER:SIGNED_RAWTX', this.onSignedRawTx.bind(this));
-
     }
     
     private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
         console.log(`TRADE TERMINATED! REASON: ${reason}`);
+        this.readyRes({ error: reason });
     }
 
     private async onMSData(cpId: string, msData: MSChannelData) {
@@ -128,7 +139,7 @@ class Buyer {
     private onSignedRawTx(cpId: string, rawTx: string) {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 4');
         if (!rawTx) return this.terminateTrade('RawTx Not Provided');
-        console.log({rawTx});
+        this.readyRes({data: rawTx});
     }
 
     private async buildLTCInstantTrade(commitUTXO: IUTXOData) {
@@ -214,11 +225,12 @@ class Buyer {
         return height;
     }
 }
-
 class Seller {
     private multySigChannelData: MSChannelData;
     private commitTx: string;
     private utxoData: IUTXOData;
+    private readyRes: (value: { data?: any, error?: any }) => void;
+    private readyPromise: Promise<{data?: any, error?: any}>
 
     constructor(
         private tradeInfo: ITradeInfo, 
@@ -229,7 +241,16 @@ class Seller {
     ) { 
         this.handleOnEvents();
         this.initTrade();
+        this.readyPromise = new Promise((res) => {
+            this.readyRes = res;
+        });
     } 
+
+    onReady(cb: (error?: any, data?: any) => void) {
+        this.readyPromise.then(res => {
+            cb(res.error, res.data);
+        });
+    }
 
     private terminateTrade(reason: string = 'No info'): void {
         this.socket.emit('TERMINATE_TRADE', reason);
@@ -256,7 +277,7 @@ class Seller {
 
     private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
         console.log(`TRADE TERMINATED! REASON: ${reason}`);
-
+        this.readyRes({ error: reason });
     }
 
     private async onCommit(cpId: string) {
