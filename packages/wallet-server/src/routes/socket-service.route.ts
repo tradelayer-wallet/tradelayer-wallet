@@ -21,12 +21,12 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 reply.send(false);
                 return;
             }
-            socketScript.startListener({address, logs: true});
+            // socketScript.startListener({address, logs: true});
         });
     
         fastify.get('/listStop', () => {
             console.log("listStop!");
-            socketScript.stopListener();
+            // socketScript.stopListener();
         });
     
         fastify.get('/initTrade', (request, reply) => {

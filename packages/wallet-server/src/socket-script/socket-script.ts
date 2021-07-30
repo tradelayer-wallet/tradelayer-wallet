@@ -1,8 +1,8 @@
 import { Client } from 'litecoin'
 import { ListenerServer } from './listener';
 import { asyncClient } from './common/async-client';
-import { IListenerOptions, IRPCConenction, LITOptions, TClient, Trade, TradeTypes } from './common/types';
-import { LtcInstantTrade } from './receiver/ltcInstantTrade';
+import { ApiRes, IRPCConenction, TClient } from './common/types';
+import { Socket } from 'socket.io-client';
 
 export class SocketScript {
     private _ltcClient: any;
@@ -60,50 +60,79 @@ export class SocketScript {
         });
     }
 
-    startListener(listenerOptions: IListenerOptions): void {
-        const { address, logs } = listenerOptions;
-        const port = 9876;
-        if (!address) return;
-        this.listener = new ListenerServer(address, port, this.asyncClient, logs);
-    }
-
-    stopListener() {
-        if (this.listener) this.listener.close();
-    }
-
-    ltcInstantTrade(host: string, trade: LITOptions, options: { logs: boolean, send: boolean }) {
-        return new LtcInstantTrade(this.asyncClient, host, trade, options);
+    channelSwap(socket: Socket, trade: any) {
+        const { 
+            price, amount, propIdDesired, propIdForSale, 
+            buyerAddress, buyerPubKey, buyerSocketId,
+            sellerAddress, sellerPubKey, sellerSocketId, 
+            buyer
+        } = trade;
+        const tradeInfo = { price, amount, propIdDesired, propIdForSale };
+        const buyerObj = { address: buyerAddress, pubKey: buyerPubKey, socketId: buyerSocketId };
+        const sellerObj = { address: sellerAddress, pubKey: sellerPubKey, socketId: sellerSocketId };
+        buyer
+            ? new Buyer(tradeInfo, buyerObj, sellerObj, this.asyncClient, socket)
+            : new Seller(tradeInfo, sellerObj, buyerObj, this.asyncClient, socket)
     }
 }
 
-// const test = () => {
-//     const rpcConenctionOptions: IRPCConenction = {
-//         user: 'user',
-//         pass: 'passwrod',
-//     };
+class Buyer {
+    constructor(
+        private tradeInfo: ITradeInfo, 
+        private myInfo: TBuyerSellerInfo, 
+        private cpInfo: TBuyerSellerInfo,
+        private asyncClient: TClient,
+        private socket: Socket,
+    ) { }
 
-//     const socketScript = new SocketScript();
+    private terminateTrade(reason: string = 'No info'): void {
+        this.socket.emit('TERMINATE_TRADE', reason);
+    }
+}
 
-//     socketScript.connect(rpcConenctionOptions).then((isConnected) => {
-//         if (!isConnected) return;
-//         socketScript.initListener({
-//             address: 'ms51vD4rsaR3m7ueN1d1wyFFTHXBEJL8Cr',
-//             logs: true,
-//         });
+class Seller {
+    private multySigChannelData: MSChannelData;
+    constructor(
+        private tradeInfo: ITradeInfo, 
+        private myInfo: TBuyerSellerInfo, 
+        private cpInfo: TBuyerSellerInfo,
+        private asyncClient: TClient,
+        private socket: Socket,
+    ) { 
+        this.initTrade()
+    } 
 
-//         setTimeout(() => {
-//             const host = 'localhost';
-//             const trade: LITOptions = {
-//                 type: TradeTypes.LTC_INSTANT_TRADE,
-//                 propertyid: 10,
-//                 amount: 0.002,
-//                 price: 0.05,
-//                 address: 'mqxFCs1W4T4qdew3GTEnXMe4w7mx7uKyf9',
-//                 pubkey: '03ab0b06183230ff8b577d4024ea246fd9cda37d63e23b8cc6d5a69a92280e6dde',
-//             }
-//             const myTrade = socketScript.ltcInstantTrade(host, trade, { logs: true, send: false });
-//             myTrade.onReady().then(e => console.log(e));
-//         }, 2000)
-//     });
-// }
-// test();
+    private terminateTrade(reason: string = 'No info'): void {
+        this.socket.emit('TERMINATE_TRADE', reason);
+    }
+
+    private async initTrade() {
+        const pubKeys = [this.myInfo.pubKey, this.cpInfo.pubKey];
+        const amaRes: ApiRes = await this.asyncClient("addmultisigaddress", 2, pubKeys);
+        if (amaRes.error || !amaRes.data) return this.terminateTrade(amaRes.error);
+        this.multySigChannelData = amaRes.data;
+
+        const validateMS = await this.asyncClient("validateaddress", this.multySigChannelData.address);
+        if (validateMS.error || !validateMS.data?.scriptPubKey) return this.terminateTrade(validateMS.error);
+        this.multySigChannelData.scriptPubKey = validateMS.data.scriptPubKey;
+        this.socket.emit('SELLER:MS_DATA', this.multySigChannelData);
+    }
+}
+
+interface MSChannelData {
+    address: string;
+    redeemScript: string;
+    scriptPubKey?: string;
+}
+interface ITradeInfo {
+    price: number;
+    amount: number;
+    propIdDesired: number;
+    propIdForSale: number;
+}
+
+interface TBuyerSellerInfo {
+    address: string;
+    pubKey: string;
+    socketId: string;
+}

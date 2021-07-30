@@ -1,3 +1,4 @@
+import { throws } from "assert";
 import { FastifyInstance } from "fastify"
 import { Socket, Server } from "socket.io";
 import { io, Socket as SocketClient } from 'socket.io-client';
@@ -9,8 +10,8 @@ export const initWalletConnection = (app: FastifyInstance, socketScript: SocketS
     walletSocketSevice = new WalletSocketSevice(app, socketScript);
 };
 
-export const initServerConnection = () => {
-    serverSocketService = new ServerSocketService();
+export const initServerConnection = (socketScript: SocketScript) => {
+    serverSocketService = new ServerSocketService(socketScript);
 }
 
 class WalletSocketSevice {
@@ -33,13 +34,13 @@ class WalletSocketSevice {
     private onConnection(socket: Socket) {
         console.log(`FE app Connected`);
         this.currentSocket = socket;
-        initServerConnection();
+        initServerConnection(this.socketScript);
         this.startBlockCounting(socket);
         this.handleFromWalletToServer(socket, 'orderbook-market-filter');
         this.handleFromWalletToServer(socket, 'update-orderbook');
         this.handleFromWalletToServer(socket, 'dealer-data');
 
-        socket.on('api-recoonect', () => initServerConnection());
+        socket.on('api-recoonect', () => initServerConnection(this.socketScript));
     }
 
     private handleFromWalletToServer(socket: Socket, eventName: string) {
@@ -67,7 +68,7 @@ class WalletSocketSevice {
 
 class ServerSocketService {
     public socket: SocketClient;
-    constructor() {
+    constructor(private socketScript: SocketScript) {
         const host = 'http://66.228.57.16:76'
         this.socket = io(host, { reconnection: false });
         this.handleEvents();
@@ -96,11 +97,11 @@ class ServerSocketService {
 
         this.socket.on('new-channel', (trade: any) => {
             console.log(`New Channel Opened!`);
-            console.log(trade);
+            this.socketScript.channelSwap(this.socket, trade);
         });
     }
     
-    private handleFromServerToWallet(eventName:string) {
+    private handleFromServerToWallet(eventName: string) {
         this.socket.on(eventName, (data: any) => walletSocketSevice.currentSocket.emit(eventName, data));
     }
 }
