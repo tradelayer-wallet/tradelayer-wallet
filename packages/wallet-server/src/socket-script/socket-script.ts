@@ -179,7 +179,7 @@ class Buyer {
             const clientVins = await this.getUnspentsForFunding(amountForSale);
             if (clientVins.error || !clientVins.data?.length) return { error: cpitRes.error || `Error with finding enough LTC for ${this.myInfo.address}` }
     
-            const vins = [txid, ...clientVins.data];
+            const vins = [commitUTXO, ...clientVins.data];
             const bLTCit = await this._buildLTCInstantTrade(vins, cpitRes.data, this.myInfo.address, amountForSale, this.cpInfo.address);
             if (bLTCit.error || !bLTCit.data) return { error: bLTCit.error || `Error with Building LTC Instat Trade` };
             return { data: bLTCit.data };
