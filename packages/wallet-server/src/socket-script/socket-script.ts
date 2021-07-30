@@ -70,9 +70,12 @@ export class SocketScript {
         const tradeInfo: ITradeInfo = { amountDesired, amountForSale, propIdDesired, propIdForSale };
         const buyerObj = { address: buyerAddress, pubKey: buyerPubKey, socketId: buyerSocketId };
         const sellerObj = { address: sellerAddress, pubKey: sellerPubKey, socketId: sellerSocketId };
-        buyer
+        const swap = buyer
             ? new Buyer(tradeInfo, buyerObj, sellerObj, this.asyncClient, socket)
-            : new Seller(tradeInfo, sellerObj, buyerObj, this.asyncClient, socket)
+            : new Seller(tradeInfo, sellerObj, buyerObj, this.asyncClient, socket);
+            swap.onReady((error: any, data: any) => {
+                console.log({error, data});
+            });
     }
 }
 
