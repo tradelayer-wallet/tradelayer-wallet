@@ -151,9 +151,11 @@ class Buyer {
         if (!rawTx) return this.terminateTrade('RawTx Not Provided');
 
         const ssrtxRes = await this.asyncClient("signrawtransaction", rawTx);
+        console.log({ssrtxRes})
         if (ssrtxRes.error || !ssrtxRes.data?.hex || !ssrtxRes.data?.complete) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
 
         const srtxRes = await this.asyncClient("sendrawtransaction", ssrtxRes.data?.hex)
+        console.log({srtxRes})
         if (srtxRes.error || !srtxRes.data) return this.terminateTrade(ssrtxRes.error || `Error with Sending Raw TX`);
         this.socket.emit(`${this.myInfo.socketId}::BUYER:FINALTX`, srtxRes.data);
 
@@ -339,7 +341,6 @@ class Seller {
 
     private async onRawTx(cpId: string, rawTx: string) {
         console.log(`OnRawTx form ${cpId}`);
-        console.log({rawTx});
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 7');
         if (!rawTx) return this.terminateTrade('No RawTx for Signing Provided!');
 
@@ -357,6 +358,7 @@ class Seller {
     }
 
     private async onFinalTx(cpId: string, finalTx: string) {
+        console.log({finalTx})
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
         if (this.readyRes) this.readyRes({ data: finalTx });
         this.removePreviuesListeners();
