@@ -97,7 +97,7 @@ class Buyer {
         this.socket.on('TERMINATE_TRADE', this.onTerminateTrade.bind(this));
 
         this.socket.on('SELLER:MS_DATA', this.onMSData.bind(this));
-        this.socket.on('COMMIT_UTXO', this.onCommitUTXO.bind(this));
+        this.socket.on('SELLER:COMMIT_UTXO', this.onCommitUTXO.bind(this));
         this.socket.on('SELLER:SIGNED_RAWTX', this.onSignedRawTx.bind(this));
 
     }
