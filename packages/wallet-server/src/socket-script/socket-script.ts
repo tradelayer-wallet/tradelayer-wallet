@@ -73,16 +73,16 @@ export class SocketScript {
         const swap = buyer
             ? new Buyer(tradeInfo, buyerObj, sellerObj, this.asyncClient, socket)
             : new Seller(tradeInfo, sellerObj, buyerObj, this.asyncClient, socket);
-            swap.onReady((error: any, data: any) => {
-                console.log({error, data});
-            });
+            swap.onReady().then((res: any) => {
+                console.log({res});
+            })
     }
 }
 
 class Buyer {
     private multySigChannelData: MSChannelData;
     private readyRes: (value: { data?: any, error?: any }) => void;
-    private readyPromise: Promise<{data?: any, error?: any}>
+
 
     constructor(
         private tradeInfo: ITradeInfo, 
@@ -92,14 +92,12 @@ class Buyer {
         private socket: Socket,
     ) { 
         this.handleOnEvents();
-        this.readyPromise = new Promise((res) => {
-            this.readyRes = res;
-        });
+        this.onReady();
     }
 
-    onReady(cb: (error?: any, data?: any) => void) {
-        this.readyPromise.then(res => {
-            cb(res.error, res.data);
+    onReady() {
+        return new Promise<{ data?: any, error?: any }>((res) => {
+            this.readyRes = res;
         });
     }
 
@@ -117,7 +115,7 @@ class Buyer {
     
     private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
         console.log(`TRADE TERMINATED! REASON: ${reason}`);
-        this.readyRes({ error: reason });
+        if (this.readyRes) this.readyRes({ error: reason });
     }
 
     private async onMSData(cpId: string, msData: MSChannelData) {
@@ -233,7 +231,7 @@ class Seller {
     private commitTx: string;
     private utxoData: IUTXOData;
     private readyRes: (value: { data?: any, error?: any }) => void;
-    private readyPromise: Promise<{data?: any, error?: any}>
+
 
     constructor(
         private tradeInfo: ITradeInfo, 
@@ -244,14 +242,13 @@ class Seller {
     ) { 
         this.handleOnEvents();
         this.initTrade();
-        this.readyPromise = new Promise((res) => {
-            this.readyRes = res;
-        });
+        this.onReady();
+
     } 
 
-    onReady(cb: (error?: any, data?: any) => void) {
-        this.readyPromise.then(res => {
-            cb(res.error, res.data);
+    onReady() {
+        return new Promise<{ data?: any, error?: any }>((res) => {
+            this.readyRes = res;
         });
     }
 
@@ -280,7 +277,7 @@ class Seller {
 
     private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
         console.log(`TRADE TERMINATED! REASON: ${reason}`);
-        this.readyRes({ error: reason });
+        if (this.readyRes) this.readyRes({ error: reason });
     }
 
     private async onCommit(cpId: string) {
