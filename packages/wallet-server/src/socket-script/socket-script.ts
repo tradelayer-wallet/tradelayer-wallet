@@ -62,12 +62,12 @@ export class SocketScript {
 
     channelSwap(socket: Socket, trade: any) {
         const { 
-            price, amount, propIdDesired, propIdForSale, 
+            amountDesired, amountForSale, propIdDesired, propIdForSale, 
             buyerAddress, buyerPubKey, buyerSocketId,
             sellerAddress, sellerPubKey, sellerSocketId, 
             buyer
         } = trade;
-        const tradeInfo = { price, amount, propIdDesired, propIdForSale };
+        const tradeInfo: ITradeInfo = { amountDesired, amountForSale, propIdDesired, propIdForSale };
         const buyerObj = { address: buyerAddress, pubKey: buyerPubKey, socketId: buyerSocketId };
         const sellerObj = { address: sellerAddress, pubKey: sellerPubKey, socketId: sellerSocketId };
         buyer
@@ -77,16 +77,37 @@ export class SocketScript {
 }
 
 class Buyer {
+    private multySigChannelData: MSChannelData;
+
     constructor(
         private tradeInfo: ITradeInfo, 
         private myInfo: TBuyerSellerInfo, 
         private cpInfo: TBuyerSellerInfo,
         private asyncClient: TClient,
         private socket: Socket,
-    ) { }
+    ) { 
+        console.log(`Buyer started`);
+        this.handleOnEvents();
+    }
 
     private terminateTrade(reason: string = 'No info'): void {
         this.socket.emit('TERMINATE_TRADE', reason);
+    }
+
+    private handleOnEvents() {
+        this.socket.on('SELLER:MS_DATA', this.onMSData.bind(this));
+    }
+    
+    private async onMSData(cpId: string, msData: MSChannelData) {
+        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 1');
+
+
+        const pubKeys = [this.cpInfo.pubKey, this.myInfo.pubKey];
+        const amaRes: ApiRes = await this.asyncClient("addmultisigaddress", 2, pubKeys);
+        if (amaRes.error || !amaRes.data) return this.terminateTrade(amaRes.error);
+        if (amaRes.data.redeemScript !== msData.redeemScript) return this.terminateTrade(`redeemScript of Multysig address is not matching`);
+        this.multySigChannelData = msData;
+        this.socket.emit('BUYER:COMMIT');
     }
 }
 
@@ -99,14 +120,20 @@ class Seller {
         private asyncClient: TClient,
         private socket: Socket,
     ) { 
-        this.initTrade()
+        this.handleOnEvents();
+        this.initTrade();
     } 
 
     private terminateTrade(reason: string = 'No info'): void {
         this.socket.emit('TERMINATE_TRADE', reason);
     }
 
+    private handleOnEvents() {
+        this.socket.on('BUYER:COMMIT', this.onCommit.bind(this));
+    }
+
     private async initTrade() {
+        if (this.tradeInfo.propIdForSale !== 999) return this.terminateTrade('The wallet dont Support this type of trade!');
         const pubKeys = [this.myInfo.pubKey, this.cpInfo.pubKey];
         const amaRes: ApiRes = await this.asyncClient("addmultisigaddress", 2, pubKeys);
         if (amaRes.error || !amaRes.data) return this.terminateTrade(amaRes.error);
@@ -117,6 +144,12 @@ class Seller {
         this.multySigChannelData.scriptPubKey = validateMS.data.scriptPubKey;
         this.socket.emit('SELLER:MS_DATA', this.multySigChannelData);
     }
+
+    private onCommit(cpId: string) {
+        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 1');
+        if (this.tradeInfo.propIdForSale !== 999) return this.terminateTrade('The wallet dont Support this type of trade!');
+        console.log(this.tradeInfo);
+    }
 }
 
 interface MSChannelData {
@@ -125,8 +158,8 @@ interface MSChannelData {
     scriptPubKey?: string;
 }
 interface ITradeInfo {
-    price: number;
-    amount: number;
+    amountDesired: string;
+    amountForSale: string;
     propIdDesired: number;
     propIdForSale: number;
 }
