@@ -90,6 +90,10 @@ class ServerSocketService {
             walletSocketSevice.io.emit('server_connect_error');
         });
 
+        this.handleFromServerToWallet('trade:error');
+        this.handleFromServerToWallet('trade:saved');
+        this.handleFromServerToWallet('trade:error');
+
         this.handleFromServerToWallet('error_message');
         this.handleFromServerToWallet('opened-positions');
         this.handleFromServerToWallet('orderbook-data');
@@ -98,9 +102,9 @@ class ServerSocketService {
         this.socket.on('new-channel', async (trade: any) => {
             const res = await this.socketScript.channelSwap(this.socket, trade);
             if (res.error || !res.data) {
-                walletSocketSevice.io.emit('trade_error', res.error);
+                walletSocketSevice.io.emit('trade:error', res.error);
             } else {
-                walletSocketSevice.io.emit('trade_success', res.data);
+                walletSocketSevice.io.emit('trade:success', res.data);
             }
 
         });

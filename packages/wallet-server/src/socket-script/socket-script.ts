@@ -128,7 +128,6 @@ class Buyer {
 
     private async onMSData(cpId: string, msData: MSChannelData) {
         console.log(`MultySigData from ${cpId}`);
-        console.log({msData});
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 2');
         const pubKeys = [this.cpInfo.pubKey, this.myInfo.pubKey];
         const amaRes: ApiRes = await this.asyncClient("addmultisigaddress", 2, pubKeys);
@@ -140,20 +139,25 @@ class Buyer {
 
     private async onCommitUTXO(cpId: string, commitUTXO: IUTXOData) {
         console.log(`commitUTXO from ${cpId}`);
-        console.log({commitUTXO});
-
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 3');
         const rawHex = await this.buildLTCInstantTrade(commitUTXO);
         if (rawHex.error || !rawHex.data) return this.terminateTrade(rawHex.error || `Error with Buildng Trade`);
         this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, rawHex.data);
     }
 
-    private onSignedRawTx(cpId: string, rawTx: string) {
+    private async onSignedRawTx(cpId: string, rawTx: string) {
         console.log(`SignedRawTx from ${cpId}`);
-        console.log({rawTx});
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 4');
         if (!rawTx) return this.terminateTrade('RawTx Not Provided');
-        this.readyRes({data: rawTx});
+
+        const ssrtxRes = await this.asyncClient("signrawtransaction", rawTx);
+        if (ssrtxRes.error || !ssrtxRes.data?.hex || !ssrtxRes.data?.complete) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
+
+        const srtxRes = await this.asyncClient("sendrawtransaction", ssrtxRes.data?.hex)
+        if (srtxRes.error || !srtxRes.data) return this.terminateTrade(ssrtxRes.error || `Error with Sending Raw TX`);
+        this.socket.emit(`${this.myInfo.socketId}::BUYER:FINALTX`, srtxRes.data);
+
+        this.readyRes({data: srtxRes.data});
         this.removePreviuesListeners();
     }
 
@@ -219,7 +223,6 @@ class Buyer {
 
     private async getUnspentsForFunding(amount: string): Promise<{ data?: any[], error?: any }> {
         const lusRes = await this.asyncClient('listunspent', 0, 999999999, [this.myInfo.address]);
-        console.log(lusRes);
         if (lusRes.error || !lusRes.data?.length) {
           return lusRes
         } else {
@@ -274,7 +277,7 @@ class Seller {
     }
 
     private removePreviuesListeners() {
-        const eventsArray = ['TERMINATE_TRADE', 'BUYER:COMMIT', 'BUYER:RAWTX' ];
+        const eventsArray = ['TERMINATE_TRADE', 'BUYER:COMMIT', 'BUYER:RAWTX', 'BUYER:FINALTX' ];
         eventsArray.forEach(e => this.socket.off(`${this.cpInfo.socketId}::${e}`));
     }
 
@@ -282,7 +285,8 @@ class Seller {
         this.removePreviuesListeners();
         this.socket.on(`${this.cpInfo.socketId}::TERMINATE_TRADE`, this.onTerminateTrade.bind(this));
         this.socket.on(`${this.cpInfo.socketId}::BUYER:COMMIT`, this.onCommit.bind(this));
-        this.socket.on(`${this.cpInfo.socketId}::BUYER:RAWTX`, this.onRawTx.bind(this))
+        this.socket.on(`${this.cpInfo.socketId}::BUYER:RAWTX`, this.onRawTx.bind(this));
+        this.socket.on(`${this.cpInfo.socketId}::BUYER:FINALTX`, this.onFinalTx.bind(this));
     }
 
     private async initTrade() {
@@ -350,6 +354,12 @@ class Seller {
         const ssrtxRes = await this.asyncClient("signrawtransaction", rawTx, [prevTxsData]);
         if (ssrtxRes.error || !ssrtxRes.data?.hex) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
         this.socket.emit(`${this.myInfo.socketId}::SELLER:SIGNED_RAWTX`, ssrtxRes.data?.hex);
+    }
+
+    private async onFinalTx(cpId: string, finalTx: string) {
+        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
+        if (this.readyRes) this.readyRes({ data: finalTx });
+        this.removePreviuesListeners();
     }
 }
 

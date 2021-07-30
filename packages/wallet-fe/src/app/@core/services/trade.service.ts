@@ -4,6 +4,7 @@ import { AddressService } from "./address.service";
 import { ApiService } from "./api.service";
 import { BalanceService } from "./balance.service";
 import { DealerService } from "./dealer.service";
+import { LoadingService } from "./loading.service";
 import { RpcService } from "./rpc.service";
 import { SocketEmits, SocketService } from "./socket.service";
 import { TxsService } from "./txs.service";
@@ -26,9 +27,12 @@ export class TradeService {
     constructor(
         private socketService: SocketService,
         private addressService: AddressService,
-        private dealerService: DealerService,
         private apiService: ApiService,
-    ) {}
+        private loadingService: LoadingService,
+        private toastrService: ToastrService,
+    ) {
+        this.handleTradeSocketEvents();
+    }
 
     get keyPair() {
         return this.addressService.activeKeyPair;
@@ -42,8 +46,26 @@ export class TradeService {
         return this.apiService.socketScriptApi;
     }
 
+    private handleTradeSocketEvents() {
+        this.socket.on('trade:error', (message: string) => {
+            this.loadingService.isLoading = false;
+            this.toastrService.error(message || `Unknow Error`, "Error");
+        });
+
+        this.socket.on('trade:saved', (message: string) => {
+            this.loadingService.isLoading = false;
+            this.toastrService.success(message || `Unknow Message`, "Success");
+        });
+
+        this.socket.on('trade:success', (message: string) => {
+            this.loadingService.isLoading = false;
+            this.toastrService.success(message || `Unknow Message`, "Success");
+        });
+    }
+
     initNewTrade(trade: ITradeConf) {
         // this._initTrade(trade);
+        this.loadingService.isLoading = true;
         this.__initNewTrade(trade);
     }
 
