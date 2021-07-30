@@ -189,13 +189,13 @@ class Buyer {
             let hex = '';
             for (const vin of vins) {
                 const crtxiRes: any = await this.asyncClient('tl_createrawtx_input', hex, vin.txid, vin.vout);
-                if (crtxiRes.error || !crtxiRes.data) return { error: 'Error with creating raw tx' };
+                if (crtxiRes.error || !crtxiRes.data) return { error: 'Error with creating raw tx: code 1' };
                 hex = crtxiRes.data;
             }
             return { data: hex };
         };
         const crtxiRes: any = await tl_createrawtx_inputAll();
-        if (crtxiRes.error || !crtxiRes.data) return { error: 'Error with creating raw tx' };
+        if (crtxiRes.error || !crtxiRes.data) return { error: 'Error with creating raw tx: code 2' };
 
         const change = (sumVinsAmount - (parseFloat(price) + 0.0005)).toFixed(4);
         const _crtxrRes: any = await this.asyncClient('tl_createrawtx_reference', crtxiRes.data, changeAddress, change);
@@ -210,7 +210,8 @@ class Buyer {
     }
 
     private async getUnspentsForFunding(amount: string): Promise<{ data?: any[], error?: any }> {
-        const lusRes = await this.asyncClient('listunspent', 0, 999999999, [this.cpInfo.address]);
+        const lusRes = await this.asyncClient('listunspent', 0, 999999999, [this.myInfo.address]);
+        console.log(lusRes);
         if (lusRes.error || !lusRes.data?.length) {
           return lusRes
         } else {
