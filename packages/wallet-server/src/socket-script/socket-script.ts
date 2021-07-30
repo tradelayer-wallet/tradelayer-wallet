@@ -86,7 +86,6 @@ class Buyer {
         private asyncClient: TClient,
         private socket: Socket,
     ) { 
-        console.log(`Buyer started`);
         this.handleOnEvents();
     }
 
@@ -95,14 +94,20 @@ class Buyer {
     }
 
     private handleOnEvents() {
+        this.socket.on('TERMINATE_TRADE', this.onTerminateTrade.bind(this));
+
         this.socket.on('SELLER:MS_DATA', this.onMSData.bind(this));
         this.socket.on('COMMIT_UTXO', this.onCommitUTXO.bind(this));
         this.socket.on('SELLER:SIGNED_RAWTX', this.onSignedRawTx.bind(this));
 
     }
     
+    private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
+        console.log(`TRADE TERMINATED! REASON: ${reason}`);
+    }
+
     private async onMSData(cpId: string, msData: MSChannelData) {
-        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 1');
+        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 2');
 
 
         const pubKeys = [this.cpInfo.pubKey, this.myInfo.pubKey];
@@ -114,14 +119,14 @@ class Buyer {
     }
 
     private async onCommitUTXO(cpId: string, commitUTXO: IUTXOData) {
-        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 1');
+        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 3');
         const rawHex = await this.buildLTCInstantTrade(commitUTXO);
         if (rawHex.error || !rawHex.data) return this.terminateTrade(rawHex.error || `Error with Buildng Trade`);
         this.socket.emit('BUYER:RAWTX', rawHex.data);
     }
 
     private onSignedRawTx(cpId: string, rawTx: string) {
-        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 1');
+        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 4');
         if (!rawTx) return this.terminateTrade('RawTx Not Provided');
         console.log({rawTx});
     }
@@ -231,6 +236,7 @@ class Seller {
     }
 
     private handleOnEvents() {
+        this.socket.on('TERMINATE_TRADE', this.onTerminateTrade.bind(this));
         this.socket.on('BUYER:COMMIT', this.onCommit.bind(this));
         this.socket.on('BUYER:RAWTX', this.onRawTx.bind(this))
     }
@@ -248,8 +254,13 @@ class Seller {
         this.socket.emit('SELLER:MS_DATA', this.multySigChannelData);
     }
 
+    private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
+        console.log(`TRADE TERMINATED! REASON: ${reason}`);
+
+    }
+
     private async onCommit(cpId: string) {
-        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 1');
+        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
         if (this.tradeInfo.propIdForSale !== 999) return this.terminateTrade('The wallet dont Support this type of trade!');
 
         const commitData = [        
@@ -277,7 +288,7 @@ class Seller {
     }
 
     private async onRawTx(cpId: string, rawTx: string) {
-        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 1');
+        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 7');
         if (!rawTx) return this.terminateTrade('No RawTx for Signing Provided!');
 
         const { txid, vout, amount } = this.utxoData;
