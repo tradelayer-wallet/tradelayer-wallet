@@ -103,15 +103,14 @@ class Buyer {
     private terminateTrade(reason: string = 'No info'): void {
         console.log(`TRADE TERMINATED! REASON: ${reason}`);
         if (this.readyRes) this.readyRes({ error: reason });
-        this.socket.emit('TERMINATE_TRADE', reason);
+        this.socket.emit(`${this.myInfo.socketId}::TERMINATE_TRADE`, reason);
     }
 
     private handleOnEvents() {
-        this.socket.on('TERMINATE_TRADE', this.onTerminateTrade.bind(this));
-
-        this.socket.on('SELLER:MS_DATA', this.onMSData.bind(this));
-        this.socket.on('SELLER:COMMIT_UTXO', this.onCommitUTXO.bind(this));
-        this.socket.on('SELLER:SIGNED_RAWTX', this.onSignedRawTx.bind(this));
+        this.socket.on(`${this.cpInfo.socketId}::TERMINATE_TRADE`, this.onTerminateTrade.bind(this));
+        this.socket.on(`${this.cpInfo.socketId}::SELLER:MS_DATA`, this.onMSData.bind(this));
+        this.socket.on(`${this.cpInfo.socketId}::SELLER:COMMIT_UTXO`, this.onCommitUTXO.bind(this));
+        this.socket.on(`${this.cpInfo.socketId}::SELLER:SIGNED_RAWTX`, this.onSignedRawTx.bind(this));
     }
     
     private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
@@ -128,7 +127,7 @@ class Buyer {
         if (amaRes.error || !amaRes.data) return this.terminateTrade(amaRes.error);
         if (amaRes.data.redeemScript !== msData.redeemScript) return this.terminateTrade(`redeemScript of Multysig address is not matching`);
         this.multySigChannelData = msData;
-        this.socket.emit('BUYER:COMMIT');
+        this.socket.emit(`${this.myInfo.socketId}::BUYER:COMMIT`);
     }
 
     private async onCommitUTXO(cpId: string, commitUTXO: IUTXOData) {
@@ -138,7 +137,7 @@ class Buyer {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 3');
         const rawHex = await this.buildLTCInstantTrade(commitUTXO);
         if (rawHex.error || !rawHex.data) return this.terminateTrade(rawHex.error || `Error with Buildng Trade`);
-        this.socket.emit('BUYER:RAWTX', rawHex.data);
+        this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, rawHex.data);
     }
 
     private onSignedRawTx(cpId: string, rawTx: string) {
@@ -261,13 +260,13 @@ class Seller {
     private terminateTrade(reason: string = 'No info'): void {
         console.log(`TRADE TERMINATED! REASON: ${reason}`);
         if (this.readyRes) this.readyRes({ error: reason });
-        this.socket.emit('TERMINATE_TRADE', reason);
+        this.socket.emit(`${this.myInfo.socketId}::TERMINATE_TRADE`, reason);
     }
 
     private handleOnEvents() {
-        this.socket.on('TERMINATE_TRADE', this.onTerminateTrade.bind(this));
-        this.socket.on('BUYER:COMMIT', this.onCommit.bind(this));
-        this.socket.on('BUYER:RAWTX', this.onRawTx.bind(this))
+        this.socket.on(`${this.cpInfo.socketId}::TERMINATE_TRADE`, this.onTerminateTrade.bind(this));
+        this.socket.on(`${this.cpInfo.socketId}::BUYER:COMMIT`, this.onCommit.bind(this));
+        this.socket.on(`${this.cpInfo.socketId}::BUYER:RAWTX`, this.onRawTx.bind(this))
     }
 
     private async initTrade() {
@@ -281,7 +280,7 @@ class Seller {
         const validateMS = await this.asyncClient("validateaddress", this.multySigChannelData.address);
         if (validateMS.error || !validateMS.data?.scriptPubKey) return this.terminateTrade(validateMS.error);
         this.multySigChannelData.scriptPubKey = validateMS.data.scriptPubKey;
-        this.socket.emit('SELLER:MS_DATA', this.multySigChannelData);
+        this.socket.emit(`${this.myInfo.socketId}::SELLER:MS_DATA`, this.multySigChannelData);
     }
 
     private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
@@ -315,7 +314,7 @@ class Seller {
             vout: vout.n,
             txid: this.commitTx
         };
-        this.socket.emit('SELLER:COMMIT_UTXO', this.utxoData);
+        this.socket.emit(`${this.myInfo.socketId}::SELLER:COMMIT_UTXO`, this.utxoData);
     }
 
     private async onRawTx(cpId: string, rawTx: string) {
@@ -334,7 +333,7 @@ class Seller {
         const prevTxsData = { txid, vout, amount, scriptPubKey, redeemScript };
         const ssrtxRes = await this.asyncClient("signrawtransaction", rawTx, [prevTxsData]);
         if (ssrtxRes.error || !ssrtxRes.data?.hex) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
-        this.socket.emit('SELLER:SIGNED_RAWTX', ssrtxRes.data?.hex);
+        this.socket.emit(`${this.myInfo.socketId}::SELLER:SIGNED_RAWTX`, ssrtxRes.data?.hex);
     }
 }
 
