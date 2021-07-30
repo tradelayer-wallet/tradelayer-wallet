@@ -100,6 +100,14 @@ export class SocketService {
             this.socket.on('opened-positions', (openedPositions: any[]) => {
                 console.log(openedPositions);
             });
+
+            this.socket.on('trade_error', (error: string) => {
+                this.toasterService.error(error || `Undefined Error`, `Trade Error`);
+            });
+
+            this.socket.on('trade_error', (data: string) => {
+                this.toasterService.success(data || `Unknown Data`, `Sucessfull Trade`);
+            });
         }
     }
 }

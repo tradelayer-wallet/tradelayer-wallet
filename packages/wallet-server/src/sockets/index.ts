@@ -95,9 +95,13 @@ class ServerSocketService {
         this.handleFromServerToWallet('orderbook-data');
         this.handleFromServerToWallet('aksfor-orderbook-update');
 
-        this.socket.on('new-channel', (trade: any) => {
-            console.log(`New Channel Opened!`);
-            this.socketScript.channelSwap(this.socket, trade);
+        this.socket.on('new-channel', async (trade: any) => {
+            const res = await this.socketScript.channelSwap(this.socket, trade);
+            if (res.error) {
+                walletSocketSevice.io.emit('trade_error', res.error);
+            } else {
+                walletSocketSevice.io.emit('trade_success', res.data);
+            }
         });
     }
     

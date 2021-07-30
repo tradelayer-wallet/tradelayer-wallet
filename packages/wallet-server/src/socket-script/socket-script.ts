@@ -60,7 +60,7 @@ export class SocketScript {
         });
     }
 
-    channelSwap(socket: Socket, trade: any) {
+    async channelSwap(socket: Socket, trade: any) {
         const { 
             amountDesired, amountForSale, propIdDesired, propIdForSale, 
             buyerAddress, buyerPubKey, buyerSocketId,
@@ -73,9 +73,7 @@ export class SocketScript {
         const swap = buyer
             ? new Buyer(tradeInfo, buyerObj, sellerObj, this.asyncClient, socket)
             : new Seller(tradeInfo, sellerObj, buyerObj, this.asyncClient, socket);
-            swap.onReady().then((res: any) => {
-                console.log({res});
-            })
+        return await swap.onReady();
     }
 }
 
