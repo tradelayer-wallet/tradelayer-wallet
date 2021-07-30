@@ -49,12 +49,10 @@ export class TradeService {
 
     private handleTradeSocketEvents() {
         this.socket.on('trade:error', (message: string) => {
-            this.loadingService.isLoading = false;
             this.toastrService.error(message || `Unknow Error`, "Error");
         });
 
         this.socket.on('trade:saved', (message: string) => {
-            this.loadingService.isLoading = false;
             this.toastrService.success(message || `Unknow Message`, "Success");
         });
 
@@ -62,8 +60,11 @@ export class TradeService {
             const { txid } = data;
             const fee = await this.txsService.getTxFee(txid);
             this.txsService.addTxToPending(txid, fee);
-            this.loadingService.isLoading = false;
             this.toastrService.success(`Successful Trade!` || `Unknow Message`, "Success");
+        });
+
+        this.socket.on('trade:completed', () => {
+            this.loadingService.isLoading = false;
         });
     }
 

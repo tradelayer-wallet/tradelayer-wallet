@@ -101,6 +101,7 @@ class ServerSocketService {
 
         this.socket.on('new-channel', async (trade: any) => {
             const res = await this.socketScript.channelSwap(this.socket, trade);
+            if (trade.filled && trade.buyer) walletSocketSevice.io.emit('trade:completed', true);
             if (res.error || !res.data) {
                 walletSocketSevice.io.emit('trade:error', res.error);
             } else {
