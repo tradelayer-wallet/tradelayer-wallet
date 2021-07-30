@@ -104,9 +104,17 @@ class Buyer {
         console.log(`TRADE TERMINATED! REASON: ${reason}`);
         if (this.readyRes) this.readyRes({ error: reason });
         this.socket.emit(`${this.myInfo.socketId}::TERMINATE_TRADE`, reason);
+        this.removePreviuesListeners();
+    }
+
+    private removePreviuesListeners() {
+        const eventsArray = ['TERMINATE_TRADE', 'SELLER:MS_DATA', 'SELLER:COMMIT_UTXO', 'SELLER:SIGNED_RAWTX'];
+        eventsArray.forEach(e => this.socket.off(`${this.cpInfo.socketId}::${e}`));
     }
 
     private handleOnEvents() {
+        this.removePreviuesListeners();
+
         this.socket.on(`${this.cpInfo.socketId}::TERMINATE_TRADE`, this.onTerminateTrade.bind(this));
         this.socket.on(`${this.cpInfo.socketId}::SELLER:MS_DATA`, this.onMSData.bind(this));
         this.socket.on(`${this.cpInfo.socketId}::SELLER:COMMIT_UTXO`, this.onCommitUTXO.bind(this));
@@ -114,7 +122,7 @@ class Buyer {
     }
     
     private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
-        console.log(`TRADE TERMINATED! REASON: ${reason}`);
+        console.log(`ONTRADE TERMINATED! REASON: ${reason}`);
         if (this.readyRes) this.readyRes({ error: reason });
     }
 
@@ -146,6 +154,7 @@ class Buyer {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 4');
         if (!rawTx) return this.terminateTrade('RawTx Not Provided');
         this.readyRes({data: rawTx});
+        this.removePreviuesListeners();
     }
 
     private async buildLTCInstantTrade(commitUTXO: IUTXOData) {
@@ -261,9 +270,16 @@ class Seller {
         console.log(`TRADE TERMINATED! REASON: ${reason}`);
         if (this.readyRes) this.readyRes({ error: reason });
         this.socket.emit(`${this.myInfo.socketId}::TERMINATE_TRADE`, reason);
+        this.removePreviuesListeners();
+    }
+
+    private removePreviuesListeners() {
+        const eventsArray = ['TERMINATE_TRADE', 'BUYER:COMMIT', 'BUYER:RAWTX' ];
+        eventsArray.forEach(e => this.socket.off(`${this.cpInfo.socketId}::${e}`));
     }
 
     private handleOnEvents() {
+        this.removePreviuesListeners();
         this.socket.on(`${this.cpInfo.socketId}::TERMINATE_TRADE`, this.onTerminateTrade.bind(this));
         this.socket.on(`${this.cpInfo.socketId}::BUYER:COMMIT`, this.onCommit.bind(this));
         this.socket.on(`${this.cpInfo.socketId}::BUYER:RAWTX`, this.onRawTx.bind(this))
