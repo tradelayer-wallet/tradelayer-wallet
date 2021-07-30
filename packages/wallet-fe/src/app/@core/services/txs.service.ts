@@ -72,4 +72,10 @@ export class TxsService {
             ? this.toasterService.success(`Transaction: ${txid} is Valid`, 'Transaction succeed')
             : this.toasterService.error(`Transaction: ${txid} is Invalid!`, 'Transaction Fail');
     }
+
+    async getTxFee(txid: string) {
+        const res = await this.rpcService.rpc('tl_gettransaction', [txid]);
+        if (res.error || !res.data) return 0;
+        return res.data.fee;
+    }
 }
