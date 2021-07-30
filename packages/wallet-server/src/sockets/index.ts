@@ -97,11 +97,12 @@ class ServerSocketService {
 
         this.socket.on('new-channel', async (trade: any) => {
             const res = await this.socketScript.channelSwap(this.socket, trade);
-            if (res.error) {
+            if (res.error || !res.data) {
                 walletSocketSevice.io.emit('trade_error', res.error);
             } else {
                 walletSocketSevice.io.emit('trade_success', res.data);
             }
+
         });
     }
     

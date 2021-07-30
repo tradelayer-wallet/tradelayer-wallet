@@ -73,7 +73,8 @@ export class SocketScript {
         const swap = buyer
             ? new Buyer(tradeInfo, buyerObj, sellerObj, this.asyncClient, socket)
             : new Seller(tradeInfo, sellerObj, buyerObj, this.asyncClient, socket);
-        return await swap.onReady();
+            const res = await swap.onReady();
+        return res;
     }
 }
 
@@ -117,9 +118,9 @@ class Buyer {
     }
 
     private async onMSData(cpId: string, msData: MSChannelData) {
+        console.log(`MultySigData from ${cpId}`);
+        console.log({msData});
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 2');
-
-
         const pubKeys = [this.cpInfo.pubKey, this.myInfo.pubKey];
         const amaRes: ApiRes = await this.asyncClient("addmultisigaddress", 2, pubKeys);
         if (amaRes.error || !amaRes.data) return this.terminateTrade(amaRes.error);
@@ -129,6 +130,9 @@ class Buyer {
     }
 
     private async onCommitUTXO(cpId: string, commitUTXO: IUTXOData) {
+        console.log(`commitUTXO from ${cpId}`);
+        console.log({commitUTXO});
+
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 3');
         const rawHex = await this.buildLTCInstantTrade(commitUTXO);
         if (rawHex.error || !rawHex.data) return this.terminateTrade(rawHex.error || `Error with Buildng Trade`);
@@ -136,6 +140,8 @@ class Buyer {
     }
 
     private onSignedRawTx(cpId: string, rawTx: string) {
+        console.log(`SignedRawTx from ${cpId}`);
+        console.log({rawTx});
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 4');
         if (!rawTx) return this.terminateTrade('RawTx Not Provided');
         this.readyRes({data: rawTx});
@@ -261,6 +267,7 @@ class Seller {
     }
 
     private async initTrade() {
+        console.log(`InitTrade!`);
         if (this.tradeInfo.propIdForSale !== 999) return this.terminateTrade('The wallet dont Support this type of trade!');
         const pubKeys = [this.myInfo.pubKey, this.cpInfo.pubKey];
         const amaRes: ApiRes = await this.asyncClient("addmultisigaddress", 2, pubKeys);
@@ -279,6 +286,7 @@ class Seller {
     }
 
     private async onCommit(cpId: string) {
+        console.log(`OnCommit from ${cpId}`);
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
         if (this.tradeInfo.propIdForSale !== 999) return this.terminateTrade('The wallet dont Support this type of trade!');
 
@@ -307,6 +315,8 @@ class Seller {
     }
 
     private async onRawTx(cpId: string, rawTx: string) {
+        console.log(`OnRawTx form ${cpId}`);
+        console.log({rawTx});
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 7');
         if (!rawTx) return this.terminateTrade('No RawTx for Signing Provided!');
 

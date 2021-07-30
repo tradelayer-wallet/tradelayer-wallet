@@ -105,7 +105,7 @@ export class SocketService {
                 this.toasterService.error(error || `Undefined Error`, `Trade Error`);
             });
 
-            this.socket.on('trade_error', (data: string) => {
+            this.socket.on('trade_success', (data: string) => {
                 this.toasterService.success(data || `Unknown Data`, `Sucessfull Trade`);
             });
         }
