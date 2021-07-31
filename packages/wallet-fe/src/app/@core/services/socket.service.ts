@@ -98,7 +98,7 @@ export class SocketService {
             });
 
             this.socket.on('opened-positions', (openedPositions: any[]) => {
-                console.log(openedPositions);
+                console.log({openedPositions});
             });
 
             this.socket.on('trade_error', (error: string) => {

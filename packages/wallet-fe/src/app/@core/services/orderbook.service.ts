@@ -45,7 +45,6 @@ export class OrderbookService {
     subscribeForOrderbook() {
         this.endOrderbookSbuscription();
         this.socket.on('orderbook-data', (orderbookData: IOrderbook[]) => {
-            console.log({orderbookData});
             this.rawOrderbookData = orderbookData;
         });
         this.socket.on('aksfor-orderbook-update', () => {

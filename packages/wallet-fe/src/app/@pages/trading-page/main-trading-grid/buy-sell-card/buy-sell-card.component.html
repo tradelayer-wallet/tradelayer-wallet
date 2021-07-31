@@ -22,11 +22,13 @@
               mat-raised-button
               color="success"
               (click)='handleBuySell(true)'
+              [disabled]='getButtonDisabled(true)'
             >BUY</button>
             <button
               mat-raised-button
               color="warn"
               (click)='handleBuySell(false)'
+              [disabled]='getButtonDisabled(false)'
             >SELL</button>
     </mat-card-footer>
 </mat-card>

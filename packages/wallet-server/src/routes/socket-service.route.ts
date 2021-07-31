@@ -25,7 +25,6 @@ export const socketRoutes = (socketScript: SocketScript) => {
         });
     
         fastify.get('/listStop', () => {
-            console.log("listStop!");
             // socketScript.stopListener();
         });
     
