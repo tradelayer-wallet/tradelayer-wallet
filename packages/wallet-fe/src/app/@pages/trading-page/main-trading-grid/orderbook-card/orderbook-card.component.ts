@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { OrderbookService } from 'src/app/@core/services/orderbook.service';
+import { PositionsService } from 'src/app/@core/services/positions.service';
 
 
 export interface PeriodicElement {
@@ -19,7 +20,20 @@ export class OrderbookCardComponent implements OnInit, OnDestroy {
     upTrend: boolean = false;
     constructor(
       private orderbookService: OrderbookService,
+      private positionsService: PositionsService
     ) {}
+
+    get openedPoisiton() {
+      return this.positionsService.openedPositions;
+    }
+
+    get openedBuyPositions() {
+      return this.openedPoisiton.filter(p => p.isBuy);
+    }
+
+    get openedSellPositions() {
+      return this.openedPoisiton.filter(p => !p.isBuy);
+    }
 
     get buyOrderbooks() {
       return this.orderbookService.buyOrderbooks;
@@ -37,8 +51,14 @@ export class OrderbookCardComponent implements OnInit, OnDestroy {
       this.orderbookService.endOrderbookSbuscription()
     }
 
-    fillBuySellPrice(row: any) {
-      const { price } = row;
+    fillBuySellPrice(price: number) {
       if (price) this.orderbookService.outsidePriceHandler.next(price);
+    }
+
+    haveOpenedPositionOnThisPrice(isBuy: boolean, price: number) {
+      const myPositoins = isBuy
+        ? this.openedBuyPositions
+        : this.openedSellPositions;
+      return myPositoins.map(e => e.price).some(e => e >= price && (e < price + 0.01))
     }
 }

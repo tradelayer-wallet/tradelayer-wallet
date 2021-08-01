@@ -17,11 +17,10 @@
             <div class='address' *ngIf='publicAddress'>
                 <span> {{ publicAddress }}  </span>
                 <span 
-                    *ngIf='getTotalOfAddress(publicAddress) >= 0; else spinner' 
                     class='balance'
                     (click)='updateBalance()'
                 >
-                    ({{ getTotalOfAddress(publicAddress).toFixed(6) }} LTC)
+                    ({{ getAddressBalance() }})
                 </span>
             </div>
             <button mat-icon-button (click)='isLoggedIn ? logOut() : navigateToLoginRoute()'>
@@ -43,7 +42,3 @@
         >{{ route.name }}</a>
       </nav>
 </div>
-
-<ng-template #spinner>
-    <mat-spinner style='margin-left: 0.25rem' diameter='20' ></mat-spinner>
-</ng-template>

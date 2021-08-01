@@ -22,6 +22,7 @@ import { PortfolioPageComponent } from './portfolio-page/portfolio-page.componen
 import { BottomCardComponent } from './trading-page/main-trading-grid/bottom-card/bottom-card.component';
 import { PendingTxsComponent } from './trading-page/main-trading-grid/bottom-card/pending-txs/pending-txs.component';
 import { MatTooltipModule } from '@angular/material/tooltip'; 
+import { PositionsComponent } from './trading-page/main-trading-grid/bottom-card/positions/positions.component';
 
 
 @NgModule({
@@ -49,6 +50,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
         OrderbookCardComponent,
         BottomCardComponent,
         PendingTxsComponent,
+        PositionsComponent,
     ]
 })
 

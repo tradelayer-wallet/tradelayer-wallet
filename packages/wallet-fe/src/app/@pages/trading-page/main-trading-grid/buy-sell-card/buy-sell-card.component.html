@@ -11,24 +11,36 @@
             <input matInput type="number" placeholder="0" formControlName="amount">
             <span class='prefix' matPrefix>Amount: </span>
             <span class='sufix' matSuffix>{{ selectedMarket.first_token.shortName }}</span>
-            <mat-hint *ngIf='isLoggedIn'>
-              buy max: {{ getMaxAmount(true)}} / sell max: {{ getMaxAmount(false)}}
-            </mat-hint>
         </mat-form-field>
-        <span *ngIf='isLoggedIn' style="margin-top: 1.5rem; color: whitesmoke">TOTAL: {{(buySellGroup.value['price'] * buySellGroup.value['amount']).toFixed(4)}}</span>
     </mat-card-content>
     <mat-card-footer>
-            <button 
-              mat-raised-button
-              color="success"
-              (click)='handleBuySell(true)'
-              [disabled]='getButtonDisabled(true)'
-            >BUY</button>
-            <button
-              mat-raised-button
-              color="warn"
-              (click)='handleBuySell(false)'
-              [disabled]='getButtonDisabled(false)'
-            >SELL</button>
+            <div class="button-container">
+              <div class="prefix">
+                <p (click)='fillMax(true)'>max: {{ getMaxAmount(true) }}</p>
+              </div>
+              <button 
+                mat-raised-button
+                color="success"
+                (click)='handleBuySell(true)'
+                [disabled]='getButtonDisabled(true)'
+              >BUY</button>
+              <div class="suffix">
+                <p>{{ getTotal(true) }}</p>
+              </div>
+            </div>
+            <div class="button-container">
+              <div class="prefix">
+                <p (click)='fillMax(false)'>max: {{ getMaxAmount(false) }}</p>
+              </div>
+              <button
+                mat-raised-button
+                color="warn"
+                (click)='handleBuySell(false)'
+                [disabled]='getButtonDisabled(false)'
+              >SELL</button>
+              <div class="suffix">
+                <p>{{ getTotal(false) }}</p>
+              </div>
+            </div>
     </mat-card-footer>
 </mat-card>

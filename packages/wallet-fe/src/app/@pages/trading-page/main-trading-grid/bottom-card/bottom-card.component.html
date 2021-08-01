@@ -1,9 +1,10 @@
 <mat-card color='accent' >
     <mat-tab-group selectedIndex='3' mat-align-tabs="left">
-        <mat-tab disabled>
+        <mat-tab>
             <ng-template mat-tab-label>
-                <span matTooltip='Comming Soon!' disabled>Positions</span>
+                <span matTooltip='Positions'>Positions</span>
             </ng-template>
+            <tl-positions></tl-positions>
         </mat-tab>
         <mat-tab disabled>
             <ng-template mat-tab-label>
@@ -17,7 +18,7 @@
         </mat-tab>
         <mat-tab>
             <ng-template mat-tab-label>
-                <span matTooltip='Comming Soon!' disabled>History</span>
+                <span matTooltip='History' disabled>History</span>
             </ng-template>
             <tl-pending-txs></tl-pending-txs>
         </mat-tab>

@@ -71,8 +71,13 @@ export class HeaderComponent {
       : null;
   }
 
-  get addressesBalance() {
-    return this.balanceService.structuredLTCBalances;
+  get addressBalance() {
+    return 
+  }
+
+  getAddressBalance() {
+    const balance = this.balanceService.getLtcBalance()?.available || 0
+    return `${balance} tLTC`;
   }
 
   navigateTo(route: any) {
@@ -96,14 +101,7 @@ export class HeaderComponent {
   }
 
   updateBalance() {
-    if (this.publicAddress){
-      this.balanceService.updateLtcBalanceForAddress(this.publicAddress);
-    }
+      this.balanceService.updateBalances();
   }
 
-  getTotalOfAddress(address: string) {
-    const balance = this.addressesBalance.find(e => e.address === address);
-    if (!balance) return 0;
-    return balance?.unconfirmed < 0 ? balance?.total : balance?.confirmed;
-  }
 }

@@ -92,7 +92,7 @@ class ServerSocketService {
 
         this.handleFromServerToWallet('trade:error');
         this.handleFromServerToWallet('trade:saved');
-        this.handleFromServerToWallet('trade:error');
+        this.handleFromServerToWallet('trade:completed');
 
         this.handleFromServerToWallet('error_message');
         this.handleFromServerToWallet('opened-positions');

@@ -67,15 +67,15 @@ export class OrderbookService {
         const propIdDesired = isBuy ? this.selectedMarket.first_token.propertyId : this.selectedMarket.second_token.propertyId;
         const propIdForSale = isBuy ? this.selectedMarket.second_token.propertyId : this.selectedMarket.first_token.propertyId;
         const filteredOrderbook = this.rawOrderbookData.filter(o => o.propIdDesired === propIdDesired && o.propIdForSale === propIdForSale);
-        const range = 4;
+        const range = 100;
         const result: {price: number, amount: number}[] = [];
         filteredOrderbook.forEach(o => {
-          const _price = o.price.toString().slice(0, range);
-          const existing = result.find(_o => _o.price.toString().slice(0, range) === _price);
+          const _price = Math.trunc(o.price*range)
+          const existing = result.find(_o =>  Math.trunc(_o.price*range) === _price);
           existing
             ? existing.amount += o.amount
             : result.push({
-                price: parseFloat(_price),
+                price: parseFloat(o.price.toFixed(2)),
                 amount: o.amount,
             });
         });

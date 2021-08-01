@@ -97,10 +97,6 @@ export class SocketService {
                 this.toasterService.error(message || `Undefined Error`, 'Error');
             });
 
-            this.socket.on('opened-positions', (openedPositions: any[]) => {
-                console.log({openedPositions});
-            });
-
             this.socket.on('trade_error', (error: string) => {
                 this.toasterService.error(error || `Undefined Error`, `Trade Error`);
             });

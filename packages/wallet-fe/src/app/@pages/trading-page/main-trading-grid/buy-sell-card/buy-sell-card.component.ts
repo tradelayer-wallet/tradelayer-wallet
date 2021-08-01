@@ -4,7 +4,7 @@ import { ReplaySubject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AddressService } from 'src/app/@core/services/address.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
-import { BalanceService, ICryptoBalance, ITokensBalance } from 'src/app/@core/services/balance.service';
+import { BalanceService } from 'src/app/@core/services/balance.service';
 import { IMarket, MarketsService } from 'src/app/@core/services/markets.service';
 import { OrderbookService } from 'src/app/@core/services/orderbook.service';
 import { TradeService, ITradeConf } from 'src/app/@core/services/trade.service';
@@ -28,10 +28,6 @@ export class BuySellCardComponent implements OnInit, OnDestroy {
       private orderbookService: OrderbookService,
     ) {}
 
-    get isLoggedIn() {
-      return this.authService.isLoggedIn;
-    }
-
     get selectedMarket(): IMarket {
       return this.marketService.selectedMarket;
     }
@@ -52,22 +48,32 @@ export class BuySellCardComponent implements OnInit, OnDestroy {
       })
     }
 
+    fillMax(isBuy: boolean) {
+      const value = parseFloat(this.getMaxAmount(isBuy));
+      this.buySellGroup?.controls?.['amount'].setValue(value);
+    }
+
+    getTotal(isBuy: boolean): string {
+      const { price, amount } = this.buySellGroup.value;
+      const tokenName = isBuy 
+        ? this.selectedMarket.first_token.shortName
+        : this.selectedMarket.second_token.shortName;
+      return `${(price * amount).toFixed(4)} ${tokenName}`;
+    }
+
     getMaxAmount(isBuy: boolean) {
-      if (!this.currentAddress) return '-';
-      if (!this.buySellGroup?.controls?.['price']?.value) return '-';
+      if (!this.currentAddress) return '0';
+      if (!this.buySellGroup?.controls?.['price']?.value) return '0';
       const fee = 0.1;
       const _price = this.buySellGroup.value['price'];
-      const price = parseFloat((_price + fee).toFixed(5));
+      const price = parseFloat((_price + fee));
 
-      const propIdForBuy = this.selectedMarket.first_token.propertyId;
-      const balances: any[] = isBuy
-        ? this.balanceService.structuredLTCBalances 
-        : this.balanceService.addressesTokensBalanceForAddress;
-      if (!balances?.length) return '-';
-      const balance = isBuy
-        ? balances.find(b => b.address === this.currentAddress)?.confirmed
-        : balances.find(t => t.propertyid === propIdForBuy)?.balance;
-      if (!balance || ((balance / price) <= 0)) return '-';
+      const propId = isBuy
+        ? this.selectedMarket.first_token.propertyId
+        : this.selectedMarket.second_token.propertyId;
+
+      const balance = this.balanceService.getAddressBalanceForId(propId)?.available;
+      if (!balance || ((balance / price) <= 0)) return '0';
       return (balance / price).toFixed(4);
     }
 
@@ -84,7 +90,7 @@ export class BuySellCardComponent implements OnInit, OnDestroy {
     }
 
     getButtonDisabled(isBuy: boolean) {
-      const v = this.buySellGroup.value.amount < parseFloat(this.getMaxAmount(isBuy));
+      const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
       return !this.buySellGroup.valid || !v;
     }
 

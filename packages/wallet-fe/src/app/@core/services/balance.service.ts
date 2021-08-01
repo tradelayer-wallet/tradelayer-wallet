@@ -4,27 +4,26 @@ import { ApiService } from "./api.service";
 import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 
-export interface ICryptoBalance {
-    address: string;
-    confirmed: number;
-    unconfirmed: number;
-    total: number
+export interface BalancesByAddresses {
+    [key: string]: Balances
 }
 
-export interface ITokensBalance {
-    name?: string,
-    propertyid: number;
-    balance: number;
-    reserve: number;
+export interface Balances {
+    [key: string]: {
+        propertyId: number,
+        type: 'TOKEN' | 'FIAT';
+        name: string;
+        available: number;
+        locked: number;
+    }
 }
-  
+
 @Injectable({
     providedIn: 'root',
 })
 
 export class BalanceService {
-    private _addressesBalance: any = {};
-    private _addressesTokensBalance: any = {};
+    private _balancesByAdresses: BalancesByAddresses = {};
 
     constructor(
         private apiServic: ApiService,
@@ -39,71 +38,113 @@ export class BalanceService {
         return this.apiServic.soChainApi;
     }
 
-    get addressesBalance() {
-        return this._addressesBalance
-    }
-
     get selectedAddress() {
         return this.addressService.activeKeyPair?.address;
     }
 
-    get addressesTokensBalanceForAddress(): ITokensBalance[] | [] {
-        if (!this.selectedAddress) return [];
-        return this._addressesTokensBalance[this.selectedAddress];
+    get selectedAddressBalances() {
+        if (!this.selectedAddress) return null;
+        return this.getBalancesByAddress(this.selectedAddress);
     }
 
-    get structuredLTCBalances(): ICryptoBalance[] {
-        return Object.keys(this._addressesBalance).map((address) => ({
-            address,
-            confirmed: parseFloat(this._addressesBalance[address].confirmed_balance) || 0,
-            unconfirmed: parseFloat(this._addressesBalance[address].unconfirmed_balance) || 0,
-            total: (parseFloat(this._addressesBalance[address].confirmed_balance) + parseFloat(this._addressesBalance[address].unconfirmed_balance)) || 0,
-        }));
+    get allBalances() {
+        return this._balancesByAdresses;
+    }
+
+    getBalancesByAddress(_address?: string) {
+        const address = _address || this.selectedAddress;
+        if (!address) return {};
+        return this._balancesByAdresses[address] || [];
+    }
+
+    getAddressBalanceForId(id: number, _address?: string) {
+        const address = _address || this.selectedAddress;
+        if (!address) return null;
+        return this._balancesByAdresses[address]?.[`bal_${id}`] || null
+    }
+
+    getLtcBalance(_address?: string) {
+        const address = _address || this.selectedAddress;
+        if (!address) return null;
+        return this._balancesByAdresses[address]?.[`bal_${999}`] || null
+    }
+
+    getAbailableByIdAndAddress(id: number, _address: string): number {
+        const address = _address || this.selectedAddress;
+        if (!address) return 0;
+        return this._balancesByAdresses[address]?.[`bal_${id}`]?.available || 0;
+    }
+
+    updateBalances(_address?: string) {
+        const address = _address || this.selectedAddress;
+        if (!address) return;
+        this.updateLtcBalanceForAddress(address);
+        this.updateTokensBalanceForAddress(address);
+    }
+
+    private async getTokenName(id: number) {
+        if (id === 999) return 'tLTC'
+        const gpRes = await this.rpcServic.rpc('tl_getproperty', [id]);
+        if (gpRes.error || !gpRes.data?.name) return `ID_${id}`;
+        return gpRes.data.name;
     }
 
     private handleSocketEvents() {
         this.socketService.socket.on('newBlock', (blockHeight) => {
             console.log(`New Block: ${blockHeight}`);
-            if (this.selectedAddress) {
-                this.updateLtcBalanceForAddress(this.selectedAddress);
-                this.updateTokensBalanceForAddress(this.selectedAddress);
-            }
+            if (this.selectedAddress) this.updateBalances(this.selectedAddress);
         })
     }
 
     async updateLtcBalanceForAddress(address: string) {
-        this._addressesBalance[address] = {};
         const balanceRes: any = await this.soChainApi.getAddressBalance(address).toPromise();
         if (!balanceRes.data || balanceRes.status !== 'success') return;
+
         const { unconfirmed_balance, confirmed_balance } = balanceRes.data;
-        this._addressesBalance[address] = { unconfirmed_balance, confirmed_balance };
+        if (!this._balancesByAdresses[address]) this._balancesByAdresses[address] = {};
+        if (!this._balancesByAdresses[address][`bal_999`]) {
+            this._balancesByAdresses[address][`bal_999`] = {
+                propertyId: 999,
+                type: 'FIAT',
+                name: 'tLTC',
+                available: 0,
+                locked: 0,
+            };
+        }
+        const bal = { available: confirmed_balance, locked: unconfirmed_balance };
+        this.addToBalance(address, 999, bal);
     }
 
     async updateTokensBalanceForAddress(address: string) {
-        if (!address) return;
-        this._addressesTokensBalance[address] = {};
         const balanceRes: any = await this.rpcServic.rpc('tl_getallbalancesforaddress', [address]);
-        if (!balanceRes.data || balanceRes.error) {
-            this._addressesTokensBalance[address] = [];
-            return;
-        };
-        this._addressesTokensBalance[address] = await Promise.all(balanceRes.data
-            .map(async (d: any) => ({
-                propertyid: d.propertyid,
-                name: await this.getTokenName(d.propertyid),
-                balance: parseFloat(d.balance),
-                reserve: parseFloat(d.reserve),
-            })));
+        if (!balanceRes.data || balanceRes.error) return;
+        if (!this._balancesByAdresses[address]) this._balancesByAdresses[address] = {};
+        balanceRes.data.forEach(async (d: { propertyid: number, balance: string, reserve: string }) => {
+                if (!this._balancesByAdresses[address][`bal_${d.propertyid}`]) {
+                    this._balancesByAdresses[address][`bal_${d.propertyid}`] = {
+                        propertyId: d.propertyid,
+                        type: 'TOKEN',
+                        name: await this.getTokenName(d.propertyid),
+                        available: parseFloat(d.balance),
+                        locked: 0,
+                    }
+                } else {
+                    const balanceObj = { available: parseFloat(d.balance) };
+                    this.addToBalance(address, d.propertyid, balanceObj);
+                }
+            });
     }
 
-    private async getTokenName(id: number) {
-        const gpRes = await this.rpcServic.rpc('tl_getproperty', [id]);
-        if (gpRes.error || !gpRes.data?.name) return '-';
-        return gpRes.data.name;
+    private addToBalance(address: string, id: number, balance: { available?: number, locked?: number }) {
+        const { available, locked } = balance;
+        const bal = this._balancesByAdresses[address][`bal_${id}`];
+        if (available) bal.available = available;
+        if (locked) bal.locked = locked;
     }
 
-    removeAllAddresses() {
-        this._addressesBalance = {};
-        this._addressesTokensBalance = {};
+    lockBalance(address: string, id: number, amount: number) {
+        const bal = this._balancesByAdresses[address][`bal_${id}`]
+        bal.available -= amount;
+        bal.locked += amount;
     }
 }

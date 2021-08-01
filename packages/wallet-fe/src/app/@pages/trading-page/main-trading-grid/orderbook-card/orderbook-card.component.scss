@@ -52,6 +52,12 @@ table {
         tr {
             height: 1rem;
         }
+        .opened-buy-position {
+            background-color: rgba(0,255,0,0.05);
+        }
+        .opened-sell-position {
+            background-color: rgba(255,0,0,0.05);
+        }
         th {
             color: gainsboro;
             font-weight: 200;
@@ -59,6 +65,7 @@ table {
         td {
             color: whitesmoke;
             font-weight: 300;
+
         }
 
         tr.cdk-row:hover {
