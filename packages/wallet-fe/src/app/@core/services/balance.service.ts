@@ -51,6 +51,10 @@ export class BalanceService {
         return this._balancesByAdresses;
     }
 
+    restartBalance() {
+        this._balancesByAdresses = {};
+    }
+
     getBalancesByAddress(_address?: string) {
         const address = _address || this.selectedAddress;
         if (!address) return {};
@@ -131,7 +135,7 @@ export class BalanceService {
                         locked: 0,
                     }
                 } else {
-                    const balanceObj = { available: parseFloat(d.balance) };
+                    const balanceObj = { available: parseFloat(d.balance) , locked: 0 };
                     this.addToBalance(address, d.propertyid, balanceObj);
                 }
             });

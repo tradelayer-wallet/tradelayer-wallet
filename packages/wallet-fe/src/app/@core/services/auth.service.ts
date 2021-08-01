@@ -64,21 +64,17 @@ export class AuthService {
                 pair.forEach((p: IKeyPair) => {
                     this.addressService.addDecryptedKeyPair(p);
                     this.balanceService.updateBalances(p.address);
-                    // this.balanceService.updateLtcBalanceForAddress(p.address);
-                    // this.balanceService.updateTokensBalanceForAddress(p.address)
                 });
             } else {
                 this.addressService.addDecryptedKeyPair(pair);
                 this.balanceService.updateBalances(pair.address);
-                // this.balanceService.updateLtcBalanceForAddress(pair.address);
-                // this.balanceService.updateTokensBalanceForAddress(pair.address)
             }
         this.router.navigateByUrl(this.savedFromUrl);
     }
 
     logout() {
         this.addressService.removeAllKeyPairs();
-        // this.balanceService.removeAllAddresses();
+        this.balanceService.restartBalance();
         this.txsService.pendingTxs = [];
         this.router.navigateByUrl('login');
     }

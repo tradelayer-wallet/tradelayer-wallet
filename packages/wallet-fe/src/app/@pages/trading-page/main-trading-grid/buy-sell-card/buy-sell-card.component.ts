@@ -94,8 +94,9 @@ export class BuySellCardComponent implements OnInit, OnDestroy {
     }
 
     getButtonDisabled(isBuy: boolean) {
+      const availableLTC = this.balanceService.getLtcBalance()?.available || 0;
       const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
-      return !this.buySellGroup.valid || !v;
+      return !this.buySellGroup.valid || !v || availableLTC < 0.05;
     }
 
     private trackPriceHandler() {
