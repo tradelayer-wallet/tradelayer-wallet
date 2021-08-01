@@ -23,9 +23,6 @@ module.exports = {
     libraryExport: 'default'
   },
   externals: [
-    {
-      'server-service': './server'
-    },
     nodeExternals(),
   ],
 };

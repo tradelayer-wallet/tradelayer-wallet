@@ -1,27 +1,28 @@
 import { App, app, BrowserWindow, globalShortcut } from 'electron';
+import { ChildProcess, fork } from 'child_process';
 import * as url from 'url';
 import * as path from 'path';
-import * as reloader from 'electron-reloader';
-import * as FastifyServer from 'server-service';
 
 class ElectronApp {
     private app: App;
     private mainWindow: BrowserWindow | null = null;
-    private server: FastifyServer;
+    private serverProcess: ChildProcess;
 
     constructor(app: App) {
         this.app = app;
-        this.initServer();
         this.handleOnEvents();
-        this.runReloader();
         this.disableSecurityWarnings();
+        this.serverProcess = fork(path.join(__dirname, './server/index.js'), ['args'], {
+            stdio: 'pipe'
+        });
+        this.serverProcess.send('init');
     }
 
     private handleOnEvents() {
         this.app.on('ready', () => this.createWindow());
 
         this.app.on('window-all-closed', () => {
-            this.server.stop('App closed');
+            this.serverProcess.send('stop');
             if (process.platform !== 'darwin') app.quit();
         });
 
@@ -53,14 +54,9 @@ class ElectronApp {
           })
     }
 
-    private initServer() {
-        const options = { logger : true };
-        const port = 1986;
-        this.server = new FastifyServer(port, options);
-    }
 
     private createWindow() {
-        this.server.start();
+        this.serverProcess.send('start');
         const windowOptions = {
             width: 1280,
             height: 800,
@@ -71,7 +67,7 @@ class ElectronApp {
         this.mainWindow = new BrowserWindow(windowOptions);
         this.handleMainWindowEvents();
         this.loadUrl(this.mainWindow);
-         this.mainWindow.webContents.openDevTools();
+        //  this.mainWindow.webContents.openDevTools();
     }
 
     private loadUrl(window: BrowserWindow) {
@@ -82,14 +78,6 @@ class ElectronApp {
               slashes: true
             }),
         );
-    }
-
-    private runReloader() {
-        try {
-            reloader(module);
-        } catch (error) {
-            return;
-        }
     }
 
     private disableSecurityWarnings() {
