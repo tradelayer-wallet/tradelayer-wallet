@@ -41,8 +41,8 @@ export class OrderbookCardComponent implements OnInit, OnDestroy {
     get openedSellPositions() {
       return this.openedPoisiton.filter(p => {
         const isBuy = !p.isBuy;
-        const matchPropDesired = p.propIdDesired === this.selectedMarket.first_token.propertyId;
-        const matchPropForSale = p.propIdForSale === this.selectedMarket.second_token.propertyId;
+        const matchPropDesired = p.propIdDesired === this.selectedMarket.second_token.propertyId;
+        const matchPropForSale = p.propIdForSale === this.selectedMarket.first_token.propertyId;
         return isBuy && matchPropDesired && matchPropForSale;
       });
     }
@@ -72,9 +72,9 @@ export class OrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     haveOpenedPositionOnThisPrice(isBuy: boolean, price: number) {
-      const myPositoins = isBuy
+      const positions = isBuy
         ? this.openedBuyPositions
         : this.openedSellPositions;
-      return myPositoins.map(e => e.price).some(e => e >= price && (e < price + 0.01))
+      return positions.map(e => e.price).some(e => e >= price && (e < price + 0.01));
     }
 }
