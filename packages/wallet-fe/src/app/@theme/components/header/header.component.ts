@@ -77,7 +77,7 @@ export class HeaderComponent {
 
   getAddressBalance() {
     const balance = this.balanceService.getLtcBalance()?.available || 0
-    return `${balance} tLTC`;
+    return `${balance.toFixed(5)} tLTC`;
   }
 
   navigateTo(route: any) {
