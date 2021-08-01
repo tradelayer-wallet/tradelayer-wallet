@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { ToastrService } from 'ngx-toastr';
 import { TxsService } from 'src/app/@core/services/txs.service';
 
 @Component({
@@ -11,6 +12,7 @@ export class PendingTxsComponent implements OnInit {
     displayedColumns: string[] = ['id', 'status', 'txid', 'fee'];
     constructor(
       private txsService: TxsService,
+      private toastrService: ToastrService,
     ) {}
 
     get pendingTxs() {
@@ -18,4 +20,9 @@ export class PendingTxsComponent implements OnInit {
     }
   
     ngOnInit() {}
+
+    copyToClipboard(text: string) {
+      navigator.clipboard.writeText(text);
+      this.toastrService.info('TX id Copied to clipboard', 'Copied')
+    }
 }

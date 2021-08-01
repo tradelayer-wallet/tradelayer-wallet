@@ -15,7 +15,7 @@
                 <mat-icon>light_mode</mat-icon>
             </div> -->
             <div class='address' *ngIf='publicAddress'>
-                <span> {{ publicAddress }}  </span>
+                <span (click)='copyToClipboard(publicAddress)'> {{ publicAddress }}  </span>
                 <span 
                     class='balance'
                     (click)='updateBalance()'

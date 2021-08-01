@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
+import { ToastrService } from 'ngx-toastr';
 import { AddressService } from 'src/app/@core/services/address.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
@@ -47,6 +48,8 @@ export class HeaderComponent {
     private dialogService: DialogService,
     private addressService: AddressService,
     private balanceService: BalanceService,
+    private toastrService: ToastrService,
+
   ) { }
 
   get mainRoutes(){
@@ -78,6 +81,11 @@ export class HeaderComponent {
   getAddressBalance() {
     const balance = this.balanceService.getLtcBalance()?.available || 0
     return `${balance.toFixed(5)} tLTC`;
+  }
+
+  copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text);
+    this.toastrService.info('Address Copied to clipboard', 'Copied')
   }
 
   navigateTo(route: any) {
