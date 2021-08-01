@@ -10,17 +10,17 @@
             
                 <ng-container matColumnDef="total" >
                     <mat-header-cell *matHeaderCellDef>Total </mat-header-cell>
-                    <mat-cell *matCellDef="let element"> {{ ((+element?.['bal_999']?.available || 0) + (+element?.['bal_999']?.locked || 0)).toFixed(5) }} </mat-cell>
+                    <mat-cell *matCellDef="let element"> {{ ((element?.['bal_999']?.available || 0) + (element?.['bal_999']?.locked || 0)).toFixed(5) }} </mat-cell>
                 </ng-container>
         
                 <ng-container matColumnDef="available" sticky>
                   <mat-header-cell *matHeaderCellDef>Available Balance </mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ (+element?.['bal_999']?.available || 0).toFixed(5) }} </mat-cell>
+                  <mat-cell *matCellDef="let element"> {{ (element?.['bal_999']?.available || 0).toFixed(5) }} </mat-cell>
                 </ng-container>
             
                 <ng-container matColumnDef="locked" sticky>
                     <mat-header-cell *matHeaderCellDef>Locked Balance </mat-header-cell>
-                    <mat-cell *matCellDef="let element"> {{ (+element?.['bal_999']?.locked || 0).toFixed(5) }} </mat-cell>
+                    <mat-cell *matCellDef="let element"> {{ (element?.['bal_999']?.locked || 0).toFixed(5) }} </mat-cell>
                 </ng-container>
 
                 <mat-header-row *matHeaderRowDef="cryptoBalanceColumns; sticky: true"></mat-header-row>
@@ -46,12 +46,12 @@
         
                 <ng-container matColumnDef="available" sticky>
                   <mat-header-cell *matHeaderCellDef>Available </mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ (+element?.available || 0).toFixed(5) }} </mat-cell>
+                  <mat-cell *matCellDef="let element"> {{ (element?.available).toFixed(5) }} </mat-cell>
                 </ng-container>
             
                 <ng-container matColumnDef="locked" sticky>
                     <mat-header-cell *matHeaderCellDef>Locked </mat-header-cell>
-                    <mat-cell *matCellDef="let element"> {{ (+element || 0).toFixed(6) }} </mat-cell>
+                    <mat-cell *matCellDef="let element"> {{ (element?.locked).toFixed(6) }} </mat-cell>
                 </ng-container>
 
                 <mat-header-row *matHeaderRowDef="tokensBalanceColums; sticky: true"></mat-header-row>

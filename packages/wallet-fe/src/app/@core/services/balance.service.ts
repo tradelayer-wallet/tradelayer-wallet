@@ -75,11 +75,11 @@ export class BalanceService {
         return this._balancesByAdresses[address]?.[`bal_${id}`]?.available || 0;
     }
 
-    updateBalances(_address?: string) {
+    async updateBalances(_address?: string) {
         const address = _address || this.selectedAddress;
         if (!address) return;
-        this.updateLtcBalanceForAddress(address);
-        this.updateTokensBalanceForAddress(address);
+        await this.updateLtcBalanceForAddress(address);
+        await this.updateTokensBalanceForAddress(address);
     }
 
     private async getTokenName(id: number) {
@@ -111,7 +111,9 @@ export class BalanceService {
                 locked: 0,
             };
         }
-        const bal = { available: confirmed_balance, locked: unconfirmed_balance };
+        const available = parseFloat(parseFloat(confirmed_balance).toFixed(5));
+        const locked = parseFloat(parseFloat(unconfirmed_balance).toFixed(5));
+        const bal = { available, locked };
         this.addToBalance(address, 999, bal);
     }
 
@@ -138,13 +140,44 @@ export class BalanceService {
     private addToBalance(address: string, id: number, balance: { available?: number, locked?: number }) {
         const { available, locked } = balance;
         const bal = this._balancesByAdresses[address][`bal_${id}`];
-        if (available) bal.available = available;
-        if (locked) bal.locked = locked;
+        if (available || available === 0) bal.available = available;
+        if (locked || locked === 0) bal.locked = locked;
     }
 
     lockBalance(address: string, id: number, amount: number) {
         const bal = this._balancesByAdresses[address][`bal_${id}`]
         bal.available -= amount;
         bal.locked += amount;
+    }
+
+    async updateLockedBalancesByopenedPositions(positions: any) {
+        await this.updateBalances();
+        const address = this.selectedAddress;
+        if (!address) return;
+        const values = Object.values(this._balancesByAdresses[address]);
+        if (!positions.length) {
+            values.forEach(v => v.locked = 0);
+        } else {
+            positions.forEach((p: any) => {
+                const fee = 0.05;
+                const v = values.find(v => v.propertyId === 999);
+                if (!v) return;
+                const available = parseFloat((v.available - fee).toFixed(5));
+                const locked = parseFloat((v.locked + fee).toFixed(5));
+                this.addToBalance(address, v.propertyId, {available, locked});
+
+                values.forEach(v => {
+                    if (p.propIdForSale === v.propertyId) {
+                        const amount = p.isBuy
+                            ? parseFloat((p.amount * p.price).toFixed(4))
+                            : p.amount;
+                        const available = parseFloat((v.available - amount).toFixed(5));
+                        const locked = parseFloat((v.locked + amount).toFixed(5));
+                        this.addToBalance(address, v.propertyId, {available, locked});
+                    }
+                });
+            })
+
+        }
     }
 }

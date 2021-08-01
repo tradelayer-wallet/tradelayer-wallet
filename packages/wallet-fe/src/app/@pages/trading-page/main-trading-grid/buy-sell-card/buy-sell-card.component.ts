@@ -56,9 +56,12 @@ export class BuySellCardComponent implements OnInit, OnDestroy {
     getTotal(isBuy: boolean): string {
       const { price, amount } = this.buySellGroup.value;
       const tokenName = isBuy 
-        ? this.selectedMarket.first_token.shortName
-        : this.selectedMarket.second_token.shortName;
-      return `${(price * amount).toFixed(4)} ${tokenName}`;
+        ? this.selectedMarket.second_token.shortName
+        : this.selectedMarket.first_token.shortName;
+      const _amount = isBuy
+        ? (price * amount).toFixed(4)
+        : (amount || 0).toFixed(4);
+      return `${_amount} ${tokenName}`;
     }
 
     getMaxAmount(isBuy: boolean) {
@@ -69,12 +72,12 @@ export class BuySellCardComponent implements OnInit, OnDestroy {
       const price = parseFloat((_price + fee));
 
       const propId = isBuy
-        ? this.selectedMarket.first_token.propertyId
-        : this.selectedMarket.second_token.propertyId;
+        ? this.selectedMarket.second_token.propertyId
+        : this.selectedMarket.first_token.propertyId;
 
       const balance = this.balanceService.getAddressBalanceForId(propId)?.available;
       if (!balance || ((balance / price) <= 0)) return '0';
-      return (balance / price).toFixed(4);
+      return isBuy ? (balance / price).toFixed(4): balance.toFixed(4);
     }
 
 
