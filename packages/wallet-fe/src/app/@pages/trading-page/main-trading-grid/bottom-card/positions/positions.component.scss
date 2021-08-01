@@ -13,7 +13,10 @@ mat-table {
     .mat-cell {
         color: wheat;
     }
-  }
+    .close-icon {
+        cursor: pointer;
+    }
+}
 
 //   .mat-column-id {
 //     max-width: 5%;

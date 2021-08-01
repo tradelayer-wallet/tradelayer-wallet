@@ -39,6 +39,7 @@ class WalletSocketSevice {
         this.handleFromWalletToServer(socket, 'orderbook-market-filter');
         this.handleFromWalletToServer(socket, 'update-orderbook');
         this.handleFromWalletToServer(socket, 'dealer-data');
+        this.handleFromWalletToServer(socket, 'close-position');
 
         socket.on('api-recoonect', () => initServerConnection(this.socketScript));
     }

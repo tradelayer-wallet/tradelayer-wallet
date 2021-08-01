@@ -17,6 +17,7 @@ export interface ITradeConf {
     clientPubKey?: string,
     clientAddress?: string,
     isBuy: boolean,
+    marketName: string,
 }
 
 @Injectable({

@@ -83,8 +83,9 @@ export class BuySellCardComponent implements OnInit, OnDestroy {
       const market = this.selectedMarket;
       const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
+      const marketName = market.pairString;
       if (!propIdForSale || !propIdDesired || !price || !amount) return;
-      const newTrade: ITradeConf = { price, amount, propIdForSale, propIdDesired, isBuy };
+      const newTrade: ITradeConf = { price, amount, propIdForSale, propIdDesired, isBuy, marketName };
       this.tradeService.initNewTrade(newTrade);
       this.buySellGroup.reset();
     }

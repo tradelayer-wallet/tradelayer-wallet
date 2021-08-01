@@ -36,8 +36,11 @@ export class PositionsService {
 
     private _subscribeToSocketEvents() {
         this.socket.on('opened-positions', (openedPositions: Position[]) => {
-            console.log({openedPositions});
             this.openedPositions = openedPositions
         });
+    }
+
+    closeOpenedPosition(position: any) {
+        this.socket.emit('close-position', position);
     }
 }

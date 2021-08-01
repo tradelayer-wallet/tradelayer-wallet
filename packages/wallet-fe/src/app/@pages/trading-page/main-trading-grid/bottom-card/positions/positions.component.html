@@ -4,6 +4,11 @@
       <mat-cell *matCellDef="let element; let i = index"> {{ i }} </mat-cell>
     </ng-container>
 
+    <ng-container matColumnDef="market" sticky>
+      <mat-header-cell *matHeaderCellDef> Market </mat-header-cell>
+      <mat-cell *matCellDef="let element"> {{element.marketName}} </mat-cell>
+    </ng-container>
+    
     <ng-container matColumnDef="amount" sticky>
       <mat-header-cell *matHeaderCellDef> Amount </mat-header-cell>
       <mat-cell *matCellDef="let element"> {{element.amount}} </mat-cell>
@@ -18,7 +23,10 @@
       <mat-header-cell *matHeaderCellDef> Buy/Sell </mat-header-cell>
       <mat-cell *matCellDef="let element"> {{element.isBuy ? 'Buy' : 'Sell'}} </mat-cell>
     </ng-container>
-
+    <ng-container matColumnDef="close" >
+      <mat-header-cell *matHeaderCellDef> Close </mat-header-cell>
+      <mat-cell *matCellDef="let element"> <mat-icon class='close-icon' (click)='closePosition(element)'> close </mat-icon> </mat-cell>
+    </ng-container>
     <mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></mat-header-row>
 
     <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
