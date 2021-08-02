@@ -74,6 +74,7 @@ export class SocketScript {
             ? new Buyer(tradeInfo, buyerObj, sellerObj, this.asyncClient, socket)
             : new Seller(tradeInfo, sellerObj, buyerObj, this.asyncClient, socket);
             const res = await swap.onReady();
+            console.log({res});
         return res;
     }
 }
@@ -153,17 +154,16 @@ class Buyer {
         // const ssrtxRes = await this.asyncClient("signrawtransaction", hex);
         if (ssrtxRes.error || !ssrtxRes.data?.hex || !ssrtxRes.data?.complete) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
         const finalTxId = await this.sendRawTransaction(ssrtxRes.data.hex);
-        this.socket.emit(`${this.myInfo.socketId}::BUYER:FINALTX`, finalTxId);
         if (this.readyRes) this.readyRes({ data: { txid: finalTxId, seller: false, trade: this.tradeInfo } });
+        this.socket.emit(`${this.myInfo.socketId}::BUYER:FINALTX`, finalTxId);
         this.removePreviuesListeners();
     }
 
     private async sendRawTransaction(hex: string) {
-        return new Promise(async (res, rej) => {
-            const result = await this.asyncClient("sendrawtransaction", hex);
-            if (result.error || !result.data) setTimeout(async () => res(await this.sendRawTransaction(hex)), 500);
-            res(result.data);
-        });
+        await new Promise(res => setTimeout(() => res(true), 250));
+        const result = await this.asyncClient("sendrawtransaction", hex);
+        if (result.error || !result.data) return await this.sendRawTransaction(hex);
+        return result.data;
     }
 
     private async buildLTCInstantTrade(commitUTXO: IUTXOData) {
@@ -358,10 +358,11 @@ class Seller {
         console.log(2)
         console.log({ssrtxRes, error: ssrtxRes.data.errors })
         if (ssrtxRes.error || !ssrtxRes.data?.hex) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
-        this.socket.emit(`${this.myInfo.socketId}::SELLER:SIGNED_RAWTX`, {hex: ssrtxRes.data?.hex, prevTxsData});
+        this.socket.emit(`${this.myInfo.socketId}::SELLER:SIGNED_RAWTX`, { hex: ssrtxRes.data.hex, prevTxsData });
     }
 
     private async onFinalTx(cpId: string, finalTx: string) {
+        console.log({finalTx})
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
         if (this.readyRes) this.readyRes({ data: { txid: finalTx, seller: true, trade: this.tradeInfo } });
         this.removePreviuesListeners();
