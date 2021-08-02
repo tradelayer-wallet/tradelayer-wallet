@@ -149,19 +149,21 @@ class Buyer {
         console.log(`SignedRawTx from ${cpId}`);
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 4');
         if (!hex) return this.terminateTrade('RawTx Not Provided');
-
         const ssrtxRes = await this.asyncClient("signrawtransaction", hex, [prevTxsData]);
-        console.log(1)
-        console.log({hex, ssrtxRes, errors: ssrtxRes.data.errors, prevTxsData})
+        // const ssrtxRes = await this.asyncClient("signrawtransaction", hex);
         if (ssrtxRes.error || !ssrtxRes.data?.hex || !ssrtxRes.data?.complete) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
-
-        const srtxRes = await this.asyncClient("sendrawtransaction", ssrtxRes.data.hex)
-        console.log({srtxRes})
-        if (srtxRes.error || !srtxRes.data) return this.terminateTrade(ssrtxRes.error || `Error with Sending Raw TX`);
-        this.socket.emit(`${this.myInfo.socketId}::BUYER:FINALTX`, srtxRes.data);
-
-        if (this.readyRes) this.readyRes({ data: { txid: srtxRes.data, seller: false, trade: this.tradeInfo } });
+        const finalTxId = await this.sendRawTransaction(ssrtxRes.data.hex);
+        this.socket.emit(`${this.myInfo.socketId}::BUYER:FINALTX`, finalTxId);
+        if (this.readyRes) this.readyRes({ data: { txid: finalTxId, seller: false, trade: this.tradeInfo } });
         this.removePreviuesListeners();
+    }
+
+    private async sendRawTransaction(hex: string) {
+        return new Promise(async (res, rej) => {
+            const result = await this.asyncClient("sendrawtransaction", hex);
+            if (result.error || !result.data) setTimeout(async () => res(await this.sendRawTransaction(hex)), 500);
+            res(result.data);
+        });
     }
 
     private async buildLTCInstantTrade(commitUTXO: IUTXOData) {
