@@ -101,10 +101,8 @@ class Buyer {
     }
 
     private terminateTrade(reason: string = 'No info'): void {
-        console.log(`TRADE TERMINATED! REASON: ${reason}`);
-        if (this.readyRes) this.readyRes({ error: reason });
         this.socket.emit(`${this.myInfo.socketId}::TERMINATE_TRADE`, reason);
-        this.removePreviuesListeners();
+        this.onTerminateTrade('', reason);
     }
 
     private removePreviuesListeners() {
@@ -124,6 +122,7 @@ class Buyer {
     private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
         console.log(`ONTRADE TERMINATED! REASON: ${reason}`);
         if (this.readyRes) this.readyRes({ error: reason });
+        this.removePreviuesListeners();
     }
 
     private async onMSData(cpId: string, msData: MSChannelData) {
@@ -145,16 +144,19 @@ class Buyer {
         this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, rawHex.data);
     }
 
-    private async onSignedRawTx(cpId: string, rawTx: string) {
+    private async onSignedRawTx(cpId: string, rawTxObj: { hex: string, prevTxsData: any }) {
+        const { hex, prevTxsData } = rawTxObj;
         console.log(`SignedRawTx from ${cpId}`);
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 4');
-        if (!rawTx) return this.terminateTrade('RawTx Not Provided');
+        if (!hex) return this.terminateTrade('RawTx Not Provided');
 
-        const ssrtxRes = await this.asyncClient("signrawtransaction", rawTx);
+        const ssrtxRes = await this.asyncClient("signrawtransaction", hex, [prevTxsData]);
+        console.log(1)
+        console.log({hex, ssrtxRes, errors: ssrtxRes.data.errors, prevTxsData})
         if (ssrtxRes.error || !ssrtxRes.data?.hex || !ssrtxRes.data?.complete) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
 
-        const srtxRes = await this.asyncClient("sendrawtransaction", ssrtxRes.data?.hex)
-
+        const srtxRes = await this.asyncClient("sendrawtransaction", ssrtxRes.data.hex)
+        console.log({srtxRes})
         if (srtxRes.error || !srtxRes.data) return this.terminateTrade(ssrtxRes.error || `Error with Sending Raw TX`);
         this.socket.emit(`${this.myInfo.socketId}::BUYER:FINALTX`, srtxRes.data);
 
@@ -271,10 +273,8 @@ class Seller {
     }
 
     private terminateTrade(reason: string = 'No info'): void {
-        console.log(`TRADE TERMINATED! REASON: ${reason}`);
-        if (this.readyRes) this.readyRes({ error: reason });
         this.socket.emit(`${this.myInfo.socketId}::TERMINATE_TRADE`, reason);
-        this.removePreviuesListeners();
+        this.onTerminateTrade('', reason);
     }
 
     private removePreviuesListeners() {
@@ -307,6 +307,7 @@ class Seller {
     private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
         console.log(`TRADE TERMINATED! REASON: ${reason}`);
         if (this.readyRes) this.readyRes({ error: reason });
+        this.removePreviuesListeners();
     }
 
     private async onCommit(cpId: string) {
@@ -352,8 +353,10 @@ class Seller {
         }
         const prevTxsData = { txid, vout, amount, scriptPubKey, redeemScript };
         const ssrtxRes = await this.asyncClient("signrawtransaction", rawTx, [prevTxsData]);
+        console.log(2)
+        console.log({ssrtxRes, error: ssrtxRes.data.errors })
         if (ssrtxRes.error || !ssrtxRes.data?.hex) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
-        this.socket.emit(`${this.myInfo.socketId}::SELLER:SIGNED_RAWTX`, ssrtxRes.data?.hex);
+        this.socket.emit(`${this.myInfo.socketId}::SELLER:SIGNED_RAWTX`, {hex: ssrtxRes.data?.hex, prevTxsData});
     }
 
     private async onFinalTx(cpId: string, finalTx: string) {
