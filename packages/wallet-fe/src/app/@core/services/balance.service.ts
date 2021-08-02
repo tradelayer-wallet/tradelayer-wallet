@@ -84,7 +84,7 @@ export class BalanceService {
     async updateBalances(_address?: string) {
         const address = _address || this.selectedAddress;
         if (!address) return;
-        await this.updateLockedBalancesByopenedPositions(this.positionsService.openedPositions);
+        await this.updateLockedBalancesByOpenedPositions(this.positionsService.openedPositions);
     }
 
     private async getTokenName(id: number) {
@@ -101,7 +101,7 @@ export class BalanceService {
         });
 
         this.socketService.socket.on('opened-positions', (openedPositions: Position[]) => {
-            this.updateLockedBalancesByopenedPositions(openedPositions);
+            this.updateLockedBalancesByOpenedPositions(openedPositions);
         });
     }
 
@@ -146,6 +146,26 @@ export class BalanceService {
             });
     }
 
+    // async updateBalanceByPendingTxs() {
+    //     const address = this.selectedAddress;
+    //     if (!address) return;
+    //     const pendingTxs = this.pendingTxs.filter(t => t.status === TXSTATUS.PENDING)
+
+    //     const values = Object.values(this._balancesByAdresses[address]);
+    //     if (!pendingTxs.length) return;
+
+    //     pendingTxs.forEach((p) => {
+    //         values.forEach(v => {
+    //             if (p.propId === v.propertyId) {
+    //                 const amount = p.amount
+    //                 const available = parseFloat((v.available - amount).toFixed(5));
+    //                 const locked = parseFloat((v.locked + amount).toFixed(5));
+    //                 this.addToBalance(address, v.propertyId, {available, locked});
+    //             }
+    //         });
+    //     })
+    // }
+
     private addToBalance(address: string, id: number, balance: { available?: number, locked?: number }) {
         const { available, locked } = balance;
         const bal = this._balancesByAdresses[address][`bal_${id}`];
@@ -159,35 +179,31 @@ export class BalanceService {
         bal.locked += amount;
     }
 
-    async updateLockedBalancesByopenedPositions(positions: any) {
+    async updateLockedBalancesByOpenedPositions(positions: any) {
         const address = this.selectedAddress;
         if (!address) return;
         await this.updateLtcBalanceForAddress(address);
         await this.updateTokensBalanceForAddress(address);
         const values = Object.values(this._balancesByAdresses[address]);
-        if (!positions.length) {
-            values.forEach(v => v.locked = 0);
-        } else {
-            positions.forEach((p: any) => {
-                const fee = 0.05;
-                const v = values.find(v => v.propertyId === 999);
-                if (!v) return;
-                const available = parseFloat((v.available - fee).toFixed(5));
-                const locked = parseFloat((v.locked + fee).toFixed(5));
-                this.addToBalance(address, v.propertyId, {available, locked});
+        if (!positions.length) return 
+        positions.forEach((p: any) => {
+            const fee = 0.05;
+            const v = values.find(v => v.propertyId === 999);
+            if (!v) return;
+            const available = parseFloat((v.available - fee).toFixed(5));
+            const locked = parseFloat((v.locked + fee).toFixed(5));
+            this.addToBalance(address, v.propertyId, {available, locked});
 
-                values.forEach(v => {
-                    if (p.propIdForSale === v.propertyId) {
-                        const amount = p.isBuy
-                            ? parseFloat((p.amount * p.price).toFixed(4))
-                            : p.amount;
-                        const available = parseFloat((v.available - amount).toFixed(5));
-                        const locked = parseFloat((v.locked + amount).toFixed(5));
-                        this.addToBalance(address, v.propertyId, {available, locked});
-                    }
-                });
-            })
-
-        }
+            values.forEach(v => {
+                if (p.propIdForSale === v.propertyId) {
+                    const amount = p.isBuy
+                        ? parseFloat((p.amount * p.price).toFixed(4))
+                        : p.amount;
+                    const available = parseFloat((v.available - amount).toFixed(5));
+                    const locked = parseFloat((v.locked + amount).toFixed(5));
+                    this.addToBalance(address, v.propertyId, {available, locked});
+                }
+            });
+        })
     }
 }

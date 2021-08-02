@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
+import { BalanceService } from "./balance.service";
 import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 
@@ -13,6 +14,8 @@ export interface IPedningTXS {
     txid: string;
     status: TXSTATUS;
     fee: number;
+    propId: number,
+    amount: number,
 }
 
 @Injectable({
@@ -37,9 +40,11 @@ export class TxsService {
         this._pendingTxs = value;
     }
 
-    addTxToPending(txid: string, fee: number) {
-        const txObj = { txid, status: TXSTATUS.PENDING, fee };
-        this._pendingTxs = [...this.pendingTxs, txObj];
+    async addTxToPending(txid: string, tradeData: { propId: number, amount: string }) {
+        const { propId, amount } = tradeData;
+        const fee = await this.getTxFee(txid)
+        const txObj = { txid, status: TXSTATUS.PENDING, propId, amount: parseFloat(amount), fee };
+        this.pendingTxs = [...this.pendingTxs, txObj];
     }
 
     removeFromPendingTxs(txid: string) {

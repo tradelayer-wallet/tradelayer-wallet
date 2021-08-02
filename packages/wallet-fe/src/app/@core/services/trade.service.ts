@@ -58,10 +58,14 @@ export class TradeService {
             this.toastrService.success(message || `Unknow Message`, "Success");
         });
 
-        this.socket.on('trade:success', async (data: any) => {
-            const { txid } = data;
-            const fee = await this.txsService.getTxFee(txid);
-            this.txsService.addTxToPending(txid, fee);
+        this.socket.on('trade:success', async (_data: any) => {
+            const { data, trade } = _data;
+            const { txid, seller } = data;
+            const tradeData = {
+                propId: seller ? trade.propIdForSale : trade.propIdDesired,
+                amount: seller ? trade.amountForSale : trade.amountDesired,
+            };
+            this.txsService.addTxToPending(txid, tradeData);
             this.toastrService.info(`Successful Trade!` || `Unknow Message`, "Success");
         });
 
