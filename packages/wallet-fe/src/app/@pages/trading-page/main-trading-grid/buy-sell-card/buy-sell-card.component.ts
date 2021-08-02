@@ -3,8 +3,8 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ReplaySubject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AddressService } from 'src/app/@core/services/address.service';
-import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
+import { LoadingService } from 'src/app/@core/services/loading.service';
 import { IMarket, MarketsService } from 'src/app/@core/services/markets.service';
 import { OrderbookService } from 'src/app/@core/services/orderbook.service';
 import { TradeService, ITradeConf } from 'src/app/@core/services/trade.service';
@@ -22,11 +22,15 @@ export class BuySellCardComponent implements OnInit, OnDestroy {
       private marketService: MarketsService,
       private balanceService: BalanceService,
       private fb: FormBuilder,
-      private authService: AuthService,
       private addressService: AddressService,
       private tradeService: TradeService,
       private orderbookService: OrderbookService,
+      private loadingService: LoadingService,
     ) {}
+
+    get isLoading(): boolean {
+      return this.loadingService.tradesLoading;
+    }
 
     get selectedMarket(): IMarket {
       return this.marketService.selectedMarket;

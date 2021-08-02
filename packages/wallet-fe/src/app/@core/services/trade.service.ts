@@ -54,7 +54,7 @@ export class TradeService {
         });
 
         this.socket.on('trade:saved', (message: string) => {
-            this.loadingService.isLoading = false;
+            this.loadingService.tradesLoading = false;
             this.toastrService.success(message || `Unknow Message`, "Success");
         });
 
@@ -66,13 +66,13 @@ export class TradeService {
         });
 
         this.socket.on('trade:completed', () => {
-            this.loadingService.isLoading = false;
+            this.loadingService.tradesLoading = false;
         });
     }
 
     initNewTrade(trade: ITradeConf) {
         // this._initTrade(trade);
-        this.loadingService.isLoading = true;
+        this.loadingService.tradesLoading = true;
         this.__initNewTrade(trade);
     }
 
