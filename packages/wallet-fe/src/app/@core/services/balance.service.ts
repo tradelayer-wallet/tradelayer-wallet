@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core";
 import { AddressService } from "./address.service";
 import { ApiService } from "./api.service";
+import { PositionsService, Position } from "./positions.service";
 import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 
@@ -30,6 +31,7 @@ export class BalanceService {
         private rpcServic: RpcService,
         private addressService: AddressService,
         private socketService: SocketService,
+        private positionsService: PositionsService,
     ) {
         this.handleSocketEvents()
     }
@@ -82,8 +84,7 @@ export class BalanceService {
     async updateBalances(_address?: string) {
         const address = _address || this.selectedAddress;
         if (!address) return;
-        await this.updateLtcBalanceForAddress(address);
-        await this.updateTokensBalanceForAddress(address);
+        await this.updateLockedBalancesByopenedPositions(this.positionsService.openedPositions);
     }
 
     private async getTokenName(id: number) {
@@ -96,8 +97,12 @@ export class BalanceService {
     private handleSocketEvents() {
         this.socketService.socket.on('newBlock', (blockHeight) => {
             console.log(`New Block: ${blockHeight}`);
-            if (this.selectedAddress) this.updateBalances(this.selectedAddress);
-        })
+            this.updateBalances();
+        });
+
+        this.socketService.socket.on('opened-positions', (openedPositions: Position[]) => {
+            this.updateLockedBalancesByopenedPositions(openedPositions);
+        });
     }
 
     async updateLtcBalanceForAddress(address: string) {
@@ -155,9 +160,10 @@ export class BalanceService {
     }
 
     async updateLockedBalancesByopenedPositions(positions: any) {
-        await this.updateBalances();
         const address = this.selectedAddress;
         if (!address) return;
+        await this.updateLtcBalanceForAddress(address);
+        await this.updateTokensBalanceForAddress(address);
         const values = Object.values(this._balancesByAdresses[address]);
         if (!positions.length) {
             values.forEach(v => v.locked = 0);

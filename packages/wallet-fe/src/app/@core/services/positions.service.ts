@@ -1,5 +1,4 @@
-import { Injectable, OnInit } from "@angular/core";
-import { BalanceService } from "./balance.service";
+import { Injectable } from "@angular/core";
 import { SocketService } from "./socket.service";
 
 export interface Position {
@@ -19,7 +18,6 @@ export class PositionsService {
     private _openedPositions: Position[] = []
     constructor(
         private socketService: SocketService,
-        private balancesService: BalanceService,
     ) {
         this._subscribeToSocketEvents()
     }
@@ -39,7 +37,6 @@ export class PositionsService {
     private _subscribeToSocketEvents() {
         this.socket.on('opened-positions', (openedPositions: Position[]) => {
             this.openedPositions = openedPositions
-            this.balancesService.updateLockedBalancesByopenedPositions(openedPositions);
         });
     }
 
