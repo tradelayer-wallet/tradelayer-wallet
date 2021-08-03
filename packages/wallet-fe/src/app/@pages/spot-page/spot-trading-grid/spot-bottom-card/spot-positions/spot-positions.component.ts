@@ -2,12 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { PositionsService } from 'src/app/@core/services/spot-services/positions.service';
 
 @Component({
-  selector: 'tl-positions',
-  templateUrl: './positions.component.html',
-  styleUrls: ['./positions.component.scss']
+  selector: 'tl-spot-positions',
+  templateUrl: './spot-positions.component.html',
+  styleUrls: ['./spot-positions.component.scss']
 })
 
-export class PositionsComponent implements OnInit {
+export class SpotPositionsComponent implements OnInit {
     displayedColumns: string[] = ['id', 'market', 'amount', 'price', 'isBuy', 'close'];
 
     constructor(

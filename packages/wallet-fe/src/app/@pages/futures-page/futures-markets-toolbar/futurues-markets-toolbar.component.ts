@@ -3,8 +3,8 @@ import { FuturesMarketsService } from 'src/app/@core/services/futures-services/f
 
 @Component({
   selector: 'tl-futures-markets-toolbar',
-  templateUrl: '../../shared/markets-toolbar.component.html',
-  styleUrls: ['../../shared/markets-toolbar.component.scss']
+  templateUrl: '../../shared/markets-toolbar/markets-toolbar.component.html',
+  styleUrls: ['../../shared/markets-toolbar/markets-toolbar.component.scss']
 })
 export class FuturesMarketsToolbarComponent {
     @ViewChildren('marketsTabGroup') marketsTabGroup: any;

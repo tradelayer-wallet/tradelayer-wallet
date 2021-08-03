@@ -1,9 +1,9 @@
 <mat-grid-list cols='8' gutterSize='10' rowHeight="120px" class="md-layout md-alignment-top-center">
     <mat-grid-tile colspan='3' rowspan='4'>
-        <tl-orderbook-card></tl-orderbook-card>
+        <tl-futures-orderbook-card></tl-futures-orderbook-card>
     </mat-grid-tile>
     <mat-grid-tile colspan='2' rowspan='3'>
-        <tl-buy-sell-card></tl-buy-sell-card>
+        <tl-futures-buy-sell-card></tl-futures-buy-sell-card>
     </mat-grid-tile>
 
     <mat-grid-tile colspan='3' rowspan='2' style="visibility: hidden;">
@@ -21,7 +21,7 @@
             <mat-card-header></mat-card-header>
         </mat-card>
     </mat-grid-tile>
-    <mat-grid-tile colspan='8' rowspan='2'>
-        <tl-bottom-card></tl-bottom-card>
+    <mat-grid-tile colspan='8' rowspan='2' style="visibility: hidden;">
+        <tl-spot-bottom-card></tl-spot-bottom-card>
     </mat-grid-tile>
 </mat-grid-list>

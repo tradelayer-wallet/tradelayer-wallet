@@ -10,11 +10,11 @@ import { OrderbookService } from 'src/app/@core/services/spot-services/orderbook
 import { TradeService, ITradeConf } from 'src/app/@core/services/spot-services/trade.service';
 
 @Component({
-  selector: 'tl-buy-sell-card',
-  templateUrl: './buy-sell-card.component.html',
-  styleUrls: ['./buy-sell-card.component.scss']
+  selector: 'tl-spot-buy-sell-card',
+  templateUrl: './spot-buy-sell-card.component.html',
+  styleUrls: ['./spot-buy-sell-card.component.scss']
 })
-export class BuySellCardComponent implements OnInit, OnDestroy {
+export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
     buySellGroup: FormGroup = new FormGroup({});
 

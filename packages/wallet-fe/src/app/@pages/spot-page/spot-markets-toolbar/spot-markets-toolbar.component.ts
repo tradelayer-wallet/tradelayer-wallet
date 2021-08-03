@@ -3,8 +3,8 @@ import { IMarketType, SpotMarketsService } from 'src/app/@core/services/spot-ser
 
 @Component({
   selector: 'tl-spot-markets-toolbar',
-  templateUrl: '../../shared/markets-toolbar.component.html',
-  styleUrls: ['../../shared/markets-toolbar.component.scss']
+  templateUrl: '../../shared/markets-toolbar/markets-toolbar.component.html',
+  styleUrls: ['../../shared/markets-toolbar/markets-toolbar.component.scss']
 })
 export class SpotMarketsToolbarComponent {
     @ViewChildren('marketsTabGroup') marketsTabGroup: any;

@@ -20,13 +20,17 @@ import { FuturesPageComponent } from './futures-page/futures-page.component';
 import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
 
 import { SpotMarketsToolbarComponent } from './spot-page/spot-markets-toolbar/spot-markets-toolbar.component'; 
-import { TradingGridComponent } from './spot-page/main-trading-grid/trading-grid.component';
-import { BuySellCardComponent } from './spot-page/main-trading-grid/buy-sell-card/buy-sell-card.component';
-import { OrderbookCardComponent } from './spot-page/main-trading-grid/orderbook-card/orderbook-card.component';
-import { BottomCardComponent } from './spot-page/main-trading-grid/bottom-card/bottom-card.component';
-import { PendingTxsComponent } from './spot-page/main-trading-grid/bottom-card/pending-txs/pending-txs.component';
-import { PositionsComponent } from './spot-page/main-trading-grid/bottom-card/positions/positions.component';
+import { SpotTradingGridComponent } from './spot-page/spot-trading-grid/spot-trading-grid.component';
+import { SpotBuySellCardComponent } from './spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component';
+import { SpotOrderbookCardComponent } from './spot-page/spot-trading-grid/spot-orderbook-card/spot-orderbook-card.component';
+import { SpotBottomCardComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-bottom-card.component';
+import { SpotPendingTxsComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-pending-txs/spot-pending-txs.component';
+import { SpotPositionsComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-positions/spot-positions.component';
+
 import { FuturesMarketsToolbarComponent } from './futures-page/futures-markets-toolbar/futurues-markets-toolbar.component';
+import { FuturesTradingGridComponent } from './futures-page/futures-trading-grid/futures-trading-grid.component';
+import { FuturesOrderbookCardComponent } from './futures-page/futures-trading-grid/futures-orderbook-card/futures-orderbook-card.component';
+import { FuturesBuySellCardComponent } from './futures-page/futures-trading-grid/futures-buy-sell-card/futures-buy-sell-card.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -53,15 +57,21 @@ const PAGE_COMPONENTS = [
     PortfolioPageComponent,
 ];
 
-const SUB_COMPONENTS = [
+const SPOT_COMPONENTS = [
     SpotMarketsToolbarComponent,
+    SpotTradingGridComponent,
+    SpotBuySellCardComponent,
+    SpotOrderbookCardComponent,
+    SpotBottomCardComponent,
+    SpotPendingTxsComponent,
+    SpotPositionsComponent,
+];
+
+const FUTURES_COMPONENTS = [
     FuturesMarketsToolbarComponent,
-    TradingGridComponent,
-    BuySellCardComponent,
-    OrderbookCardComponent,
-    BottomCardComponent,
-    PendingTxsComponent,
-    PositionsComponent,
+    FuturesTradingGridComponent,
+    FuturesOrderbookCardComponent,
+    FuturesBuySellCardComponent,
 ];
 
 const imports = [
@@ -71,7 +81,8 @@ const imports = [
 
 const declarations = [
     ...PAGE_COMPONENTS,
-    ...SUB_COMPONENTS,
+    ...SPOT_COMPONENTS,
+    ...FUTURES_COMPONENTS,
 ];
 
 @NgModule({ imports, declarations })

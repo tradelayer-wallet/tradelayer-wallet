@@ -10,12 +10,12 @@ export interface PeriodicElement {
 }
 
 @Component({
-  selector: 'tl-orderbook-card',
-  templateUrl: './orderbook-card.component.html',
-  styleUrls: ['./orderbook-card.component.scss']
+  selector: 'tl-spot-orderbook-card',
+  templateUrl: '../../../shared/trading-grid/orderbook/orderbook-card.component.html',
+  styleUrls: ['../../../shared/trading-grid/orderbook/orderbook-card.component.scss']
 })
 
-export class OrderbookCardComponent implements OnInit, OnDestroy {
+export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     displayedColumns: string[] = ['price', 'amount', 'total'];
     clickedRows = new Set<PeriodicElement>();
     upTrend: boolean = false;

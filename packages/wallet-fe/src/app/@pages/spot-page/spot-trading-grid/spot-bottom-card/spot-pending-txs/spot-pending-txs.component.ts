@@ -3,12 +3,12 @@ import { ToastrService } from 'ngx-toastr';
 import { TxsService } from 'src/app/@core/services/spot-services/txs.service';
 
 @Component({
-  selector: 'tl-pending-txs',
-  templateUrl: './pending-txs.component.html',
-  styleUrls: ['./pending-txs.component.scss']
+  selector: 'tl-spot-pending-txs',
+  templateUrl: './spot-pending-txs.component.html',
+  styleUrls: ['./spot-pending-txs.component.scss']
 })
 
-export class PendingTxsComponent implements OnInit {
+export class SpotPendingTxsComponent implements OnInit {
     displayedColumns: string[] = ['id', 'status', 'txid', 'fee'];
     constructor(
       private txsService: TxsService,
