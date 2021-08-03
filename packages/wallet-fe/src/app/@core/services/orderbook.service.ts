@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
 import { Subject } from "rxjs";
-import { MarketsService } from "./markets.service";
+import { SpotMarketsService } from "./markets-service/spot-markets.service";
 import { SocketService } from "./socket.service";
 
 export interface IOrderbook {
@@ -22,11 +22,11 @@ export class OrderbookService {
 
     constructor(
         private socketService: SocketService,
-        private markertService: MarketsService,
+        private spotMarkertService: SpotMarketsService,
     ) {}
 
     get selectedMarket() {
-        return this.markertService.selectedMarket;
+        return this.spotMarkertService.selectedMarket;
     }
 
     get rawOrderbookData() {

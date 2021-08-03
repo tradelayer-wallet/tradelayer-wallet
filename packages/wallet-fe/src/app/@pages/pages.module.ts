@@ -19,13 +19,14 @@ import { SpotPageComponent } from './spot-page/spot-page.component';
 import { FuturesPageComponent } from './futures-page/futures-page.component';
 import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
 
-import { MarketsToolbarComponent } from './spot-page/markets-toolbar/markets-toolbar.component'; 
+import { SpotMarketsToolbarComponent } from './spot-page/spot-markets-toolbar/spot-markets-toolbar.component'; 
 import { TradingGridComponent } from './spot-page/main-trading-grid/trading-grid.component';
 import { BuySellCardComponent } from './spot-page/main-trading-grid/buy-sell-card/buy-sell-card.component';
 import { OrderbookCardComponent } from './spot-page/main-trading-grid/orderbook-card/orderbook-card.component';
 import { BottomCardComponent } from './spot-page/main-trading-grid/bottom-card/bottom-card.component';
 import { PendingTxsComponent } from './spot-page/main-trading-grid/bottom-card/pending-txs/pending-txs.component';
 import { PositionsComponent } from './spot-page/main-trading-grid/bottom-card/positions/positions.component';
+import { FuturesMarketsToolbarComponent } from './futures-page/futures-markets-toolbar/futurues-markets-toolbar.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -53,7 +54,8 @@ const PAGE_COMPONENTS = [
 ];
 
 const SUB_COMPONENTS = [
-    MarketsToolbarComponent,
+    SpotMarketsToolbarComponent,
+    FuturesMarketsToolbarComponent,
     TradingGridComponent,
     BuySellCardComponent,
     OrderbookCardComponent,

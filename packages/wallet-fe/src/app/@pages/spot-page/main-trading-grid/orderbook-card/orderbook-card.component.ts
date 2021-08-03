@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { MarketsService } from 'src/app/@core/services/markets.service';
+import { SpotMarketsService } from 'src/app/@core/services/markets-service/spot-markets.service';
 import { OrderbookService } from 'src/app/@core/services/orderbook.service';
 import { PositionsService } from 'src/app/@core/services/positions.service';
 
@@ -22,7 +22,7 @@ export class OrderbookCardComponent implements OnInit, OnDestroy {
     constructor(
       private orderbookService: OrderbookService,
       private positionsService: PositionsService,
-      private marketService: MarketsService,
+      private spotMarketsService: SpotMarketsService,
     ) {}
 
     get openedPoisiton() {
@@ -56,7 +56,7 @@ export class OrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     get selectedMarket() {
-      return this.marketService.selectedMarket;
+      return this.spotMarketsService.selectedMarket;
     }
   
     ngOnInit() {

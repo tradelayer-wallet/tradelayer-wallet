@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
-import { ApiService } from "./api.service";
-import { SocketService } from "./socket.service";
+import { ApiService } from "../api.service";
+import { SocketService } from "../socket.service";
 
 export interface IMarketType {
     name: string,
@@ -26,7 +26,7 @@ export interface IToken {
     providedIn: 'root',
 })
 
-export class MarketsService {
+export class SpotMarketsService {
 
     private _marketsTypes: IMarketType[] = [];
 

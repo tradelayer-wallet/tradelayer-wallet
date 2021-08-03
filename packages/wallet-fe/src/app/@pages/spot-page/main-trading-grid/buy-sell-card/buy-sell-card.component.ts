@@ -5,7 +5,7 @@ import { takeUntil } from 'rxjs/operators';
 import { AddressService } from 'src/app/@core/services/address.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
-import { IMarket, MarketsService } from 'src/app/@core/services/markets.service';
+import { IMarket, SpotMarketsService } from 'src/app/@core/services/markets-service/spot-markets.service';
 import { OrderbookService } from 'src/app/@core/services/orderbook.service';
 import { TradeService, ITradeConf } from 'src/app/@core/services/trade.service';
 
@@ -19,7 +19,7 @@ export class BuySellCardComponent implements OnInit, OnDestroy {
     buySellGroup: FormGroup = new FormGroup({});
 
     constructor(
-      private marketService: MarketsService,
+      private spotMarketsService: SpotMarketsService,
       private balanceService: BalanceService,
       private fb: FormBuilder,
       private addressService: AddressService,
@@ -33,7 +33,7 @@ export class BuySellCardComponent implements OnInit, OnDestroy {
     }
 
     get selectedMarket(): IMarket {
-      return this.marketService.selectedMarket;
+      return this.spotMarketsService.selectedMarket;
     }
 
     get currentAddress() {

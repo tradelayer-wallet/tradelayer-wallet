@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { MarketsService } from 'src/app/@core/services/markets.service';
+import { SpotMarketsService } from 'src/app/@core/services/markets-service/spot-markets.service';
 
 @Component({
   selector: 'tl-futures-page',
@@ -8,10 +8,10 @@ import { MarketsService } from 'src/app/@core/services/markets.service';
 })
 export class FuturesPageComponent {
     constructor(
-      private marketsService: MarketsService
+      private spotMarketsService: SpotMarketsService
     ) {}
 
     get isAvailableMarkets() {
-      return !!this.marketsService.marketsTypes.length;
+      return !!this.spotMarketsService.marketsTypes.length;
     }
 }
