@@ -1,0 +1,44 @@
+<div class="markets-toolbar">
+    <div class="market-types-container">
+        <mat-tab-group 
+            mat-align-tabs="center" 
+            dynamicHeight 
+            (selectedIndexChange)="selectMarketType($event)"
+            [selectedIndex]="selectedMarketTypeIndex"
+        >
+            <mat-tab 
+                *ngFor='let marketType of marketsTypes'
+                [disabled]='marketType.disabled'
+            >
+                <ng-template mat-tab-label>
+                    <img class='market-icon' [src]='marketType.icon' [matTooltip]="marketType.disabled ?  'Comming Soon!' : ''" alt='icon'/>
+                    <span class='market-pair-span' [matTooltip]="marketType.disabled ?  'Comming Soon!' : ''"> {{ marketType.name }} </span>
+                </ng-template>
+                <div
+                    class="markets-container"
+                    *ngIf='marketsFromSelectedMarketType?.length'
+                >
+                    <mat-tab-group
+                        #marketsTabGroup
+                        mat-align-tabs="center"
+                        dynamicHeight
+                        backgroundColor='primary'
+                        (selectedIndexChange)="selectMarket($event)"
+                        [selectedIndex]="selectedMarketIndex"
+                    >
+                        <mat-tab 
+                            *ngFor='let market of marketsFromSelectedMarketType' 
+                            [disabled]='market.disabled' 
+                            [label]='market.pairString'
+                            [matTooltip]='market.disabled ? "Comming Soon" : ""'
+                        >
+                            <p style='height: 5px;'></p>
+                        </mat-tab>
+                    </mat-tab-group>
+                </div>
+            </mat-tab>
+        </mat-tab-group>
+    </div>
+
+
+</div>

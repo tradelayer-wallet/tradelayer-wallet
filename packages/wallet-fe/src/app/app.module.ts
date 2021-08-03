@@ -1,18 +1,18 @@
 import { NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
 
+import { BrowserModule } from '@angular/platform-browser';
 import { AppRoutingModule } from './app-routing.module';
-import { AppComponent } from './app.component';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { CommonModule } from '@angular/common';
+import { HttpClientModule } from '@angular/common/http';
 
 import { CoreModule } from './@core/core.module';
 import { PagesModule } from './@pages/pages.module';
 import { SharedModule } from './@shared/shared.module';
 import { ThemeModule } from './@theme/theme.module';
-
-import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
-import { CommonModule } from '@angular/common';
-import { HttpClientModule } from '@angular/common/http';
 import { ToastrModule } from 'ngx-toastr';
+
+import { AppComponent } from './app.component';
 
 const NG_MODULES = [
   BrowserModule,
@@ -22,18 +22,20 @@ const NG_MODULES = [
   HttpClientModule
 ];
 
+const toastrOptionsObject = {
+  maxOpened: 8,
+  newestOnTop: true,
+  positionClass: 'toast-bottom-right',
+  preventDuplicates: false,
+  timeOut: 1500,
+};
+
 const TL_MODULES = [
   CoreModule,
   PagesModule,
   SharedModule,
   ThemeModule,
-  ToastrModule.forRoot({
-    maxOpened: 8,
-    newestOnTop: true,
-    positionClass: 'toast-bottom-right',
-    preventDuplicates: false,
-    timeOut: 1500,
-  }),
+  ToastrModule.forRoot(toastrOptionsObject),
 ];
 
 const imports = [
@@ -43,6 +45,5 @@ const imports = [
 
 const declarations = [AppComponent];
 const bootstrap = [AppComponent];
-
 @NgModule({ declarations, imports, bootstrap })
 export class AppModule { }

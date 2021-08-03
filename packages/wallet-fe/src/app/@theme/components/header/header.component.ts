@@ -23,11 +23,16 @@ export class HeaderComponent {
     },
     {
       id: 2,
-      name: 'Trading',
-      link: 'trading',
+      name: 'Spot',
+      link: 'spot',
     },
     {
       id: 3,
+      name: 'Futures',
+      link: 'futures'
+    },
+    {
+      id: 4,
       name: 'Portfolio',
       link: 'portfolio',
     },

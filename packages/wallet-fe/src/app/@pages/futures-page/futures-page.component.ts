@@ -2,11 +2,11 @@ import { Component } from '@angular/core';
 import { MarketsService } from 'src/app/@core/services/markets.service';
 
 @Component({
-  selector: 'tl-trading-page',
-  templateUrl: './trading-page.component.html',
-  styleUrls: ['./trading-page.component.scss']
+  selector: 'tl-futures-page',
+  templateUrl: './futures-page.component.html',
+  styleUrls: ['./futures-page.component.scss']
 })
-export class TradingPageComponent {
+export class FuturesPageComponent {
     constructor(
       private marketsService: MarketsService
     ) {}
