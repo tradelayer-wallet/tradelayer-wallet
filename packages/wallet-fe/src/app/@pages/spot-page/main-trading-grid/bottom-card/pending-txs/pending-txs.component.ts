@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
-import { TxsService } from 'src/app/@core/services/txs.service';
+import { TxsService } from 'src/app/@core/services/spot-services/txs.service';
 
 @Component({
   selector: 'tl-pending-txs',

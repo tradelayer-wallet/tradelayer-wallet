@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { Subject } from "rxjs";
-import { SpotMarketsService } from "./markets-service/spot-markets.service";
-import { SocketService } from "./socket.service";
+import { SpotMarketsService } from "./spot-markets.service";
+import { SocketService } from "../socket.service";
 
 export interface IOrderbook {
     amount: number,

@@ -32,8 +32,16 @@ const FuturesMarkets: any = [
         name: 'LTC',
         markets: [
             {
-                first_token: 999,
-                second_token: 998,
+                first_token: {
+                    shortName: 'LTC',
+                    fullName: 'Litecoin',
+                    propertyId: 999,
+                },
+                second_token: {
+                    shortName: 'USD',
+                    fullName: 'United State Dollar',
+                    propertyId: 998,
+                },
                 disabled: false,
                 pairString: 'LTC/USD',
             }

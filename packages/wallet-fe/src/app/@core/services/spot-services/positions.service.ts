@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { SocketService } from "./socket.service";
+import { SocketService } from "../socket.service";
 
 export interface Position {
     address: string;

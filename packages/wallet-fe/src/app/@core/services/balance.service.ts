@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { AddressService } from "./address.service";
 import { ApiService } from "./api.service";
-import { PositionsService, Position } from "./positions.service";
+import { PositionsService, Position } from "./spot-services/positions.service";
 import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 

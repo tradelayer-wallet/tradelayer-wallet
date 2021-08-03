@@ -1,5 +1,5 @@
 import { Component, ViewChildren } from '@angular/core';
-import { FuturesMarketsService } from 'src/app/@core/services/markets-service/futures-markets.service';
+import { FuturesMarketsService } from 'src/app/@core/services/futures-services/futures-markets.service';
 
 @Component({
   selector: 'tl-futures-markets-toolbar',

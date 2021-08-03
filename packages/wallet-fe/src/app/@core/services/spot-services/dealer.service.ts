@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
-import { AddressService } from "./address.service";
-import { ApiService } from "./api.service";
-import { SocketService } from "./socket.service";
+import { AddressService } from "../address.service";
+import { ApiService } from "../api.service";
+import { SocketService } from "../socket.service";
 
 
 @Injectable({

@@ -6,7 +6,7 @@ import { AddressService, IKeyPair } from "./address.service";
 import { ApiService } from "./api.service";
 import { BalanceService } from "./balance.service";
 import { DialogService } from "./dialogs.service";
-import { TxsService } from "./txs.service";
+import { TxsService } from "./spot-services/txs.service";
 
 @Injectable({
     providedIn: 'root',

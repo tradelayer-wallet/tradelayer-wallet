@@ -5,9 +5,9 @@ import { takeUntil } from 'rxjs/operators';
 import { AddressService } from 'src/app/@core/services/address.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
-import { IMarket, SpotMarketsService } from 'src/app/@core/services/markets-service/spot-markets.service';
-import { OrderbookService } from 'src/app/@core/services/orderbook.service';
-import { TradeService, ITradeConf } from 'src/app/@core/services/trade.service';
+import { IMarket, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
+import { OrderbookService } from 'src/app/@core/services/spot-services/orderbook.service';
+import { TradeService, ITradeConf } from 'src/app/@core/services/spot-services/trade.service';
 
 @Component({
   selector: 'tl-buy-sell-card',

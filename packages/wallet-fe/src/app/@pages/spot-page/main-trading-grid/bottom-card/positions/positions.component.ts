@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { PositionsService } from 'src/app/@core/services/positions.service';
+import { PositionsService } from 'src/app/@core/services/spot-services/positions.service';
 
 @Component({
   selector: 'tl-positions',

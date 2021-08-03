@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { SpotMarketsService } from 'src/app/@core/services/markets-service/spot-markets.service';
-import { OrderbookService } from 'src/app/@core/services/orderbook.service';
-import { PositionsService } from 'src/app/@core/services/positions.service';
+import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
+import { OrderbookService } from 'src/app/@core/services/spot-services/orderbook.service';
+import { PositionsService } from 'src/app/@core/services/spot-services/positions.service';
 
 
 export interface PeriodicElement {

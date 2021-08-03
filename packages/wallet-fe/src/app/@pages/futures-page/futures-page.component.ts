@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { SpotMarketsService } from 'src/app/@core/services/markets-service/spot-markets.service';
+import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 
 @Component({
   selector: 'tl-futures-page',
