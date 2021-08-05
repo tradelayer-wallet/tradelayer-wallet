@@ -38,6 +38,10 @@ export const routes: Routes = [
           component: PortfolioPageComponent,
           canActivate: [AuthGuard]
         },
+        {
+          path: '**',
+          component: HomePageComponent,
+        },
       ],
   },
 ];
