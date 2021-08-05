@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
-import { OrderbookService } from 'src/app/@core/services/spot-services/orderbook.service';
+import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { PositionsService } from 'src/app/@core/services/spot-services/positions.service';
 
 
@@ -20,7 +20,7 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     clickedRows = new Set<PeriodicElement>();
     upTrend: boolean = false;
     constructor(
-      private orderbookService: OrderbookService,
+      private spotOrderbookService: SpotOrderbookService,
       private positionsService: PositionsService,
       private spotMarketsService: SpotMarketsService,
     ) {}
@@ -48,11 +48,11 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     get buyOrderbooks() {
-      return this.orderbookService.buyOrderbooks;
+      return this.spotOrderbookService.buyOrderbooks;
     }
 
     get sellOrderbooks() {
-      return this.orderbookService.sellOrderbooks;
+      return this.spotOrderbookService.sellOrderbooks;
     }
 
     get selectedMarket() {
@@ -60,15 +60,15 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     }
   
     ngOnInit() {
-      this.orderbookService.subscribeForOrderbook();
+      this.spotOrderbookService.subscribeForOrderbook();
     }
 
     ngOnDestroy() {
-      this.orderbookService.endOrderbookSbuscription()
+      this.spotOrderbookService.endOrderbookSbuscription()
     }
 
     fillBuySellPrice(price: number) {
-      if (price) this.orderbookService.outsidePriceHandler.next(price);
+      if (price) this.spotOrderbookService.outsidePriceHandler.next(price);
     }
 
     haveOpenedPositionOnThisPrice(isBuy: boolean, price: number) {

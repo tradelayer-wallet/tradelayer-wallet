@@ -1,5 +1,5 @@
-import { Component, ViewChild, ViewChildren } from '@angular/core';
-import { IMarketType, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
+import { Component, ViewChildren } from '@angular/core';
+import {  SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 
 @Component({
   selector: 'tl-spot-markets-toolbar',
@@ -14,7 +14,7 @@ export class SpotMarketsToolbarComponent {
     ) {}
 
     get marketsTypes() {
-        return this.spotMarketsService.marketsTypes;
+        return this.spotMarketsService.spotMarketsTypes;
     }
 
     get selectedMarketType() {
@@ -37,7 +37,8 @@ export class SpotMarketsToolbarComponent {
         this.spotMarketsService.selectedMarketType = this.marketsTypes[marketTypeIndex];
     }
 
-    selectMarket(marketIndex: number) {
+    selectMarket(marketIndex: number, mtIndex: number) {
+        if (this.selectedMarketTypeIndex !== mtIndex) return;
         this.spotMarketsService.selectedMarket = this.marketsFromSelectedMarketType[marketIndex];
     }
 }

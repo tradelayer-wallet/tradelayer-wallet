@@ -2,7 +2,7 @@ import { Injectable } from "@angular/core";
 import { ApiService } from "../api.service";
 import { SocketService } from "../socket.service";
 
-export interface IMarketType {
+export interface ISpotMarketType {
     name: string,
     markets: IMarket[],
     icon: string,
@@ -28,41 +28,36 @@ export interface IToken {
 
 export class SpotMarketsService {
 
-    private _marketsTypes: IMarketType[] = [];
+    private _spotMarketsTypes: ISpotMarketType[] = [];
 
-    private _selectedMarketType: IMarketType = this.marketsTypes[0] || null;
+    private _selectedMarketType: ISpotMarketType = this.spotMarketsTypes[0] || null;
     private _selectedMarket: IMarket = this.selectedMarketType?.markets[0] || null;
 
     constructor(
         private apiService: ApiService,
         private socketServic: SocketService,
-    ) {
-        this.getMarkets();
-        this.socket.on('server_connect', () => {
-            this.getMarkets();
-        });
+    ) { }
+
+    get spotMarketsTypes() {
+        return this._spotMarketsTypes;
     }
 
-    get marketsTypes() {
-        return this._marketsTypes;
-    }
-
-    get selectedMarketType(): IMarketType {
+    get selectedMarketType(): ISpotMarketType {
         return this._selectedMarketType;
     }
     
-    set selectedMarketType(value: IMarketType) {
-        if (!this.marketsTypes.length) return;
+    set selectedMarketType(value: ISpotMarketType) {
+        if (!this.spotMarketsTypes.length) return;
         this._selectedMarketType = value;
         this.selectedMarket = this.marketsFromSelectedMarketType[0];
     }
 
     get selectedMarketTypeIndex() {
-        return this.marketsTypes.indexOf(this.selectedMarketType);
+        return this.spotMarketsTypes.indexOf(this.selectedMarketType);
     }
 
     get marketsFromSelectedMarketType(): IMarket[] {
-        if (!this.marketsTypes.length) return [];
+        if (!this.spotMarketsTypes.length) return [];
         return this.selectedMarketType.markets;
     }
 
@@ -82,11 +77,11 @@ export class SpotMarketsService {
     get socket() {
         return this.socketServic.socket;
     }
-
+    
     getMarkets() {
-        this.apiService.marketApi.getMarkets()
-            .subscribe((marketTypes: IMarketType[]) => {
-                this._marketsTypes = marketTypes;
+        this.apiService.marketApi.getSpotMarkets()
+            .subscribe((marketTypes: ISpotMarketType[]) => {
+                this._spotMarketsTypes = marketTypes;
                 this.selectedMarketType = marketTypes[0];
             });
     }

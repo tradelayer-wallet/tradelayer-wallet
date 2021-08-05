@@ -6,7 +6,7 @@ import { AddressService } from 'src/app/@core/services/address.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { IMarket, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
-import { OrderbookService } from 'src/app/@core/services/spot-services/orderbook.service';
+import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { TradeService, ITradeConf } from 'src/app/@core/services/spot-services/trade.service';
 
 @Component({
@@ -24,7 +24,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       private fb: FormBuilder,
       private addressService: AddressService,
       private tradeService: TradeService,
-      private orderbookService: OrderbookService,
+      private spotOrderbookService: SpotOrderbookService,
       private loadingService: LoadingService,
     ) {}
 
@@ -104,7 +104,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     private trackPriceHandler() {
-      this.orderbookService.outsidePriceHandler
+      this.spotOrderbookService.outsidePriceHandler
       .pipe(takeUntil(this.destroyed$))
       .subscribe(price => {
         this.buySellGroup.controls['price'].setValue(price);

@@ -14,30 +14,31 @@ export class FuturesMarketsToolbarComponent {
     ) { }
 
     get marketsTypes() {
-        return this.futuresMarketsService.marketsTypes;
+        return this.futuresMarketsService.futuresMarketsTypes;
     }
 
     get selectedMarketType() {
-        return this.futuresMarketsService.selectedMarketType;
+        return this.futuresMarketsService.selectedFuturesMarketType;
     }
 
     get marketsFromSelectedMarketType() {
-        return this.futuresMarketsService.marketsFromSelectedMarketType;
+        return this.futuresMarketsService.contractsFromSelectedFuturesMarketType;
     }
 
     get selectedMarketTypeIndex() {
-        return this.futuresMarketsService.selectedMarketTypeIndex;
+        return this.futuresMarketsService.selectedFutururesMarketTypeIndex;
     }
 
     get selectedMarketIndex() {
-        return this.futuresMarketsService.selectedMarketIndex;
+        return this.futuresMarketsService.selectedContractIndex;
     }
 
     selectMarketType(marketTypeIndex: number) {
-        this.futuresMarketsService.selectedMarketType = this.marketsTypes[marketTypeIndex];
+        this.futuresMarketsService.selectedFuturesMarketType = this.marketsTypes[marketTypeIndex];
     }
 
-    selectMarket(marketIndex: number) {
-        this.futuresMarketsService.selectedMarket = this.marketsFromSelectedMarketType[marketIndex];
+    selectMarket(marketIndex: number, mtIndex: number) {
+        if (this.selectedMarketTypeIndex !== mtIndex) return;
+        this.futuresMarketsService.selectedContract = this.marketsFromSelectedMarketType[marketIndex];
     }
 }

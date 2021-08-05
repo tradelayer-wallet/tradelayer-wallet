@@ -7,7 +7,7 @@
             [selectedIndex]="selectedMarketTypeIndex"
         >
             <mat-tab 
-                *ngFor='let marketType of marketsTypes'
+                *ngFor='let marketType of marketsTypes; let mi = index'
                 [disabled]='marketType.disabled'
             >
                 <ng-template mat-tab-label>
@@ -23,7 +23,7 @@
                         mat-align-tabs="center"
                         dynamicHeight
                         backgroundColor='primary'
-                        (selectedIndexChange)="selectMarket($event)"
+                        (selectedIndexChange)="selectMarket($event, mi)"
                         [selectedIndex]="selectedMarketIndex"
                     >
                         <mat-tab 

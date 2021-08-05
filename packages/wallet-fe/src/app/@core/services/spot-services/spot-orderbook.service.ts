@@ -14,7 +14,7 @@ export interface IOrderbook {
     providedIn: 'root',
 })
 
-export class OrderbookService {
+export class SpotOrderbookService {
     private _rawOrderbookData: IOrderbook[] = [];
     outsidePriceHandler: Subject<number> = new Subject();
     buyOrderbooks: { amount: number, price: number }[] = [];

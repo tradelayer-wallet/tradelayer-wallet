@@ -17,8 +17,13 @@ export class MarketApiService {
         return environment.apiUrl + '/market/'
     }
 
-    getMarkets() {
+    getSpotMarkets() {
         return this.http.get(this.apiUrl + 'listMarkets')
-            .pipe(map((res: any) => res.data))
+            .pipe(map((res: any) => res.data));
+    }
+
+    getFuturesMarkets() {
+        return this.http.get(this.apiUrl + 'listFuturesMarkets')
+            .pipe(map((res: any) => res.data));
     }
 }

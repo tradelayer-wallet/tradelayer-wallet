@@ -3,65 +3,26 @@ import { ApiService } from "../api.service";
 import { SocketService } from "../socket.service";
 
 
-export interface IMarketType {
-    name: string,
-    markets: IMarket[],
-    icon: string,
-    disabled: boolean,
+export interface IFuturesMarketType {
+    name: string;
+    contracts: IContract[];
+    icon: string;
+    disabled: boolean;
 }
 
-export interface IMarket {
-    first_token: IToken;
-    second_token: IToken;
-    disabled: boolean,
+export interface IContract {
+    contractId: number;
+    contractName: string;
+    first_token: IContractPart;
+    second_token: IContractPart;
+    disabled: boolean;
     pairString: string;
 }
 
-export interface IToken {
+export interface IContractPart {
     shortName: string;
     fullName: string;
-    propertyId: number;
 }
-
-const ltcIcon = 'https://bitcoin-capital.bg/wp-content/uploads/2019/07/1920px-LTC-400-min-300x300.png';
-const btcIcon = 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/BTC_Logo.svg/2000px-BTC_Logo.svg.png';
-const dogeIcon = 'https://logos-download.com/wp-content/uploads/2018/04/DogeCoin_logo_cercle-700x700.png';
-
-const FuturesMarkets: any = [
-    {
-        name: 'LTC',
-        markets: [
-            {
-                first_token: {
-                    shortName: 'LTC',
-                    fullName: 'Litecoin',
-                    propertyId: 999,
-                },
-                second_token: {
-                    shortName: 'USD',
-                    fullName: 'United State Dollar',
-                    propertyId: 998,
-                },
-                disabled: false,
-                pairString: 'LTC/USD',
-            }
-        ],
-        icon: ltcIcon,
-        disabled: false,
-    },
-    {
-        name: 'BTC',
-        markets: [],
-        icon: btcIcon,
-        disabled: true,
-    },
-    {
-        name: 'DOGE',
-        markets: [],
-        icon: dogeIcon,
-        disabled: true,
-    }
-];
 
 @Injectable({
     providedIn: 'root',
@@ -69,76 +30,68 @@ const FuturesMarkets: any = [
 
 export class FuturesMarketsService {
 
-    private _marketsTypes: IMarketType[] = [];
+    private _futuresMarketsTypes: IFuturesMarketType[] = [];
 
-    private _selectedMarketType: IMarketType = this.marketsTypes[0] || null;
-    private _selectedMarket: IMarket = this.selectedMarketType?.markets[0] || null;
+    private _selectedFuturesMarketType: IFuturesMarketType = this.futuresMarketsTypes[0] || null;
+    private _selectedContract: IContract = this.selectedFuturesMarketType?.contracts[0] || null;
 
     constructor(
         private apiService: ApiService,
         private socketServic: SocketService,
-    ) {
-        this.getMarkets();
-        this.socket.on('server_connect', () => {
-            this.getMarkets();
-        });
-    }
-
-    get marketsTypes() {
-        return this._marketsTypes;
-    }
-
-    get selectedMarketType(): IMarketType {
-        return this._selectedMarketType;
-    }
+    ) { }
     
-    set selectedMarketType(value: IMarketType) {
-        if (!this.marketsTypes.length) return;
-        this._selectedMarketType = value;
-        this.selectedMarket = this.marketsFromSelectedMarketType[0];
-    }
-
-    get selectedMarketTypeIndex() {
-        return this.marketsTypes.indexOf(this.selectedMarketType);
-    }
-
-    get marketsFromSelectedMarketType(): IMarket[] {
-        if (!this.marketsTypes.length) return [];
-        return this.selectedMarketType.markets;
-    }
-
-    get selectedMarket(): IMarket {
-        return this._selectedMarket;
-    }
-
-    set selectedMarket(value: IMarket) {
-        this._selectedMarket = value;
-        // this.changeOrderbookMarketFilter(value);
-    }
-
-    get selectedMarketIndex() {
-        return this.marketsFromSelectedMarketType.indexOf(this.selectedMarket);
-    }
-
     get socket() {
         return this.socketServic.socket;
     }
 
-    getMarkets() {
-        // this.apiService.marketApi.getMarkets()
-        //     .subscribe((marketTypes: IMarketType[]) => {
-        //         this._marketsTypes = marketTypes;
-        //         this.selectedMarketType = marketTypes[0];
-        //     });
-        this._marketsTypes = FuturesMarkets;
-        this.selectedMarketType = FuturesMarkets[0];
+    get futuresMarketsTypes() {
+        return this._futuresMarketsTypes;
     }
 
-    private changeOrderbookMarketFilter(market: IMarket) {
-        const marketFilter = {
-            firstId: market.first_token.propertyId,
-            secondId: market.second_token.propertyId,
+    get selectedFuturesMarketType(): IFuturesMarketType {
+        return this._selectedFuturesMarketType;
+    }
+    
+    set selectedFuturesMarketType(value: IFuturesMarketType) {
+        if (!this.futuresMarketsTypes.length) return;
+        this._selectedFuturesMarketType = value;
+        this.selectedContract = this.contractsFromSelectedFuturesMarketType[0];
+    }
+
+    get contractsFromSelectedFuturesMarketType(): IContract[] {
+        if (!this.futuresMarketsTypes.length) return [];
+        return this.selectedFuturesMarketType.contracts;
+    }
+    get selectedFutururesMarketTypeIndex() {
+        return this.futuresMarketsTypes.indexOf(this.selectedFuturesMarketType);
+    }
+
+    get selectedContract(): IContract {
+        return this._selectedContract;
+    }
+
+    set selectedContract(value: IContract) {
+        this._selectedContract = value;
+        this.changeOrderbookContractFilter(value);
+    }
+
+    get selectedContractIndex() {
+        return this.contractsFromSelectedFuturesMarketType.indexOf(this.selectedContract);
+    }
+
+    getMarkets() {
+        this.apiService.marketApi.getFuturesMarkets()
+            .subscribe((futuresMarketTypes: IFuturesMarketType[]) => {
+                this._futuresMarketsTypes = futuresMarketTypes;
+                this.selectedFuturesMarketType = this._futuresMarketsTypes[0];
+            });
+    }
+
+    private changeOrderbookContractFilter(_contract: IContract) {
+        const contract = {
+            contractId: _contract.contractId,
+            contractName: _contract.contractName,
         };
-        this.socket.emit('orderbook-market-filter', marketFilter);
+        this.socket.emit('orderbook-contract-filter', contract);
     }
 }
