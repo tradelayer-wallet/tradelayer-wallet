@@ -1,5 +1,5 @@
 import { Component, Input, ViewChild } from '@angular/core';
-import { DealerService } from 'src/app/@core/services/dealer.service';
+import { DealerService } from 'src/app/@core/services/spot-services/dealer.service';
 import { SocketService } from 'src/app/@core/services/socket.service';
 
 @Component({

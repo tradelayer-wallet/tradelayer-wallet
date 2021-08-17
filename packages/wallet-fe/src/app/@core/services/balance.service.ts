@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { AddressService } from "./address.service";
 import { ApiService } from "./api.service";
-import { PositionsService, Position } from "./positions.service";
+import { SpotPositionsService, Position } from "./spot-services/spot-positions.service";
 import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 
@@ -31,7 +31,7 @@ export class BalanceService {
         private rpcServic: RpcService,
         private addressService: AddressService,
         private socketService: SocketService,
-        private positionsService: PositionsService,
+        private spotPositionsService: SpotPositionsService,
     ) {
         this.handleSocketEvents()
     }
@@ -84,7 +84,7 @@ export class BalanceService {
     async updateBalances(_address?: string) {
         const address = _address || this.selectedAddress;
         if (!address) return;
-        await this.updateLockedBalancesByOpenedPositions(this.positionsService.openedPositions);
+        await this.updateLockedBalancesByOpenedPositions(this.spotPositionsService.openedPositions);
     }
 
     private async getTokenName(id: number) {

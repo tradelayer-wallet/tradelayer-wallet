@@ -30,7 +30,5 @@ export class PortfolioPageComponent implements OnInit{
     return this.addressService.activeKeyPair?.address;
   }
 
-  ngOnInit() {
-    console.log({balances: this.balances, tokensBalances: this.tokensBalances})
-  }
+  ngOnInit() {}
 }

@@ -1,0 +1,27 @@
+<mat-grid-list cols='8' gutterSize='10' rowHeight="120px" class="md-layout md-alignment-top-center">
+    <mat-grid-tile colspan='3' rowspan='4'>
+        <tl-futures-orderbook-card></tl-futures-orderbook-card>
+    </mat-grid-tile>
+    <mat-grid-tile colspan='2' rowspan='3'>
+        <tl-futures-buy-sell-card></tl-futures-buy-sell-card>
+    </mat-grid-tile>
+
+    <mat-grid-tile colspan='3' rowspan='2' style="visibility: hidden;">
+        <mat-card color='accent'>
+            <mat-card-header></mat-card-header>
+        </mat-card>
+    </mat-grid-tile>
+    <mat-grid-tile colspan='3' rowspan='2' style="visibility: hidden;">
+        <mat-card color='accent'>
+            <mat-card-header></mat-card-header>
+        </mat-card>
+    </mat-grid-tile>
+    <mat-grid-tile colspan='2' rowspan='1' style="visibility: hidden;">
+        <mat-card color='accent'>
+            <mat-card-header></mat-card-header>
+        </mat-card>
+    </mat-grid-tile>
+    <mat-grid-tile colspan='8' rowspan='2' style="visibility: hidden;">
+        <tl-spot-bottom-card></tl-spot-bottom-card>
+    </mat-grid-tile>
+</mat-grid-list>

@@ -3,7 +3,8 @@ import { RouterModule, Routes } from '@angular/router';
 
 import { HomePageComponent } from './@pages/home-page/home-page.component';
 import { LoginPageComponent } from './@pages/login-page/login-page.component';
-import { TradingPageComponent } from './@pages/trading-page/trading-page.component';
+import { SpotPageComponent } from './@pages/spot-page/spot-page.component';
+import { FuturesPageComponent } from './@pages/futures-page/futures-page.component';
 
 import { RPCGuard } from './@core/guards/rpc.guard';
 import { AuthGuard } from './@core/guards/auth.guard';
@@ -23,14 +24,23 @@ export const routes: Routes = [
           component: LoginPageComponent,
         },
         {
-          path: 'trading',
-          component: TradingPageComponent,
+          path: 'spot',
+          component: SpotPageComponent,
+          canActivate: [AuthGuard]
+        },
+        {
+          path: 'futures',
+          component: FuturesPageComponent,
           canActivate: [AuthGuard]
         },
         {
           path: 'portfolio',
           component: PortfolioPageComponent,
           canActivate: [AuthGuard]
+        },
+        {
+          path: '**',
+          component: HomePageComponent,
         },
       ],
   },

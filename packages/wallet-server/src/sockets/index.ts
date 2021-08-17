@@ -1,7 +1,7 @@
-import { throws } from "assert";
 import { FastifyInstance } from "fastify"
 import { Socket, Server } from "socket.io";
 import { io, Socket as SocketClient } from 'socket.io-client';
+import { TClient } from "../socket-script/common/types";
 import { SocketScript } from '../socket-script/socket-script';
 export let walletSocketSevice: WalletSocketSevice;
 export let serverSocketService: ServerSocketService;
@@ -14,12 +14,28 @@ export const initServerConnection = (socketScript: SocketScript) => {
     serverSocketService = new ServerSocketService(socketScript);
 }
 
+interface IContractInfo {
+    contractName: string;
+    contractId: number;
+}
+
+const getFuturesOrderBookData = async (contract: IContractInfo, asyncClient: TClient) => {
+    const { contractName } = contract;
+    const buyOrderbooksRes = await asyncClient('tl_getcontract_orderbook', contractName, 1);
+    const sellOrderbooksRes = await asyncClient('tl_getcontract_orderbook', contractName, 2);
+    const convertData = (d: any) => ({ contractId: d.contractid, price: parseFloat(d.effectiveprice), amount: d.amountforsale })
+    const buyOrderbook = (buyOrderbooksRes.error || !buyOrderbooksRes.data) ? [] : buyOrderbooksRes.data.map(convertData)
+    const sellOrderbook = (sellOrderbooksRes.error || !sellOrderbooksRes.data) ? [] : sellOrderbooksRes.data.map(convertData);
+    const orderbookObject = { buyOrderbook, sellOrderbook };
+    return orderbookObject;
+}
+
 class WalletSocketSevice {
     public io: Server;
     public currentSocket: Socket;
     private socketScript: SocketScript;
     private lastBlock: number = 0;
-
+    private selectedContractId: IContractInfo = null;
     constructor(app: FastifyInstance, socketScript: SocketScript) {
         const socketOptions = { cors: { origin: "*", methods: ["GET", "POST"] } };
         this.io = new Server(app.server, socketOptions);
@@ -42,6 +58,16 @@ class WalletSocketSevice {
         this.handleFromWalletToServer(socket, 'close-position');
 
         socket.on('api-recoonect', () => initServerConnection(this.socketScript));
+        socket.on('update-futures-orderbook', this.sendFuturesOrderbookData.bind(this));
+        socket.on('orderbook-contract-filter', (contract: IContractInfo) => {
+            this.selectedContractId = contract;
+            this.sendFuturesOrderbookData();
+        })
+    }
+
+    private async sendFuturesOrderbookData() {
+        if (!this.selectedContractId) return;
+        this.currentSocket.emit('futures-orderbook-data', await getFuturesOrderBookData(this.selectedContractId, this.socketScript.asyncClient));
     }
 
     private handleFromWalletToServer(socket: Socket, eventName: string) {
@@ -61,6 +87,7 @@ class WalletSocketSevice {
                 if (this.lastBlock < height) {
                     this.lastBlock = height;
                     socket.emit('newBlock', height);
+                    this.sendFuturesOrderbookData();
                     console.log(`New Block: ${height}`)
                 }
             }, 5000);

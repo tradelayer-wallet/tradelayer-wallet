@@ -1,0 +1,8 @@
+<div class="tl-container" *ngIf='isAvailableMarkets; else spinner'>
+    <tl-spot-markets-toolbar></tl-spot-markets-toolbar>
+    <tl-spot-trading-grid></tl-spot-trading-grid>
+</div>
+
+<ng-template #spinner>
+    <mat-spinner diameter='100' ></mat-spinner>
+</ng-template>
