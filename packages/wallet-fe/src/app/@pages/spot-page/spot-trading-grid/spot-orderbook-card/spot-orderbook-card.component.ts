@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
-import { PositionsService } from 'src/app/@core/services/spot-services/positions.service';
+import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-positions.service';
 
 
 export interface PeriodicElement {
@@ -21,12 +21,12 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     upTrend: boolean = false;
     constructor(
       private spotOrderbookService: SpotOrderbookService,
-      private positionsService: PositionsService,
+      private spotPositionsService: SpotPositionsService,
       private spotMarketsService: SpotMarketsService,
     ) {}
 
     get openedPoisiton() {
-      return this.positionsService.openedPositions;
+      return this.spotPositionsService.openedPositions;
     }
 
     get openedBuyPositions() {

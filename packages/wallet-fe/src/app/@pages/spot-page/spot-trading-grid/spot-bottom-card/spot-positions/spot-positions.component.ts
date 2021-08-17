@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { PositionsService } from 'src/app/@core/services/spot-services/positions.service';
+import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-positions.service';
 
 @Component({
   selector: 'tl-spot-positions',
@@ -11,15 +11,15 @@ export class SpotPositionsComponent implements OnInit {
     displayedColumns: string[] = ['id', 'market', 'amount', 'price', 'isBuy', 'close'];
 
     constructor(
-      private positionsService: PositionsService
+      private spotPositionsService: SpotPositionsService
     ) {}
 
     get openedPositions() {
-      return this.positionsService.openedPositions;
+      return this.spotPositionsService.openedPositions;
     }
 
     closePosition(position: any) {
-      this.positionsService.closeOpenedPosition(position)
+      this.spotPositionsService.closeOpenedPosition(position)
     }
 
     ngOnInit() {}

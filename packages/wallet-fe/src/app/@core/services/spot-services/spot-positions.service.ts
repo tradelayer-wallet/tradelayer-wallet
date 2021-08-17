@@ -14,7 +14,7 @@ export interface Position {
     providedIn: 'root',
 })
 
-export class PositionsService {
+export class SpotPositionsService {
     private _openedPositions: Position[] = []
     constructor(
         private socketService: SocketService,
