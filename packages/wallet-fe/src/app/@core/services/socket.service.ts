@@ -1,9 +1,11 @@
 import { Injectable } from "@angular/core";
+import { Router } from "@angular/router";
 import { ToastrService } from "ngx-toastr";
 import { Subject } from "rxjs";
 import { Socket } from "socket.io-client";
 import { io } from 'socket.io-client'
 import { environment } from '../../../environments/environment';
+import { DialogService } from "./dialogs.service";
 
 export enum SocketEmits {
     LTC_INSTANT_TRADE = 'LTC_INSTANT_TRADE',
@@ -18,11 +20,13 @@ export class SocketService {
     private _socket: Socket | null = null;
     private _apiServerConnected: boolean = false;
 
-    apiServerWaiting: boolean = true;
-    localServerWaiting: boolean = true;
+    apiServerWaiting: boolean = false;
+    localServerWaiting: boolean = false;
 
     constructor(
         private toasterService: ToastrService,
+        private router: Router,
+        private dialogService: DialogService,
     ) {}
 
     private get socketServerUrl(): string {
@@ -44,7 +48,7 @@ export class SocketService {
 
     socketConnect() {
         this.localServerWaiting = true;
-        this._socket = io(this.socketServerUrl, { reconnectionAttempts: 2 });
+        this._socket = io(this.socketServerUrl, { reconnection: false });
         this.handleMainSocketEvents()
         return this._socket;
     }
@@ -57,22 +61,27 @@ export class SocketService {
 
     apiReconnect() {
         this.apiServerWaiting = true;
-        this.socket.emit('api-recoonect');
+        this.socket.emit('api-reconnect');
     }
 
     private handleMainSocketEvents() {
         if (this.socket) {
             this.socket.on('connect', () => {
                 console.log(`Connect to the local Server`);
+                this.dialogService.closeAllDialogs();
+                
+                this.router.navigateByUrl('/');
                 this.localServerWaiting = false;
             });
 
             this.socket.on('connect_error', () => {
                 console.log(`Local Server Connection Error`);
+                this.dialogService.closeAllDialogs();
                 this.localServerWaiting = false;
             });
 
             this.socket.on('disconnect', () => {
+                this.dialogService.closeAllDialogs();
                 console.log(`Disconnected from the Local Server`);
             });
 

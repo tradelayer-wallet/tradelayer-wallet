@@ -3,12 +3,8 @@
         .content-container {
             display: flex;
             flex-direction: column;
+            padding-top: 1rem;
         }
-    }
-    mat-spinner {
-        position: absolute;
-        top: calc(50% - 25px);
-        left: calc(50% - 25px);
     }
     .message {
         text-align: center;

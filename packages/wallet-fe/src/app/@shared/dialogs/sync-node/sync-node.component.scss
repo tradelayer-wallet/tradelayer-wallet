@@ -1,0 +1,26 @@
+.dialog-container {
+    mat-dialog-content {
+        .content-container {
+            display: flex;
+            flex-direction: column;
+            padding-top: 1rem;
+            min-width: 25rem;
+            align-items: center;
+            .information {
+                margin-bottom: 1rem;
+            }
+            .blocks-span {
+                text-align: center;
+                margin: 0.5rem 0;
+            }
+            button {
+                margin-top: 1rem
+            }
+        }
+    }
+    .message {
+        text-align: center;
+        color: red;
+        min-height: 1.25rem;
+    }
+}

@@ -57,7 +57,7 @@ class WalletSocketSevice {
         this.handleFromWalletToServer(socket, 'dealer-data');
         this.handleFromWalletToServer(socket, 'close-position');
 
-        socket.on('api-recoonect', () => initServerConnection(this.socketScript));
+        socket.on('api-reconnect', () => initServerConnection(this.socketScript));
         socket.on('update-futures-orderbook', this.sendFuturesOrderbookData.bind(this));
         socket.on('orderbook-contract-filter', (contract: IContractInfo) => {
             this.selectedContractId = contract;
@@ -79,7 +79,10 @@ class WalletSocketSevice {
                 const { asyncClient } = this.socketScript;
                 if (!asyncClient) return;
                 const bbhRes = await asyncClient('getbestblockhash');
-                if (bbhRes.error || !bbhRes.data) return null;
+                if (bbhRes.error || !bbhRes.data) {
+                    socket.emit('rpc-connection-error');
+                    return null;
+                }
                 const bbRes = await asyncClient('getblock', bbhRes.data);
                 if (bbRes.error || !bbRes.data?.height) return null;
                 const height = bbRes.data.height;

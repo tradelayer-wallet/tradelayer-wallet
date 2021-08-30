@@ -1,8 +1,15 @@
 import { FastifyInstance } from "fastify"
 import SocketScript from "../socket-script";
-import { serverSocketService } from '../sockets'
+import { serverSocketService } from '../sockets';
+import { startWalletNode, createNewNode } from '../services/wallet-node';
+
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
+
+        fastify.get('/checkConnection', (request, reply) => {
+            reply.send(true);
+        });
+
         fastify.get('/connect', (request, reply) => {
             const { user, pass, port } = request.query as { user: string, pass: string, port: number};
             if (!user || !pass || !port) {
@@ -41,6 +48,31 @@ export const socketRoutes = (socketScript: SocketScript) => {
             }
         });
 
+        fastify.get('/startWalletNode', async (request, reply) => {
+            try {
+                const { directory } = request.query as { directory: string };
+                const res = await startWalletNode(directory);
+                reply.send(res);
+            } catch (error) {
+                reply.send({ error: error.message });
+            }
+        });
+
+        fastify.get('/createNewNode', async (request, reply) => {
+            try {
+                const { username, password, port, path } = request.query as { 
+                    username: string;
+                    password: string;
+                    port: number;
+                    path: string;
+                };
+                const newNodeConfig = { username, password, port, path };
+                const res = await createNewNode(newNodeConfig);
+                reply.send(res);
+            } catch (error) {
+                reply.send({ error: error.message });
+            }
+        });
         done();
     }
 };

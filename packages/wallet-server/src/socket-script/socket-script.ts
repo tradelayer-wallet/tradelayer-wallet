@@ -48,14 +48,18 @@ export class SocketScript {
             const newAsyncClent: TClient = asyncClient(this.ltcClient);
             const checkRes = await newAsyncClent("tl_getinfo");
             const { data, error } = checkRes;
-            if (!error && data?.['block']) {
+            if (!error && data?.['blocktime']) {
                 console.log(`Socket Script is Connected to the RPC`);
                 this.asyncClient = newAsyncClent;
                 res(true);
             } else {
-                console.log(`There is an Error with RPC connection`);
-                this.ltcClient = null;
-                res(false);
+                if (error === 'Loading wallet...' || error === 'Loading block index...' || error === 'Rewinding blocks...') {
+                    this.asyncClient = newAsyncClent;
+                    res(true);
+                } else {
+                    this.ltcClient = null;
+                    res(false);
+                }
             }
         });
     }

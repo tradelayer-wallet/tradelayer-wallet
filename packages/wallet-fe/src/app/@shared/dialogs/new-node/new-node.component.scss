@@ -1,0 +1,21 @@
+.dialog-container {
+    mat-dialog-content {
+        .content-container {
+            display: flex;
+            flex-direction: column;
+            padding-top: 1rem;
+        }
+    }
+    .message {
+        text-align: center;
+        color: red;
+        min-height: 1.25rem;
+    }
+    .create-button {
+        margin: 0.5rem 0;
+        background: mediumseagreen;
+        &:disabled {
+            background-color: gray;
+        }
+    }
+}

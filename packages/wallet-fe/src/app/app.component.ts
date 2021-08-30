@@ -12,12 +12,12 @@ import { SocketService } from './@core/services/socket.service';
 export class AppComponent {
   constructor(
     private socketService: SocketService,
-    private loadginService: LoadingService,
+    private loadingService: LoadingService,
     private rpcService: RpcService,
   ) { }
 
   get isLoading(): boolean {
-    return this.socketService.serversWaiting || this.loadginService.isLoading;
+    return this.socketService.serversWaiting || this.loadingService.isLoading;
   }
 
   get serverConnected() {
@@ -30,5 +30,9 @@ export class AppComponent {
 
   get isRPCConnected() {
     return this.rpcService.isConnected;
+  }
+
+  get isSynced() {
+    return this.rpcService.isSynced;
   }
 }

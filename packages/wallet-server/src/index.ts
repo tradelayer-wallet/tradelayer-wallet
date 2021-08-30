@@ -1,9 +1,8 @@
 import { FastifyServer } from './fastify-server';
 
-let fasitfyServer: FastifyServer;
+export let fasitfyServer: FastifyServer;
 
-process.on('message', (message) => {
-    console.log({message});
+process.on('message', async (message) => {
     switch (message) {
         case 'init':
             const options = { logger : true };
@@ -14,7 +13,8 @@ process.on('message', (message) => {
             fasitfyServer.start();
             break;
         case 'stop':
-            fasitfyServer.stop('App closed');
+            await fasitfyServer.stop('App closed');
+            process.exit(1);
         default:
             break;
     }

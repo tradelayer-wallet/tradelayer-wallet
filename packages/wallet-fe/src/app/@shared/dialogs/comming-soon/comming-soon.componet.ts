@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { MatDialogRef } from '@angular/material/dialog';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 
 @Component({
@@ -9,9 +10,10 @@ import { DialogService } from 'src/app/@core/services/dialogs.service';
 export class CommingSoonDialog {
   constructor(
       private dialogService: DialogService,
+      public dialogRef: MatDialogRef<CommingSoonDialog>,
   ) { }
 
   closeDialog() {
-      this.dialogService.closeAllDialogs();
+      this.dialogRef.close();
   }
 }

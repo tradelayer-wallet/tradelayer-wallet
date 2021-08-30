@@ -13,8 +13,10 @@ class ElectronApp {
         this.handleOnEvents();
         this.disableSecurityWarnings();
         this.serverProcess = fork(path.join(__dirname, './server/index.js'), ['args'], {
-            stdio: 'pipe'
+            stdio: ['pipe', 'pipe', 'pipe', 'ipc']
         });
+
+        this.serverProcess.on("message", (message: any) => console.log({message}));
         this.serverProcess.send('init');
     }
 
@@ -22,12 +24,10 @@ class ElectronApp {
         this.app.on('ready', () => this.createWindow());
 
         this.app.on('window-all-closed', () => {
-            this.serverProcess.send('stop');
             if (process.platform !== 'darwin') app.quit();
         });
 
         this.app.on('activate', () => {
-            console.log('activate')
             if (!this.mainWindow) this.createWindow();
         });
 
@@ -47,11 +47,15 @@ class ElectronApp {
         this.mainWindow.webContents.on('did-fail-load', () => {
             console.log(`Fail Load`)
             if (this.mainWindow) this.loadUrl(this.mainWindow);
-          });
-        
-         this.mainWindow.on('closed', () => {
-            this.mainWindow = null
-          })
+        });
+
+        this.mainWindow.on('closed', () => {
+            this.mainWindow = null;
+        });
+
+        this.mainWindow.on('close', async () => {
+            if (this.serverProcess.connected) this.serverProcess.send('stop');
+        });
     }
 
 

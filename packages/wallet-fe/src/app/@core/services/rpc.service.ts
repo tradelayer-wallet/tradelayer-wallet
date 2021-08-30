@@ -15,10 +15,11 @@ export interface RPCCredentials {
 
 export class RpcService {
     private _isConnected: boolean = false;
+    private _isSynced: boolean = false;
 
     private rpcHost: string = '';
     private authToken: string = '';
-
+  
     constructor(
       private http: HttpClient,
       private apiService: ApiService,
@@ -32,12 +33,20 @@ export class RpcService {
         this._isConnected = value;
     }
 
+    get isSynced() {
+      return this._isSynced;
+    }
+
+    set isSynced(value: boolean) {
+      this._isSynced = value;
+    }
+
     connect(credentials: RPCCredentials) {
       return new Promise(async (res, rej) => {
         try {
           const isReady = await this._sendCredsToHomeApi(credentials);
           if (isReady) {
-            this._setConnection(credentials);
+            this._saveCreds(credentials);
           }
           res(isReady);
         } catch (error) {
@@ -47,7 +56,23 @@ export class RpcService {
     }
 
     private _sendCredsToHomeApi(credentials: RPCCredentials) {
-      return this.apiService.socketScriptApi.connect(credentials).toPromise()
+      return this.apiService.socketScriptApi.connect(credentials).toPromise();
+    }
+
+    async startWalletNode(directory: string) {
+      const res = await this.apiService.socketScriptApi.startWalletNode(directory).toPromise();
+      if (res.error || !res.data) return { error: res.error };
+      const host = 'localhost';
+      const { rpcuser, rpcpassword, rpcport } = res.data;
+      const connectCreds = { host, username: rpcuser, password: rpcpassword, port: rpcport };
+      const connectRes = await this.connect(connectCreds);
+      if (!connectRes) return { error: 'Error With Node Connection' };
+      return { data: connectRes };
+    }
+
+    async createNewNode(creds: { username: string, password: string, port: number, path: string }) {
+      const res = await this.apiService.socketScriptApi.createNewNode(creds).toPromise();
+      return res;
     }
 
     async rpc(method: string, params: any[] = [], credentials?: RPCCredentials) {
@@ -67,14 +92,20 @@ export class RpcService {
       }
     }
 
-    private _setConnection(credentials: RPCCredentials) {
-      window.localStorage.setItem('nodeConnection', JSON.stringify(credentials));
+    clearRPC() {
+      this.isConnected = false;
+      this.rpcHost = '';
+      this.authToken = '';
+    }
+
+    private _saveCreds(credentials: RPCCredentials) {
+      // window.localStorage.setItem('nodeConnection', JSON.stringify(credentials));
       this.isConnected = true;
       const url = `http://${credentials.host}:${credentials.port}`;
       this.rpcHost = url;
       this.authToken = window.btoa(`${credentials.username}:${credentials.password}`);
     }
-
+  
     private _getHeaders(token: string) {
       return new HttpHeaders().set('Authorization', `Basic ${token}`);
     }

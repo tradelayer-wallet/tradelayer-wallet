@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { environment } from '../../../environments/environment';
 import { map } from 'rxjs/operators';
+import { Observable } from "rxjs";
 
 @Injectable({
     providedIn: 'root',
@@ -29,5 +30,15 @@ export class SoChainApiService {
     getTxUnspents(address: string) {
         const url = `${this.apiUrl}get_tx_unspent/${this.NETWORK}/`;
         return this.http.get(url + address);
+    }
+
+    getNetworkInfo(): Observable<{
+        status: string;
+        data: any;
+    }> {
+        return this.http.get<{
+            status: string;
+            data: any;
+        }>(this.apiUrl + 'get_info/' + this.NETWORK);
     }
 }

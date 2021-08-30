@@ -3,10 +3,13 @@ import Fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
 import SocketScript from './socket-script';
 import { handleRoutes } from './routes';
 import * as SocketsService from './sockets';
+import * as killPort from 'kill-port';
 
 export class FastifyServer {
     private _server: FastifyInstance;
     private _socketScript: SocketScript;
+
+    nodePort: number;
     constructor(
         private port: number, 
         options: FastifyServerOptions,
@@ -30,9 +33,13 @@ export class FastifyServer {
             .catch((error) => this.stop(error.message));
     }
 
-    stop(message: string) {
-        this.server.log.error(message);
-        process.exit(1);
+    async stop(message: string) {
+        return new Promise(async (res) => {
+            if (this.socketScript?.asyncClient) await this.socketScript.asyncClient('stop');
+            if (this.nodePort) await killPort(this.nodePort);
+            this.server.log.error(message);
+            res(true);
+        })
     }
 
     private handleRoutes() {

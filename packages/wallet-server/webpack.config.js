@@ -1,7 +1,17 @@
 const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
+const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = {
+  plugins: [
+    new CopyPlugin({
+      patterns: [
+        {
+          from: path.resolve(__dirname, 'src', 'litecoind.exe'),
+        }
+      ]
+    })
+  ],
   entry: path.join(__dirname, './src/index.ts'),
   mode: 'production',
   target: 'node',
