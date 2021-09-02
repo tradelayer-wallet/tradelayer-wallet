@@ -42,6 +42,8 @@ export class RPCConnectDialog {
       this.message = 'Please try again! ';
     } else {
       this.dialogRef.close();
+      this.dialogService.openDialog(DialogTypes.SYNC_NODE);
+      this.loadingService.isLoading = false;
     }
   }
 
