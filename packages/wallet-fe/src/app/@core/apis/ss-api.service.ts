@@ -19,6 +19,11 @@ export class SocketScriptApiService {
         return environment.homeApiUrl + '/ss/'
     }
 
+    rpcCall(command: string) {
+        const params = { command };
+        return this.http.get(this.apiUrl + 'rpcCall', { params });
+    }
+
     checkWalletServer() {
         return this.http.get(this.apiUrl + 'checkConnection');
     }

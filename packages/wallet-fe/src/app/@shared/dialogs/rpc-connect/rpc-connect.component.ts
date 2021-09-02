@@ -56,9 +56,8 @@ export class RPCConnectDialog {
       this.loadingService.isLoading = false;
       return;
     }
-    // this.dialogService.openDialog(DialogTypes.SYNC_NODE)
     this.dialogRef.close();
-    this.router.navigateByUrl('/');
+    this.dialogService.openDialog(DialogTypes.SYNC_NODE);
     this.loadingService.isLoading = false;
   }
 

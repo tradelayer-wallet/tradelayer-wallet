@@ -16,15 +16,23 @@ export class RPCGuard implements CanActivate {
     ) {}
 
     canActivate(): boolean {
+        this.dialogService.closeAllDialogs();
         if (!this.socketService.socket?.connected) return false;
 
         const isConnected = this.rpcService.isConnected;
-        if (isConnected) return this.rpcService.isConnected;
-    
-        // const ls = await this._checkLocalStorage();
-        // if (ls) return true;
+        const isSynced = this.rpcService.isSynced;
 
-        this.dialogService.openDialog(DialogTypes.RPC_CONNECT);
+        if (!isConnected) {
+            this.dialogService.openDialog(DialogTypes.RPC_CONNECT);
+            return false;
+        }
+
+        if (isConnected && !isSynced) {
+            this.dialogService.openDialog(DialogTypes.SYNC_NODE);
+            return false;
+        }
+
+        if (isConnected && isSynced) return true;
         return false;
    }
    

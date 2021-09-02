@@ -51,7 +51,7 @@ class WalletSocketSevice {
         console.log(`FE app Connected`);
         this.currentSocket = socket;
         initServerConnection(this.socketScript);
-        this.startBlockCounting(socket);
+        this.startBlockCounting();
         this.handleFromWalletToServer(socket, 'orderbook-market-filter');
         this.handleFromWalletToServer(socket, 'update-orderbook');
         this.handleFromWalletToServer(socket, 'dealer-data');
@@ -74,26 +74,41 @@ class WalletSocketSevice {
         socket.on(eventName, (data: any) => serverSocketService.socket.emit(eventName, data));
     }
 
-    private startBlockCounting(socket: Socket) {
-            setInterval(async () => {
+    startBlockCounting() {
+             setInterval(async () => {
                 const { asyncClient } = this.socketScript;
                 if (!asyncClient) return;
                 const bbhRes = await asyncClient('getbestblockhash');
                 if (bbhRes.error || !bbhRes.data) {
-                    socket.emit('rpc-connection-error');
+                    console.log(bbhRes.error);
+                    this.onTimeOutMessage(bbhRes.error);
                     return null;
                 }
                 const bbRes = await asyncClient('getblock', bbhRes.data);
-                if (bbRes.error || !bbRes.data?.height) return null;
+                if (bbRes.error || !bbRes.data?.height) {
+                    this.onTimeOutMessage(bbhRes.error);
+                    return null;
+                };
                 const height = bbRes.data.height;
 
                 if (this.lastBlock < height) {
                     this.lastBlock = height;
-                    socket.emit('newBlock', height);
+                    this.currentSocket.emit('newBlock', height);
                     this.sendFuturesOrderbookData();
                     console.log(`New Block: ${height}`)
                 }
             }, 5000);
+    }
+
+    async onTimeOutMessage(message: string) {
+        if (message.includes('ECONNREFUSED')) {
+            const { asyncClient } = this.socketScript;
+            const check = await asyncClient('tl_getinfo');
+            if (check.error || !check.data) {
+                this.currentSocket.emit('rpc-connection-error');
+                this.socketScript.clearConnection();
+            }
+        }
     }
 }
 

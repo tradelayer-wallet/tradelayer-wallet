@@ -6,6 +6,10 @@ import { startWalletNode, createNewNode } from '../services/wallet-node';
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
 
+        fastify.get('/rpcCall', (request, reply) => {
+            console.log(request.query);
+        });
+
         fastify.get('/checkConnection', (request, reply) => {
             reply.send(true);
         });

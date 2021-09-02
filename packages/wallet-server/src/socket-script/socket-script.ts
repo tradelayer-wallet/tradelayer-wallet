@@ -34,6 +34,11 @@ export class SocketScript {
         this._asyncClient = value;
     }
 
+    clearConnection() {
+        this.asyncClient = null;
+        this.ltcClient = null;
+    }
+
     connect(rpcConnection: IRPCConenction): Promise<boolean> {
         return new Promise(async (res, rej) => {
             const { user, pass, host, port, ssl, timeout } = rpcConnection;
@@ -57,7 +62,7 @@ export class SocketScript {
                     this.asyncClient = newAsyncClent;
                     res(true);
                 } else {
-                    this.ltcClient = null;
+                    this.clearConnection();
                     res(false);
                 }
             }
@@ -81,6 +86,11 @@ export class SocketScript {
             console.log({res});
         return res;
     }
+
+    // clearConnection() {
+    //     this.ltcClient = null;
+    //     this.asyncClient = null;
+    // }
 }
 
 class Buyer {

@@ -1,6 +1,9 @@
-import { Injectable } from "@angular/core";
+import { Injectable, Injector } from "@angular/core";
 import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { ApiService } from "./api.service";
+import { SocketService } from "./socket.service";
+import { ActivatedRoute, Router, RouterStateSnapshot } from "@angular/router";
+import { DialogService, DialogTypes } from "./dialogs.service";
 
 export interface RPCCredentials {
   host: string,
@@ -23,7 +26,17 @@ export class RpcService {
     constructor(
       private http: HttpClient,
       private apiService: ApiService,
-    ) {}
+      private socketService: SocketService,
+      private dialogService: DialogService,
+    ) {
+      this.socket.on("rpc-connection-error", () => {
+        if (this.isConnected) {
+          this.clearRPC();
+      }
+      });
+    }
+
+
 
     get isConnected() {
         return this._isConnected;
@@ -39,6 +52,10 @@ export class RpcService {
 
     set isSynced(value: boolean) {
       this._isSynced = value;
+    }
+
+    get socket() {
+      return this.socketService.socket;
     }
 
     connect(credentials: RPCCredentials) {
@@ -94,8 +111,11 @@ export class RpcService {
 
     clearRPC() {
       this.isConnected = false;
+      this.isSynced = false;
       this.rpcHost = '';
       this.authToken = '';
+      this.dialogService.closeAllDialogs();
+      this.dialogService.openDialog(DialogTypes.RPC_CONNECT);
     }
 
     private _saveCreds(credentials: RPCCredentials) {

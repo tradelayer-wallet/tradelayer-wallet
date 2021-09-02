@@ -24,3 +24,7 @@
         min-height: 1.25rem;
     }
 }
+
+::ng-deep mat-progress-bar {
+    height: 24px !important
+}

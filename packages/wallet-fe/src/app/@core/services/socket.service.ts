@@ -1,7 +1,6 @@
 import { Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { ToastrService } from "ngx-toastr";
-import { Subject } from "rxjs";
 import { Socket } from "socket.io-client";
 import { io } from 'socket.io-client'
 import { environment } from '../../../environments/environment';
@@ -69,7 +68,6 @@ export class SocketService {
             this.socket.on('connect', () => {
                 console.log(`Connect to the local Server`);
                 this.dialogService.closeAllDialogs();
-                
                 this.router.navigateByUrl('/');
                 this.localServerWaiting = false;
             });

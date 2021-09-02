@@ -9,46 +9,39 @@ import { FuturesPageComponent } from './@pages/futures-page/futures-page.compone
 import { RPCGuard } from './@core/guards/rpc.guard';
 import { AuthGuard } from './@core/guards/auth.guard';
 import { PortfolioPageComponent } from './@pages/portfolio-page/portfolio-page.component';
-import { SyncedGuard } from './@core/guards/sync.guard';
 
 export const routes: Routes = [
   {
     path: '',
     canActivate: [ RPCGuard ], 
     children: [
-        {
-          path: '',
-          canActivate: [ SyncedGuard ],
-          children: [
-            {
-              path: '',
-              component: HomePageComponent,
-            },
-            {
-              path: 'login',
-              component: LoginPageComponent,
-            },
-            {
-              path: 'spot',
-              component: SpotPageComponent,
-              canActivate: [AuthGuard]
-            },
-            {
-              path: 'futures',
-              component: FuturesPageComponent,
-              canActivate: [AuthGuard]
-            },
-            {
-              path: 'portfolio',
-              component: PortfolioPageComponent,
-              canActivate: [AuthGuard]
-            },
-            {
-              path: '**',
-              component: HomePageComponent,
-            },
-          ]
-        }
+      {
+        path: '',
+        component: HomePageComponent,
+      },
+      {
+        path: 'login',
+        component: LoginPageComponent,
+      },
+      {
+        path: 'spot',
+        component: SpotPageComponent,
+        canActivate: [AuthGuard]
+      },
+      {
+        path: 'futures',
+        component: FuturesPageComponent,
+        canActivate: [AuthGuard]
+      },
+      {
+        path: 'portfolio',
+        component: PortfolioPageComponent,
+        canActivate: [AuthGuard]
+      },
+      {
+        path: '**',
+        component: HomePageComponent,
+      },
       ],
   },
 ];
