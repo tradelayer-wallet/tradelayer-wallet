@@ -25,13 +25,13 @@
       "target": [
         "nsis"
       ],
-      "icon": "dist/assets/icon.png"
+      "icon": "dist/fe/assets/icon.png"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
-      "icon": "dist/assets/icon.png"
+      "icon": "dist/fe/assets/icon.png"
     }
   },
   "scripts": {
