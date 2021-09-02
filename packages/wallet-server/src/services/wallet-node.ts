@@ -1,8 +1,11 @@
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { ChildProcess, exec } from 'child_process';
-
 import { fasitfyServer } from '../';
+import { homedir } from 'os';
+
+const defaultDir = `${homedir()}/AppData/Roaming/Litecoin`;
+// const defaultDir = `${homedir()}/.litecoin/`;
 
 const addNodeServer = '5.9.150.112:19335';
 
@@ -28,7 +31,7 @@ const structureConfFile = (conf: string) => {
 
 export const startWalletNode = async (path: string) => {
     try {
-        const filePath = join(path, 'litecoin.conf');
+        const filePath = join(defaultDir, 'litecoin.conf');
         if (!existsSync(filePath)) return { error: `Config file doesn't exist` };
         const res = readFileSync(filePath, { encoding: 'utf8' });
         const config = structureConfFile(res);
@@ -55,8 +58,8 @@ export const createNewNode = async (configs: { username: string, password: strin
     try {
         const { username, password, port, path } = configs;
         const fileData = `rpcuser=${username}\nrpcpassword=${password}\nrpcport=${port}\ntestnet=1\ntxindex=1\naddnode=${addNodeServer}`;
-        if (!existsSync(path)) mkdirSync(path)
-        const filePath = join(path, 'litecoin.conf');
+        if (!existsSync(defaultDir)) mkdirSync(defaultDir)
+        const filePath = join(defaultDir, 'litecoin.conf');
         const res = writeFileSync(filePath, fileData);
         return { data: true };
     } catch (error) {

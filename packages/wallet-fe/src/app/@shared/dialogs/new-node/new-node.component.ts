@@ -4,7 +4,7 @@ import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.servi
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 
-const defaultPath = 'C:/Users/Valentin/AppData/Roaming/Litecoin';
+const defaultPath = ` `;
 
 @Component({
   selector: 'new-node-dialog',

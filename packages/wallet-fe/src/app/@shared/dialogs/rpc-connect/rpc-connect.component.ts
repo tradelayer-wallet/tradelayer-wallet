@@ -4,8 +4,7 @@ import { Router } from '@angular/router';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RPCCredentials, RpcService } from 'src/app/@core/services/rpc.service';
-
-const defaultPath = 'C:/Users/Valentin/AppData/Roaming/Litecoin';
+const defaultPath = ' ';
 @Component({
   selector: 'rpc-connect-dialog',
   templateUrl: './rpc-connect.component.html',
