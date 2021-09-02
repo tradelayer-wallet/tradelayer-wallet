@@ -38,6 +38,7 @@ export const startWalletNode = async (path: string) => {
         if (!config['rpcuser'] || !config['rpcport'] || !config['rpcpassword']) return { error: `Incorrect Config File` };
 
         const file = join(__dirname, 'litecoind.exe');
+        // const file = join(__dirname, 'litecoind');
         const command = file;
         const execFileResult = await execFileByCommandPromise(command) as { data: any; error: any };
         if (execFileResult.error || !execFileResult?.data) {

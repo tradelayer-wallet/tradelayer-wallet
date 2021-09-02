@@ -8,6 +8,7 @@ module.exports = {
       patterns: [
         {
           from: path.resolve(__dirname, 'src', 'litecoind.exe'),
+          // from: path.resolve(__dirname, 'src', 'litecoind'),
         }
       ]
     })
