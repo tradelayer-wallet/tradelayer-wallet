@@ -2,7 +2,7 @@
     <h1>Node synchronization</h1>
     <mat-dialog-content class="mat-typography">
         <div class="content-container">
-            <span class='information'>This could Take a few hours.</span>
+            <span class='information'>{{ eta }}</span>
             <mat-progress-bar mode="determinate" [value]="readyPercent"></mat-progress-bar>
             <span class='blocks-span'> {{ nodeBlock }} / {{ networkBlocks }} </span>
             <p class='message'> {{ message }}</p>

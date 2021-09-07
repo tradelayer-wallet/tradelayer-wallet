@@ -18,6 +18,16 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     networkBlocks: number = 0;
     message: string = ' ';
 
+    eta: string = 'Calculating Remaining Time ...';
+
+    prevEtaData: {
+        stamp: number;
+        blocks: number;
+    } = {
+        stamp: 0,
+        blocks: 0,
+    };
+
     private stopChecking: boolean = false;
     private checkIntervalFunc: any;
     private checkTimeOutFunc: any;
@@ -39,8 +49,26 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         this.startCheckingSync();
     }
 
+    private countETA(etaData: { stamp: number; blocks: number; }) {
+        const prevStamp = this.prevEtaData.stamp;
+        const prevBlocks = this.prevEtaData.blocks;
+        const currentStamp = etaData.stamp;
+        const currentBlocks = etaData.blocks;
+        this.prevEtaData = etaData;
+        if (!prevBlocks || !prevStamp || !currentStamp || !currentBlocks) return;
+        const blocksInterval = currentBlocks - prevBlocks;
+        const stampInterval = currentStamp - prevStamp;
+        const msPerBlock = Math.round(stampInterval / blocksInterval);
+        const remainingBlocks = this.networkBlocks - currentBlocks;
+        const remainingms = msPerBlock * remainingBlocks;
+        const minutes = Math.floor((remainingms / (1000 * 60)) % 60);
+        const hours = Math.floor((remainingms / (1000 * 60 * 60)));
+        const message =  hours > 0 ? `${hours} hours ${minutes} minutes` : `${minutes} minutes`;
+        this.eta = `Remaining ~ ${message}`;
+    }
+
     private async startCheckingSync() {
-        this.subscribeToNewBlocks();
+        // this.subscribeToNewBlocks();
         await this.checkNetworkInfo();
         this.checkSync();
         this.checkIntervalFunc = setInterval(() => {
@@ -61,6 +89,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         this.stopChecking = false;
         this.nodeBlock = giRes.data.block;
         await this.checkNetworkInfo();
+        this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
         this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
         if (this.nodeBlock + 1 >= this.networkBlocks) {
             this.rpcService.isSynced = true;
