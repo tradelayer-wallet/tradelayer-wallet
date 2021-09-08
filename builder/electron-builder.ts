@@ -24,7 +24,8 @@ class ElectronApp {
         this.app.on('ready', () => this.createWindow());
 
         this.app.on('window-all-closed', () => {
-            if (process.platform !== 'darwin') app.quit();
+            // if (process.platform !== 'darwin') app.quit();
+            app.quit();
         });
 
         this.app.on('activate', () => {

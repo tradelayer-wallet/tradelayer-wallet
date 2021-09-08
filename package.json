@@ -8,7 +8,7 @@
   "private": true,
   "build": {
     "appId": "tl.wallet.1",
-    "productName": "TradeLayer Wallet",
+    "productName": "TradeLayer-Wallet",
     "files": [
       "dist/**/*"
     ],
