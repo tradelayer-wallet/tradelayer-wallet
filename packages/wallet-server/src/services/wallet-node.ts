@@ -44,10 +44,7 @@ export const startWalletNode = async (path: string) => {
         const command = file;
         const execFileResult = await execFileByCommandPromise(command) as { data: any; error: any };
         if (execFileResult.error || !execFileResult?.data) {
-            const errMessage = execFileResult?.error?.message?.includes('probably already running')
-                ? "The core is probably already running" 
-                : "Can't start the Local Node";
-            return { error: errMessage };
+            return { error: execFileResult?.error?.message || "Can't start the Local Node" };
         }
         const port = parseFloat(config['rpcport']);
         fasitfyServer.nodePort = port;
