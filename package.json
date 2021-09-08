@@ -35,7 +35,7 @@
     },
     "mac": {
       "target": "default",
-      "icon": "dist/fe/assets/icon.png"
+      "icon": "dist/fe/assets/icon512.png"
     }
   },
   "scripts": {
