@@ -32,6 +32,10 @@
         "AppImage"
       ],
       "icon": "dist/fe/assets/icon.png"
+    },
+    "mac": {
+      "target": "default",
+      "icon": "dist/fe/assets/icon.png"
     }
   },
   "scripts": {

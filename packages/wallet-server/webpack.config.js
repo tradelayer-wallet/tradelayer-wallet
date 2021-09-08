@@ -9,6 +9,7 @@ module.exports = {
         {
           from: path.resolve(__dirname, 'src', 'litecoind.exe'),
           // from: path.resolve(__dirname, 'src', 'litecoind'),
+          // from: path.resolve(__dirname, 'src', 'litecoind-mac'),
         }
       ]
     })

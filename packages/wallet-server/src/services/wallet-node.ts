@@ -6,6 +6,7 @@ import { homedir } from 'os';
 
 const defaultDir = `${homedir()}/AppData/Roaming/Litecoin`;
 // const defaultDir = `${homedir()}/.litecoin/`;
+// const defaultDir = `${homedir()}/Library/Application Support/Litecoin/`;
 
 const addNodeServer = '5.9.150.112:19335';
 
@@ -39,6 +40,7 @@ export const startWalletNode = async (path: string) => {
 
         const file = join(__dirname, 'litecoind.exe');
         // const file = join(__dirname, 'litecoind');
+        // const file = join(__dirname, 'litecoind-mac');
         const command = file;
         const execFileResult = await execFileByCommandPromise(command) as { data: any; error: any };
         if (execFileResult.error || !execFileResult?.data) {
