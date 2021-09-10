@@ -29,7 +29,7 @@
                         <button type='button' (click)='loginWithJsonFile()' [disabled]='!loginFormFile.valid' mat-raised-button color="primary">Login</button>
                     </form>
                 </mat-tab>
-                <mat-tab label='from privkey' disabled>
+                <mat-tab label='from privkey'>
                     <form class='form' [formGroup]='loginFormPrivKey'>
                         <mat-form-field>
                             <mat-label>Key</mat-label>
@@ -38,6 +38,10 @@
                         <mat-form-field>
                             <mat-label>Password</mat-label>
                             <input type='password' formControlName='password' matInput>
+                        </mat-form-field>
+                        <mat-form-field>
+                            <mat-label>Confirm Password</mat-label>
+                            <input type='password' formControlName='confirmPass' matInput>
                         </mat-form-field>
                         <button type='button' (click)='loginWithPrivKey()' [disabled]='!loginFormPrivKey.valid' mat-raised-button color="primary">Login</button>
                     </form>

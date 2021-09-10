@@ -1,0 +1,22 @@
+<div class="dialog-container" *ngIf='!scannign; else scanningContent'>
+    <div class="content">
+        <h1>This address need blockchain rescan!</h1>
+        <h3>(It may take around 10 minutes)</h3>
+    </div>
+    <div class="buttons">
+        <button mat-button (click)='rescan()' color="primary">RESCAN</button>
+        <button mat-button (click)="close()" color="warn">CANCLE</button>
+    </div>
+</div>
+
+<ng-template #scanningContent>
+    <div class="dialog-container">
+        <div class="content">
+            <h1>Blockchain rescannign ...</h1>
+        </div>
+        <mat-spinner [diameter]='50'></mat-spinner>
+        <div class="buttons">
+            <button mat-button [disabled]='abortDisabled' (click)="abort()" color="warn">ABORT</button>
+        </div>
+    </div>
+</ng-template>

@@ -1,5 +1,5 @@
-import { AfterViewInit, Component, OnInit } from '@angular/core';
-import { AbstractControl, FormBuilder, FormControl, FormGroup, ValidationErrors, Validators } from '@angular/forms';
+import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { AuthService } from 'src/app/@core/services/auth.service';
 
@@ -30,7 +30,8 @@ export class LoginPageComponent implements OnInit {
     this.loginFormPrivKey = this.fb.group({
       privKey: this.fb.control('', [Validators.required]),
       password: this.fb.control('', [Validators.required, Validators.minLength(6)]),
-    });
+      confirmPass: this.fb.control('', [Validators.required]),
+    }, { validator: this.matchPasswords('password', 'confirmPass') });
 
     this.loginFormFile = this.fb.group({
       jsonFile: this.fb.control(null),
@@ -46,6 +47,8 @@ export class LoginPageComponent implements OnInit {
   loginWithPrivKey() {
     const password = this.loginFormPrivKey.value.password;
     const privKey = this.loginFormPrivKey.value.privKey;
+
+    console.log({ password, privKey });
   }
 
   loginWithJsonFile() {

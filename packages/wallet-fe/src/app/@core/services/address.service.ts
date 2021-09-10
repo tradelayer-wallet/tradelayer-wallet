@@ -45,7 +45,7 @@ export class AddressService {
     }
 
     async generateNewKeyPair() {
-        const gnaRes = await this.rpcService.rpc('getnewaddress');
+        const gnaRes = await this.rpcService.rpc('getnewaddress', ['tl-wallet']);
         if (gnaRes.error || !gnaRes.data) return null;
         const address = gnaRes.data;
 

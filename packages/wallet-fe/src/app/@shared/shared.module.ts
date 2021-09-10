@@ -23,6 +23,7 @@ import { OverlayLoadingComponent } from './components/overlay-loading/overlay-lo
 import { MatTabsModule } from '@angular/material/tabs';
 import { NewNodeDialog } from './dialogs/new-node/new-node.component';
 import { SyncNodeDialog } from './dialogs/sync-node/sync-node.component';
+import { RescanDialog } from './dialogs/rescan/rescan.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -49,6 +50,7 @@ const DIALOGS = [
     CommingSoonDialog,
     NewNodeDialog,
     SyncNodeDialog,
+    RescanDialog,
 ];
 
 const COMPONENTS = [

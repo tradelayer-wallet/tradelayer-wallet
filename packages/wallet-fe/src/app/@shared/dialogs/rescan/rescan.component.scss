@@ -1,0 +1,19 @@
+.dialog-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    .content {
+        text-align: center;
+    }
+    .buttons {
+        display: flex;
+        button {
+            margin: 0 0.5rem;
+        }
+    }
+    mat-spinner {
+        margin: 1.5rem 0;
+    }
+}
