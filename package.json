@@ -60,6 +60,7 @@
     "fastify": "^3.19.2",
     "kill-port": "^1.6.1",
     "litecoin": "^2.0.5",
+    "litecore-lib": "^0.13.22",
     "socket.io": "^4.1.3",
     "socket.io-client": "^4.1.3",
     "ts-loader": "^9.2.4",

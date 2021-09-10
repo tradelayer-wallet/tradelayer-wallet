@@ -2,7 +2,7 @@
     <mat-tab-group color='accent' backgroundColor='primary' mat-align-tabs="center" dynamicHeight>
         <mat-tab label="Add">
             <mat-tab-group color='accent' mat-align-tabs="center" dynamicHeight>
-                <mat-tab label='from JSON'>
+                <mat-tab label='Import KeyFile'>
                     <form class='form' [formGroup]='loginFormFile'>
                         <div class='input-file'>
                             <button
@@ -29,7 +29,7 @@
                         <button type='button' (click)='loginWithJsonFile()' [disabled]='!loginFormFile.valid' mat-raised-button color="primary">Login</button>
                     </form>
                 </mat-tab>
-                <mat-tab label='from privkey'>
+                <mat-tab label='Import PrivKey' disabled>
                     <form class='form' [formGroup]='loginFormPrivKey'>
                         <mat-form-field>
                             <mat-label>Key</mat-label>

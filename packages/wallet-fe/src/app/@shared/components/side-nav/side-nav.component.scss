@@ -25,9 +25,9 @@ mat-drawer-container {
             flex-direction: column;
             align-items: center;
             padding: 1rem;
-            a {
+            span {
+                cursor: pointer;
                 color: whitesmoke;
-                text-decoration: none;
                 padding: 0.25rem 0;
                 transition: color 0.25s;
                 &:hover {

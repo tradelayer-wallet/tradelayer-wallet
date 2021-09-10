@@ -48,7 +48,7 @@ export class LoginPageComponent implements OnInit {
     const password = this.loginFormPrivKey.value.password;
     const privKey = this.loginFormPrivKey.value.privKey;
 
-    console.log({ password, privKey });
+    this.authService.loginFromPrivKey(privKey, password);
   }
 
   loginWithJsonFile() {

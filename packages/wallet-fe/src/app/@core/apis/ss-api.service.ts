@@ -71,4 +71,9 @@ export class SocketScriptApiService {
             data: any;
         }>(this.apiUrl + 'createNewNode', { params });
     }
+
+    extractKeyPairFromPrivKey(privKey: string): Observable<any> {
+        const params = { privKey };
+        return this.http.get<any>(this.apiUrl + 'extractKeyPairFromPrivKey', { params });
+    }
 }

@@ -51,6 +51,12 @@ export class AuthService {
             });
     }
 
+    async loginFromPrivKey(privKey: string, pass: string) {
+        console.log({privKey, pass});
+        const res = await this.apiService.socketScriptApi.extractKeyPairFromPrivKey(privKey).toPromise();
+        console.log({res});
+    }
+
     async loginFromKeyFile(key: string, pass: string) {
         const res = ltcUtils.decryptKeyPair(key, pass) as IKeyPair[];
 

@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify"
 import SocketScript from "../socket-script";
 import { serverSocketService } from '../sockets';
 import { startWalletNode, createNewNode } from '../services/wallet-node';
+import * as litecoreLib from 'litecore-lib';
 
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
@@ -77,6 +78,21 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 reply.send({ error: error.message });
             }
         });
+
+        fastify.get('/extractKeyPairFromPrivKey', (request, reply) => {
+            try {
+                // const { privKey } = request.query as { privKey: string };
+                // const privateKeyObj = litecoreLib.PrivateKey.getValidationError(privKey, litecoreLib.testnet);
+
+                // const data = {
+                //     privateKeyObj: privateKeyObj.toPublicKey().toAddress(litecoreLib.Networks.testnet).toString(),
+                //     completed: true,
+                // };
+                reply.send({ data: false });
+            } catch(error) {
+                reply.send({ error: error.message });
+            }
+        })
         done();
     }
 };
