@@ -36,3 +36,14 @@
 .mat-column-address {
     min-width: 25rem;
 }
+
+.mat-column-actions {
+    .span-button {
+        color: whitesmoke;
+        cursor: pointer;
+        margin: 0 0.5rem;
+        &:hover {
+            color: gray;
+        }
+    }
+}

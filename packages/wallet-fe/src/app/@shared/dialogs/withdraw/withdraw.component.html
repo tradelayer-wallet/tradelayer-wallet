@@ -1,0 +1,31 @@
+<div class="dialog-container">
+    <div class="title">
+        <h1>Withdraw</h1>
+    </div>
+    <div class="content">
+        <mat-form-field width='350px' required>
+            <mat-label>From Address</mat-label>
+            <input disabled type='text' matInput [value]='fromAddress'>
+        </mat-form-field>
+        <mat-form-field>
+            <mat-label>Amount</mat-label>
+            <input type='text' matInput [(ngModel)]='amount'>
+            <mat-hint align="end" (click)='fillAmountInput()'>Max.: {{ maxWithdrawAmount }}</mat-hint>
+        </mat-form-field>
+        <mat-form-field>
+            <mat-label>To address</mat-label>
+            <input type='text' matInput [(ngModel)]='toAddress'>
+            <button *ngIf='toAddress && isAddressValid === null' mat-icon-button matSuffix (click)="validateAddress(toAddress)">
+                <mat-icon>autorenew</mat-icon>
+            </button>
+            <mat-icon matSuffix *ngIf='toAddress && isAddressValid !== null && isAddressValid !== "PENDING"'> 
+                {{ isAddressValid === true ? 'done' : 'close' }}
+            </mat-icon>
+            <mat-spinner diameter='20' *ngIf='toAddress && isAddressValid === "PENDING"' matSuffix></mat-spinner>
+        </mat-form-field>
+    </div>
+    <div class="buttons">
+        <button mat-button (click)="close()" color="warn">CANCLE</button>
+        <button mat-button [disabled]='buttonDisabled' (click)='withdraw()' color="primary">WITHDRAW</button>
+    </div>
+</div>

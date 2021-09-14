@@ -13,6 +13,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox'
 import { MatProgressBarModule } from '@angular/material/progress-bar'; 
+import { MatIconModule } from '@angular/material/icon'; 
 
 import { RPCConnectDialog } from './dialogs/rpc-connect/rpc-connect.component';
 import { EncKeyDialog } from './dialogs/enc-key/enc-key.component';
@@ -24,6 +25,8 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { NewNodeDialog } from './dialogs/new-node/new-node.component';
 import { SyncNodeDialog } from './dialogs/sync-node/sync-node.component';
 import { RescanDialog } from './dialogs/rescan/rescan.component';
+import { WithdrawDialog } from './dialogs/withdraw/withdraw.component';
+import { DepositDialog } from './dialogs/deposit/deposit.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -42,6 +45,7 @@ const MAT_MODULES = [
     MatTabsModule,
     MatCheckboxModule,
     MatProgressBarModule,
+    MatIconModule,
 ];
 
 const DIALOGS = [
@@ -51,6 +55,8 @@ const DIALOGS = [
     NewNodeDialog,
     SyncNodeDialog,
     RescanDialog,
+    WithdrawDialog,
+    DepositDialog,
 ];
 
 const COMPONENTS = [

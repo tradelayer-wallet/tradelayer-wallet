@@ -23,6 +23,14 @@
                     <mat-cell *matCellDef="let element"> {{ (element?.['bal_999']?.locked || 0).toFixed(5) }} </mat-cell>
                 </ng-container>
 
+                <ng-container matColumnDef="actions" sticky>
+                  <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
+                  <mat-cell *matCellDef="let element"> 
+                    <span class='span-button' (click)="openDialog('deposit', element.address)">Deposit</span> 
+                    <span> | </span>
+                    <span class='span-button' (click)="openDialog('withdraw', element.address)">Withdraw</span>
+                   </mat-cell>
+                </ng-container>
                 <mat-header-row *matHeaderRowDef="cryptoBalanceColumns; sticky: true"></mat-header-row>
             
                 <mat-row *matRowDef="let row; columns: cryptoBalanceColumns;"></mat-row>

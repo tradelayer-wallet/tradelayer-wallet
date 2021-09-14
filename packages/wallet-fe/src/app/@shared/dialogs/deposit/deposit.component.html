@@ -1,0 +1,12 @@
+<div class="dialog-container">
+    <div class="title">
+        <h1>Deposit</h1>
+    </div>
+    <div class="content">
+        <span class='address' (click)='copyAddress()'>{{ address }}</span>
+        <span class='note'>(click over the address to copy in clipboard)</span>
+    </div>
+    <div class="buttons">
+        <button mat-button (click)="close()" color="warn">CANCLE</button>
+    </div>
+</div>

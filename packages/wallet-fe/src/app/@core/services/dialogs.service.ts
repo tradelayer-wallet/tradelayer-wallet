@@ -1,11 +1,13 @@
 import { Injectable } from "@angular/core";
 import { MatDialog, MatDialogConfig } from "@angular/material/dialog";
 import { CommingSoonDialog } from "src/app/@shared/dialogs/comming-soon/comming-soon.componet";
+import { DepositDialog } from "src/app/@shared/dialogs/deposit/deposit.component";
 import { EncKeyDialog } from "src/app/@shared/dialogs/enc-key/enc-key.component";
 import { NewNodeDialog } from "src/app/@shared/dialogs/new-node/new-node.component";
 import { RescanDialog } from "src/app/@shared/dialogs/rescan/rescan.component";
 import { RPCConnectDialog } from "src/app/@shared/dialogs/rpc-connect/rpc-connect.component";
 import { SyncNodeDialog } from "src/app/@shared/dialogs/sync-node/sync-node.component";
+import { WithdrawDialog } from "src/app/@shared/dialogs/withdraw/withdraw.component";
 
 export enum DialogTypes {
     RPC_CONNECT = "RPC_CONNECT",
@@ -14,6 +16,8 @@ export enum DialogTypes {
     NEW_NODE = 'NEW_NODE',
     SYNC_NODE = 'SYNC_NODE',
     RESCAN = 'RESCAN',
+    WITHDRAW = 'WITHDRAW',
+    DEPOSIT = 'DEPOSIT',
 };
 
 const dialogs: { [key: string]: any; } = {
@@ -22,7 +26,9 @@ const dialogs: { [key: string]: any; } = {
     'COMMING_SOON': CommingSoonDialog,
     'NEW_NODE': NewNodeDialog,
     'SYNC_NODE': SyncNodeDialog,
-    'RESCAN': RescanDialog
+    'RESCAN': RescanDialog,
+    'WITHDRAW': WithdrawDialog,
+    'DEPOSIT': DepositDialog,
 };
 
 @Injectable({

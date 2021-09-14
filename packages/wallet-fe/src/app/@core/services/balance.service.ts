@@ -40,6 +40,10 @@ export class BalanceService {
         return this.apiServic.soChainApi;
     }
 
+    get ssApi() {
+        return this.apiServic.socketScriptApi;
+    }
+
     get selectedAddress() {
         return this.addressService.activeKeyPair?.address;
     }
@@ -205,5 +209,10 @@ export class BalanceService {
                 }
             });
         })
+    }
+    async withdraw(optionsObj: { fromAddress: string, toAddress: string, amount: number}) {
+        const { fromAddress, toAddress, amount } = optionsObj;
+        const res = await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
+        console.log({res});
     }
 }

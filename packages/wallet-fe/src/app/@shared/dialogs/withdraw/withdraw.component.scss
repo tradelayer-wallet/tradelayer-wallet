@@ -1,0 +1,31 @@
+.dialog-container {
+    display: flex;
+    flex-direction: column;
+    .title {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 1rem 0;
+    }
+    .content {
+        display: flex;
+        width: 100%;
+        flex-direction: column;
+        align-items: center;
+        .mat-form-field {
+            width: 350px;
+        }
+        .mat-hint {
+            cursor: pointer;
+        }
+    }
+    .buttons {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        button {
+            margin: 0 0.5rem;
+        }
+    }
+}
