@@ -68,3 +68,42 @@ export enum TradeTypes {
     TOKEN_TOKEN_TRADE = 'TOKEN_TOKEN_TRADE',
     LTC_INSTANT_TRADE = 'LTC_INSTANT_TRADE',
 } 
+
+export interface IBuildRawTxOptions {
+    fromAddress: string;
+    toAddress: string;
+    inputs?: IInputs[];
+    payload?: string;
+    refAddressAmount?: number;
+}
+
+export interface IInputs {
+    txid: string;
+    vout: number;
+    amount: number;
+}
+
+export interface MSChannelData {
+    address: string;
+    redeemScript: string;
+    scriptPubKey?: string;
+}
+
+export interface ITradeInfo {
+    amountDesired: string;
+    amountForSale: string;
+    propIdDesired: number;
+    propIdForSale: number;
+}
+
+export interface TBuyerSellerInfo {
+    address: string;
+    pubKey: string;
+    socketId: string;
+}
+
+export interface IUTXOData {
+    amount: number,
+    vout: number,
+    txid: string,
+}

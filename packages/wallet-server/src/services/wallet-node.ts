@@ -1,14 +1,11 @@
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { ChildProcess, exec } from 'child_process';
-import { fasitfyServer } from '../';
-import { homedir } from 'os';
-
-const defaultDir = `${homedir()}/AppData/Roaming/Litecoin`;
-// const defaultDir = `${homedir()}/.litecoin/`;
-// const defaultDir = `${homedir()}/Library/Application Support/Litecoin/`;
-
-const addNodeServer = '5.9.150.112:19335';
+import { fasitfyServer } from '../index';
+import { addTESTNETNodeServer, coreFilePathObj, defaultDirObj } from '../conf/conf';
+ 
+const defaultDir = defaultDirObj.WINDOWS;
+const addNodeServer = addTESTNETNodeServer;
 
 let nodeProcess: ChildProcess;
 
@@ -38,9 +35,7 @@ export const startWalletNode = async (path: string) => {
         const config = structureConfFile(res);
         if (!config['rpcuser'] || !config['rpcport'] || !config['rpcpassword']) return { error: `Incorrect Config File` };
 
-        const file = join(__dirname, 'litecoind.exe');
-        // const file = join(__dirname, 'litecoind');
-        // const file = join(__dirname, 'litecoind-mac');
+        const file = coreFilePathObj.WINDOWS;
         const command = file;
         const execFileResult = await execFileByCommandPromise(command) as { data: any; error: any };
         if (execFileResult.error || !execFileResult?.data) {

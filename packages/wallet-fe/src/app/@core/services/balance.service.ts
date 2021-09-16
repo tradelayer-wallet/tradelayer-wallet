@@ -213,6 +213,6 @@ export class BalanceService {
     async withdraw(optionsObj: { fromAddress: string, toAddress: string, amount: number}) {
         const { fromAddress, toAddress, amount } = optionsObj;
         const res = await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
-        console.log({res});
+        return res;
     }
 }

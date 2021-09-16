@@ -36,7 +36,9 @@ export class WithdrawDialog {
     }
 
     get maxWithdrawAmount() {
-        return this.balanceService.getBalancesByAddress(this.fromAddress)?.['bal_999']?.available;
+        const available = this.balanceService.getBalancesByAddress(this.fromAddress)?.['bal_999']?.available;
+        const max = parseFloat((available - 0.001).toFixed(6))
+        return max;
     }
 
     get buttonDisabled() {
@@ -46,6 +48,9 @@ export class WithdrawDialog {
             !this.fromAddress ||
             this.isAddressValid === false ||
             this.isAddressValid === 'PENDING'
+            || typeof this.amount !== 'number'
+            || this.amount < 0.001
+            || this.amount > this.maxWithdrawAmount
         );
     }
 
@@ -71,12 +76,24 @@ export class WithdrawDialog {
         this.isAddressValid = isvalid;
     }
 
-    withdraw() {
+    async withdraw() {
         if (!this.amount || !this.fromAddress || !this.toAddress) return;
-        this.balanceService.withdraw({
+        const withdrawOptions = {
             fromAddress: this.fromAddress,
             toAddress: this.toAddress,
             amount: this.amount,
-        });
+        };
+        this.clearForm();
+        const res = await this.balanceService.withdraw(withdrawOptions);
+        if (res.error || !res.data) {
+            this.toastrService.error(res.error || `Error with Withdraw`, 'Error');
+        } else {
+            this.toastrService.success(res.data, 'Successfull Withdraw');
+        }
+    }
+
+    private clearForm() {
+        this.toAddress = '';
+        this.amount = null
     }
 }

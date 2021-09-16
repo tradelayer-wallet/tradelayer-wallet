@@ -44,12 +44,13 @@
     "electron:dist": "electron-builder",
     "electron:build": "webpack --config ./builder/builder-webpack.config.js",
     "electron:build:watch": "webpack --config ./builder/builder-webpack.config.js --watch",
-    "server:build": "webpack --config ./packages/wallet-server/webpack.config.js",
-    "server:build:watch": "webpack --watch --config ./packages/wallet-server/webpack.config.js",
+
+    "server:build:windows": "webpack --config ./packages/wallet-server/webpack.config.js --env os=WINDOWS",
+    "server:build:linux": "webpack --config ./packages/wallet-server/webpack.config.js --env os=LINUX",
+    "server:build:mac": "webpack --config ./packages/wallet-server/webpack.config.js --env os=MAC",
+
     "fe:build": "npm run build --prefix ./packages/wallet-fe",
-    "fe:build:watch": "npm run build:watch --prefix ./packages/wallet-fe",
-    "all:install": "npm install && npm install --prefix ./packages/wallet-fe",
-    "all:build": "npm run server:build && npm run fe:build && npm run electron:build"
+    "fe:build:watch": "npm run build:watch --prefix ./packages/wallet-fe"
   },
   "devDependencies": {
     "@types/node": "^14.17.5",

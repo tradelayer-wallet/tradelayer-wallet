@@ -48,7 +48,6 @@ export class FuturesOrderbookService {
             buyOrderbook: IFuturesOrderbook[]; 
             sellOrderbook: IFuturesOrderbook[]
         }) => {
-            console.log(orderbookData);
             this._rawBuyOrderbookData = orderbookData.buyOrderbook;
             this._rawSellOrderbookData = orderbookData.sellOrderbook;
             this.structureOrderBook();

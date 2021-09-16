@@ -92,7 +92,26 @@ export const socketRoutes = (socketScript: SocketScript) => {
             } catch(error) {
                 reply.send({ error: error.message });
             }
-        })
+        });
+
+        fastify.get('/withdraw', async (request, reply) => {
+            try {
+                const { fromAddress, toAddress, amount } = request.query as { 
+                    fromAddress: string,
+                    toAddress: string,
+                    amount: string,
+                };
+                const res = await socketScript.withdraw(fromAddress, toAddress, amount);
+                if (res.error || !res.data) {
+                    reply.send({ error: res.error || `Undefined Withdraw Error!` });
+                    return;
+                }
+                reply.send({ data: res.data });
+            } catch(error) {
+                reply.send({ error: error.message });
+            }
+        });
+
         done();
     }
 };

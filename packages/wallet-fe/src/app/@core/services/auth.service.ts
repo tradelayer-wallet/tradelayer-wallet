@@ -52,9 +52,7 @@ export class AuthService {
     }
 
     async loginFromPrivKey(privKey: string, pass: string) {
-        console.log({privKey, pass});
         const res = await this.apiService.socketScriptApi.extractKeyPairFromPrivKey(privKey).toPromise();
-        console.log({res});
     }
 
     async loginFromKeyFile(key: string, pass: string) {
@@ -88,7 +86,7 @@ export class AuthService {
             return;
         }
 
-        if (luRes.data.length !== scLuRes.data.txs?.length) {
+        if (luRes.data.length < scLuRes.data.txs?.length) {
             this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: false, data: { key, pass } });
             return;
         }

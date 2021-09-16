@@ -77,8 +77,8 @@ export class SocketScriptApiService {
         return this.http.get<any>(this.apiUrl + 'extractKeyPairFromPrivKey', { params });
     }
 
-    withdraw(fromAddress: string, toAddress: string, amount: number): Observable<any> {
+    withdraw(fromAddress: string, toAddress: string, amount: number): Observable<{ error: any; data: string }> {
         const params = { fromAddress, toAddress, amount };
-        return this.http.get<any>(this.apiUrl + 'withdraw', { params });
+        return this.http.get<{ error: any; data: string }>(this.apiUrl + 'withdraw', { params });
     }
 }
