@@ -64,7 +64,8 @@ export class SocketScript {
                 if (error === 'Loading wallet...' ||
                     error === 'Loading block index...' ||
                     error === 'Rewinding blocks...' ||
-                    error === 'Verifying wallet(s)...') {
+                    error === 'Verifying wallet(s)...' ||
+                    error === 'Parsing Trade Layer transactions...') {
                     this.asyncClient = newAsyncClent;
                     res(true);
                 } else {
