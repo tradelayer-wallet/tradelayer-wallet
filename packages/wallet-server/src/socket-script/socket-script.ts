@@ -61,16 +61,12 @@ export class SocketScript {
                 this.asyncClient = newAsyncClent;
                 res(true);
             } else {
-                if (error === 'Loading wallet...' ||
-                    error === 'Loading block index...' ||
-                    error === 'Rewinding blocks...' ||
-                    error === 'Verifying wallet(s)...' ||
-                    error === 'Parsing Trade Layer transactions...') {
-                    this.asyncClient = newAsyncClent;
-                    res(true);
-                } else {
+                if (error.includes('ECONNREFUSED')) {
                     this.clearConnection();
                     res(false);
+                } else {
+                    this.asyncClient = newAsyncClent;
+                    res(true);
                 }
             }
         });

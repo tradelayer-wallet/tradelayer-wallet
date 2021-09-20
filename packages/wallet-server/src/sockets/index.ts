@@ -80,7 +80,6 @@ class WalletSocketSevice {
                 if (!asyncClient) return;
                 const bbhRes = await asyncClient('getbestblockhash');
                 if (bbhRes.error || !bbhRes.data) {
-                    console.log(bbhRes.error);
                     this.onTimeOutMessage(bbhRes.error);
                     return null;
                 }

@@ -104,7 +104,7 @@ export class RpcService {
         const { error, result } = methodRes;
         if (error || !result) return { error: error.message || 'Error with RPC call' };
         return { data: result };
-      } catch (err) {
+      } catch (err: any) {
         return { error: err.error?.error?.message || 'Undifined Error' }
       }
     }

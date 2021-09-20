@@ -51,7 +51,7 @@ export class RPCConnectDialog {
     this.message2 = ' ';
     this.loadingService.isLoading = true;
     const path = this.defaultDirectoryCheckbox ? defaultPath : this.directory;
-    const res = await this.rpcService.startWalletNode(path) 
+    const res = await this.rpcService.startWalletNode(path);
     if (res.error || !res.data) {
       this.message2 = res.error || 'Please Try Again!';
       this.loadingService.isLoading = false;
