@@ -2,11 +2,8 @@ import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
 import { AddressService } from "../address.service";
 import { ApiService } from "../api.service";
-import { BalanceService } from "../balance.service";
-import { DealerService } from "./dealer.service";
 import { LoadingService } from "../loading.service";
-import { RpcService } from "../rpc.service";
-import { SocketEmits, SocketService } from "../socket.service";
+import { SocketService } from "../socket.service";
 import { TxsService } from "./txs.service";
 
 export interface ITradeConf {

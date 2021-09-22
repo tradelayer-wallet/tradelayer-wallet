@@ -29,12 +29,14 @@
         margin-bottom: 2rem;
         mat-card-content {
             color: whitesmoke;
+            overflow: auto;
         }
     }
 }
 
-.mat-column-address {
-    min-width: 25rem;
+.mat-cell {
+    overflow: hidden;
+    margin: 0 1rem;
 }
 
 .mat-column-actions {

@@ -111,7 +111,6 @@ export class AuthService {
 
     logout() {
         this.addressService.removeAllKeyPairs();
-        this.balanceService.restartBalance();
         this.txsService.pendingTxs = [];
         this.router.navigateByUrl('login');
     }

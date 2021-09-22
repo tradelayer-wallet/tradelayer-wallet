@@ -1,6 +1,5 @@
 import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
-import { BalanceService } from "../balance.service";
 import { RpcService } from "../rpc.service";
 import { SocketService } from "../socket.service";
 

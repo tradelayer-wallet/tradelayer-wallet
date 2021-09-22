@@ -84,9 +84,11 @@ export class HeaderComponent {
     return 
   }
 
-  getAddressBalance() {
-    const balance = this.balanceService.getLtcBalance()?.available || 0
-    return `${balance.toFixed(5)} tLTC`;
+  getAvailableBalance() {
+    const balanceObj = this.balanceService.getFiatBalancesByAddress();
+    const { confirmed, locked } = balanceObj;
+    const available = confirmed - locked;
+    return `${available.toFixed(5)} tLTC`;
   }
 
   copyToClipboard(text: string) {

@@ -9,7 +9,7 @@ import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.servi
   styleUrls: ['./portfolio-page.component.scss']
 })
 export class PortfolioPageComponent implements OnInit{
-  cryptoBalanceColumns: string[] = ['address', 'total', 'available', 'locked', 'actions'];
+  cryptoBalanceColumns: string[] = ['address', 'available', 'locked', 'total', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'locked'];
   
   constructor(
@@ -18,21 +18,55 @@ export class PortfolioPageComponent implements OnInit{
     private dialogService: DialogService,
   ) {}
 
-  get balances() {
-    const balances = this.balanceService.allBalances;
-    return Object.keys(balances).map((bal) => ({...balances[bal], address: bal}));
+  get fiatBalance() {
+    return Object.keys(this.allBalances)
+      .map(address => ({ address, ...(this.allBalances?.[address]?.fiatBalance || {}) }));
   }
 
   get tokensBalances() {
-    const balances = this.balanceService.getBalancesByAddress();
-    return Object.values(balances).filter(k => k.type === 'TOKEN');;
+    return this.balanceService.getTokensBalancesByAddress();
   }
 
   get selectedAddress() {
     return this.addressService.activeKeyPair?.address;
   }
 
+  get allBalances() {
+    return this.balanceService.allBalances;
+  }
+ 
   ngOnInit() {}
+
+  getAvailableFiatBalance(element: any) {
+    const confirmed = element?.confirmed || 0;
+    const locked = element?.locked || 0;
+    const available = confirmed - locked;
+    return available.toFixed(5);
+  }
+
+  getLockedFiatBalance(element: any) {
+    const locked = element?.locked || 0;
+    return locked.toFixed(5);
+  }
+
+  getTotalFiatBalnace(element: any) {
+    const confirmed = element?.confirmed || 0;
+    const unconfirmed = element?.unconfirmed || 0;
+
+    return `${confirmed.toFixed(3)}/${unconfirmed.toFixed(3)}`
+  }
+
+  getAvailableTokensBalance(element: any) {
+    const balance = element?.balance || 0;
+    const locked = element?.locked || 0;
+    const available = balance - locked;
+    return available.toFixed(5);
+  }
+
+  getLockedTokensBalance(element: any) {
+    const locked = element?.locked || 0;
+    return locked.toFixed(5);
+  }
 
   openDialog(dialog: string, data: any) {
     if (dialog === 'deposit') {

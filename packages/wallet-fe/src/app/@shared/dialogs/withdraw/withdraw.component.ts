@@ -36,7 +36,9 @@ export class WithdrawDialog {
     }
 
     get maxWithdrawAmount() {
-        const available = this.balanceService.getBalancesByAddress(this.fromAddress)?.['bal_999']?.available;
+        const balanceObj = this.balanceService.getFiatBalancesByAddress();
+        const { confirmed, locked } = balanceObj;
+        const available = confirmed - locked;
         const max = parseFloat((available - 0.001).toFixed(6))
         return max;
     }
@@ -89,6 +91,7 @@ export class WithdrawDialog {
             this.toastrService.error(res.error || `Error with Withdraw`, 'Error');
         } else {
             this.toastrService.success(res.data, 'Successfull Withdraw');
+            this.balanceService.updateBalances();
         }
     }
 

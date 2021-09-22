@@ -2,7 +2,6 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ReplaySubject } from 'rxjs';
 import { AddressService } from 'src/app/@core/services/address.service';
-import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { FuturesMarketsService, IContract } from 'src/app/@core/services/futures-services/futures-markets.service';
 
@@ -17,7 +16,6 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
     constructor(
       private futuresMarketsService: FuturesMarketsService,
-      private balanceService: BalanceService,
       private fb: FormBuilder,
       private addressService: AddressService,
       private loadingService: LoadingService,

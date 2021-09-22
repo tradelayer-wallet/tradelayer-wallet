@@ -1,26 +1,26 @@
 <div class="portfolio-page-container">
     <mat-card>
-        <mat-card-header>Crypto Balance</mat-card-header>
+        <mat-card-header>Fiat Balance</mat-card-header>
         <mat-card-content>
-            <mat-table [dataSource]="balances" *ngIf='balances'>
+            <mat-table [dataSource]="fiatBalance" *ngIf='fiatBalance'>
                 <ng-container matColumnDef="address" sticky>
                   <mat-header-cell *matHeaderCellDef>Address </mat-header-cell>
                   <mat-cell *matCellDef="let element"> {{ element.address }} </mat-cell>
                 </ng-container>
             
-                <ng-container matColumnDef="total" >
-                    <mat-header-cell *matHeaderCellDef>Total </mat-header-cell>
-                    <mat-cell *matCellDef="let element"> {{ ((element?.['bal_999']?.available || 0) + (element?.['bal_999']?.locked || 0)).toFixed(5) }} </mat-cell>
+                <ng-container matColumnDef="available" >
+                    <mat-header-cell *matHeaderCellDef>Available</mat-header-cell>
+                    <mat-cell *matCellDef="let element"> {{ getAvailableFiatBalance(element) }} </mat-cell>
                 </ng-container>
         
-                <ng-container matColumnDef="available" sticky>
-                  <mat-header-cell *matHeaderCellDef>Available Balance </mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ (element?.['bal_999']?.available || 0).toFixed(5) }} </mat-cell>
+                <ng-container matColumnDef="locked" sticky>
+                  <mat-header-cell *matHeaderCellDef>Locked</mat-header-cell>
+                  <mat-cell *matCellDef="let element"> {{ getLockedFiatBalance(element) }} </mat-cell>
                 </ng-container>
             
-                <ng-container matColumnDef="locked" sticky>
-                    <mat-header-cell *matHeaderCellDef>Locked Balance </mat-header-cell>
-                    <mat-cell *matCellDef="let element"> {{ (element?.['bal_999']?.locked || 0).toFixed(5) }} </mat-cell>
+                <ng-container matColumnDef="total" sticky>
+                    <mat-header-cell *matHeaderCellDef>Confirmed/Unconfirmed </mat-header-cell>
+                    <mat-cell *matCellDef="let element"> {{ getTotalFiatBalnace(element) }} </mat-cell>
                 </ng-container>
 
                 <ng-container matColumnDef="actions" sticky>
@@ -44,22 +44,22 @@
             <mat-table [dataSource]="tokensBalances" *ngIf='tokensBalances?.length'>
                 <ng-container matColumnDef="propertyid" sticky>
                   <mat-header-cell *matHeaderCellDef>Token Id </mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{element?.propertyId}} </mat-cell>
+                  <mat-cell *matCellDef="let element"> {{ element?.propertyid }} </mat-cell>
                 </ng-container>
             
                 <ng-container matColumnDef="name" >
                     <mat-header-cell *matHeaderCellDef>Token Name </mat-header-cell>
-                    <mat-cell *matCellDef="let element"> {{element.name || '-'}} </mat-cell>
+                    <mat-cell *matCellDef="let element"> {{element?.name || '-' }} </mat-cell>
                 </ng-container>
         
                 <ng-container matColumnDef="available" sticky>
                   <mat-header-cell *matHeaderCellDef>Available </mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ (element?.available).toFixed(5) }} </mat-cell>
+                  <mat-cell *matCellDef="let element"> {{ getAvailableTokensBalance(element) }} </mat-cell>
                 </ng-container>
             
                 <ng-container matColumnDef="locked" sticky>
                     <mat-header-cell *matHeaderCellDef>Locked </mat-header-cell>
-                    <mat-cell *matCellDef="let element"> {{ (element?.locked).toFixed(6) }} </mat-cell>
+                    <mat-cell *matCellDef="let element"> {{ getLockedTokensBalance(element) }} </mat-cell>
                 </ng-container>
 
                 <mat-header-row *matHeaderRowDef="tokensBalanceColums; sticky: true"></mat-header-row>

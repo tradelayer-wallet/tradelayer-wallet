@@ -20,7 +20,7 @@
                     class='balance'
                     (click)='updateBalance()'
                 >
-                    ({{ getAddressBalance() }})
+                    ({{ getAvailableBalance() }})
                 </span>
             </div>
             <button mat-icon-button (click)='isLoggedIn ? logOut() : navigateToLoginRoute()'>
