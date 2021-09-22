@@ -71,21 +71,34 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     getMaxAmount(isBuy: boolean) {
       if (!this.currentAddress) return '0';
       if (!this.buySellGroup?.controls?.['price']?.value) return '0';
-      const fee = 0.1;
       const _price = this.buySellGroup.value['price'];
-      const price = parseFloat((_price + fee));
+      const price = parseFloat((_price).toFixed(5));
 
       const propId = isBuy
         ? this.selectedMarket.second_token.propertyId
         : this.selectedMarket.first_token.propertyId;
 
-        const balanceObj = this.balanceService.getFiatBalancesByAddress();
-        const { confirmed, locked } = balanceObj;
-        const available = confirmed - locked;
-        const balance = parseFloat((available - 0.001).toFixed(6))
+      const getAvailable = (propId: number) => {
+        if (propId === 999) {
+          const balanceObj = this.balanceService.getFiatBalancesByAddress();
+          const { confirmed, locked } = balanceObj;
+          const _available = confirmed - locked;
+          return _available
+        } else {
+          const balanceObj = this.balanceService.getTokensBalancesByAddress();
+          const tokenBalance = balanceObj?.find(t => t.propertyid === propId);
+          if (!tokenBalance) return 0;
+          const { balance, locked } = tokenBalance;
+          const _available = balance - locked;
+          return _available
+        }
+      };
 
-      if (!balance || ((balance / price) <= 0)) return '0';
-      return isBuy ? (balance / price).toFixed(4): balance.toFixed(4);
+      const fee = 0.00; // 0.01;
+      const _available = getAvailable(propId) - fee;
+      const available = parseFloat((_available).toFixed(6));
+      if (!available || ((available / price) <= 0)) return '0';
+      return isBuy ? (available / price).toFixed(4) : available.toFixed(4);
     }
 
 

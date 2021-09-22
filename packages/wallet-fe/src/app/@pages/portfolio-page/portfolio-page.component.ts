@@ -10,7 +10,7 @@ import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.servi
 })
 export class PortfolioPageComponent implements OnInit{
   cryptoBalanceColumns: string[] = ['address', 'available', 'locked', 'total', 'actions'];
-  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'locked'];
+  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'locked', 'reserved'];
   
   constructor(
     private balanceService: BalanceService,
@@ -65,6 +65,11 @@ export class PortfolioPageComponent implements OnInit{
 
   getLockedTokensBalance(element: any) {
     const locked = element?.locked || 0;
+    return locked.toFixed(5);
+  }
+
+  getReservedTokensBalance(element: any) {
+    const locked = element?.reserved || 0;
     return locked.toFixed(5);
   }
 

@@ -4,6 +4,7 @@ import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 import { ToastrService } from "ngx-toastr";
 import { ApiService } from "./api.service";
+import { Position } from "./spot-services/spot-positions.service";
 
 const minBlocksForBalanceConf: number = 1;
 const emptyBalanceObj = {
@@ -80,24 +81,61 @@ export class BalanceService {
             console.log(`New Block: ${blockHeight}`);
             this.updateBalances();
         });
+
+        this.socketService.socket.on('opened-positions', (openedPositions: Position[]) => {
+            this.updateLockedBalanceByOpenedPositions(openedPositions);
+        });
+    }
+
+    private updateLockedBalanceByOpenedPositions(openedPositions: Position[]) {
+        const myPositions = openedPositions.filter(p => p.address === this.selectedAddress);
+        if (!myPositions) return;
+        const lockedBalancesArray: { propIdForSale: number, locked: number }[] = [];
+        myPositions.forEach(pos => {
+            const { amount, price, propIdForSale, isBuy} = pos;
+            const _locked = isBuy ? amount * price : amount;
+            const locked = parseFloat(_locked.toFixed(5));
+            const existing = lockedBalancesArray.find(e => e.propIdForSale === propIdForSale);
+            existing
+                ? existing.locked = parseFloat((existing.locked + locked).toFixed(5))
+                : lockedBalancesArray.push({ propIdForSale, locked });
+        });
+
+        const fbLocked = lockedBalancesArray.find(lb => lb.propIdForSale === 999)?.locked || 0;
+        this.updateFiatLockedBalance(fbLocked);
+
+        this.getTokensBalancesByAddress().forEach(tb => {
+            const tbLocked = lockedBalancesArray.find(lb => lb.propIdForSale === tb.propertyid)?.locked || 0;
+            this.updateTokenLockedBalanceById(tbLocked, tb.propertyid);
+        });
+    }
+
+    private updateTokenLockedBalanceById(lockedBalance: number, propid: number) {
+        const tokenBalanceObj = this.getTokensBalancesByAddress().find(t => t.propertyid === propid);
+        if (!tokenBalanceObj) return;
+        tokenBalanceObj.locked = lockedBalance;
+    }
+
+    private updateFiatLockedBalance(lockedBalance: number) {
+        this.getFiatBalancesByAddress().locked = lockedBalance;
     }
 
     async updateBalances(_address?: string) {
         const address = _address || this.selectedAddress;
         if (!address) return;
-        await this.updateLtcBalanceForAddressFromUnspents(address);
+        await this.updateFiatBalanceForAddressFromUnspents(address);
         await this.updateTokensBalanceForAddress(address);
-        console.log(this._allBalancesObj);
     }
 
-    private async updateLtcBalanceForAddressFromUnspents(address: string) {
+    private async updateFiatBalanceForAddressFromUnspents(address: string) {
         const fiatBalanceObjRes = await this.getFiatBalanceObjForAddress(address);
         if (fiatBalanceObjRes.error || !fiatBalanceObjRes.data) {
             this.toastrService.error(fiatBalanceObjRes.error || `Error with updating balances`, 'Error');
             return;
         }
+        const locked = this.getFiatBalancesByAddress(address)?.locked || 0;
         const { confirmed, unconfirmed } = fiatBalanceObjRes.data;
-        const fiatObj = { confirmed, unconfirmed, locked: 0 };
+        const fiatObj = { confirmed, unconfirmed, locked };
         if (!this._allBalancesObj[address]) this._allBalancesObj[address] = emptyBalanceObj;
         this._allBalancesObj[address].fiatBalance = fiatObj;
     }
@@ -124,7 +162,6 @@ export class BalanceService {
         const _unconfirmed: number = luResUnconfirmed.data.map((e: any) => e.amount).reduce((a: number, b: number) => a + b, 0);
         const confirmed = parseFloat(_confirmed.toFixed(5));
         const unconfirmed = parseFloat(_unconfirmed.toFixed(5));
-        console.log(`${confirmed}, ${unconfirmed}`)
         return {data: { confirmed, unconfirmed } };
     }
 
@@ -134,9 +171,18 @@ export class BalanceService {
         if (!balanceRes.data || balanceRes.error) return { data: [] };
         try {
             const promisesArray = (balanceRes.data as { propertyid: number, balance: string, reserved: string }[])
-                .map(async (token) => ({ ...token, name: await this.getTokenNameById(token.propertyid), locked: 0 }));
+                .map(async (token) => ({ ...token, name: await this.getTokenNameById(token.propertyid)}));
             const arr = await Promise.all(promisesArray);
-            const data = arr.map((t) => ({...t, balance: parseFloat(t.balance), reserved: parseFloat(t.reserved)}));
+            const data = arr.map((t) => {
+                const locked = this.getTokensBalancesByAddress()?.find(tb => tb.propertyid === t.propertyid)?.locked || 0;
+                const balObj = {
+                    ...t, 
+                    balance: parseFloat(t.balance), 
+                    reserved: parseFloat(t.reserved),
+                    locked,
+                };
+                return balObj;
+            });
             return { data };
         } catch (error: any) {
             return { error: `Error with getting tokens Balance` };

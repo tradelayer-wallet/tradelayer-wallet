@@ -62,6 +62,11 @@
                     <mat-cell *matCellDef="let element"> {{ getLockedTokensBalance(element) }} </mat-cell>
                 </ng-container>
 
+                <ng-container matColumnDef="reserved" sticky>
+                  <mat-header-cell *matHeaderCellDef>Reserved </mat-header-cell>
+                  <mat-cell *matCellDef="let element"> {{ getReservedTokensBalance(element) }} </mat-cell>
+              </ng-container>
+
                 <mat-header-row *matHeaderRowDef="tokensBalanceColums; sticky: true"></mat-header-row>
             
                 <mat-row *matRowDef="let row; columns: tokensBalanceColums;"></mat-row>
