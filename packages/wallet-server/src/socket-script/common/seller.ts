@@ -23,6 +23,7 @@ export class Seller {
     onReady() {
         return new Promise<{ data?: any, error?: any }>((res) => {
             this.readyRes = res;
+            setTimeout(() => this.terminateTrade('Undefined Error :('), 9000);
         });
     }
 
@@ -45,7 +46,6 @@ export class Seller {
     }
 
     private async initTrade() {
-        console.log(`InitTrade!`);
         if (this.tradeInfo.propIdForSale !== 999) return this.terminateTrade('The wallet dont Support this type of trade!');
         const pubKeys = [this.myInfo.pubKey, this.cpInfo.pubKey];
         const amaRes = await this.asyncClient("addmultisigaddress", 2, pubKeys);
@@ -59,13 +59,11 @@ export class Seller {
     }
 
     private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
-        console.log(`TRADE TERMINATED! REASON: ${reason}`);
         if (this.readyRes) this.readyRes({ error: reason });
         this.removePreviuesListeners();
     }
 
     private async onCommit(cpId: string) {
-        console.log(`OnCommit from ${cpId}`);
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
         if (this.tradeInfo.propIdForSale !== 999) return this.terminateTrade('The wallet dont Support this type of trade!');
 
@@ -94,7 +92,6 @@ export class Seller {
     }
 
     private async onRawTx(cpId: string, rawTx: string) {
-        console.log(`OnRawTx form ${cpId}`);
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 7');
         if (!rawTx) return this.terminateTrade('No RawTx for Signing Provided!');
 
@@ -107,14 +104,11 @@ export class Seller {
         }
         const prevTxsData = { txid, vout, amount, scriptPubKey, redeemScript };
         const ssrtxRes = await this.asyncClient("signrawtransaction", rawTx, [prevTxsData]);
-        console.log(2)
-        console.log({ssrtxRes, error: ssrtxRes.data.errors })
         if (ssrtxRes.error || !ssrtxRes.data?.hex) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
         this.socket.emit(`${this.myInfo.socketId}::SELLER:SIGNED_RAWTX`, { hex: ssrtxRes.data.hex, prevTxsData });
     }
 
     private async onFinalTx(cpId: string, finalTx: string) {
-        console.log({finalTx})
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
         if (this.readyRes) this.readyRes({ data: { txid: finalTx, seller: true, trade: this.tradeInfo } });
         this.removePreviuesListeners();

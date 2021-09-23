@@ -81,6 +81,8 @@ export interface IInputs {
     txid: string;
     vout: number;
     amount: number;
+    scriptPubKey: string;
+    redeemScript: string;
 }
 
 export interface MSChannelData {

@@ -1,10 +1,11 @@
 import { Socket } from 'socket.io-client';
-import { ITradeInfo, IUTXOData, MSChannelData, TBuyerSellerInfo, TClient } from "./types";
+import { RawTx } from './rawtx';
+import { ApiRes, IBuildRawTxOptions, IInputs, ITradeInfo, IUTXOData, MSChannelData, TBuyerSellerInfo, TClient } from "./types";
 
 export class Buyer {
     private multySigChannelData: MSChannelData;
     private readyRes: (value: { data?: any, error?: any }) => void;
-
+    private sendCounter = 1
 
     constructor(
         private tradeInfo: ITradeInfo, 
@@ -20,6 +21,7 @@ export class Buyer {
     onReady() {
         return new Promise<{ data?: any, error?: any }>((res) => {
             this.readyRes = res;
+            setTimeout(() => this.terminateTrade('Undefined Error :('), 9000);
         });
     }
 
@@ -43,13 +45,11 @@ export class Buyer {
     }
     
     private onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
-        console.log(`ONTRADE TERMINATED! REASON: ${reason}`);
         if (this.readyRes) this.readyRes({ error: reason });
         this.removePreviuesListeners();
     }
 
     private async onMSData(cpId: string, msData: MSChannelData) {
-        console.log(`MultySigData from ${cpId}`);
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 2');
         const pubKeys = [this.cpInfo.pubKey, this.myInfo.pubKey];
         const amaRes = await this.asyncClient("addmultisigaddress", 2, pubKeys);
@@ -60,35 +60,42 @@ export class Buyer {
     }
 
     private async onCommitUTXO(cpId: string, commitUTXO: IUTXOData) {
-        console.log(`commitUTXO from ${cpId}`);
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 3');
-        const rawHex = await this.buildLTCInstantTrade(commitUTXO);
+        const { scriptPubKey, redeemScript } = this.multySigChannelData;
+        if (!scriptPubKey || !redeemScript) return this.terminateTrade('Error with getting multysig channel data');
+        const commitInput: IInputs = { ...commitUTXO,  scriptPubKey, redeemScript };
+        const rawHex = await this.buildLTCInstantTrade(commitInput);
         if (rawHex.error || !rawHex.data) return this.terminateTrade(rawHex.error || `Error with Buildng Trade`);
         this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, rawHex.data);
     }
 
     private async onSignedRawTx(cpId: string, rawTxObj: { hex: string, prevTxsData: any }) {
         const { hex, prevTxsData } = rawTxObj;
-        console.log(`SignedRawTx from ${cpId}`);
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 4');
         if (!hex) return this.terminateTrade('RawTx Not Provided');
         const ssrtxRes = await this.asyncClient("signrawtransaction", hex, [prevTxsData]);
-        // const ssrtxRes = await this.asyncClient("signrawtransaction", hex);
         if (ssrtxRes.error || !ssrtxRes.data?.hex || !ssrtxRes.data?.complete) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
-        const finalTxId = await this.sendRawTransaction(ssrtxRes.data.hex);
-        if (this.readyRes) this.readyRes({ data: { txid: finalTxId, seller: false, trade: this.tradeInfo } });
-        this.socket.emit(`${this.myInfo.socketId}::BUYER:FINALTX`, finalTxId);
+        const finalTxIdRes = await this.sendRawTransaction(ssrtxRes.data.hex);
+        if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(finalTxIdRes.error || `Error with sending Raw Tx`);
+
+        if (this.readyRes) this.readyRes({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });
+        this.socket.emit(`${this.myInfo.socketId}::BUYER:FINALTX`, finalTxIdRes.data);
         this.removePreviuesListeners();
     }
 
     private async sendRawTransaction(hex: string) {
-        await new Promise(res => setTimeout(() => res(true), 250));
+        this.sendCounter++;
+        await new Promise(res => setTimeout(() => res(true), 500));
         const result = await this.asyncClient("sendrawtransaction", hex);
-        if (result.error || !result.data) return await this.sendRawTransaction(hex);
-        return result.data;
+        if (result.error || !result.data) {
+            return this.sendCounter < 15
+                 ? await this.sendRawTransaction(hex)
+                 : result;
+        }
+        return result;
     }
 
-    private async buildLTCInstantTrade(commitUTXO: IUTXOData) {
+    private async buildLTCInstantTrade(commitUTXO: IInputs) {
         try {
             const { vout, amount, txid } = commitUTXO;
             if (!vout || !amount || !txid)  return { error: 'Error Provided Commit Data' };
@@ -100,12 +107,15 @@ export class Buyer {
             const cpitLTCOptions = [ propIdDesired, amountDesired, amountForSale, bbData ];
             const cpitRes = await this.asyncClient('tl_createpayload_instant_ltc_trade', ...cpitLTCOptions);
             if (cpitRes.error || !cpitRes.data) return { error: cpitRes.error || `Error with creating payload` };
-    
-            const clientVins = await this.getUnspentsForFunding(amountForSale);
-            if (clientVins.error || !clientVins.data?.length) return { error: cpitRes.error || `Error with finding enough LTC for ${this.myInfo.address}` }
-    
-            const vins = [commitUTXO, ...clientVins.data];
-            const bLTCit = await this._buildLTCInstantTrade(vins, cpitRes.data, this.myInfo.address, amountForSale, this.cpInfo.address);
+            const rawTxOptions: IBuildRawTxOptions = {
+                fromAddress: this.myInfo.address,
+                toAddress: this.cpInfo.address,
+                payload: cpitRes.data,
+                inputs: [commitUTXO],
+                refAddressAmount: parseFloat(amountForSale),
+            };
+            const ltcIt = new RawTx(rawTxOptions, this.asyncClient);
+            const bLTCit = await ltcIt.build();
             if (bLTCit.error || !bLTCit.data) return { error: bLTCit.error || `Error with Building LTC Instat Trade` };
             return { data: bLTCit.data };
         } catch (error) {
@@ -113,54 +123,6 @@ export class Buyer {
         }
     }
 
-    private async _buildLTCInstantTrade(
-        vins: any[],
-        payload: string,
-        changeAddress: string,
-        price: string,
-        refAddress: string,
-    ): Promise<{ data?: any[], error?: any }> {
-        if (!vins?.length || !payload || !refAddress || !price || !changeAddress) return { error: 'Missing argumetns for building LTC Instant Trade' };
-
-        const sumVinsAmount = vins.map(vin => vin.amount).reduce((a, b) => a + b, 0);
-        if (sumVinsAmount < parseFloat(price)) return { error: 'Error with vins' };
-        const tl_createrawtx_inputAll = async () => {
-            let hex = '';
-            for (const vin of vins) {
-                const crtxiRes: any = await this.asyncClient('tl_createrawtx_input', hex, vin.txid, vin.vout);
-                if (crtxiRes.error || !crtxiRes.data) return { error: 'Error with creating raw tx: code 1' };
-                hex = crtxiRes.data;
-            }
-            return { data: hex };
-        };
-        const crtxiRes: any = await tl_createrawtx_inputAll();
-        if (crtxiRes.error || !crtxiRes.data) return { error: 'Error with creating raw tx: code 2' };
-
-        const change = (sumVinsAmount - (parseFloat(price) + 0.0005)).toFixed(4);
-        const _crtxrRes: any = await this.asyncClient('tl_createrawtx_reference', crtxiRes.data, changeAddress, change);
-        if (_crtxrRes.error || !_crtxrRes.data) return { error: _crtxrRes.error || 'Error with adding referance address' };
-    
-        const crtxrRes: any = await this.asyncClient('tl_createrawtx_reference', _crtxrRes.data, refAddress, price);
-        if (crtxrRes.error || !crtxrRes.data) return { error: crtxrRes.error || 'Error with adding referance address' };
-    
-        const crtxoRes: any = await this.asyncClient('tl_createrawtx_opreturn', crtxrRes.data, payload);
-        if (crtxoRes.error || !crtxoRes.data) return { error: 'Error with adding payload' };
-        return crtxoRes;
-    }
-
-    private async getUnspentsForFunding(amount: string): Promise<{ data?: any[], error?: any }> {
-        const lusRes = await this.asyncClient('listunspent', 0, 999999999, [this.myInfo.address]);
-        if (lusRes.error || !lusRes.data?.length) {
-          return lusRes
-        } else {
-          let res: any[] = [];
-          lusRes.data.forEach((u: any) => {
-            const amountSum = res.map(r => r.amount).reduce((a, b) => a + b, 0);
-            if (amountSum < (parseFloat(amount) + 0.1)) res.push(u);
-          });
-          return { data: res.map(u => ({vout: u.vout, txid: u.txid, amount: u.amount})) };
-        }
-    }
 
     private async getBestBlock(n: number) {
         const bbhRes = await this.asyncClient('getbestblockhash');

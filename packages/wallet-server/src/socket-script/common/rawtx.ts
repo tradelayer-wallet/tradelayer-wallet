@@ -49,26 +49,32 @@ export class RawTx {
         const crtxrRes = await this.client('tl_createrawtx_reference', fundRawTxHex, this.toAddress, this.refAddressAmount || 0);
         const crtxrErrorMessage = `Error with Adding Ref address when building RawTx`;
         if (crtxrRes.error || !crtxrRes.data) return { error: crtxrRes.error || crtxrErrorMessage };
-
-        let hex = crtxrRes.data;
-
-        if (this.payload) {
-            const crtxoRes = await this.client('tl_createrawtx_opreturn', crtxrRes.data);
+        const _crtxoRes = await new Promise<{ data?: any, error?: any }>(async (res) => {
+            if (!this.payload) {
+                res({data: crtxrRes.data});
+                return;
+            }
+            const crtxoRes = await this.client('tl_createrawtx_opreturn', crtxrRes.data, this.payload);
             const crtxoResErrorMessage = `Error with adding payload to rawtx`;
-            if (crtxoRes.error || !crtxoRes.data) return { error: crtxoRes.error || crtxoResErrorMessage };
-            hex = crtxoRes.data;
-        }
+            crtxoRes.error || !crtxoRes.data
+                ? res({ error: crtxoRes.error || crtxoResErrorMessage })
+                : res({ data: crtxoRes.data});
+        });
+        if (_crtxoRes.error || !_crtxoRes.data) return { error: _crtxoRes.error || `Error with adding payload to rawtx` };
 
-        const srtxRes = await this.client('signrawtransaction', hex);
+
+        const srtxRes = await this.client('signrawtransaction', _crtxoRes.data);
         const srtxErrorMessage =  `Error with Siging rawtx`;
         if (srtxRes.error || !srtxRes.data?.hex) return { error: srtxRes.error || srtxErrorMessage };
-    
-        const estFeeRes = await this.getEstFeeOfTx(srtxRes.data.hex, 35); // +35 bytes size for adding one more output (change adderss);
+        // +45 bytes size for adding one more output (change adderss) // 300 for each committx (2 signatures)
+        const estFeeRes = await this.getEstFeeOfTx(srtxRes.data.hex, 45 + (this.inputs.length * 300)); 
+
         const estFeeErrorMessage =  `Error with calcualting the fees`;
         if (estFeeRes.error || !estFeeRes.data) return { error: estFeeRes.error || estFeeErrorMessage };
-        
-        const prevTxs = fundInputs.map(u => ({...u, value: u.amount }));
-        const crtxcRes = await this.client('tl_createrawtx_change', crtxrRes.data, prevTxs, this.fromAddress, estFeeRes.data);
+
+        const prevTxs = fundInputs.map(u => ({txid: u.txid, vout: u.vout, scriptPubKey: u.scriptPubKey, value: u.amount }));
+
+        const crtxcRes = await this.client('tl_createrawtx_change', _crtxoRes.data, prevTxs, this.fromAddress, estFeeRes.data);
         const crtxcErrorMessage = `Error with Adding Change address when building RawTx`;
         if (crtxcRes.error || !crtxcRes.data) return { error: crtxcRes.error || crtxcErrorMessage };
         this.txReadyForsigning = crtxcRes.data;
@@ -103,11 +109,11 @@ export class RawTx {
 
     private async fundRawTx(inputs: IInputs[], amount: number, _hex: string = '') {
         const getEnoughInputs = () => {
-            const inputsArr = [];
+            const inputsArr: IInputs[] = [];
             inputs.some(u => {
                 const _amountSum: number = inputsArr.map(r => r.amount).reduce((a, b) => a + b, 0);
                 const amountSum = parseFloat(_amountSum.toFixed(10));
-                const _amount = parseFloat((amount + ((0.2 * this.minFeeLtcPerKb) * (inputsArr.length + 1))).toFixed(10));
+                const _amount = parseFloat((amount + ((0.3 * this.minFeeLtcPerKb) * (inputsArr.length + 1))).toFixed(10));
                 if (amountSum < _amount) inputsArr.push(u);
                 return amountSum >= _amount;
             });
@@ -116,16 +122,13 @@ export class RawTx {
         const _inputs = getEnoughInputs();
         const _inputsSum = _inputs.map(r => r.amount).reduce((a, b) => a + b, 0);
         const inputsSum = parseFloat(_inputsSum.toFixed(10));
-        const _amount = parseFloat((amount + ((0.2 * this.minFeeLtcPerKb) * _inputs.length)).toFixed(10));
+        const _amount = parseFloat((amount + ((0.3 * this.minFeeLtcPerKb) * _inputs.length)).toFixed(10));
         if (inputsSum < _amount) return { error: `Not enough LTC for this transaction` };
 
-        let hex = _hex;
-        for (const vin of _inputs) {
-            const crtxiRes = await this.client('tl_createrawtx_input', hex, vin.txid, vin.vout);
-            if (crtxiRes.error || !crtxiRes.data) return { error: crtxiRes.error || 'Error with creating raw tx from provided inputs!' };
-            hex = crtxiRes.data;
-        }
-        const data = { fundInputs: _inputs, fundRawTxHex: hex };
+        const _inputsForCreateRawTx = _inputs.map(i => ({ txid: i.txid, vout: i.vout }));
+        const crtRes = await this.client('createrawtransaction', _inputsForCreateRawTx, {});
+        if (crtRes.error || !crtRes.data) return { error: crtRes.error || 'Error with creating raw tx from provided inputs!' };
+        const data = { fundInputs: _inputs, fundRawTxHex: crtRes.data };
         return { data };
     }
 
