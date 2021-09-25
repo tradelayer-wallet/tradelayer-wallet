@@ -5,8 +5,8 @@ export const asyncClient = (ltcClient: any) => async (...args: any[]): Promise<A
     try {
         ltcClient.cmd(...args, (error: any, data: any) => {
             const result: ApiRes = { error: null, data: null }
-            if (error) result.error = error.message
-            if (data) result.data = data
+            if (error) result.error = error.message;
+            if (data) result.data = data;
             resolve(result);
         })
     } catch (error) {

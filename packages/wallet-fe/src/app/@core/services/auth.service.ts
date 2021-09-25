@@ -87,7 +87,7 @@ export class AuthService {
         }
 
         if (luRes.data.length < scLuRes.data.txs?.length) {
-            this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: false, data: { key, pass } });
+            this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
             return;
         }
 
@@ -111,6 +111,7 @@ export class AuthService {
 
     logout() {
         this.addressService.removeAllKeyPairs();
+        this.balanceService.restartBalance();
         this.txsService.pendingTxs = [];
         this.router.navigateByUrl('login');
     }

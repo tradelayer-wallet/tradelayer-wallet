@@ -61,7 +61,7 @@ export class SocketScript {
                 this.asyncClient = newAsyncClent;
                 res(true);
             } else {
-                if (error.includes('ECONNREFUSED')) {
+                if (error.includes('ECONNREFUSED') || error.includes('401')) {
                     this.clearConnection();
                     res(false);
                 } else {

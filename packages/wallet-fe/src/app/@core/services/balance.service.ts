@@ -200,4 +200,8 @@ export class BalanceService {
         const res = await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
         return res;
     }
+
+    restartBalance() {
+        this._allBalancesObj = {};
+    }
 }
