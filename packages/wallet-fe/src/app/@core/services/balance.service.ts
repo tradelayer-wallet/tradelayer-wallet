@@ -195,10 +195,16 @@ export class BalanceService {
         return gpRes.data.name;
     }
 
-    async withdraw(optionsObj: { fromAddress: string, toAddress: string, amount: number}) {
-        const { fromAddress, toAddress, amount } = optionsObj;
-        const res = await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
-        return res;
+    async withdraw(optionsObj: { fromAddress: string, toAddress: string, amount: number, propId: number }) {
+        const { fromAddress, toAddress, amount, propId } = optionsObj;
+        if (propId === 999) {
+            const res = await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
+            return res;
+        } else {
+            const res = this.rpcServic.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);
+            return res;
+        }
+
     }
 
     restartBalance() {

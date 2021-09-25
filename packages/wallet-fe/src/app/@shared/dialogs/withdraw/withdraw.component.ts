@@ -22,6 +22,10 @@ export class WithdrawDialog {
         private toastrService: ToastrService,
     ) { }
 
+    get propId() {
+        return this.data?.propId;
+    }
+
     get toAddress() {
         return this._toAddress
     }
@@ -32,15 +36,25 @@ export class WithdrawDialog {
     }
 
     get fromAddress() {
-        return this.data;
+        return this.data?.address;
     }
 
     get maxWithdrawAmount() {
-        const balanceObj = this.balanceService.getFiatBalancesByAddress();
-        const { confirmed, locked } = balanceObj;
-        const available = confirmed - locked;
-        const max = parseFloat((available - 0.001).toFixed(6))
-        return max;
+        if (this.propId === 999) {
+            const balanceObj = this.balanceService.getFiatBalancesByAddress();
+            const { confirmed, locked } = balanceObj;
+            const available = confirmed - locked;
+            const max = parseFloat((available - 0.001).toFixed(6))
+            return max;
+        } else {
+            const balanceObj = this.balanceService.getTokensBalancesByAddress()
+                .find(o => o.propertyid === this.propId);
+            if (!balanceObj) return 0;
+            const { balance, locked } = balanceObj;
+            const _available = balance - locked;
+            const available = parseFloat((_available).toFixed(6))
+            return available;
+        }
     }
 
     get buttonDisabled() {
@@ -58,6 +72,13 @@ export class WithdrawDialog {
 
     close() {
         this.dialogRef.close();
+    }
+
+    get tokenName() {
+        return this.propId === 999
+            ? 'LTC'
+            : this.balanceService.getTokensBalancesByAddress()
+                .find(e => e.propertyid === this.propId)?.name;
     }
 
     fillAmountInput() {
@@ -79,11 +100,12 @@ export class WithdrawDialog {
     }
 
     async withdraw() {
-        if (!this.amount || !this.fromAddress || !this.toAddress) return;
+        if (!this.amount || !this.fromAddress || !this.toAddress || !this.propId) return;
         const withdrawOptions = {
             fromAddress: this.fromAddress,
             toAddress: this.toAddress,
             amount: this.amount,
+            propId: this.propId,
         };
         this.clearForm();
         const res = await this.balanceService.withdraw(withdrawOptions);

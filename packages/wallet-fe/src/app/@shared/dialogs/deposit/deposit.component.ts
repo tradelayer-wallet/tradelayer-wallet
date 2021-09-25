@@ -15,7 +15,7 @@ export class DepositDialog {
     ) { }
 
     get address() {
-        return this.data;
+        return this.data?.address;
     }
 
     copyAddress() {

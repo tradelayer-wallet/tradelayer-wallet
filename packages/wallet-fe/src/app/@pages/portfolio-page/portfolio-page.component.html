@@ -26,9 +26,9 @@
                 <ng-container matColumnDef="actions" sticky>
                   <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
                   <mat-cell *matCellDef="let element"> 
-                    <span class='span-button' (click)="openDialog('deposit', element.address)">Deposit</span> 
+                    <span class='span-button' (click)="openDialog('deposit', element.address, 999)">Deposit</span> 
                     <span> | </span>
-                    <span class='span-button' (click)="openDialog('withdraw', element.address)">Withdraw</span>
+                    <span class='span-button' (click)="openDialog('withdraw', element.address, 999)">Withdraw</span>
                    </mat-cell>
                 </ng-container>
                 <mat-header-row *matHeaderRowDef="cryptoBalanceColumns; sticky: true"></mat-header-row>
@@ -65,6 +65,15 @@
                 <ng-container matColumnDef="reserved" sticky>
                   <mat-header-cell *matHeaderCellDef>Reserved </mat-header-cell>
                   <mat-cell *matCellDef="let element"> {{ getReservedTokensBalance(element) }} </mat-cell>
+              </ng-container>
+
+              <ng-container matColumnDef="actions" sticky>
+                <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
+                <mat-cell *matCellDef="let element"> 
+                  <span class='span-button' (click)="openDialog('deposit', null, element.propertyid)">Deposit</span> 
+                  <span> | </span>
+                  <span class='span-button' (click)="openDialog('withdraw', null, element.propertyid)">Withdraw</span>
+                 </mat-cell>
               </ng-container>
 
                 <mat-header-row *matHeaderRowDef="tokensBalanceColums; sticky: true"></mat-header-row>

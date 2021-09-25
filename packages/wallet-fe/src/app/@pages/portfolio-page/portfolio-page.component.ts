@@ -10,7 +10,7 @@ import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.servi
 })
 export class PortfolioPageComponent implements OnInit{
   cryptoBalanceColumns: string[] = ['address', 'available', 'locked', 'total', 'actions'];
-  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'locked', 'reserved'];
+  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'locked', 'reserved', 'actions'];
   
   constructor(
     private balanceService: BalanceService,
@@ -73,12 +73,14 @@ export class PortfolioPageComponent implements OnInit{
     return locked.toFixed(5);
   }
 
-  openDialog(dialog: string, data: any) {
+  openDialog(dialog: string, _address?: any, _propId?: number) {
     if (dialog === 'deposit') {
+      const data = { address: _address || this.selectedAddress };
       this.dialogService.openDialog(DialogTypes.DEPOSIT, { disableClose: false, data });
     }
 
     if (dialog === 'withdraw') {
+      const data = { address: _address || this.selectedAddress, propId: _propId };
       this.dialogService.openDialog(DialogTypes.WITHDRAW, { disableClose: false, data });
     }
   }
