@@ -9,6 +9,7 @@ import { FuturesPageComponent } from './@pages/futures-page/futures-page.compone
 import { RPCGuard } from './@core/guards/rpc.guard';
 import { AuthGuard } from './@core/guards/auth.guard';
 import { PortfolioPageComponent } from './@pages/portfolio-page/portfolio-page.component';
+import { SettingsPageComponent } from './@pages/settings-page/settings-page.component';
 
 export const routes: Routes = [
   {
@@ -39,10 +40,15 @@ export const routes: Routes = [
         canActivate: [AuthGuard]
       },
       {
+        path: 'settings',
+        component: SettingsPageComponent,
+        canActivate: [AuthGuard]
+      },
+      {
         path: '**',
         component: HomePageComponent,
       },
-      ],
+    ],
   },
 ];
 

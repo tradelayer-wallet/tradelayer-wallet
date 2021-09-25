@@ -31,6 +31,7 @@ import { FuturesMarketsToolbarComponent } from './futures-page/futures-markets-t
 import { FuturesTradingGridComponent } from './futures-page/futures-trading-grid/futures-trading-grid.component';
 import { FuturesOrderbookCardComponent } from './futures-page/futures-trading-grid/futures-orderbook-card/futures-orderbook-card.component';
 import { FuturesBuySellCardComponent } from './futures-page/futures-trading-grid/futures-buy-sell-card/futures-buy-sell-card.component';
+import { SettingsPageComponent } from './settings-page/settings-page.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -55,6 +56,7 @@ const PAGE_COMPONENTS = [
     SpotPageComponent,
     FuturesPageComponent,
     PortfolioPageComponent,
+    SettingsPageComponent,
 ];
 
 const SPOT_COMPONENTS = [

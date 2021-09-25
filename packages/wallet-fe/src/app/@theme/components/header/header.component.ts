@@ -37,6 +37,11 @@ export class HeaderComponent {
       name: 'Portfolio',
       link: 'portfolio',
     },
+    {
+      id: 5,
+      name: 'Settings',
+      link: 'settings',
+    },
     // {
     //   id: 4,
     //   name: 'Taxes',

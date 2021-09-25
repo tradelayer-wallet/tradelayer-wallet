@@ -1,11 +1,19 @@
 import { Injectable } from "@angular/core";
+import { ToastrService } from "ngx-toastr";
 import { RpcService } from "./rpc.service";
+import { SocketService } from "./socket.service";
 
 export interface IKeyPair {
     address: string;
     pubKey: string;
     privKey: string;
 }
+
+export enum EKYCStatus { 
+    ENABLED = 'Enabled',
+    DISABLED = 'Disabled',
+    PENDING = 'Pending',
+};
 
 @Injectable({
     providedIn: 'root',
@@ -14,9 +22,15 @@ export interface IKeyPair {
 export class AddressService {
     private _keyPairs: IKeyPair[] = [];
     private _activeKeyPair: IKeyPair | null = null;
+    private allAttestations: { [address: string]: EKYCStatus } = {};
+
     constructor(
         private rpcService: RpcService,
-    ) {}
+        private toastrService: ToastrService,
+        private socketService: SocketService,
+    ) {
+        this.handleSocketEvents();
+    }
     
     get keyPairs() {
         return this._keyPairs;
@@ -31,7 +45,14 @@ export class AddressService {
     }
 
     set activeKeyPair(value: IKeyPair | null) {
+        this.checkKycStatusForAddress(value?.address);
         this._activeKeyPair = value;
+    }
+
+    get activeAddressKYCStatus() {
+        if (!this.activeKeyPair?.address) return EKYCStatus.DISABLED;
+        const address = this.activeKeyPair.address;
+        return this.allAttestations[address];
     }
 
     addDecryptedKeyPair(pair: IKeyPair) {
@@ -43,6 +64,41 @@ export class AddressService {
         this.keyPairs = [];
         this.activeKeyPair = null;
     }
+
+    private handleSocketEvents() {
+        this.socketService.socket.on('newBlock', () => {
+            if (this.activeAddressKYCStatus === EKYCStatus.PENDING) this.checkKycStatusForAddress();
+        });
+    }
+
+    async checkKycStatusForAddress(_address?: string) {
+        const address = _address || this.activeKeyPair?.address;
+        if (!address) return EKYCStatus.DISABLED;
+        const laRes = await this.rpcService.rpc('tl_list_attestation');
+        if (laRes.error || !laRes.data) {
+            this.toastrService.error('Error with getting KYC status', 'Error');
+            this.allAttestations[address] = EKYCStatus.DISABLED;
+            return this.allAttestations[address];
+        }
+        const selfAttStatus = laRes.data.some((o: { 'att sender': string, 'att receiver': string, kyc_id: number }) => 
+            (o?.['att receiver'] === address && o?.['att sender'] === address && o.kyc_id === 0));
+            this.allAttestations[address] = selfAttStatus ? EKYCStatus.ENABLED : EKYCStatus.DISABLED;
+        return this.allAttestations[address];
+    }
+
+    async kycAddress(address: string) {
+        await this.checkKycStatusForAddress(address);
+        if (this.allAttestations[address] !== EKYCStatus.DISABLED) return;
+        const attRes = await this.rpcService.rpc('tl_attestation', [address, address]);
+        if (attRes.error || !attRes.data) {
+            const attErrorMEssage = 'Error with Self KYC Attestion'
+            this.toastrService.error(attRes.error || attErrorMEssage, 'Error');
+            return;
+        }
+        this.toastrService.success(`TX: ${attRes.data}`, 'KYC Transaction')
+        this.allAttestations[address] = EKYCStatus.PENDING;
+    }
+
 
     async generateNewKeyPair() {
         const gnaRes = await this.rpcService.rpc('getnewaddress', ['tl-wallet']);
