@@ -43,7 +43,7 @@ export class TxsService {
         const { propId, amount } = tradeData;
         const fee = await this.getTxFee(txid)
         const txObj = { txid, status: TXSTATUS.PENDING, propId, amount: parseFloat(amount), fee };
-        this.pendingTxs = [...this.pendingTxs, txObj];
+        this.pendingTxs = [txObj, ...this.pendingTxs];
     }
 
     removeFromPendingTxs(txid: string) {

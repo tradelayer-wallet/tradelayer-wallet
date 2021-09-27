@@ -46,7 +46,6 @@ export class Seller {
     }
 
     private async initTrade() {
-        if (this.tradeInfo.propIdForSale !== 999) return this.terminateTrade('The wallet dont Support this type of trade!');
         const pubKeys = [this.myInfo.pubKey, this.cpInfo.pubKey];
         const amaRes = await this.asyncClient("addmultisigaddress", 2, pubKeys);
         if (amaRes.error || !amaRes.data) return this.terminateTrade(amaRes.error);
@@ -65,7 +64,7 @@ export class Seller {
 
     private async onCommit(cpId: string) {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
-        if (this.tradeInfo.propIdForSale !== 999) return this.terminateTrade('The wallet dont Support this type of trade!');
+        // if (this.tradeInfo.propIdForSale !== 999) return this.terminateTrade('The wallet dont Support this type of trade!');
 
         const commitData = [        
             this.myInfo.address,

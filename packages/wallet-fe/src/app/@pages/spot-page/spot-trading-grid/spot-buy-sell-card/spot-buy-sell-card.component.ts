@@ -82,15 +82,15 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         if (propId === 999) {
           const balanceObj = this.balanceService.getFiatBalancesByAddress();
           const { confirmed, locked } = balanceObj;
-          const _available = confirmed - locked;
-          return _available
+          const _available = (confirmed - locked).toFixed(6);
+          return parseFloat(_available);
         } else {
           const balanceObj = this.balanceService.getTokensBalancesByAddress();
           const tokenBalance = balanceObj?.find(t => t.propertyid === propId);
           if (!tokenBalance) return 0;
           const { balance, locked } = tokenBalance;
-          const _available = balance - locked;
-          return _available
+          const _available = (balance - locked).toFixed(6);
+          return parseFloat(_available);
         }
       };
 
@@ -118,7 +118,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const balanceObj = this.balanceService.getFiatBalancesByAddress();
       const { confirmed, locked } = balanceObj;
       const available = confirmed - locked;
-      const availableLTC = parseFloat((available - 0.001).toFixed(6))
+      const availableLTC = parseFloat((available).toFixed(6))
 
       const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
       return !this.buySellGroup.valid || !v || availableLTC < 0.05;

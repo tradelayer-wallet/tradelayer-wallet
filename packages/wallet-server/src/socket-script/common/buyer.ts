@@ -71,7 +71,6 @@ export class Buyer {
             if (rawHex.error || !rawHex.data) return this.terminateTrade(rawHex.error || `Error with Buildng Trade`);
             this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, rawHex.data);
         } else {
-            return this.terminateTrade(`Not a LTC INSTANT TRADE`);
             const rawHex = await this.buildTTTrade(commitInput);
             if (rawHex.error || !rawHex.data) return this.terminateTrade(rawHex.error || `Error with Buildng Trade`);
             this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, rawHex.data);
@@ -123,7 +122,18 @@ export class Buyer {
                         const ctcErrorMessage = `Error with Commiting tokens to channel`;
                         if (ctcRes.error || !ctcRes.data) return { error: ctcRes.error || ctcErrorMessage };
 
-                        const commitUTXO2 = {} as IInputs;
+                        const gtRes = await this.asyncClient("gettransaction", ctcRes.data);
+                        if (gtRes.error || !gtRes.data?.hex) return { error: gtRes.error}
+                        const drtRes = await this.asyncClient("decoderawtransaction", gtRes.data.hex);
+                        if (drtRes.error || !drtRes.data?.vout) return { error: drtRes.error }
+                        const _vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData.address);
+                        if (!_vout) return { error: 'Undefined error. Code 963' };
+
+                        const commitUTXO2 = {
+                            amount: _vout.value,
+                            vout: _vout.n,
+                            txid: ctcRes.data,
+                        } as IInputs;
                         // -------------------------
                         
             const { propIdDesired, amountDesired, propIdForSale, amountForSale } = this.tradeInfo;
