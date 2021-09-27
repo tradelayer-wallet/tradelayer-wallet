@@ -90,7 +90,8 @@ export class Seller {
         this.socket.emit(`${this.myInfo.socketId}::SELLER:COMMIT_UTXO`, this.utxoData);
     }
 
-    private async onRawTx(cpId: string, rawTx: string) {
+    private async onRawTx(cpId: string, data: { rawTx: string, prevTx?: any }) {
+        const { rawTx, prevTx } = data;
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 7');
         if (!rawTx) return this.terminateTrade('No RawTx for Signing Provided!');
 
@@ -102,7 +103,9 @@ export class Seller {
             return;
         }
         const prevTxsData = { txid, vout, amount, scriptPubKey, redeemScript };
-        const ssrtxRes = await this.asyncClient("signrawtransaction", rawTx, [prevTxsData]);
+        const prevTxsArray = [prevTxsData];
+        if (prevTx) prevTxsArray.push(prevTx);
+        const ssrtxRes = await this.asyncClient("signrawtransaction", rawTx, prevTxsArray);
         if (ssrtxRes.error || !ssrtxRes.data?.hex) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
         this.socket.emit(`${this.myInfo.socketId}::SELLER:SIGNED_RAWTX`, { hex: ssrtxRes.data.hex, prevTxsData });
     }

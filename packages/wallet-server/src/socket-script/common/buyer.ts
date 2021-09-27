@@ -1,11 +1,13 @@
 import { Socket } from 'socket.io-client';
+import { saveLog } from '../../test/test';
 import { RawTx } from './rawtx';
-import { ApiRes, IBuildRawTxOptions, IInputs, ITradeInfo, IUTXOData, MSChannelData, TBuyerSellerInfo, TClient } from "./types";
+import { IBuildRawTxOptions, IInputs, ITradeInfo, IUTXOData, MSChannelData, TBuyerSellerInfo, TClient } from "./types";
 
 export class Buyer {
     private multySigChannelData: MSChannelData;
     private readyRes: (value: { data?: any, error?: any }) => void;
     private sendCounter = 1
+    private commitUTXO: any;
 
     constructor(
         private tradeInfo: ITradeInfo, 
@@ -69,11 +71,11 @@ export class Buyer {
         if (propIdForSale === 999) {
             const rawHex = await this.buildLTCInstantTrade(commitInput);
             if (rawHex.error || !rawHex.data) return this.terminateTrade(rawHex.error || `Error with Buildng Trade`);
-            this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, rawHex.data);
+            this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, { rawTx: rawHex.data });
         } else {
             const rawHex = await this.buildTTTrade(commitInput);
             if (rawHex.error || !rawHex.data) return this.terminateTrade(rawHex.error || `Error with Buildng Trade`);
-            this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, rawHex.data);
+            this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, { rawTx: rawHex.data, prevTx: this.commitUTXO });
         }
     }
 
@@ -81,7 +83,9 @@ export class Buyer {
         const { hex, prevTxsData } = rawTxObj;
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 4');
         if (!hex) return this.terminateTrade('RawTx Not Provided');
-        const ssrtxRes = await this.asyncClient("signrawtransaction", hex, [prevTxsData]);
+        const prevTxsArray = [prevTxsData];
+        if (this.commitUTXO) prevTxsArray.push(this.commitUTXO);
+        const ssrtxRes = await this.asyncClient("signrawtransaction", hex, prevTxsArray);
         if (ssrtxRes.error || !ssrtxRes.data?.hex || !ssrtxRes.data?.complete) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
         const finalTxIdRes = await this.sendRawTransaction(ssrtxRes.data.hex);
         if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(finalTxIdRes.error || `Error with sending Raw Tx`);
@@ -128,11 +132,14 @@ export class Buyer {
                         if (drtRes.error || !drtRes.data?.vout) return { error: drtRes.error }
                         const _vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData.address);
                         if (!_vout) return { error: 'Undefined error. Code 963' };
+                        const { scriptPubKey, redeemScript } = this.multySigChannelData;
 
-                        const commitUTXO2 = {
+                        this.commitUTXO = {
                             amount: _vout.value,
                             vout: _vout.n,
                             txid: ctcRes.data,
+                            scriptPubKey,
+                            redeemScript,
                         } as IInputs;
                         // -------------------------
                         
@@ -146,7 +153,7 @@ export class Buyer {
                 fromAddress: this.myInfo.address,
                 toAddress: this.cpInfo.address,
                 payload: cpitRes.data,
-                inputs: [commitUTXO, commitUTXO2],
+                inputs: [commitUTXO, this.commitUTXO],
             };
             const ltcIt = new RawTx(rawTxOptions, this.asyncClient);
             const bLTCit = await ltcIt.build();
