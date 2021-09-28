@@ -75,6 +75,7 @@ export interface IBuildRawTxOptions {
     inputs?: IInputs[];
     payload?: string;
     refAddressAmount?: number;
+    isTTTrade?: boolean;
 }
 
 export interface IInputs {

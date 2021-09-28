@@ -1,5 +1,4 @@
 import { Socket } from 'socket.io-client';
-import { saveLog } from '../../test/test';
 import { RawTx } from './rawtx';
 import { IBuildRawTxOptions, IInputs, ITradeInfo, IUTXOData, MSChannelData, TBuyerSellerInfo, TClient } from "./types";
 
@@ -154,6 +153,7 @@ export class Buyer {
                 toAddress: this.cpInfo.address,
                 payload: cpitRes.data,
                 inputs: [commitUTXO, this.commitUTXO],
+                isTTTrade: true,
             };
             const ltcIt = new RawTx(rawTxOptions, this.asyncClient);
             const bLTCit = await ltcIt.build();

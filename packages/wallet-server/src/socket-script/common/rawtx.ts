@@ -9,14 +9,16 @@ export class RawTx {
     private refAddressAmount: number = 0;
 
     private sortedUTXOs: IInputs[];
-    private minFeeLtcPerKb = 0.00001;
+    private minFeeLtcPerKb = 0.0001;
     private txReadyForsigning: string;
     private txReadyForSend: string;
 
+    private isTTTrade: boolean;
     constructor(options: IBuildRawTxOptions, client: TClient) {
-        const { fromAddress, toAddress, inputs, payload, refAddressAmount } = options;
+        const { fromAddress, toAddress, inputs, payload, refAddressAmount, isTTTrade } = options;
         this.fromAddress = fromAddress;
         this.toAddress = toAddress;
+        this.isTTTrade = isTTTrade;
         if (inputs) this.inputs = inputs;
         if (payload) this.payload = payload;
         if (refAddressAmount) this.refAddressAmount = refAddressAmount;
@@ -38,7 +40,11 @@ export class RawTx {
         const gmvaErrorMessage = `Error with getting minimum vOut amount`;
         if (gmvaRes.error || !gmvaRes.data) return { error: gmvaRes.error || gmvaErrorMessage };
 
-        const amount = this.refAddressAmount > gmvaRes.data ? this.refAddressAmount : gmvaRes.data;
+        const amount = this.isTTTrade
+            ? (gmvaRes.data * 2)
+            : this.refAddressAmount > gmvaRes.data
+                ? this.refAddressAmount
+                : gmvaRes.data;
 
         const allInputs = [...this.inputs, ...this.sortedUTXOs];
         const fundRawTxRes = await this.fundRawTx(allInputs, amount);
