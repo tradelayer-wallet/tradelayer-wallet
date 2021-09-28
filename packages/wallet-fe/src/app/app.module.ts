@@ -27,7 +27,7 @@ const toastrOptionsObject = {
   newestOnTop: true,
   positionClass: 'toast-bottom-right',
   preventDuplicates: false,
-  timeOut: 1500,
+  timeOut: 3000,
 };
 
 const TL_MODULES = [

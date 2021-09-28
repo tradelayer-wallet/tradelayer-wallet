@@ -6,6 +6,11 @@ import { SocketScript } from '../socket-script/socket-script';
 export let walletSocketSevice: WalletSocketSevice;
 export let serverSocketService: ServerSocketService;
 
+const myVersions = {
+    nodeVersion: '0.1.0',
+    walletVersion: '0.1.0',
+};
+
 export const initWalletConnection = (app: FastifyInstance, socketScript: SocketScript) => {
     walletSocketSevice = new WalletSocketSevice(app, socketScript);
 };
@@ -122,7 +127,15 @@ class ServerSocketService {
     private handleEvents() {
         this.socket.on('connect', () => {
             console.log(`Connected to the API Server`);
-            walletSocketSevice.io.emit('server_connect');
+            this.socket.emit('check-versions', myVersions);
+
+        });
+
+        this.socket.on('version-guard', (valid: boolean) => {
+            console.log({valid});
+            valid
+                ? walletSocketSevice.io.emit('server_connect')
+                : walletSocketSevice.io.emit('need-update');
         });
 
         this.socket.on('disconnect', () => {

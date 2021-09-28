@@ -83,6 +83,15 @@ export class SocketService {
                 console.log(`Disconnected from the Local Server`);
             });
 
+            this.socket.on('need-update', ()=> {
+                console.log('NEED UPDATE!');
+                this.toasterService.info(
+                    'The application need to be updated!',
+                    'INFO', 
+                    { extendedTimeOut: 30000, timeOut: 30000 },
+                )
+            });
+
             this.socket.on('server_connect', () => {
                 console.log(`Connect to the API Server`);
                 this._apiServerConnected = true;
