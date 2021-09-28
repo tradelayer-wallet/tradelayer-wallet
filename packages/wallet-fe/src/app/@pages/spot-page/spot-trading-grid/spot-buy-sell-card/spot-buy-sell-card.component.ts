@@ -130,7 +130,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         const { confirmed, locked } = balanceObj;
         const _available = (confirmed - locked).toFixed(6);
         const available =  parseFloat(_available);
-        const v2 = available < 0.01; 
+        const v2 = available > 0.01; 
         return !this.buySellGroup.valid || !v || !v2;
       }
 

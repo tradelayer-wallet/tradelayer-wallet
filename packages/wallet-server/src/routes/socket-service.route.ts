@@ -41,8 +41,8 @@ export const socketRoutes = (socketScript: SocketScript) => {
         });
     
         fastify.get('/initTrade', (request, reply) => {
-            const { trade, keyPair } = request.query as { trade: string, keyPair: string };
             try {
+                const { trade, keyPair } = request.query as { trade: string, keyPair: string };
                 const tradeObj = JSON.parse(trade);
                 const keyPairObj = JSON.parse(keyPair);
                 const { address, pubKey } = keyPairObj;
