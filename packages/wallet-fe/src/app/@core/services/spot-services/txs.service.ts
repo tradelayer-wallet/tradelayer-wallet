@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
+import { BalanceService } from "../balance.service";
 import { RpcService } from "../rpc.service";
 import { SocketService } from "../socket.service";
 
@@ -27,6 +28,7 @@ export class TxsService {
         private socketService: SocketService,
         private rpcService: RpcService,
         private toasterService: ToastrService,
+        private balanceService: BalanceService,
     ) {
         this.checkPendingTxs();
     }
@@ -71,6 +73,7 @@ export class TxsService {
     private pendingToReady(txid: string, isValid: boolean) {
         const obj = this.pendingTxs.find(e => e.txid === txid);
         if (obj) obj.status = isValid ? TXSTATUS.SUCCESS : TXSTATUS.FAILED;
+        this.balanceService.updateBalances();
 
         isValid
             ? this.toasterService.success(`Transaction: ${txid} is Valid`, 'Transaction succeed')

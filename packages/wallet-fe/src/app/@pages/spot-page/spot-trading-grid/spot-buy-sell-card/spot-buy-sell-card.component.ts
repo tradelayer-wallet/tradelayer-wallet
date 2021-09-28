@@ -94,11 +94,12 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         }
       };
 
-      const fee = 0.00; // 0.01;
+      const fee = 0.01; // 0.01;
       const _available = getAvailable(propId) - fee;
       const available = parseFloat((_available).toFixed(6));
       if (!available || ((available / price) <= 0)) return '0';
-      return isBuy ? (available / price).toFixed(4) : available.toFixed(4);
+      const max = isBuy ? (available / price).toFixed(4) : available.toFixed(4);
+      return max;
     }
 
 
@@ -115,13 +116,24 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     getButtonDisabled(isBuy: boolean) {
-      const balanceObj = this.balanceService.getFiatBalancesByAddress();
-      const { confirmed, locked } = balanceObj;
-      const available = confirmed - locked;
-      const availableLTC = parseFloat((available).toFixed(6))
+      const propId = isBuy
+        ? this.selectedMarket.second_token.propertyId
+        : this.selectedMarket.first_token.propertyId;
+      
+      if (propId === 999) {
+        const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
+        return !this.buySellGroup.valid || !v ;
+      } else {
+        const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
 
-      const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
-      return !this.buySellGroup.valid || !v || availableLTC < 0.05;
+        const balanceObj = this.balanceService.getFiatBalancesByAddress();
+        const { confirmed, locked } = balanceObj;
+        const _available = (confirmed - locked).toFixed(6);
+        const available =  parseFloat(_available);
+        const v2 = available < 0.01; 
+        return !this.buySellGroup.valid || !v || !v2;
+      }
+
     }
 
     private trackPriceHandler() {

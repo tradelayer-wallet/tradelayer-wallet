@@ -13,9 +13,9 @@
                     <mat-cell *matCellDef="let element"> {{ getAvailableFiatBalance(element) }} </mat-cell>
                 </ng-container>
         
-                <ng-container matColumnDef="locked" sticky>
-                  <mat-header-cell *matHeaderCellDef>Locked</mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ getLockedFiatBalance(element) }} </mat-cell>
+                <ng-container matColumnDef="reserved" sticky>
+                  <mat-header-cell *matHeaderCellDef>Reserved</mat-header-cell>
+                  <mat-cell *matCellDef="let element"> {{ getReservedFiatBalance(element) }} </mat-cell>
                 </ng-container>
             
                 <ng-container matColumnDef="total" sticky>

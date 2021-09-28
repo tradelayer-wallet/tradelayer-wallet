@@ -9,7 +9,7 @@ import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.servi
   styleUrls: ['./portfolio-page.component.scss']
 })
 export class PortfolioPageComponent implements OnInit{
-  cryptoBalanceColumns: string[] = ['address', 'available', 'locked', 'total', 'actions'];
+  cryptoBalanceColumns: string[] = ['address', 'available', 'reserved', 'total', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'locked', 'reserved', 'actions'];
   
   constructor(
@@ -40,11 +40,12 @@ export class PortfolioPageComponent implements OnInit{
   getAvailableFiatBalance(element: any) {
     const confirmed = element?.confirmed || 0;
     const locked = element?.locked || 0;
-    const available = confirmed - locked;
+    const _available = confirmed - locked;
+    const available = _available <= 0 ? 0 : _available;
     return available.toFixed(5);
   }
 
-  getLockedFiatBalance(element: any) {
+  getReservedFiatBalance(element: any) {
     const locked = element?.locked || 0;
     return locked.toFixed(5);
   }
@@ -59,7 +60,8 @@ export class PortfolioPageComponent implements OnInit{
   getAvailableTokensBalance(element: any) {
     const balance = element?.balance || 0;
     const locked = element?.locked || 0;
-    const available = balance - locked;
+    const _available = balance - locked;
+    const available = _available <= 0 ? 0 : _available;
     return available.toFixed(5);
   }
 

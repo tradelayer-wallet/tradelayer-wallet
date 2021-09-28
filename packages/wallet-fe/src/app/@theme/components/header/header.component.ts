@@ -20,27 +20,32 @@ export class HeaderComponent {
       id: 1,
       name: 'Home',
       link: '/',
+      needAuthToShow: false,
     },
     {
       id: 2,
       name: 'Spot',
       link: 'spot',
+      needAuthToShow: false,
     },
     {
       id: 3,
       name: 'Futures',
       link: 'futures',
       disabled: true,
+      needAuthToShow: false,
     },
     {
       id: 4,
       name: 'Portfolio',
       link: 'portfolio',
+      needAuthToShow: true,
     },
     {
       id: 5,
       name: 'Settings',
       link: 'settings',
+      needAuthToShow: true,
     },
     // {
     //   id: 4,
@@ -64,7 +69,8 @@ export class HeaderComponent {
   ) { }
 
   get mainRoutes(){
-    return this._mainRoutes;
+    return this._mainRoutes
+      .filter(r => r.needAuthToShow ? this.isLoggedIn : true)
   }
 
   get selectedRoute(){

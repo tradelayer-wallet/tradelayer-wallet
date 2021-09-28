@@ -201,7 +201,7 @@ export class BalanceService {
             const res = await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
             return res;
         } else {
-            const res = this.rpcServic.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);
+            const res = await this.rpcServic.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);
             return res;
         }
 
