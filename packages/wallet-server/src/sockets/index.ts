@@ -6,7 +6,7 @@ import { SocketScript } from '../socket-script/socket-script';
 export let walletSocketSevice: WalletSocketSevice;
 export let serverSocketService: ServerSocketService;
 
-const myVersions = {
+export const myVersions = {
     nodeVersion: '0.1.0',
     walletVersion: '0.1.0',
 };
@@ -89,7 +89,7 @@ class WalletSocketSevice {
                     return null;
                 }
                 const bbRes = await asyncClient('getblock', bbhRes.data);
-                if (bbRes.error || !bbRes.data?.height) {
+                if (bbRes.error || !bbRes.data) {
                     this.onTimeOutMessage(bbhRes.error);
                     return null;
                 };
@@ -105,7 +105,7 @@ class WalletSocketSevice {
     }
 
     async onTimeOutMessage(message: string) {
-        if (message.includes('ECONNREFUSED')) {
+        if (message && message.includes('ECONNREFUSED')) {
             const { asyncClient } = this.socketScript;
             const check = await asyncClient('tl_getinfo');
             if (check.error || !check.data) {

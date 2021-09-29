@@ -1,8 +1,7 @@
-import { Injectable, Injector } from "@angular/core";
+import { Injectable } from "@angular/core";
 import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { ApiService } from "./api.service";
 import { SocketService } from "./socket.service";
-import { ActivatedRoute, Router, RouterStateSnapshot } from "@angular/router";
 import { DialogService, DialogTypes } from "./dialogs.service";
 
 export interface RPCCredentials {
@@ -36,8 +35,6 @@ export class RpcService {
       });
     }
 
-
-
     get isConnected() {
         return this._isConnected;
     }
@@ -51,6 +48,7 @@ export class RpcService {
     }
 
     set isSynced(value: boolean) {
+      this.saveConfigFile();
       this._isSynced = value;
     }
 
@@ -58,12 +56,18 @@ export class RpcService {
       return this.socketService.socket;
     }
 
-    connect(credentials: RPCCredentials) {
+    private async saveConfigFile() {
+      const isTestNet = this.apiService.soChainApi.NETWORK === "LTCTEST";
+      const res = await this.apiService.socketScriptApi.saveConfigFile(isTestNet).toPromise();
+    }
+
+    connect(credentials: RPCCredentials, isTestNet: boolean) {
       return new Promise(async (res, rej) => {
         try {
           const isReady = await this._sendCredsToHomeApi(credentials);
           if (isReady) {
             this._saveCreds(credentials);
+            if (isTestNet) this.apiService.soChainApi.NETWORK = "LTCTEST";
           }
           res(isReady);
         } catch (error) {
@@ -76,13 +80,13 @@ export class RpcService {
       return this.apiService.socketScriptApi.connect(credentials).toPromise();
     }
 
-    async startWalletNode(directory: string) {
-      const res = await this.apiService.socketScriptApi.startWalletNode(directory).toPromise();
+    async startWalletNode(directory: string, isTestNet: boolean) {
+      const res = await this.apiService.socketScriptApi.startWalletNode(directory, isTestNet).toPromise();
       if (res.error || !res.data) return { error: res.error };
       const host = 'localhost';
       const { rpcuser, rpcpassword, rpcport } = res.data;
       const connectCreds = { host, username: rpcuser, password: rpcpassword, port: rpcport };
-      const connectRes = await this.connect(connectCreds);
+      const connectRes = await this.connect(connectCreds, isTestNet);
       if (!connectRes) return { error: 'Error With Node Connection' };
       return { data: connectRes };
     }

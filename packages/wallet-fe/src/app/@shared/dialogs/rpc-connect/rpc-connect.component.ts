@@ -21,6 +21,7 @@ export class RPCConnectDialog {
   public password: string = '';
   public defaultDirectoryCheckbox: boolean = true;
   public directory: string = defaultPath;
+  public isTestNet: boolean = false;
 
   constructor(
     private rpcService: RpcService,
@@ -36,7 +37,8 @@ export class RPCConnectDialog {
 
     const { host, port, username, password } = this;
     const credentials: RPCCredentials = { host, port, username, password };
-    const isConnected = await this.rpcService.connect(credentials);
+    const isTestNet = this.isTestNet;
+    const isConnected = await this.rpcService.connect(credentials, isTestNet);
     this.loadingService.isLoading = false;
     if (!isConnected) {
       this.message = 'Please try again! ';
@@ -50,8 +52,9 @@ export class RPCConnectDialog {
   async startWalletNode() {
     this.message2 = ' ';
     this.loadingService.isLoading = true;
+    const isTestNet = this.isTestNet;
     const path = this.defaultDirectoryCheckbox ? defaultPath : this.directory;
-    const res = await this.rpcService.startWalletNode(path);
+    const res = await this.rpcService.startWalletNode(path, isTestNet);
     if (res.error || !res.data) {
       this.message2 = res.error || 'Please Try Again!';
       this.loadingService.isLoading = false;

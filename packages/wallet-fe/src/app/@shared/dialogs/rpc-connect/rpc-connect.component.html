@@ -4,11 +4,12 @@
         <mat-tab-group>
             <mat-tab label='Wallet Node'>
                 <div class="content-container">
-                    <mat-checkbox disabled style='margin: 0.25rem 0' [(ngModel)]='defaultDirectoryCheckbox'> Default Directory </mat-checkbox>
+                    <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='defaultDirectoryCheckbox' disabled> Default Directory </mat-checkbox>
                     <mat-form-field class="example-form-field" *ngIf='!defaultDirectoryCheckbox'>
                         <mat-label>Path Directory</mat-label>
                         <input matInput [(ngModel)]='directory'>
                     </mat-form-field>
+                    <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>Testnet</mat-checkbox>
                     <p class='message'> {{ message2 }}</p>
                     <button
                         style='margin: 0.5rem 0; background: mediumseagreen;'
@@ -43,6 +44,7 @@
                         <mat-label>Password</mat-label>
                         <input matInput type="password" [(ngModel)]='password'>
                     </mat-form-field>
+                    <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>Testnet</mat-checkbox>
                     <p class='message'> {{ message }}</p>
                     <button mat-button (click)='connect()'>Connect</button>
                 </div>

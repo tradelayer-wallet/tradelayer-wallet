@@ -99,7 +99,7 @@ export class HeaderComponent {
     const balanceObj = this.balanceService.getFiatBalancesByAddress();
     const { confirmed, locked } = balanceObj;
     const available = confirmed - locked;
-    return `${available.toFixed(5)} tLTC`;
+    return `${available.toFixed(5)} LTC`;
   }
 
   copyToClipboard(text: string) {

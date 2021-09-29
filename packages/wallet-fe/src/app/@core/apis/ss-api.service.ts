@@ -48,12 +48,12 @@ export class SocketScriptApiService {
         return this.http.get(this.apiUrl + 'initTrade', { params });
     }
 
-    startWalletNode(directory: string): Observable<{
+    startWalletNode(directory: string, isTestNet: boolean): Observable<{
         error: string;
         data: any;
         action?: number;
     }> {
-        const params = { directory };
+        const params = { directory, isTestNet };
         return this.http.get<{
             error: string;
             data: any;
@@ -80,5 +80,10 @@ export class SocketScriptApiService {
     withdraw(fromAddress: string, toAddress: string, amount: number): Observable<{ error: any; data: string }> {
         const params = { fromAddress, toAddress, amount };
         return this.http.get<{ error: any; data: string }>(this.apiUrl + 'withdraw', { params });
+    }
+
+    saveConfigFile(isTestNet: boolean) {
+        const params = { isTestNet };
+        return this.http.get<{ error: any; data: string }>(this.apiUrl + 'saveConfigFile', { params });
     }
 }

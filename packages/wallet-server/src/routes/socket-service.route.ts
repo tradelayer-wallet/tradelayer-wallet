@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify"
 import SocketScript from "../socket-script";
 import { serverSocketService } from '../sockets';
-import { startWalletNode, createNewNode } from '../services/wallet-node';
+import { startWalletNode, createNewNode, createTLconfigFile } from '../services/wallet-node';
 import * as litecoreLib from 'litecore-lib';
 
 export const socketRoutes = (socketScript: SocketScript) => {
@@ -55,8 +55,9 @@ export const socketRoutes = (socketScript: SocketScript) => {
 
         fastify.get('/startWalletNode', async (request, reply) => {
             try {
-                const { directory } = request.query as { directory: string };
-                const res = await startWalletNode(directory);
+                const { directory, isTestNet } = request.query as { directory: string, isTestNet: string };
+                const _isTestNetBool = isTestNet === 'true';
+                const res = await startWalletNode(directory, _isTestNetBool);
                 reply.send(res);
             } catch (error) {
                 reply.send({ error: error.message });
@@ -107,6 +108,17 @@ export const socketRoutes = (socketScript: SocketScript) => {
                     return;
                 }
                 reply.send({ data: res.data });
+            } catch(error) {
+                reply.send({ error: error.message });
+            }
+        });
+
+        fastify.get('/saveConfigFile', (request, reply) => {
+            try {
+                const { isTestNet } = request.query as { isTestNet: string };
+                const _isTestNetBool = isTestNet === 'true';
+                const res = createTLconfigFile(_isTestNetBool);
+                reply.send(res);
             } catch(error) {
                 reply.send({ error: error.message });
             }

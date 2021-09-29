@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
+import { ToastrService } from 'ngx-toastr';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
@@ -26,9 +27,8 @@ export class NewNodeDialog {
   constructor(
     private loadingService: LoadingService,
     private rpcService: RpcService,
-    private dialogService: DialogService,
+    private toastrService: ToastrService,
     public dialogRef: MatDialogRef<NewNodeDialog>,
-
   ) {}
 
   get buttonDisabled() {
@@ -49,18 +49,12 @@ export class NewNodeDialog {
       this.message = res.error || 'Please check the inputs and try again!';
       this.loadingService.isLoading = false;
       return;
-    }
-
-    const res2 = await this.rpcService.startWalletNode(path);
-
-    if (res2.error || !res2.data) {
-      this.message = res.error || 'Please Try Again!';
     } else {
+      this.toastrService.success('Configuration file is created', 'Success');
+      this.loadingService.isLoading = false;
       this.dialogRef.close();
-      this.dialogService.openDialog(DialogTypes.SYNC_NODE)
+      return;
     }
-    this.loadingService.isLoading = false;
-    return;
   }
 
   validCreds() {
