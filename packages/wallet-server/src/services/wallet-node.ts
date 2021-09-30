@@ -28,7 +28,12 @@ const structureConfFile = (conf: string) => {
     return confObj;
 };
 
-export const startWalletNode = async (path: string, isTestNet: boolean) => {
+export const startWalletNode = async (
+        path: string, 
+        isTestNet: boolean,
+        reindex: boolean = false,
+        startclean: boolean = false,
+    ) => {
     try {
         const upToDate = chechVersions(isTestNet);
         const filePath = join(defaultDir, 'litecoin.conf');
@@ -36,12 +41,24 @@ export const startWalletNode = async (path: string, isTestNet: boolean) => {
         const res = readFileSync(filePath, { encoding: 'utf8' });
         const config = structureConfFile(res);
         if (!config['rpcuser'] || !config['rpcport'] || !config['rpcpassword']) return { error: `Incorrect Config File` };
-        const testNetFlag = isTestNet ? `-testnet -addnode=${addNodeServer}` : '';
-        const startCleanFlag = upToDate ? '' : '-startclean';
+        const testNetFlag = isTestNet ? ` -testnet -addnode=${addNodeServer}` : '';
+        const startCleanFlag = !upToDate || startclean ? ' -startclean' : '';
+        const reindexFlag = reindex ? ' -reindex' : '';
         const file = `"${coreFilePathObj.WINDOWS}"`;
-        const command = `${file} ${testNetFlag} ${startCleanFlag}`;
+        const command = `${file}${testNetFlag}${startCleanFlag}${reindexFlag}`;
         const execFileResult = await execFileByCommandPromise(command) as { data: any; error: any };
         if (execFileResult.error || !execFileResult?.data) {
+            const errorMessage = execFileResult?.error?.message;
+            const reIndexMessage = "Please restart with -reindex";
+            const startCleanMessage = "Please restart with -startclean flag";
+            if (errorMessage.includes(reIndexMessage) && !command.includes('-reindex')) {
+                return await startWalletNode(path, isTestNet, true, startclean);
+            }
+
+            if (errorMessage.includes(startCleanMessage) && !command.includes('-startclean')) {
+                return await startWalletNode(path, isTestNet, reindex, true);
+            }
+
             return { error: execFileResult?.error?.message || "Can't start the Local Node" };
         }
         const port = parseFloat(config['rpcport']);
