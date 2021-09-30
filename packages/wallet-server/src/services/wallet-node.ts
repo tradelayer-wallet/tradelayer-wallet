@@ -38,7 +38,7 @@ export const startWalletNode = async (path: string, isTestNet: boolean) => {
         if (!config['rpcuser'] || !config['rpcport'] || !config['rpcpassword']) return { error: `Incorrect Config File` };
         const testNetFlag = isTestNet ? `-testnet -addnode=${addNodeServer}` : '';
         const startCleanFlag = upToDate ? '' : '-startclean';
-        const file = coreFilePathObj.WINDOWS;
+        const file = `"${coreFilePathObj.WINDOWS}"`;
         const command = `${file} ${testNetFlag} ${startCleanFlag}`;
         const execFileResult = await execFileByCommandPromise(command) as { data: any; error: any };
         if (execFileResult.error || !execFileResult?.data) {
