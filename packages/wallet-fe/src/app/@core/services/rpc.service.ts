@@ -4,6 +4,8 @@ import { ApiService } from "./api.service";
 import { SocketService } from "./socket.service";
 import { DialogService, DialogTypes } from "./dialogs.service";
 
+export type TNETWORK = 'LTC' | 'LTCTEST';
+
 export interface RPCCredentials {
   host: string,
   port: number,
@@ -21,7 +23,8 @@ export class RpcService {
 
     private rpcHost: string = '';
     private authToken: string = '';
-  
+    private _NETWORK: TNETWORK = "LTC";
+
     constructor(
       private http: HttpClient,
       private apiService: ApiService,
@@ -33,6 +36,15 @@ export class RpcService {
           this.clearRPC();
       }
       });
+    }
+
+    get NETWORK() {
+      return this._NETWORK;
+    }
+
+    set NETWORK(value: TNETWORK) {
+        this._NETWORK = value;
+        this.apiService.soChainApi.NETWORK = value;
     }
 
     get isConnected() {
@@ -57,7 +69,7 @@ export class RpcService {
     }
 
     private async saveConfigFile() {
-      const isTestNet = this.apiService.soChainApi.NETWORK === "LTCTEST";
+      const isTestNet = this.NETWORK === "LTCTEST";
       const res = await this.apiService.socketScriptApi.saveConfigFile(isTestNet).toPromise();
     }
 
@@ -67,7 +79,7 @@ export class RpcService {
           const isReady = await this._sendCredsToHomeApi(credentials);
           if (isReady) {
             this._saveCreds(credentials);
-            if (isTestNet) this.apiService.soChainApi.NETWORK = "LTCTEST";
+            if (isTestNet) this.NETWORK = "LTCTEST";
           }
           res(isReady);
         } catch (error) {

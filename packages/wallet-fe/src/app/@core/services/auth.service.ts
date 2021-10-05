@@ -39,7 +39,7 @@ export class AuthService {
 
         this.encKey = ltcUtils.encryptKeyPair(this.addressService.keyPairs, pass);
         this.dialogService.openEncKeyDialog(this.encKey);
-        this.fundAddress(pair.address);
+        if (this.rpcService.NETWORK === "LTCTEST") this.fundAddress(pair.address);
     }
 
     private fundAddress(address: string) {

@@ -13,10 +13,12 @@ export const myVersions = {
 
 export const initWalletConnection = (app: FastifyInstance, socketScript: SocketScript) => {
     walletSocketSevice = new WalletSocketSevice(app, socketScript);
+    return walletSocketSevice
 };
 
-export const initServerConnection = (socketScript: SocketScript) => {
-    serverSocketService = new ServerSocketService(socketScript);
+export const initServerConnection = (socketScript: SocketScript, isTestnet: boolean) => {
+    serverSocketService = new ServerSocketService(socketScript, isTestnet);
+    return serverSocketService;
 }
 
 interface IContractInfo {
@@ -55,14 +57,13 @@ class WalletSocketSevice {
     private onConnection(socket: Socket) {
         console.log(`FE app Connected`);
         this.currentSocket = socket;
-        initServerConnection(this.socketScript);
         this.startBlockCounting();
         this.handleFromWalletToServer(socket, 'orderbook-market-filter');
         this.handleFromWalletToServer(socket, 'update-orderbook');
         this.handleFromWalletToServer(socket, 'dealer-data');
         this.handleFromWalletToServer(socket, 'close-position');
 
-        socket.on('api-reconnect', () => initServerConnection(this.socketScript));
+        socket.on('api-reconnect', (isTestNet: boolean) => initServerConnection(this.socketScript, isTestNet));
         socket.on('update-futures-orderbook', this.sendFuturesOrderbookData.bind(this));
         socket.on('orderbook-contract-filter', (contract: IContractInfo) => {
             this.selectedContractId = contract;
@@ -94,7 +95,6 @@ class WalletSocketSevice {
                     return null;
                 };
                 const height = bbRes.data.height;
-
                 if (this.lastBlock < height) {
                     this.lastBlock = height;
                     this.currentSocket.emit('newBlock', height);
@@ -118,8 +118,9 @@ class WalletSocketSevice {
 
 class ServerSocketService {
     public socket: SocketClient;
-    constructor(private socketScript: SocketScript) {
-        const host = 'http://66.228.57.16:76'
+    constructor(private socketScript: SocketScript, isTestnet: boolean) {
+        const port = isTestnet ? '76' : '75';
+        const host = `http://66.228.57.16:${port}`;
         this.socket = io(host, { reconnection: false });
         this.handleEvents();
     }

@@ -1,8 +1,8 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
+import { RpcService, TNETWORK } from "../services/rpc.service";
 
-export type TNETWORK = 'LTC' | 'LTCTEST';
 
 @Injectable({
     providedIn: 'root',

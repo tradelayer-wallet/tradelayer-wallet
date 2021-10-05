@@ -3,7 +3,7 @@ import { join } from 'path'
 import { ChildProcess, exec } from 'child_process';
 import { fasitfyServer } from '../index';
 import { addTESTNETNodeServer, coreFilePathObj, defaultDirObj } from '../conf/conf';
-import { myVersions } from '../sockets';
+import { initServerConnection, myVersions } from '../sockets';
  
 const defaultDir = defaultDirObj.WINDOWS;
 const addNodeServer = addTESTNETNodeServer;
@@ -35,6 +35,20 @@ export const startWalletNode = async (
         startclean: boolean = false,
     ) => {
     try {
+        const versionGuard = await new Promise<{ error?: string, data?: boolean }>(res => {
+            const sss = initServerConnection(fasitfyServer.socketScript, isTestNet);
+            sss.socket.on('version-guard', (valid: boolean) => {
+                const resolve = valid
+                    ? { data: true }
+                    : { error: 'The Application need to be updated!' };
+                res(resolve);
+            });
+            sss.socket.on('connect_error', () => {
+                res({error: 'Error with API connection.'})
+            });
+        });
+        if (versionGuard.error || !versionGuard.data) return { error: versionGuard.error};
+
         const upToDate = chechVersions(isTestNet);
         const filePath = join(defaultDir, 'litecoin.conf');
         if (!existsSync(filePath)) return { error: `Config file doesn't exist` };

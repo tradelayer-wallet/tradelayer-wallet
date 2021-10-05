@@ -58,13 +58,22 @@ export class SocketService {
         }
     };
 
-    apiReconnect() {
+    apiReconnect(isTestNet: boolean) {
         this.apiServerWaiting = true;
-        this.socket.emit('api-reconnect');
+        this.socket.emit('api-reconnect', isTestNet);
     }
 
     private handleMainSocketEvents() {
         if (this.socket) {
+            this.socket.on('need-update', ()=> {
+                console.log('NEED UPDATE!');
+                this.toasterService.info(
+                    'The application need to be updated!',
+                    'INFO', 
+                    { extendedTimeOut: 30000, timeOut: 30000 },
+                );
+            });
+
             this.socket.on('connect', () => {
                 console.log(`Connect to the local Server`);
                 this.dialogService.closeAllDialogs();
@@ -80,16 +89,8 @@ export class SocketService {
 
             this.socket.on('disconnect', () => {
                 this.dialogService.closeAllDialogs();
+                this.localServerWaiting = false;
                 console.log(`Disconnected from the Local Server`);
-            });
-
-            this.socket.on('need-update', ()=> {
-                console.log('NEED UPDATE!');
-                this.toasterService.info(
-                    'The application need to be updated!',
-                    'INFO', 
-                    { extendedTimeOut: 30000, timeOut: 30000 },
-                )
             });
 
             this.socket.on('server_connect', () => {
@@ -107,6 +108,7 @@ export class SocketService {
             this.socket.on('server_disconnect', () => {
                 console.log(`Disconnected from the API Server`);
                 this._apiServerConnected = false;
+                this.apiServerWaiting = false;
             });
 
             this.socket.on('error_message', (message: string) => {

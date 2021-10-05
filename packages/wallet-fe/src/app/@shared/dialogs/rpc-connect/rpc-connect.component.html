@@ -1,7 +1,26 @@
 <div class="dialog-container">
     <h1>Connect to the Local NODE</h1>
     <mat-dialog-content class="mat-typography">
-        <mat-tab-group>
+        <div class="content-container">
+            <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='defaultDirectoryCheckbox' disabled> Default Directory </mat-checkbox>
+            <mat-form-field class="example-form-field" *ngIf='!defaultDirectoryCheckbox'>
+                <mat-label>Path Directory</mat-label>
+                <input matInput [(ngModel)]='directory'>
+            </mat-form-field>
+            <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>Testnet</mat-checkbox>
+            <p class='message'> {{ message2 }}</p>
+            <button
+                style='margin: 0.5rem 0; background: mediumseagreen;'
+                mat-button
+                (click)='startWalletNode()'
+            >Start Node</button>
+            <button
+                style='margin: 0.5rem 0; background: lightsteelblue;'
+                mat-button
+                (click)='newNodeConfiguration()'
+            >New Node Configuration</button>
+        </div>
+        <!-- <mat-tab-group>
             <mat-tab label='Wallet Node'>
                 <div class="content-container">
                     <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='defaultDirectoryCheckbox' disabled> Default Directory </mat-checkbox>
@@ -49,6 +68,6 @@
                     <button mat-button (click)='connect()'>Connect</button>
                 </div>
             </mat-tab>
-        </mat-tab-group>
+        </mat-tab-group> -->
     </mat-dialog-content>
 </div>
