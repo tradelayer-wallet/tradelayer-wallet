@@ -6,10 +6,14 @@
     .tl-container {
         padding-top: 7rem;
         width: 100%;
-        height: 100%;
+        height: calc(100% - 2rem);
         color: whitesmoke;
         display: flex;
         justify-content: center;
       }
   }
+}
+
+::ng-deep .mat-grid-tile-content {
+  align-items: unset !important;
 }

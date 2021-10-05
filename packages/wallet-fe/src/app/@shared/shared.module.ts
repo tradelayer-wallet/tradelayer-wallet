@@ -27,6 +27,7 @@ import { SyncNodeDialog } from './dialogs/sync-node/sync-node.component';
 import { RescanDialog } from './dialogs/rescan/rescan.component';
 import { WithdrawDialog } from './dialogs/withdraw/withdraw.component';
 import { DepositDialog } from './dialogs/deposit/deposit.component';
+import { InfoLineComponent } from '../@shared/components/info-line/info-line.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -63,6 +64,7 @@ const COMPONENTS = [
     SideNavComponent,
     DisconnectedLineComponent,
     OverlayLoadingComponent,
+    InfoLineComponent,
 ];
 
 const imports = [
