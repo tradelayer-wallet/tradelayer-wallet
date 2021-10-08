@@ -64,7 +64,7 @@ export class Seller {
 
     private async onCommit(cpId: string) {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
-        // if (this.tradeInfo.propIdForSale !== 999) return this.terminateTrade('The wallet dont Support this type of trade!');
+        // if (this.tradeInfo.propIdForSale !== -1) return this.terminateTrade('The wallet dont Support this type of trade!');
 
         const commitData = [        
             this.myInfo.address,

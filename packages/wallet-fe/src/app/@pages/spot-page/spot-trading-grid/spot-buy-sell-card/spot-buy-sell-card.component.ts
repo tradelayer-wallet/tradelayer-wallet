@@ -79,7 +79,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         : this.selectedMarket.first_token.propertyId;
 
       const getAvailable = (propId: number) => {
-        if (propId === 999) {
+        if (propId === -1) {
           const balanceObj = this.balanceService.getFiatBalancesByAddress();
           const { confirmed, locked } = balanceObj;
           const _available = (confirmed - locked).toFixed(6);
@@ -120,7 +120,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         ? this.selectedMarket.second_token.propertyId
         : this.selectedMarket.first_token.propertyId;
       
-      if (propId === 999) {
+      if (propId === -1) {
         const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
         return !this.buySellGroup.valid || !v ;
       } else {

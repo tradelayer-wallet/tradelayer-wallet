@@ -101,7 +101,7 @@ export class BalanceService {
                 : lockedBalancesArray.push({ propIdForSale, locked });
         });
 
-        const fbLocked = lockedBalancesArray.find(lb => lb.propIdForSale === 999)?.locked || 0;
+        const fbLocked = lockedBalancesArray.find(lb => lb.propIdForSale === -1)?.locked || 0;
         this.updateFiatLockedBalance(fbLocked);
 
         this.getTokensBalancesByAddress().forEach(tb => {
@@ -197,7 +197,7 @@ export class BalanceService {
 
     async withdraw(optionsObj: { fromAddress: string, toAddress: string, amount: number, propId: number }) {
         const { fromAddress, toAddress, amount, propId } = optionsObj;
-        if (propId === 999) {
+        if (propId === -1) {
             const res = await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
             return res;
         } else {

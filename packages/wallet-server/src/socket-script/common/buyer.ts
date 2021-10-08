@@ -67,7 +67,7 @@ export class Buyer {
         const commitInput: IInputs = { ...commitUTXO,  scriptPubKey, redeemScript };
 
         const propIdForSale = this.tradeInfo.propIdForSale;
-        if (propIdForSale === 999) {
+        if (propIdForSale === -1) {
             const rawHex = await this.buildLTCInstantTrade(commitInput);
             if (rawHex.error || !rawHex.data) return this.terminateTrade(rawHex.error || `Error with Buildng Trade`);
             this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, { rawTx: rawHex.data });

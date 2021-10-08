@@ -40,7 +40,7 @@ export class WithdrawDialog {
     }
 
     get maxWithdrawAmount() {
-        if (this.propId === 999) {
+        if (this.propId === -1) {
             const balanceObj = this.balanceService.getFiatBalancesByAddress();
             const { confirmed, locked } = balanceObj;
             const available = confirmed - locked;
@@ -75,7 +75,7 @@ export class WithdrawDialog {
     }
 
     get tokenName() {
-        return this.propId === 999
+        return this.propId === -1
             ? 'LTC'
             : this.balanceService.getTokensBalancesByAddress()
                 .find(e => e.propertyid === this.propId)?.name;
