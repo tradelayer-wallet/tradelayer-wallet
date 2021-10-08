@@ -45,7 +45,7 @@ export class WithdrawDialog {
             const { confirmed, locked } = balanceObj;
             const available = confirmed - locked;
             const max = parseFloat((available - 0.001).toFixed(6))
-            return max;
+            return max < 0 ? 0 : max;
         } else {
             const balanceObj = this.balanceService.getTokensBalancesByAddress()
                 .find(o => o.propertyid === this.propId);
@@ -53,7 +53,7 @@ export class WithdrawDialog {
             const { balance, locked } = balanceObj;
             const _available = balance - locked;
             const available = parseFloat((_available).toFixed(6))
-            return available;
+            return available < 0 ? 0 : available;
         }
     }
 

@@ -36,7 +36,14 @@
 
 .mat-cell {
     overflow: hidden;
-    margin: 0 1rem;
+    .copy-icon {
+        margin-left: 0.5rem;
+        font-size: 0.9rem;
+        cursor: pointer;
+        &:hover {
+            filter: invert(1);
+        }
+    }
 }
 
 .mat-column-actions {
@@ -49,3 +56,23 @@
         }
     }
 }
+
+  .mat-column-address {
+    min-width: 23rem;
+  }
+
+  .mat-column-propertyid,
+  .mat-column-name,
+  .mat-column-locked,
+  .mat-column-available,
+  .mat-column-reserved {
+    min-width: 6rem;
+  }
+
+  .mat-column-total {
+    min-width: 10rem;
+  }
+
+  .mat-column-actions {
+    min-width: 12rem;
+  }

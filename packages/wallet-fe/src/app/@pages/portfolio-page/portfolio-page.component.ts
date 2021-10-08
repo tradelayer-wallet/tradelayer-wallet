@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { ToastrService } from 'ngx-toastr';
 import { AddressService } from 'src/app/@core/services/address.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
@@ -16,6 +17,7 @@ export class PortfolioPageComponent implements OnInit{
     private balanceService: BalanceService,
     private addressService: AddressService,
     private dialogService: DialogService,
+    private toastrService: ToastrService,
   ) {}
 
   get fiatBalance() {
@@ -85,5 +87,10 @@ export class PortfolioPageComponent implements OnInit{
       const data = { address: _address || this.selectedAddress, propId: _propId };
       this.dialogService.openDialog(DialogTypes.WITHDRAW, { disableClose: false, data });
     }
+  }
+
+  copy(text: string) {
+    navigator.clipboard.writeText(text);
+    this.toastrService.info('Address Copied to clipboard', 'Copied')
   }
 }
