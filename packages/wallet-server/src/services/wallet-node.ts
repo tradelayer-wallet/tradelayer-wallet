@@ -2,11 +2,12 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { ChildProcess, exec } from 'child_process';
 import { fasitfyServer } from '../index';
-import { addTESTNETNodeServer, coreFilePathObj, defaultDirObj } from '../conf/conf';
+import { coreFilePathObj, defaultDirObj } from '../conf/windows.conf';
+import { addTESTNETNodeServer } from '../conf/conf';
 import { initServerConnection, myVersions } from '../sockets';
 import { customLogger } from '../socket-script/common/logger';
  
-const defaultDir = defaultDirObj.WINDOWS;
+const defaultDir = defaultDirObj;
 const addNodeServer = addTESTNETNodeServer;
 
 let nodeProcess: ChildProcess;
@@ -60,7 +61,7 @@ export const startWalletNode = async (
         const testNetFlag = isTestNet ? ` -testnet -addnode=${addNodeServer}` : '';
         const startCleanFlag = !upToDate || startclean ? ' -startclean' : '';
         const reindexFlag = reindex ? ' -reindex' : '';
-        const file = `"${coreFilePathObj.WINDOWS}"`;
+        const file = `"${coreFilePathObj}"`;
         const command = `${file}${testNetFlag}${startCleanFlag}${reindexFlag}`;
         const execFileResult = await execFileByCommandPromise(command) as { data: any; error: any };
         customLogger(`exec_${command}: ${JSON.stringify(execFileResult)}`);
