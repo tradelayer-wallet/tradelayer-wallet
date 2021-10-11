@@ -23,8 +23,10 @@ class ElectronApp {
     private handleOnEvents() {
         this.app.on('ready', () => this.createWindow());
 
-        this.app.on('window-all-closed', () => {
+        this.app.on('window-all-closed', async () => {
             // if (process.platform !== 'darwin') app.quit();
+            if (this.serverProcess.connected) this.serverProcess.send('stop');
+            await new Promise(res => setTimeout(() => res(true), 500));
             app.quit();
         });
 

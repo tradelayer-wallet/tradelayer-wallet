@@ -5,7 +5,7 @@ export let fasitfyServer: FastifyServer;
 process.on('message', async (message) => {
     switch (message) {
         case 'init':
-            const options = { logger : true };
+            const options = { logger: false };
             const port = 1986;
             fasitfyServer = new FastifyServer(port, options);
             break;

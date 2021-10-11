@@ -6,6 +6,7 @@ import { Socket } from 'socket.io-client';
 import { Buyer } from './common/buyer';
 import { Seller } from './common/seller';
 import { RawTx } from './common/rawtx';
+import { customLogger } from './common/logger';
 
 export class SocketScript {
     private _ltcClient: any;
@@ -73,6 +74,7 @@ export class SocketScript {
     }
 
     async withdraw(fromAddress: string, toAddress: string, amount: string) {
+        customLogger(`Init New withdraw: ${JSON.stringify({fromAddress, toAddress, amount})}`);
         const options: IBuildRawTxOptions = { fromAddress, toAddress, refAddressAmount: parseFloat(amount) };
         const rawTx = new RawTx(options, this.asyncClient);
         const hexRes = await rawTx.build();
@@ -86,10 +88,12 @@ export class SocketScript {
         const sendedRawTx = await rawTx.sendrawTx();
         const sendingErrorMessage = `Error with Sending the transaction`;
         if (sendedRawTx.error || !sendedRawTx.data) return { error: sendedRawTx.error || sendingErrorMessage };
+        customLogger(`End withdraw: ${JSON.stringify(sendedRawTx)}`);
         return { data: sendedRawTx.data };
     }
 
     async channelSwap(socket: Socket, trade: any) {
+        customLogger(`Init New Trade: ${JSON.stringify(trade)}`);
         const { 
             amountDesired, amountForSale, propIdDesired, propIdForSale, 
             buyerAddress, buyerPubKey, buyerSocketId,
@@ -102,7 +106,8 @@ export class SocketScript {
         const swap = buyer
             ? new Buyer(tradeInfo, buyerObj, sellerObj, this.asyncClient, socket)
             : new Seller(tradeInfo, sellerObj, buyerObj, this.asyncClient, socket);
-            const res = await swap.onReady();
+        const res = await swap.onReady();
+        customLogger(`End Trade: ${JSON.stringify(res)}`);
         return res;
     }
 }

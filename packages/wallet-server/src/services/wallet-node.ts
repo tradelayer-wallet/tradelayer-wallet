@@ -4,6 +4,7 @@ import { ChildProcess, exec } from 'child_process';
 import { fasitfyServer } from '../index';
 import { addTESTNETNodeServer, coreFilePathObj, defaultDirObj } from '../conf/conf';
 import { initServerConnection, myVersions } from '../sockets';
+import { customLogger } from '../socket-script/common/logger';
  
 const defaultDir = defaultDirObj.WINDOWS;
 const addNodeServer = addTESTNETNodeServer;
@@ -35,6 +36,7 @@ export const startWalletNode = async (
         startclean: boolean = false,
     ) => {
     try {
+        customLogger(`Start Wallet Node: ${JSON.stringify({ isTestNet, reindex, startclean })}`);
         const versionGuard = await new Promise<{ error?: string, data?: boolean }>(res => {
             const sss = initServerConnection(fasitfyServer.socketScript, isTestNet);
             sss.socket.on('version-guard', (valid: boolean) => {
@@ -61,6 +63,8 @@ export const startWalletNode = async (
         const file = `"${coreFilePathObj.WINDOWS}"`;
         const command = `${file}${testNetFlag}${startCleanFlag}${reindexFlag}`;
         const execFileResult = await execFileByCommandPromise(command) as { data: any; error: any };
+        customLogger(`exec_${command}: ${JSON.stringify(execFileResult)}`);
+
         if (execFileResult.error || !execFileResult?.data) {
             const errorMessage = execFileResult?.error?.message;
             const reIndexMessage = "Please restart with -reindex";
@@ -85,13 +89,15 @@ export const startWalletNode = async (
 
 const chechVersions = (_isTestNetBool: boolean) => {
     try {
-        const filePath = join(defaultDir, 'tradelayer.conf');
+        const filePath = join(defaultDir, 'tl-wallet.conf');
         if (!existsSync(filePath)) return false;
         const res = readFileSync(filePath, { encoding: 'utf8' });
         const config = structureConfFile(res);
         const _node = _isTestNetBool ? 'test_nodeVersion' : 'nodeVersion';
+        customLogger(`Check versions: ${JSON.stringify(config)}`);
         return config[_node] === myVersions.nodeVersion;
     } catch (error) {
+        customLogger(`Check versions Error: ${error.message}`);
         return false;
     }
 };
@@ -99,7 +105,7 @@ const chechVersions = (_isTestNetBool: boolean) => {
 export const createTLconfigFile = (_isTestNetBool: boolean) => {
     try {
         if (!existsSync(defaultDir)) mkdirSync(defaultDir);
-        const filePath = join(defaultDir, 'tradelayer.conf');
+        const filePath = join(defaultDir, 'tl-wallet.conf');
         const _node = _isTestNetBool ? 'test_nodeVersion' : 'nodeVersion';
         const { nodeVersion } = myVersions;
         let data = `${_node}=${nodeVersion}\n`;
@@ -119,6 +125,7 @@ export const createTLconfigFile = (_isTestNetBool: boolean) => {
         const res = writeFileSync(filePath, data);
         return { data: true };
     } catch (error) {
+        customLogger(`Create Wallet Conf File: ${error.message}`);
         return { error: error.message };
     }
 };
@@ -132,6 +139,7 @@ export const createNewNode = async (configs: { username: string, password: strin
         const res = writeFileSync(filePath, fileData);
         return { data: true };
     } catch (error) {
+        customLogger(`Create New Node: ${error.message}`);
         return { error: error.message };
     }
 };

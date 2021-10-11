@@ -54,7 +54,7 @@ export class Buyer {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 2');
         const pubKeys = [this.cpInfo.pubKey, this.myInfo.pubKey];
         const amaRes = await this.asyncClient("addmultisigaddress", 2, pubKeys);
-        if (amaRes.error || !amaRes.data) return this.terminateTrade(amaRes.error);
+        if (amaRes.error || !amaRes.data) return this.terminateTrade(`addmultisigaddress: ${amaRes.error}`);
         if (amaRes.data.redeemScript !== msData.redeemScript) return this.terminateTrade(`redeemScript of Multysig address is not matching`);
         this.multySigChannelData = msData;
         this.socket.emit(`${this.myInfo.socketId}::BUYER:COMMIT`);
@@ -85,9 +85,13 @@ export class Buyer {
         const prevTxsArray = [prevTxsData];
         if (this.commitUTXO) prevTxsArray.push(this.commitUTXO);
         const ssrtxRes = await this.asyncClient("signrawtransaction", hex, prevTxsArray);
-        if (ssrtxRes.error || !ssrtxRes.data?.hex || !ssrtxRes.data?.complete) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
+        if (ssrtxRes.error || !ssrtxRes.data?.hex || !ssrtxRes.data?.complete) {
+            return this.terminateTrade(`signrawtransaction: ${ssrtxRes.error}` || `Error with Signing Raw TX`);
+        }
         const finalTxIdRes = await this.sendRawTransaction(ssrtxRes.data.hex);
-        if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(finalTxIdRes.error || `Error with sending Raw Tx`);
+        if (finalTxIdRes.error || !finalTxIdRes.data) {
+            return this.terminateTrade(`sendRawTransaction: ${finalTxIdRes.error}` || `Error with sending Raw Tx`);
+        }
 
         if (this.readyRes) this.readyRes({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });
         this.socket.emit(`${this.myInfo.socketId}::BUYER:FINALTX`, finalTxIdRes.data);
@@ -123,12 +127,12 @@ export class Buyer {
                         ];
                         const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);
                         const ctcErrorMessage = `Error with Commiting tokens to channel`;
-                        if (ctcRes.error || !ctcRes.data) return { error: ctcRes.error || ctcErrorMessage };
+                        if (ctcRes.error || !ctcRes.data) return { error: `tl_commit_tochannel: ${ctcRes.error}` || ctcErrorMessage };
 
                         const gtRes = await this.asyncClient("gettransaction", ctcRes.data);
-                        if (gtRes.error || !gtRes.data?.hex) return { error: gtRes.error}
+                        if (gtRes.error || !gtRes.data?.hex) return { error: `gettransaction: ${gtRes.error}`}
                         const drtRes = await this.asyncClient("decoderawtransaction", gtRes.data.hex);
-                        if (drtRes.error || !drtRes.data?.vout) return { error: drtRes.error }
+                        if (drtRes.error || !drtRes.data?.vout) return { error: `decoderawtransaction: ${drtRes.error}` }
                         const _vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData.address);
                         if (!_vout) return { error: 'Undefined error. Code 963' };
                         const { scriptPubKey, redeemScript } = this.multySigChannelData;
@@ -145,7 +149,9 @@ export class Buyer {
             const { propIdDesired, amountDesired, propIdForSale, amountForSale } = this.tradeInfo;
             const cpitLTCOptions = [ propIdForSale, amountForSale, propIdDesired, amountDesired, bbData ];
             const cpitRes = await this.asyncClient('tl_createpayload_instant_trade', ...cpitLTCOptions);
-            if (cpitRes.error || !cpitRes.data) return { error: cpitRes.error || `Error with creating payload` };
+            if (cpitRes.error || !cpitRes.data) {
+                return { error: `tl_createpayload_instant_trade: ${cpitRes.error}` || `Error with creating payload` };
+            }
 
 
             const rawTxOptions: IBuildRawTxOptions = {
@@ -177,7 +183,9 @@ export class Buyer {
             const { propIdDesired, amountDesired, amountForSale } = this.tradeInfo;
             const cpitLTCOptions = [ propIdDesired, amountDesired, amountForSale, bbData ];
             const cpitRes = await this.asyncClient('tl_createpayload_instant_ltc_trade', ...cpitLTCOptions);
-            if (cpitRes.error || !cpitRes.data) return { error: cpitRes.error || `Error with creating payload` };
+            if (cpitRes.error || !cpitRes.data) {
+                return { error: `tl_createpayload_instant_ltc_trade: ${cpitRes.error}` || `Error with creating payload` };
+            }
             const rawTxOptions: IBuildRawTxOptions = {
                 fromAddress: this.myInfo.address,
                 toAddress: this.cpInfo.address,

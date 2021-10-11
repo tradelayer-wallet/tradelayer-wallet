@@ -48,11 +48,11 @@ export class Seller {
     private async initTrade() {
         const pubKeys = [this.myInfo.pubKey, this.cpInfo.pubKey];
         const amaRes = await this.asyncClient("addmultisigaddress", 2, pubKeys);
-        if (amaRes.error || !amaRes.data) return this.terminateTrade(amaRes.error);
+        if (amaRes.error || !amaRes.data) return this.terminateTrade(`addmultisigaddress: ${amaRes.error}`);
         this.multySigChannelData = amaRes.data;
 
         const validateMS = await this.asyncClient("validateaddress", this.multySigChannelData.address);
-        if (validateMS.error || !validateMS.data?.scriptPubKey) return this.terminateTrade(validateMS.error);
+        if (validateMS.error || !validateMS.data?.scriptPubKey) return this.terminateTrade(`validateaddress: ${validateMS.error}`);
         this.multySigChannelData.scriptPubKey = validateMS.data.scriptPubKey;
         this.socket.emit(`${this.myInfo.socketId}::SELLER:MS_DATA`, this.multySigChannelData);
     }
@@ -73,13 +73,13 @@ export class Seller {
             this.tradeInfo.amountDesired,
         ];
         const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);
-        if (ctcRes.error || !ctcRes.data) return this.terminateTrade(ctcRes.error);
+        if (ctcRes.error || !ctcRes.data) return this.terminateTrade(`tl_commit_tochannel: ${ctcRes.error}`);
         this.commitTx = ctcRes.data;
 
         const gtRes = await this.asyncClient("gettransaction", this.commitTx);
-        if (gtRes.error || !gtRes.data?.hex) return this.terminateTrade(gtRes.error);
+        if (gtRes.error || !gtRes.data?.hex) return this.terminateTrade(`gettransaction: ${gtRes.error}`);
         const drtRes = await this.asyncClient("decoderawtransaction", gtRes.data.hex);
-        if (drtRes.error || !drtRes.data?.vout) return this.terminateTrade(drtRes.error);
+        if (drtRes.error || !drtRes.data?.vout) return this.terminateTrade(`decoderawtransaction: ${drtRes.error}`);
         const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData.address);
         if (!vout) return this.terminateTrade(drtRes.error);
         this.utxoData = {
@@ -106,7 +106,7 @@ export class Seller {
         const prevTxsArray = [prevTxsData];
         if (prevTx) prevTxsArray.push(prevTx);
         const ssrtxRes = await this.asyncClient("signrawtransaction", rawTx, prevTxsArray);
-        if (ssrtxRes.error || !ssrtxRes.data?.hex) return this.terminateTrade(ssrtxRes.error || `Error with Signing Raw TX`);
+        if (ssrtxRes.error || !ssrtxRes.data?.hex) return this.terminateTrade(`signrawtransaction: ${ssrtxRes.error}` || `Error with Signing Raw TX`);
         this.socket.emit(`${this.myInfo.socketId}::SELLER:SIGNED_RAWTX`, { hex: ssrtxRes.data.hex, prevTxsData });
     }
 
