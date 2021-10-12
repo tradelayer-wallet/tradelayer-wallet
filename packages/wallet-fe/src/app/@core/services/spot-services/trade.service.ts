@@ -79,7 +79,7 @@ export class TradeService {
 
     async initNewTrade(trade: ITradeConf) {
         this.loadingService.tradesLoading = true;
-        const res = await this.ssApi.initTrade(trade, this.keyPair).toPromise();
+        const res = await this.ssApi.postInitTrade(trade, this.keyPair).toPromise();
         this.balanceService.updateBalances();
     }
 }

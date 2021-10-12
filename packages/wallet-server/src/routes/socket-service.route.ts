@@ -53,6 +53,20 @@ export const socketRoutes = (socketScript: SocketScript) => {
             }
         });
 
+        fastify.post('/initTrade', (request, reply) => {
+            try {
+                const { trade, keyPair } = request.body as { trade: any, keyPair: any };
+                if (!trade || !keyPair?.address || !keyPair?.pubKey) {
+                    reply.send({ error: 'Missing Data' });
+                    return;
+                }
+                const { address, pubKey } = keyPair;
+                serverSocketService.socket.emit('init-trade', { ...trade, address, pubKey });
+                reply.send({data: 'Sent'});
+            } catch(error) {
+                reply.send({ error: error.message });
+            }
+        })
         fastify.get('/startWalletNode', async (request, reply) => {
             try {
                 const { directory, isTestNet } = request.query as { directory: string, isTestNet: string };

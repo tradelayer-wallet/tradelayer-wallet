@@ -48,6 +48,11 @@ export class SocketScriptApiService {
         return this.http.get(this.apiUrl + 'initTrade', { params });
     }
 
+    postInitTrade(trade: ITradeConf, keyPair: any) {
+        const body = { trade, keyPair };
+        return this.http.post(this.apiUrl + 'initTrade', body);
+    }
+
     startWalletNode(directory: string, isTestNet: boolean): Observable<{
         error: string;
         data: any;
