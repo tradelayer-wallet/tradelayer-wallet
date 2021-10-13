@@ -25,8 +25,8 @@ class ElectronApp {
 
         this.app.on('window-all-closed', async () => {
             // if (process.platform !== 'darwin') app.quit();
-            if (this.serverProcess.connected) this.serverProcess.send('stop');
-            await new Promise(res => setTimeout(() => res(true), 500));
+            // if (this.serverProcess?.connected) this.serverProcess.send('stop');
+            await new Promise(res => setTimeout(() => res(true), 1000));
             app.quit();
         });
 
@@ -57,7 +57,7 @@ class ElectronApp {
         });
 
         this.mainWindow.on('close', async () => {
-            if (this.serverProcess.connected) this.serverProcess.send('stop');
+            if (this.serverProcess?.connected) this.serverProcess.send('stop');
         });
     }
 

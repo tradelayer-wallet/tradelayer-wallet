@@ -37,6 +37,7 @@ export class FastifyServer {
         return new Promise(async (res) => {
             if (this.nodePort) {
                 if (this.socketScript?.asyncClient) await this.socketScript.asyncClient('stop');
+                await new Promise(res2 => setTimeout(() => res2(true), 1000));
                 await killPort(this.nodePort);
             }
             this.server.log.error(message);
