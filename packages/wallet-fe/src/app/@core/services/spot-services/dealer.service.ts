@@ -26,9 +26,9 @@ export class DealerService {
     }
 
     set myDealerTrades(value: any) {
-        if (!this.myDealerTrades?.length && value.length) {
-            this.startListenerScript();
-        }
+        // if (!this.myDealerTrades?.length && value.length) {
+        //     this.startListenerScript();
+        // }
         this._myDealerTrades = value;
         this.emitDealerData();
     }
@@ -63,11 +63,11 @@ export class DealerService {
         this.socket.emit('dealer-data', data);
     }
 
-    private startListenerScript() {
-        const address = this.addressService.activeKeyPair?.address;
-        if (address) {
-            this.apiService.socketScriptApi.startListener(address)
-                .subscribe((listenerStarted) => console.log({listenerStarted}));
-        }
-    }
+    // private startListenerScript() {
+    //     const address = this.addressService.activeKeyPair?.address;
+    //     if (address) {
+    //         this.apiService.socketScriptApi.startListener(address)
+    //             .subscribe((listenerStarted) => console.log({listenerStarted}));
+    //     }
+    // }
 }

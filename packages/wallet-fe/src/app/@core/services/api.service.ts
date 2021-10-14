@@ -3,7 +3,6 @@ import { FundingApiService } from "../apis/funding-api.service";
 import { MarketApiService } from "../apis/market-api.service";
 import { SoChainApiService } from "../apis/sochain-api.service";
 import { SocketScriptApiService } from "../apis/ss-api.service";
-import { TradeApiService } from "../apis/trade-api.service";
 
 
 @Injectable({
@@ -16,7 +15,6 @@ export class ApiService {
         private marketApiService: MarketApiService,
         private fundingApiService: FundingApiService,
         private soChainApiService: SoChainApiService,
-        private tradeApiService: TradeApiService,
         private socketScriptApiService: SocketScriptApiService,
     ) {}
 
@@ -30,10 +28,6 @@ export class ApiService {
 
     get fundingApi() {
         return this.fundingApiService;
-    }
-
-    get tradeApi() {
-        return this.tradeApiService;
     }
 
     get socketScriptApi() {

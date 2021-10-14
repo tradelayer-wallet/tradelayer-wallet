@@ -34,19 +34,19 @@ export class SocketScriptApiService {
         return this.http.get(this.apiUrl + 'connect', { params });
     }
 
-    startListener(address: string) {
-        const params = { address };
-        return this.http.get(this.apiUrl + 'listStart', { params });
-    }
+    // startListener(address: string) {
+    //     const params = { address };
+    //     return this.http.get(this.apiUrl + 'listStart', { params });
+    // }
 
-    stopListener() {
-        return this.http.get(this.apiUrl + 'listStop');
-    }
+    // stopListener() {
+    //     return this.http.get(this.apiUrl + 'listStop');
+    // }
 
-    initTrade(trade: ITradeConf, keyPair: any) {
-        const params = { trade: JSON.stringify(trade), keyPair: JSON.stringify(keyPair)};
-        return this.http.get(this.apiUrl + 'initTrade', { params });
-    }
+    // initTrade(trade: ITradeConf, keyPair: any) {
+    //     const params = { trade: JSON.stringify(trade), keyPair: JSON.stringify(keyPair)};
+    //     return this.http.get(this.apiUrl + 'initTrade', { params });
+    // }
 
     postInitTrade(trade: ITradeConf, keyPair: any) {
         const body = { trade, keyPair };

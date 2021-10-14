@@ -49,7 +49,7 @@ export class SpotMarketsService {
     set selectedMarketType(value: ISpotMarketType) {
         if (!this.spotMarketsTypes.length) return;
         this._selectedMarketType = value;
-        this.selectedMarket = this.marketsFromSelectedMarketType[0];
+        this.selectedMarket = this.marketsFromSelectedMarketType.find(e => !e.disabled) || this.marketsFromSelectedMarketType[0];
     }
 
     get selectedMarketTypeIndex() {
@@ -82,7 +82,7 @@ export class SpotMarketsService {
         this.apiService.marketApi.getSpotMarkets()
             .subscribe((marketTypes: ISpotMarketType[]) => {
                 this._spotMarketsTypes = marketTypes;
-                this.selectedMarketType = marketTypes[0];
+                this.selectedMarketType = marketTypes.find(e => !e.disabled) || marketTypes[0];
             });
     }
 

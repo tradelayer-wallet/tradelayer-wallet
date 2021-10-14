@@ -43,8 +43,8 @@ export class RpcService {
     }
 
     set NETWORK(value: TNETWORK) {
+      this.setNetworkInAllServices(value);
         this._NETWORK = value;
-        this.apiService.soChainApi.NETWORK = value;
     }
 
     get isConnected() {
@@ -68,9 +68,18 @@ export class RpcService {
       return this.socketService.socket;
     }
 
+    get socketScriptApi() {
+      return this.apiService.socketScriptApi;
+    }
+
     private async saveConfigFile() {
       const isTestNet = this.NETWORK === "LTCTEST";
-      const res = await this.apiService.socketScriptApi.saveConfigFile(isTestNet).toPromise();
+      const res = await this.socketScriptApi.saveConfigFile(isTestNet).toPromise();
+    }
+
+    private setNetworkInAllServices(value: TNETWORK) {
+      this.apiService.soChainApi.NETWORK = value;
+      this.apiService.marketApi.NETWORK = value;
     }
 
     connect(credentials: RPCCredentials, isTestNet: boolean) {
@@ -89,11 +98,11 @@ export class RpcService {
     }
 
     private _sendCredsToHomeApi(credentials: RPCCredentials) {
-      return this.apiService.socketScriptApi.connect(credentials).toPromise();
+      return this.socketScriptApi.connect(credentials).toPromise();
     }
 
     async startWalletNode(directory: string, isTestNet: boolean) {
-      const res = await this.apiService.socketScriptApi.startWalletNode(directory, isTestNet).toPromise();
+      const res = await this.socketScriptApi.startWalletNode(directory, isTestNet).toPromise();
       if (res.error || !res.data) return { error: res.error };
       const host = 'localhost';
       const { rpcuser, rpcpassword, rpcport } = res.data;
@@ -104,7 +113,7 @@ export class RpcService {
     }
 
     async createNewNode(creds: { username: string, password: string, port: number, path: string }) {
-      const res = await this.apiService.socketScriptApi.createNewNode(creds).toPromise();
+      const res = await this.socketScriptApi.createNewNode(creds).toPromise();
       return res;
     }
 

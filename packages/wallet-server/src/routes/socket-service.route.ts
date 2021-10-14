@@ -27,18 +27,18 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 });
         });
     
-        fastify.get('/listStart', (request, reply) => {
-            const { address } = request.query as { address: string };
-            if (!address) {
-                reply.send(false);
-                return;
-            }
-            // socketScript.startListener({address, logs: true});
-        });
+        // fastify.get('/listStart', (request, reply) => {
+        //     const { address } = request.query as { address: string };
+        //     if (!address) {
+        //         reply.send(false);
+        //         return;
+        //     }
+        //     // socketScript.startListener({address, logs: true});
+        // });
     
-        fastify.get('/listStop', () => {
-            // socketScript.stopListener();
-        });
+        // fastify.get('/listStop', () => {
+        //     // socketScript.stopListener();
+        // });
     
         fastify.get('/initTrade', (request, reply) => {
             try {
