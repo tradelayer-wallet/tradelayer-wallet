@@ -2,7 +2,7 @@ import { FastifyInstance } from "fastify"
 import SocketScript from "../socket-script";
 import { serverSocketService } from '../sockets';
 import { startWalletNode, createNewNode, createTLconfigFile } from '../services/wallet-node';
-import * as litecoreLib from 'litecore-lib';
+import axios from 'axios';
 
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
@@ -67,6 +67,33 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 reply.send({ error: error.message });
             }
         })
+
+        fastify.post('/removeOrder', (request, reply) => {
+            try {
+                const { order } = request.body as { order: any };
+                if (!order) {
+                    reply.send({ error: 'Missing Data' });
+                    return;
+                }
+                serverSocketService.socket.emit('close-position', order);
+                reply.send({data: 'Sent'});
+            } catch(error) {
+                reply.send({ error: error.message });
+            }
+        });
+
+        fastify.get('/ordersList', async (request, reply) => {
+            try {
+                const id = serverSocketService.socket.id;
+                const port = serverSocketService.isTestnet ? '3006' : '3002';
+                const res = await axios.get(`http://66.228.57.16:${port}/trade/ordersList?id=${id}`);
+                if (res.data) return reply.send(res.data);
+                reply.send({ error: `Undefined Error`});
+            } catch(error) {
+                reply.send({ error: error.message });
+            }
+        });
+
         fastify.get('/startWalletNode', async (request, reply) => {
             try {
                 const { directory, isTestNet } = request.query as { directory: string, isTestNet: string };

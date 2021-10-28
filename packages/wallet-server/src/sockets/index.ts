@@ -118,7 +118,9 @@ class WalletSocketSevice {
 
 class ServerSocketService {
     public socket: SocketClient;
+    public isTestnet: boolean;
     constructor(private socketScript: SocketScript, isTestnet: boolean) {
+        this.isTestnet = isTestnet;
         const port = isTestnet ? '76' : '75';
         const host = `http://66.228.57.16:${port}`;
         this.socket = io(host, { reconnection: false });
