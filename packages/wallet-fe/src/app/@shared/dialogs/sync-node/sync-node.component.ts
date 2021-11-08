@@ -63,8 +63,12 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         const remainingms = msPerBlock * remainingBlocks;
         const minutes = Math.floor((remainingms / (1000 * 60)) % 60);
         const hours = Math.floor((remainingms / (1000 * 60 * 60)));
-        const message =  hours > 0 ? `${hours} hours ${minutes} minutes` : `${minutes} minutes`;
-        this.eta = `Remaining ~ ${message}`;
+        if (remainingms > 0 && remainingms < 604800000 ) {
+            const message =  hours > 0 ? `${hours} hours ${minutes} minutes` : `${minutes} minutes`;
+            this.eta = `Remaining ~ ${message}`;
+        } else {
+            this.eta = 'Calculating Remaining Time ...';
+        }
     }
 
     private async startCheckingSync() {

@@ -1,10 +1,10 @@
-import { Component, Input } from '@angular/core';
+import { Component, NgZone } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
-import { Router } from '@angular/router';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
+import { ElectronService } from 'src/app/@core/services/electron.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RPCCredentials, RpcService } from 'src/app/@core/services/rpc.service';
-const defaultPath = ' ';
+
 @Component({
   selector: 'rpc-connect-dialog',
   templateUrl: './rpc-connect.component.html',
@@ -20,7 +20,7 @@ export class RPCConnectDialog {
   public username: string = '';
   public password: string = '';
   public defaultDirectoryCheckbox: boolean = true;
-  public directory: string = defaultPath;
+  public directory: string = '';
   public isTestNet: boolean = false;
 
   constructor(
@@ -28,8 +28,18 @@ export class RPCConnectDialog {
     public dialogRef: MatDialogRef<RPCConnectDialog>,
     private loadingService: LoadingService,
     private dialogService: DialogService,
-    private router: Router,
+    private electronService: ElectronService,
+    private zone: NgZone,
   ) {}
+
+  openDirSelectDialog() {
+    this.electronService.emitEvent('open-dir-dialog');
+    this.electronService.ipcRenderer.once('angular-electron-message', (_: any, message: any) => {
+      const { event, data } = message;
+      if (event !== 'selected-dir' || !data ) return;
+      this.zone.run(() => this.directory = data || '');
+    });
+  }
 
   async connect() {
     this.message = ' ';
@@ -53,10 +63,12 @@ export class RPCConnectDialog {
     this.message2 = ' ';
     this.loadingService.isLoading = true;
     const isTestNet = this.isTestNet;
-    const path = this.defaultDirectoryCheckbox ? defaultPath : this.directory;
+    const path = this.defaultDirectoryCheckbox ? '' : this.directory;
     const res = await this.rpcService.startWalletNode(path, isTestNet);
     if (res.error || !res.data) {
-      this.message2 = res.error || 'Please Try Again!';
+      if (!res.error?.includes("Config file doesn't exist in")) {
+        this.message2 = res.error || 'Please Try Again!';
+      }
       this.loadingService.isLoading = false;
       return;
     }

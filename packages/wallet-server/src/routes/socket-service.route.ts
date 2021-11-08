@@ -1,8 +1,8 @@
 import { FastifyInstance } from "fastify"
 import SocketScript from "../socket-script";
 import { serverSocketService } from '../sockets';
-import { startWalletNode, createNewNode, createTLconfigFile } from '../services/wallet-node';
 import axios from 'axios';
+import { INodeConfig, myWalletNode } from "../services/wallet-node";
 
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
@@ -26,20 +26,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
                     reply.send(isConnected);
                 });
         });
-    
-        // fastify.get('/listStart', (request, reply) => {
-        //     const { address } = request.query as { address: string };
-        //     if (!address) {
-        //         reply.send(false);
-        //         return;
-        //     }
-        //     // socketScript.startListener({address, logs: true});
-        // });
-    
-        // fastify.get('/listStop', () => {
-        //     // socketScript.stopListener();
-        // });
-    
+
         fastify.get('/initTrade', (request, reply) => {
             try {
                 const { trade, keyPair } = request.query as { trade: string, keyPair: string };
@@ -98,7 +85,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
             try {
                 const { directory, isTestNet } = request.query as { directory: string, isTestNet: string };
                 const _isTestNetBool = isTestNet === 'true';
-                const res = await startWalletNode(directory, _isTestNetBool);
+                const res = await myWalletNode.startWalletNode({ testnet: _isTestNetBool, datadir: directory});
                 reply.send(res);
             } catch (error) {
                 reply.send({ error: error.message });
@@ -107,34 +94,40 @@ export const socketRoutes = (socketScript: SocketScript) => {
 
         fastify.get('/createNewNode', async (request, reply) => {
             try {
-                const { username, password, port, path } = request.query as { 
-                    username: string;
-                    password: string;
-                    port: number;
-                    path: string;
-                };
+                const { username, password, port, path } = request.query as INodeConfig;
                 const newNodeConfig = { username, password, port, path };
-                const res = await createNewNode(newNodeConfig);
+                const res = myWalletNode.createNodeConfig(newNodeConfig);
                 reply.send(res);
             } catch (error) {
                 reply.send({ error: error.message });
             }
         });
 
-        fastify.get('/extractKeyPairFromPrivKey', (request, reply) => {
+        fastify.get('/saveConfigFile', (request, reply) => {
             try {
-                // const { privKey } = request.query as { privKey: string };
-                // const privateKeyObj = litecoreLib.PrivateKey.getValidationError(privKey, litecoreLib.testnet);
-
-                // const data = {
-                //     privateKeyObj: privateKeyObj.toPublicKey().toAddress(litecoreLib.Networks.testnet).toString(),
-                //     completed: true,
-                // };
-                reply.send({ data: false });
+                const { isTestNet } = request.query as { isTestNet: string };
+                const _isTestNetBool = isTestNet === 'true';
+                const res = myWalletNode.createWalletconfig(_isTestNetBool);
+                reply.send(res);
             } catch(error) {
                 reply.send({ error: error.message });
             }
         });
+
+        // fastify.get('/extractKeyPairFromPrivKey', (request, reply) => {
+        //     try {
+        //         // const { privKey } = request.query as { privKey: string };
+        //         // const privateKeyObj = litecoreLib.PrivateKey.getValidationError(privKey, litecoreLib.testnet);
+
+        //         // const data = {
+        //         //     privateKeyObj: privateKeyObj.toPublicKey().toAddress(litecoreLib.Networks.testnet).toString(),
+        //         //     completed: true,
+        //         // };
+        //         reply.send({ data: false });
+        //     } catch(error) {
+        //         reply.send({ error: error.message });
+        //     }
+        // });
 
         fastify.get('/withdraw', async (request, reply) => {
             try {
@@ -149,17 +142,6 @@ export const socketRoutes = (socketScript: SocketScript) => {
                     return;
                 }
                 reply.send({ data: res.data });
-            } catch(error) {
-                reply.send({ error: error.message });
-            }
-        });
-
-        fastify.get('/saveConfigFile', (request, reply) => {
-            try {
-                const { isTestNet } = request.query as { isTestNet: string };
-                const _isTestNetBool = isTestNet === 'true';
-                const res = createTLconfigFile(_isTestNetBool);
-                reply.send(res);
             } catch(error) {
                 reply.send({ error: error.message });
             }

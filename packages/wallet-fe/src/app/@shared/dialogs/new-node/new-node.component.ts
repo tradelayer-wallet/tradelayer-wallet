@@ -1,5 +1,5 @@
-import { Component } from '@angular/core';
-import { MatDialogRef } from '@angular/material/dialog';
+import { Component, Inject } from '@angular/core';
+import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
@@ -21,18 +21,27 @@ export class NewNodeDialog {
   public password: string = '';
   public repassword: string = '';
 
-  public defaultDirectoryCheckbox: boolean = true;
-  public directory: string = defaultPath;
+  // public defaultDirectoryCheckbox: boolean = true;
+  // public directory: string = defaultPath;
 
   constructor(
     private loadingService: LoadingService,
     private rpcService: RpcService,
     private toastrService: ToastrService,
     public dialogRef: MatDialogRef<NewNodeDialog>,
-  ) {}
+    @Inject(MAT_DIALOG_DATA) private data: { directory: string, isTestNet: boolean },
+  ) { }
 
   get buttonDisabled() {
       return !this.validCreds();
+  }
+
+  get directory() {
+    return this.data.directory;
+  }
+
+  get isTestNet() {
+    return this.data.isTestNet;
   }
 
   async create() {
@@ -41,7 +50,9 @@ export class NewNodeDialog {
     const validCreds = this.validCreds();
     if (!validCreds) return;
     const { port, username, password } = this;
-    const path = this.defaultDirectoryCheckbox ? defaultPath : this.directory;
+    // const path = this.defaultDirectoryCheckbox ? defaultPath : this.directory;
+    const path = this.directory;
+    // const isTestNet = this.isTestNet;
     const creds = { port, username, password, path };
     const res = await this.rpcService.createNewNode(creds);
 
@@ -61,7 +72,7 @@ export class NewNodeDialog {
       if (this.port > 65535) return false;
       if (this.username.length < 3) return false;
       if (this.password.length < 3 || this.password !== this.repassword) return false;
-      if (!this.directory.length) return false;
+      // if (!this.directory.length) return false;
       return true;
   }
 }

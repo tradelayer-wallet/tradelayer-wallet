@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { ApiService } from "./api.service";
 import { SocketService } from "./socket.service";
 import { DialogService, DialogTypes } from "./dialogs.service";
+import { ToastrService } from "ngx-toastr";
 
 export type TNETWORK = 'LTC' | 'LTCTEST';
 
@@ -30,11 +31,17 @@ export class RpcService {
       private apiService: ApiService,
       private socketService: SocketService,
       private dialogService: DialogService,
+      private toasterService: ToastrService,
     ) {
-      this.socket.on("rpc-connection-error", () => {
-        if (this.isConnected) {
-          this.clearRPC();
-      }
+      this.socket.on("rpc-connection-error", (error: string) => {
+        if (!this.isConnected) return;
+        this.toasterService.error(error || `Undefined Error!`, `RPC Connection Error!.`);
+        this.clearRPC();
+      });
+            
+      this.socket.on("local-node-stopped", (error: string) => {
+        this.toasterService.error(error || `Undefined Error!`, `Local Node stopped working.`);
+        if (this.isConnected) this.clearRPC();
       });
     }
 
@@ -103,6 +110,12 @@ export class RpcService {
 
     async startWalletNode(directory: string, isTestNet: boolean) {
       const res = await this.socketScriptApi.startWalletNode(directory, isTestNet).toPromise();
+      if (res.error?.includes("Config file doesn't exist in")) {
+        const dialogOptions = { disableClose: false, hasBackdrop: true, data: { directory, isTestNet }};
+        this.dialogService.openDialog(DialogTypes.NEW_NODE, dialogOptions);
+        return { error: res.error };
+      }
+
       if (res.error || !res.data) return { error: res.error };
       const host = 'localhost';
       const { rpcuser, rpcpassword, rpcport } = res.data;

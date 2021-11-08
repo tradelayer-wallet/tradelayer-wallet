@@ -2,11 +2,20 @@
     <h1>Connect to the Local NODE</h1>
     <mat-dialog-content class="mat-typography">
         <div class="content-container">
-            <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='defaultDirectoryCheckbox' disabled> Default Directory </mat-checkbox>
-            <mat-form-field class="example-form-field" *ngIf='!defaultDirectoryCheckbox'>
-                <mat-label>Path Directory</mat-label>
-                <input matInput [(ngModel)]='directory'>
-            </mat-form-field>
+            <div style='display: flex; align-items: center; justify-content: center;'>
+                <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='defaultDirectoryCheckbox'> Default Directory </mat-checkbox>
+                <!-- <mat-form-field class="example-form-field" *ngIf='!defaultDirectoryCheckbox'>
+                    <mat-label>Path Directory</mat-label>
+                    <input matInput [(ngModel)]='directory'>
+                </mat-form-field> -->
+                <button
+                    [ngStyle]="{ visibility: defaultDirectoryCheckbox ? 'hidden' : 'visible' }"
+                    style='margin: 0.5rem 0; background: lightsteelblue; max-width: 8rem;'
+                    mat-button
+                    (click)='openDirSelectDialog()'
+                >Select Directory</button>
+            </div>
+            <span style="text-align: center; width: 100%;">{{ directory.length > 30 ? "..." + directory.slice(-30) : directory }}</span>
             <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>Testnet</mat-checkbox>
             <p class='message'> {{ message2 }}</p>
             <button

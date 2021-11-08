@@ -4,10 +4,12 @@ import SocketScript from './socket-script';
 import { handleRoutes } from './routes';
 import * as SocketsService from './sockets';
 import * as killPort from 'kill-port';
+import { EventEmitter } from 'stream';
 
 export class FastifyServer {
     private _server: FastifyInstance;
     private _socketScript: SocketScript;
+    private _eventEmitter: EventEmitter = new EventEmitter();
 
     nodePort: number;
     constructor(
@@ -25,6 +27,10 @@ export class FastifyServer {
         return this._socketScript;
     }
 
+    get eventEmitter() {
+        return this._eventEmitter;
+    }
+
     start() {
         this.initSocketScript();
         this.handleSockets();
@@ -37,7 +43,10 @@ export class FastifyServer {
         return new Promise(async (res) => {
             if (this.nodePort) {
                 if (this.socketScript?.asyncClient) await this.socketScript.asyncClient('stop');
-                await new Promise(res2 => setTimeout(() => res2(true), 1000));
+                await new Promise(res2 => {
+                    this.eventEmitter.on('killer', () => res2(true));
+                    setTimeout(() => res2(true), 5000);
+                });
                 await killPort(this.nodePort);
             }
             this.server.log.error(message);

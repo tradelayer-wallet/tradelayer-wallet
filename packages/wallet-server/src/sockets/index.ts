@@ -7,8 +7,8 @@ export let walletSocketSevice: WalletSocketSevice;
 export let serverSocketService: ServerSocketService;
 
 export const myVersions = {
-    nodeVersion: '0.1.2',
-    walletVersion: '0.1.2',
+    nodeVersion: '0.1.3',
+    walletVersion: '0.1.3',
 };
 
 export const initWalletConnection = (app: FastifyInstance, socketScript: SocketScript) => {

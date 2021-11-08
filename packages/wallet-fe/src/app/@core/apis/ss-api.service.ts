@@ -58,7 +58,10 @@ export class SocketScriptApiService {
         data: any;
         action?: number;
     }> {
-        const params = { directory, isTestNet };
+        const params: { isTestNet: boolean; directory?: string } = {
+            isTestNet,
+        };
+        if (directory) params.directory = directory;
         return this.http.get<{
             error: string;
             data: any;

@@ -1,25 +1,33 @@
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs'
+import { readFileSync, existsSync, writeFileSync, mkdirSync, writeFile } from 'fs'
 import { join } from 'path'
 import { ChildProcess, exec } from 'child_process';
 import { fasitfyServer } from '../index';
 import { coreFilePathObj, defaultDirObj } from '../conf/windows.conf';
 import { addTESTNETNodeServer } from '../conf/conf';
-import { initServerConnection, myVersions } from '../sockets';
+import { initServerConnection, myVersions, walletSocketSevice } from '../sockets';
 import { customLogger } from '../socket-script/common/logger';
- 
+import { Client } from 'litecoin'
+import { asyncClient } from '../socket-script/common/async-client';
+
 const defaultDir = defaultDirObj;
 const addNodeServer = addTESTNETNodeServer;
 
-let nodeProcess: ChildProcess;
-
-const execFileByCommandPromise = (command: string) => {
-    return new Promise((res) => {
-        nodeProcess = exec(command, (error) => {
-            if (error) res({error});
-        });
-        setTimeout(() => res({ data: true }), 1000);
-    });
+export interface IFlagsObject {
+    testnet: number;
+    txindex: number;
+    startclean: number;
+    reindex: number;
+    addnode: string;
+    datadir: string;
 }
+
+export interface INodeConfig  {
+    username: string;
+    password: string;
+    port: number;
+    path: string;
+}
+
 const structureConfFile = (conf: string) => {
     const confObj = {};
     conf.split('\n').forEach((l: string) => {
@@ -30,15 +38,151 @@ const structureConfFile = (conf: string) => {
     return confObj;
 };
 
-export const startWalletNode = async (
-        path: string, 
-        isTestNet: boolean,
-        reindex: boolean = false,
-        startclean: boolean = false,
-    ) => {
-    try {
-        customLogger(`Start Wallet Node: ${JSON.stringify({ isTestNet, reindex, startclean })}`);
-        const versionGuard = await new Promise<{ error?: string, data?: boolean }>(res => {
+class FlagsObject implements IFlagsObject {
+    public testnet: number = 0;
+    public txindex: number = 0;
+    public startclean: number = 0;
+    public reindex: number = 0;
+    public addnode: string = null;
+    public datadir: string = null;
+    constructor(options: any) {
+        const toBool = (param: boolean) => param ? 1 : 0;
+
+        this.testnet = toBool(!!options.testnet);
+        this.txindex = toBool(!!options.txindex);
+        this.startclean = toBool(!!options.startclean);
+        this.reindex = toBool(!!options.reindex);
+        this.addnode = options.addnode;
+        this.datadir = options.datadir;
+    }
+}
+
+class WalletNodeInstance {
+    private nodeProcess: ChildProcess;
+    constructor() {}
+
+    convertFlagsObjectToString(flagsObject: any) {
+        const _toStr = (flag: string, value: string | boolean) => ` -${flag}=${value}`;
+        let str = '';
+        Object.keys(flagsObject)
+            .forEach((flag: string) => {
+                if (flag === 'testnet') return str += _toStr(flag, flagsObject[flag]);
+                // if (flag === 'datadir') return str += flagsObject[flag] ? _toStr(flag, flagsObject[flag]) : _toStr(flag, defaultDir);
+                if (flagsObject[flag]) return str += _toStr(flag, flagsObject[flag]);
+            });
+        return str || '';
+    }
+
+    async startWalletNode(options: any) {
+        const flagsObject = new FlagsObject(options);
+        customLogger(`Start Wallet Node: ${JSON.stringify(options)}`);
+
+        const isTestNet = !!flagsObject.testnet;
+        const path = flagsObject.datadir || defaultDir;
+        if (isTestNet) flagsObject.addnode = addNodeServer;
+
+        const versionGuard = await this._versionGuard(isTestNet);
+        if (versionGuard.error || !versionGuard.data) return { error: versionGuard.error};
+
+        const upToDate = this._chechVersions(path, isTestNet);
+        if (!upToDate) flagsObject.startclean = 1;
+
+        //check config file
+        const configFilePath = join(path, 'litecoin.conf');
+        if (!existsSync(configFilePath)) return { error: `Config file doesn't exist in: ${path}` };
+        const confFile = readFileSync(configFilePath, { encoding: 'utf8' });
+        const configObj: any = structureConfFile(confFile);
+        const { rpcuser, rpcport, rpcpassword } = configObj;
+        if (!rpcuser || !rpcport || !rpcpassword) return { error: `Incorrect Config File` };
+        // --------
+
+        const flagsString = this.convertFlagsObjectToString(flagsObject);
+        const file = `"${coreFilePathObj}"`;
+        const command = `${file}${flagsString}`;
+        const execFileResult = await this.execFileByCommandPromise(command, configObj) as { data: any; error: any };
+        customLogger(`exec_${command}: ${JSON.stringify(execFileResult)}`);
+
+        if (execFileResult.error || !execFileResult?.data) {
+            const errorMessage = execFileResult?.error;
+            const reIndexMessage = "Please restart with -reindex";
+            const startCleanMessage = "Please restart with -startclean flag";
+            if (errorMessage.includes(reIndexMessage) && !command.includes('-reindex')) {
+                return await this.startWalletNode({...options, reindex: true });
+            }
+
+            if (errorMessage.includes(startCleanMessage) && !command.includes('-startclean')) {
+                return await this.startWalletNode({...options, startclean: true });
+            }
+
+            return { error: errorMessage || "Undefined Error (code 53)!" };
+        }
+        return { data: configObj };
+    }
+
+    private execFileByCommandPromise = (command: string, options: any) => {
+        const { rpcuser, rpcport, rpcpassword, rpchost } = options;
+        const ltcClient = new Client({
+            user: rpcuser,
+            pass: rpcpassword,
+            host: rpchost || 'localhost',
+            port: rpcport || 9332,
+            ssl: false,
+            timeout: 2000,
+        });
+        const ac = asyncClient(ltcClient);
+
+        const isActiveCheck = () => {
+            return new Promise(async (res) => {
+                const check = await ac('tl_getinfo');
+                check.data || (check.error && !check.error.includes('ECONNREFUSED'))
+                    ? res(true) : res(false);
+            });
+        };
+
+        return new Promise(async (res) => {
+            const _isActivePre = await isActiveCheck();
+            if (_isActivePre) return res({ data: true });
+            process.send({command});
+            this.nodeProcess = exec(command, (error, stdout, stderr) => {
+                fasitfyServer.eventEmitter.emit('killer');
+                if (stdout || stderr) return res({error: stdout || stderr || 'Undefined Error!'});
+                walletSocketSevice.currentSocket.emit('local-node-stopped', stdout || stderr || "Unknown reason");
+            });
+
+            const port = parseFloat(rpcport);
+            fasitfyServer.nodePort = port;
+
+            const interval = setInterval(async () => {
+                const _isActive = await isActiveCheck();
+                if (_isActive) {
+                    clearInterval(interval);
+                    res({ data: true });
+                }
+            }, 800);
+
+            setTimeout(() => {
+                clearInterval(interval);
+                res({ error: `No response from RPC! Undefined Reason!` });
+            }, 8000);
+        });
+    }
+
+    private _chechVersions = (path: string, _isTestNetBool: boolean) => {
+        try {
+            const filePath = join(path, 'tl-wallet.conf');
+            if (!existsSync(filePath)) return false;
+            const res = readFileSync(filePath, { encoding: 'utf8' });
+            const config = structureConfFile(res);
+            const _node = _isTestNetBool ? 'test_nodeVersion' : 'nodeVersion';
+            customLogger(`Check versions: ${JSON.stringify(config)}`);
+            return config[_node] === myVersions.nodeVersion;
+        } catch (error) {
+            customLogger(`Check versions Error: ${error.message}`);
+            return false;
+        }
+    };
+    private _versionGuard(isTestNet: boolean) {
+        return new Promise<{ error?: string, data?: boolean }>(res => {
             const sss = initServerConnection(fasitfyServer.socketScript, isTestNet);
             sss.socket.on('version-guard', (valid: boolean) => {
                 const resolve = valid
@@ -50,97 +194,51 @@ export const startWalletNode = async (
                 res({error: 'Error with API connection.'})
             });
         });
-        if (versionGuard.error || !versionGuard.data) return { error: versionGuard.error};
+    }
 
-        const upToDate = chechVersions(isTestNet);
-        const filePath = join(defaultDir, 'litecoin.conf');
-        if (!existsSync(filePath)) return { error: `Config file doesn't exist` };
-        const res = readFileSync(filePath, { encoding: 'utf8' });
-        const config = structureConfFile(res);
-        if (!config['rpcuser'] || !config['rpcport'] || !config['rpcpassword']) return { error: `Incorrect Config File` };
-        const testNetFlag = isTestNet ? ` -testnet -addnode=${addNodeServer}` : '';
-        const startCleanFlag = !upToDate || startclean ? ' -startclean' : '';
-        const reindexFlag = reindex ? ' -reindex' : '';
-        const file = `"${coreFilePathObj}"`;
-        const command = `${file}${testNetFlag}${startCleanFlag}${reindexFlag}`;
-        const execFileResult = await execFileByCommandPromise(command) as { data: any; error: any };
-        customLogger(`exec_${command}: ${JSON.stringify(execFileResult)}`);
-
-        if (execFileResult.error || !execFileResult?.data) {
-            const errorMessage = execFileResult?.error?.message;
-            const reIndexMessage = "Please restart with -reindex";
-            const startCleanMessage = "Please restart with -startclean flag";
-            if (errorMessage.includes(reIndexMessage) && !command.includes('-reindex')) {
-                return await startWalletNode(path, isTestNet, true, startclean);
-            }
-
-            if (errorMessage.includes(startCleanMessage) && !command.includes('-startclean')) {
-                return await startWalletNode(path, isTestNet, reindex, true);
-            }
-
-            return { error: execFileResult?.error?.message || "Can't start the Local Node" };
+    createNodeConfig(config: INodeConfig) {
+        try {
+            const { username, password, port, path } = config;
+            const fileData = `rpcuser=${username}\nrpcpassword=${password}\nrpcport=${port}\ntxindex=1`;
+            if (!existsSync(path)) mkdirSync(path);
+            const filePath = join(path, 'litecoin.conf');
+            writeFileSync(filePath, fileData);
+            customLogger(`Create Node Config file: ${fileData}`);
+            return { data: true };
+        } catch (error) {
+            customLogger(`Create Node Config file: ${error.message}`);
+            return { error: error.message };
         }
-        const port = parseFloat(config['rpcport']);
-        fasitfyServer.nodePort = port;
-        return { data: config };
-    } catch (error) {
-        return { error: error.message };
     }
-};
 
-const chechVersions = (_isTestNetBool: boolean) => {
-    try {
-        const filePath = join(defaultDir, 'tl-wallet.conf');
-        if (!existsSync(filePath)) return false;
-        const res = readFileSync(filePath, { encoding: 'utf8' });
-        const config = structureConfFile(res);
-        const _node = _isTestNetBool ? 'test_nodeVersion' : 'nodeVersion';
-        customLogger(`Check versions: ${JSON.stringify(config)}`);
-        return config[_node] === myVersions.nodeVersion;
-    } catch (error) {
-        customLogger(`Check versions Error: ${error.message}`);
-        return false;
-    }
-};
-
-export const createTLconfigFile = (_isTestNetBool: boolean) => {
-    try {
-        if (!existsSync(defaultDir)) mkdirSync(defaultDir);
-        const filePath = join(defaultDir, 'tl-wallet.conf');
-        const _node = _isTestNetBool ? 'test_nodeVersion' : 'nodeVersion';
-        const { nodeVersion } = myVersions;
-        let data = `${_node}=${nodeVersion}\n`;
-        if (existsSync(filePath)) {
-            try {
-                const existing = readFileSync(filePath, { encoding: 'utf8' });
-                const _existing = structureConfFile(existing);
-                data = '';
-                Object.keys(_existing).forEach(k => {
-                    if (k !== _node) data = data + `${k}=${_existing[k]}\n`;
-                });
-                data = data + `${_node}=${nodeVersion}\n`;
-            } catch (err) {
-                data = `${_node}=${nodeVersion}\n`;
+    createWalletconfig(_isTestNetBool: boolean) {
+        try {
+            if (!existsSync(defaultDir)) mkdirSync(defaultDir);
+            const filePath = join(defaultDir, 'tl-wallet.conf');
+            const _node = _isTestNetBool ? 'test_nodeVersion' : 'nodeVersion';
+            const { nodeVersion } = myVersions;
+            let data = `${_node}=${nodeVersion}\n`;
+            if (existsSync(filePath)) {
+                try {
+                    const existing = readFileSync(filePath, { encoding: 'utf8' });
+                    const _existing = structureConfFile(existing);
+                    data = '';
+                    Object.keys(_existing).forEach(k => {
+                        if (k !== _node) data = data + `${k}=${_existing[k]}\n`;
+                    });
+                    data = data + `${_node}=${nodeVersion}\n`;
+                } catch (err) {
+                    data = `${_node}=${nodeVersion}\n`;
+                }
             }
+            const res = writeFileSync(filePath, data);
+            customLogger(`Create Wallet Conf File: ${data}`);
+            return { data: true };
+        } catch (error) {
+            customLogger(`Create Wallet Conf File: ${error.message}`);
+            return { error: error.message };
         }
-        const res = writeFileSync(filePath, data);
-        return { data: true };
-    } catch (error) {
-        customLogger(`Create Wallet Conf File: ${error.message}`);
-        return { error: error.message };
-    }
-};
+    };
+}
 
-export const createNewNode = async (configs: { username: string, password: string, port: number, path: string,}) => {
-    try {
-        const { username, password, port, path } = configs;
-        const fileData = `rpcuser=${username}\nrpcpassword=${password}\nrpcport=${port}\ntxindex=1`;
-        if (!existsSync(defaultDir)) mkdirSync(defaultDir)
-        const filePath = join(defaultDir, 'litecoin.conf');
-        const res = writeFileSync(filePath, fileData);
-        return { data: true };
-    } catch (error) {
-        customLogger(`Create New Node: ${error.message}`);
-        return { error: error.message };
-    }
-};
+export const myWalletNode = new WalletNodeInstance();
