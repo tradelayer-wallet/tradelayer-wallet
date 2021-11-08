@@ -61,7 +61,7 @@ export class NewNodeDialog {
       this.loadingService.isLoading = false;
       return;
     } else {
-      this.rpcService.startWalletNode(this.directory, this.isTestNet);
+      await this.rpcService.startWalletNode(this.directory, this.isTestNet);
       // this.toastrService.success('Configuration file is created', 'Success');
       this.loadingService.isLoading = false;
       this.dialogRef.close();
