@@ -142,7 +142,6 @@ class WalletNodeInstance {
         return new Promise(async (res) => {
             const _isActivePre = await isActiveCheck();
             if (_isActivePre) return res({ data: true });
-            process.send({command});
             this.nodeProcess = exec(command, (error, stdout, stderr) => {
                 fasitfyServer.eventEmitter.emit('killer');
                 if (stdout || stderr) return res({error: stdout || stderr || 'Undefined Error!'});

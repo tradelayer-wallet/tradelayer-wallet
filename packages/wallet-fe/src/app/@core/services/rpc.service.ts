@@ -122,6 +122,8 @@ export class RpcService {
       const connectCreds = { host, username: rpcuser, password: rpcpassword, port: rpcport };
       const connectRes = await this.connect(connectCreds, isTestNet);
       if (!connectRes) return { error: 'Error With Node Connection' };
+      this.dialogService.closeAllDialogs();
+      this.dialogService.openDialog(DialogTypes.SYNC_NODE);
       return { data: connectRes };
     }
 

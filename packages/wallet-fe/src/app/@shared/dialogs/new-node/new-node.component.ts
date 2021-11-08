@@ -5,7 +5,7 @@ import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.servi
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 
-const defaultPath = ` `;
+const defaultPath = ``;
 
 @Component({
   selector: 'new-node-dialog',
@@ -61,7 +61,8 @@ export class NewNodeDialog {
       this.loadingService.isLoading = false;
       return;
     } else {
-      this.toastrService.success('Configuration file is created', 'Success');
+      this.rpcService.startWalletNode(this.directory, this.isTestNet);
+      // this.toastrService.success('Configuration file is created', 'Success');
       this.loadingService.isLoading = false;
       this.dialogRef.close();
       return;
