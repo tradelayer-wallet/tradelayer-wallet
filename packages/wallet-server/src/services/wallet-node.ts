@@ -59,6 +59,7 @@ class FlagsObject implements IFlagsObject {
 
 class WalletNodeInstance {
     private nodeProcess: ChildProcess;
+    private defaultPath: string;
     constructor() {}
 
     convertFlagsObjectToString(flagsObject: any) {
@@ -79,6 +80,7 @@ class WalletNodeInstance {
 
         const isTestNet = !!flagsObject.testnet;
         const path = flagsObject.datadir || defaultDir;
+        this.defaultPath = path;
         if (isTestNet) flagsObject.addnode = addNodeServer;
 
         const versionGuard = await this._versionGuard(isTestNet);
@@ -211,9 +213,10 @@ class WalletNodeInstance {
     }
 
     createWalletconfig(_isTestNetBool: boolean) {
+        const path = this.defaultPath;
         try {
-            if (!existsSync(defaultDir)) mkdirSync(defaultDir);
-            const filePath = join(defaultDir, 'tl-wallet.conf');
+            if (!existsSync(path)) mkdirSync(path);
+            const filePath = join(path, 'tl-wallet.conf');
             const _node = _isTestNetBool ? 'test_nodeVersion' : 'nodeVersion';
             const { nodeVersion } = myVersions;
             let data = `${_node}=${nodeVersion}\n`;
