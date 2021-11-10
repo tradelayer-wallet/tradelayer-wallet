@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, writeFileSync, mkdirSync, writeFile } from 'fs'
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { ChildProcess, exec } from 'child_process';
 import { fasitfyServer } from '../index';
@@ -59,7 +59,7 @@ class FlagsObject implements IFlagsObject {
 
 class WalletNodeInstance {
     private nodeProcess: ChildProcess;
-    private defaultPath: string;
+    public defaultPath: string;
     constructor() {}
 
     convertFlagsObjectToString(flagsObject: any) {
@@ -76,11 +76,11 @@ class WalletNodeInstance {
 
     async startWalletNode(options: any) {
         const flagsObject = new FlagsObject(options);
-        customLogger(`Start Wallet Node: ${JSON.stringify(options)}`);
 
         const isTestNet = !!flagsObject.testnet;
         const path = flagsObject.datadir || defaultDir;
         this.defaultPath = path;
+        customLogger(`Start Wallet Node: ${JSON.stringify(options)}`);
         if (isTestNet) flagsObject.addnode = addNodeServer;
 
         const versionGuard = await this._versionGuard(isTestNet);
