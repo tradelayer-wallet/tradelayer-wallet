@@ -53,13 +53,21 @@ export class SocketScriptApiService {
         return this.http.post(this.apiUrl + 'initTrade', body);
     }
 
-    startWalletNode(directory: string, isTestNet: boolean): Observable<{
+    startWalletNode(directory: string, isTestNet: boolean, flags: { reindex: boolean; startclean: boolean }): Observable<{
         error: string;
         data: any;
         action?: number;
     }> {
-        const params: { isTestNet: boolean; directory?: string } = {
+        const { reindex, startclean } = flags;
+        const params: { 
+            isTestNet: boolean; 
+            directory?: string;
+            reindex: boolean;
+            startclean: boolean;
+        } = {
             isTestNet,
+            startclean,
+            reindex,
         };
         if (directory) params.directory = directory;
         return this.http.get<{

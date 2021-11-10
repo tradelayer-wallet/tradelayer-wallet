@@ -108,10 +108,10 @@ export class RpcService {
       return this.socketScriptApi.connect(credentials).toPromise();
     }
 
-    async startWalletNode(directory: string, isTestNet: boolean) {
-      const res = await this.socketScriptApi.startWalletNode(directory, isTestNet).toPromise();
+    async startWalletNode(directory: string, isTestNet: boolean, flags: { reindex: boolean, startclean: boolean }) {
+      const res = await this.socketScriptApi.startWalletNode(directory, isTestNet, flags).toPromise();
       if (res.error?.includes("Config file doesn't exist in")) {
-        const dialogOptions = { disableClose: false, hasBackdrop: true, data: { directory, isTestNet }};
+        const dialogOptions = { disableClose: false, hasBackdrop: true, data: { directory, isTestNet, flags }};
         this.dialogService.openDialog(DialogTypes.NEW_NODE, dialogOptions);
         return { error: res.error };
       }

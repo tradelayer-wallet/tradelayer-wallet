@@ -88,6 +88,8 @@ class WalletNodeInstance {
 
         const upToDate = this._chechVersions(path, isTestNet);
         if (!upToDate) flagsObject.startclean = 1;
+        if (upToDate === 0) flagsObject.reindex = 1;
+        process.send({upToDate});
 
         //check config file
         const configFilePath = join(path, 'litecoin.conf');
@@ -101,6 +103,7 @@ class WalletNodeInstance {
         const flagsString = this.convertFlagsObjectToString(flagsObject);
         const file = `"${coreFilePathObj}"`;
         const command = `${file}${flagsString}`;
+        process.send({command});
         const execFileResult = await this.execFileByCommandPromise(command, configObj) as { data: any; error: any };
         customLogger(`exec_${command}: ${JSON.stringify(execFileResult)}`);
 
@@ -171,15 +174,16 @@ class WalletNodeInstance {
     private _chechVersions = (path: string, _isTestNetBool: boolean) => {
         try {
             const filePath = join(path, 'tl-wallet.conf');
-            if (!existsSync(filePath)) return false;
+            if (!existsSync(filePath)) return 0;
             const res = readFileSync(filePath, { encoding: 'utf8' });
             const config = structureConfFile(res);
             const _node = _isTestNetBool ? 'test_nodeVersion' : 'nodeVersion';
             customLogger(`Check versions: ${JSON.stringify(config)}`);
+            if (!config[_node]) return 0;
             return config[_node] === myVersions.nodeVersion;
         } catch (error) {
             customLogger(`Check versions Error: ${error.message}`);
-            return false;
+            return 0;
         }
     };
     private _versionGuard(isTestNet: boolean) {

@@ -29,7 +29,7 @@ export class NewNodeDialog {
     private rpcService: RpcService,
     private toastrService: ToastrService,
     public dialogRef: MatDialogRef<NewNodeDialog>,
-    @Inject(MAT_DIALOG_DATA) private data: { directory: string, isTestNet: boolean },
+    @Inject(MAT_DIALOG_DATA) private data: { directory: string; isTestNet: boolean; flags: any },
   ) { }
 
   get buttonDisabled() {
@@ -42,6 +42,10 @@ export class NewNodeDialog {
 
   get isTestNet() {
     return this.data.isTestNet;
+  }
+
+  get flags() {
+    return this.data.flags;
   }
 
   async create() {
@@ -61,7 +65,7 @@ export class NewNodeDialog {
       this.loadingService.isLoading = false;
       return;
     } else {
-      await this.rpcService.startWalletNode(this.directory, this.isTestNet);
+      await this.rpcService.startWalletNode(this.directory, this.isTestNet, this.flags);
       // this.toastrService.success('Configuration file is created', 'Success');
       this.loadingService.isLoading = false;
       this.dialogRef.close();

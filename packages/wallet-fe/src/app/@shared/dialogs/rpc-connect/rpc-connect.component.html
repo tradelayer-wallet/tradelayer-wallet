@@ -16,12 +16,16 @@
                 >Select Directory</button>
             </div>
             <span style="text-align: center; width: 100%;">{{ directory.length > 30 ? "..." + directory.slice(-30) : directory }}</span>
-            <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>Testnet</mat-checkbox>
+            <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>-testnet</mat-checkbox>
+            <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='reindex'>-reindex</mat-checkbox>
+            <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='startclean'>-startclean</mat-checkbox>
+
             <p class='message'> {{ message2 }}</p>
             <button
                 style='margin: 0.5rem 0; background: mediumseagreen;'
                 mat-button
                 (click)='startWalletNode()'
+                [disabled]='!defaultDirectoryCheckbox && !directory?.length'
             >Start Node</button>
             <!-- <button
                 style='margin: 0.5rem 0; background: lightsteelblue;'

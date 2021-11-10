@@ -19,10 +19,12 @@ export class RPCConnectDialog {
   public port: number = 9332;
   public username: string = '';
   public password: string = '';
-  public defaultDirectoryCheckbox: boolean = true;
+  public _defaultDirectoryCheckbox: boolean = true;
   public directory: string = '';
   public isTestNet: boolean = false;
 
+  public reindex: boolean = false;
+  public startclean: boolean = false;
   constructor(
     private rpcService: RpcService,
     public dialogRef: MatDialogRef<RPCConnectDialog>,
@@ -31,6 +33,15 @@ export class RPCConnectDialog {
     private electronService: ElectronService,
     private zone: NgZone,
   ) {}
+
+  get defaultDirectoryCheckbox() {
+    return this._defaultDirectoryCheckbox;
+  }
+
+  set defaultDirectoryCheckbox(value: boolean) {
+    this.directory = '';
+    this._defaultDirectoryCheckbox = value;
+  }
 
   openDirSelectDialog() {
     this.electronService.emitEvent('open-dir-dialog');
@@ -64,7 +75,9 @@ export class RPCConnectDialog {
     this.loadingService.isLoading = true;
     const isTestNet = this.isTestNet;
     const path = this.defaultDirectoryCheckbox ? '' : this.directory;
-    const res = await this.rpcService.startWalletNode(path, isTestNet);
+    const { reindex, startclean } = this;
+    const flags = { reindex, startclean };
+    const res = await this.rpcService.startWalletNode(path, isTestNet, flags);
     if (res.error || !res.data) {
       if (!res.error?.includes("Config file doesn't exist in")) {
         this.message2 = res.error || 'Please Try Again!';
