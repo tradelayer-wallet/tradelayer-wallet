@@ -89,7 +89,6 @@ class WalletNodeInstance {
         const upToDate = this._chechVersions(path, isTestNet);
         if (!upToDate) flagsObject.startclean = 1;
         if (upToDate === 0) flagsObject.reindex = 1;
-        process.send({upToDate});
 
         //check config file
         const configFilePath = join(path, 'litecoin.conf');
@@ -103,7 +102,6 @@ class WalletNodeInstance {
         const flagsString = this.convertFlagsObjectToString(flagsObject);
         const file = `"${coreFilePathObj}"`;
         const command = `${file}${flagsString}`;
-        process.send({command});
         const execFileResult = await this.execFileByCommandPromise(command, configObj) as { data: any; error: any };
         customLogger(`exec_${command}: ${JSON.stringify(execFileResult)}`);
 
