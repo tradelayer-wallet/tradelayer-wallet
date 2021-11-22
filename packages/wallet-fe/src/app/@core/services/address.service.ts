@@ -9,6 +9,15 @@ export interface IKeyPair {
     privKey: string;
 }
 
+export interface IMultisigPair {
+    address: string;
+    redeemScript: string;
+    validateInfo?: string;
+    nRequired?: number;
+    nAllKeys?: number;
+    keys?: string[];
+}
+
 export enum EKYCStatus { 
     ENABLED = 'Enabled',
     DISABLED = 'Disabled',
@@ -23,6 +32,7 @@ export class AddressService {
     private _keyPairs: IKeyPair[] = [];
     private _activeKeyPair: IKeyPair | null = null;
     private allAttestations: { [address: string]: EKYCStatus } = {};
+    private _multisigPairs: IMultisigPair[] = [];
 
     constructor(
         private rpcService: RpcService,
@@ -32,6 +42,14 @@ export class AddressService {
         this.handleSocketEvents();
     }
     
+    get multisigPairs() {
+        return this._multisigPairs;
+    }
+
+    set multisigPairs(value: IMultisigPair[]) {
+        this._multisigPairs = value;
+    }
+
     get keyPairs() {
         return this._keyPairs;
     }
@@ -53,6 +71,10 @@ export class AddressService {
         if (!this.activeKeyPair?.address) return EKYCStatus.DISABLED;
         const address = this.activeKeyPair.address;
         return this.allAttestations[address];
+    }
+
+    addMultisigAddress(multisig: IMultisigPair) {
+        this.multisigPairs = [...this.multisigPairs, multisig];
     }
 
     addDecryptedKeyPair(pair: IKeyPair) {

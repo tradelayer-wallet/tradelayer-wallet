@@ -28,13 +28,13 @@ export class HeaderComponent {
       link: 'spot',
       needAuthToShow: false,
     },
-    // {
-    //   id: 3,
-    //   name: 'Futures',
-    //   link: 'futures',
-    //   disabled: true,
-    //   needAuthToShow: false,
-    // },
+    {
+      id: 3,
+      name: 'Futures',
+      link: 'futures',
+      disabled: true,
+      needAuthToShow: false,
+    },
     {
       id: 3,
       name: 'Portfolio',
@@ -47,12 +47,19 @@ export class HeaderComponent {
       link: 'settings',
       needAuthToShow: true,
     },
-    // {
-    //   id: 4,
-    //   name: 'Taxes',
-    //   link: '#',
-    //   disabled: true,
-    // }
+    {
+      id: 5,
+      name: 'Multisig',
+      link: 'multisig',
+      needAuthToShow: true,
+    },
+    {
+      id: 6,
+      name: 'Node',
+      link: '#',
+      disabled: true,
+      needAuthToShow: true,
+    }
   ];
 
   private _selectedRoute: any = this._mainRoutes[0];

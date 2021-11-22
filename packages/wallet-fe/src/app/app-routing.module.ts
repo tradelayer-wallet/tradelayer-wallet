@@ -10,6 +10,7 @@ import { RPCGuard } from './@core/guards/rpc.guard';
 import { AuthGuard } from './@core/guards/auth.guard';
 import { PortfolioPageComponent } from './@pages/portfolio-page/portfolio-page.component';
 import { SettingsPageComponent } from './@pages/settings-page/settings-page.component';
+import { MultisigPageComponent } from './@pages/multisig-page/multisig-page.component';
 
 export const routes: Routes = [
   {
@@ -42,6 +43,11 @@ export const routes: Routes = [
       {
         path: 'settings',
         component: SettingsPageComponent,
+        canActivate: [AuthGuard]
+      },
+      {
+        path: 'multisig',
+        component: MultisigPageComponent,
         canActivate: [AuthGuard]
       },
       {

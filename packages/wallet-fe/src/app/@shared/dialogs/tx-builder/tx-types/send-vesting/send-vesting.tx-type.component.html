@@ -1,0 +1,20 @@
+<div class="tx-type-container">
+    <mat-form-field>
+        <mat-label>To address</mat-label>
+        <input type='text' matInput [(ngModel)]='toAddress'>
+        <button *ngIf='toAddress && isAddressValid === null' mat-icon-button matSuffix (click)="validateAddress(toAddress)">
+            <mat-icon>autorenew</mat-icon>
+        </button>
+        <mat-icon matSuffix *ngIf='toAddress && isAddressValid !== null && isAddressValid !== "PENDING"'> 
+            {{ isAddressValid === true ? 'done' : 'close' }}
+        </mat-icon>
+        <mat-spinner diameter='20' *ngIf='toAddress && isAddressValid === "PENDING"' matSuffix></mat-spinner>
+    </mat-form-field>
+
+    <mat-form-field>
+        <mat-label>Amount of Vesting Tokens</mat-label>
+        <input type='number' matInput placeholder="amount"  [(ngModel)]='amount'>
+    </mat-form-field>
+
+    <button mat-raised-button (click)="build()" color="accent" [disabled]='buildDisabled'>BUILD</button>
+</div>

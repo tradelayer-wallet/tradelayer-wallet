@@ -12,7 +12,7 @@ import { ITradeConf } from "../services/spot-services/trade.service";
 export class SocketScriptApiService {
 
     constructor(
-        private http: HttpClient
+        private http: HttpClient,
     ) {}
 
     private get apiUrl() {
@@ -101,5 +101,11 @@ export class SocketScriptApiService {
     saveConfigFile(isTestNet: boolean) {
         const params = { isTestNet };
         return this.http.get<{ error: any; data: string }>(this.apiUrl + 'saveConfigFile', { params });
+    }
+
+    build(txInfo: any) {
+        const { fromAddress, toAddress, amount, txType } = txInfo;
+        const params = { fromAddress, toAddress, amount, txType } ;
+        return this.http.get<{error: any; data: any }>(this.apiUrl + 'buildTx', { params });
     }
 }

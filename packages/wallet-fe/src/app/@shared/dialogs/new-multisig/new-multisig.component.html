@@ -1,0 +1,64 @@
+<div class="dialog-container">
+    <div class="title">
+        <h1>Create New Multisig</h1>
+    </div>
+    <div class="content-2" *ngIf='multisigAddressData?.validateInfo'>
+        <textarea> {{ multisigAddressData?.validateInfo || 'Undefined Error!'}} </textarea>
+    </div>
+    <div class="content" *ngIf='!multisigAddressData?.validateInfo'>
+        <div class='keys'>
+            <div class='field'>
+                <span>Requried Keys: </span>
+                <span class='value'> {{ nRequired }} </span>
+                <div class="icons">
+                    <mat-icon (click)="nKeysChange('required', 'add')">add</mat-icon>
+                    <mat-icon (click)="nKeysChange('required', 'remove')">remove</mat-icon>
+                </div>
+            </div>
+            <div class='field'>
+                <span>All Keys: </span>
+                <span class='value'> {{ nAllKeys }} </span>
+                <div class="icons">
+                    <mat-icon (click)="nKeysChange('all', 'add')">add</mat-icon>
+                    <mat-icon (click)="nKeysChange('all', 'remove')">remove</mat-icon>
+                </div>
+            </div>
+        </div>
+        <div class="keys-list">
+            <div *ngFor='let key of activeKeys; let i = index' class='key-option'>
+                <span> Key #{{ key.id }} </span>
+                <mat-form-field appearance="fill" >
+                    <mat-label>Type</mat-label>
+                    <mat-select (selectionChange)="changeKeyType($event, key)">
+                        <mat-option
+                            [value]="kt.value"
+                            *ngFor='let kt of keyTypes | keyvalue'
+                            [disabled]='kt.value === keyTypes.HARDWARE || kt.value === keyTypes.SERVER || (kt.value === keyTypes.HOT && hotKeySelected)'
+                        >
+                            {{ kt.value | titlecase }}
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="fill" class='pubkey' *ngIf='key.type === "AIRGAP" || key.type === "HOT"'>
+                    <mat-label>Pubkey</mat-label>
+                    <input
+                        matInput
+                        type="text"
+                        placeholder="Pubkey"
+                        [value]='key.pubkey'
+                        (keyup)='changePubKey($event, key)'
+                        [readonly]='(key.type === keyTypes.HOT)'
+                    >
+                </mat-form-field>
+            </div>
+        </div>
+    </div>
+    <div class="error-message">
+        {{ this.errorMessage }}
+    </div>
+    <div class="buttons">
+        <button mat-raised-button (click)="close()" color="warn">CANCEL</button>
+        <button *ngIf='!multisigAddressData?.validateInfo' mat-raised-button [disabled]='buttonDisabled' (click)='create()' color="primary">CREATE</button>
+        <button *ngIf='multisigAddressData?.validateInfo' mat-raised-button (click)='save()' color="primary">SAVE</button>
+    </div>
+</div>

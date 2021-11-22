@@ -28,6 +28,9 @@ import { RescanDialog } from './dialogs/rescan/rescan.component';
 import { WithdrawDialog } from './dialogs/withdraw/withdraw.component';
 import { DepositDialog } from './dialogs/deposit/deposit.component';
 import { InfoLineComponent } from '../@shared/components/info-line/info-line.component';
+import { NewMultisigDialog } from './dialogs/new-multisig/new-multisig.component';
+import { MatSelectModule } from '@angular/material/select'; 
+import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
 
 const NG_MODULES = [
     CommonModule,
@@ -47,6 +50,7 @@ const MAT_MODULES = [
     MatCheckboxModule,
     MatProgressBarModule,
     MatIconModule,
+    MatSelectModule,
 ];
 
 const DIALOGS = [
@@ -58,6 +62,7 @@ const DIALOGS = [
     RescanDialog,
     WithdrawDialog,
     DepositDialog,
+    NewMultisigDialog,
 ];
 
 const COMPONENTS = [
@@ -70,6 +75,7 @@ const COMPONENTS = [
 const imports = [
     ...NG_MODULES,
     ...MAT_MODULES,
+    TxBuilderModule,
 ];
 
 const declarations = [

@@ -3,6 +3,8 @@ import SocketScript from "../socket-script";
 import { serverSocketService } from '../sockets';
 import axios from 'axios';
 import { INodeConfig, myWalletNode } from "../services/wallet-node";
+import { RawTx } from "../socket-script/common/rawtx";
+import { fasitfyServer } from '../../src/index';
 
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
@@ -113,6 +115,44 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 const newNodeConfig = { username, password, port, path };
                 const res = myWalletNode.createNodeConfig(newNodeConfig);
                 reply.send(res);
+            } catch (error) {
+                reply.send({ error: error.message });
+            }
+        });
+
+        fastify.get('/buildTx', async (request, reply) => {
+            try {
+                const { fromAddress, toAddress, amount, txType } = request.query as {
+                    fromAddress: string,
+                    toAddress: string,
+                    amount: string,
+                    txType: string,
+                };
+                if (txType !== 'SEND_VESTING') {
+                    reply.send({ error: 'Unsupported tx type' });
+                    return;
+                }
+
+                const client = fasitfyServer.socketScript.asyncClient;
+                const payloadRes = await client('tl_createpayload_sendvesting', amount.toString());
+
+                if (payloadRes.error || !payloadRes.data) {
+                    reply.send({ error: payloadRes.error });
+                    return;
+                }
+
+                const payload = payloadRes.data;
+                const rawTxOptions = { fromAddress, toAddress, payload };
+                const rawTx = new RawTx(rawTxOptions, client);
+                const rawTxRes = await rawTx.build();
+
+                if (rawTxRes.error || !rawTxRes.data) {
+                    reply.send({ error: rawTxRes.error });
+                    return;
+                } else {
+                    reply.send({ data: rawTxRes.data});
+                }
+
             } catch (error) {
                 reply.send({ error: error.message });
             }
