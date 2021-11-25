@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { CanActivate } from '@angular/router';
+import { CanActivate, Router } from '@angular/router';
+import { ToastrService } from 'ngx-toastr';
 import { DialogService, DialogTypes } from '../services/dialogs.service';
 import { RpcService } from '../services/rpc.service';
 
@@ -10,14 +11,15 @@ import { RpcService } from '../services/rpc.service';
 export class SyncedGuard implements CanActivate {
     constructor(
         private rpcService: RpcService,
-        private dialogService: DialogService,
+        private toastrService: ToastrService,
+        private router: Router,
     ) {}
 
     canActivate(): boolean {
         const isSynced = this.rpcService.isSynced;
         if (isSynced) return this.rpcService.isSynced;
-
-        this.dialogService.openDialog(DialogTypes.SYNC_NODE);
+        this.toastrService.warning('Need full sync!', 'Warning');
+        // this.router.navigateByUrl('/');
         return false;
    }
 }

@@ -1,6 +1,7 @@
 import { Component, NgZone } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
-import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
+import { Router } from '@angular/router';
+import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { ElectronService } from 'src/app/@core/services/electron.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RPCCredentials, RpcService } from 'src/app/@core/services/rpc.service';
@@ -29,9 +30,9 @@ export class RPCConnectDialog {
     private rpcService: RpcService,
     public dialogRef: MatDialogRef<RPCConnectDialog>,
     private loadingService: LoadingService,
-    private dialogService: DialogService,
     private electronService: ElectronService,
     private zone: NgZone,
+    private router: Router,
   ) {}
 
   get defaultDirectoryCheckbox() {
@@ -65,7 +66,7 @@ export class RPCConnectDialog {
       this.message = 'Please try again! ';
     } else {
       this.dialogRef.close();
-      this.dialogService.openDialog(DialogTypes.SYNC_NODE);
+      // this.dialogService.openDialog(DialogTypes.SYNC_NODE);
       this.loadingService.isLoading = false;
     }
   }
@@ -86,6 +87,7 @@ export class RPCConnectDialog {
       return;
     }
     this.dialogRef.close();
+    this.router.navigateByUrl('/');
     this.loadingService.isLoading = false;
   }
 

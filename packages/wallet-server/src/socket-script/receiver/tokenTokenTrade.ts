@@ -36,8 +36,6 @@
 //         const msus: any[] = await this.listUnspent(this.multySigChannelData.address);
 //         if (!msus || msus.length < 2) return this.terminateTrade('Error with Founding 2 Unspents!');
 
-//         // console.log(msus);
-
 //         const btttData: string = await this._bildTokenTokenTrade(msus);
 //         this.socket.emit(emmitEvents.RAWTX_FOR_SIGNING, btttData);
 //     }

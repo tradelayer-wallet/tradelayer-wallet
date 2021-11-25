@@ -59,7 +59,6 @@ export abstract class Receiver {
     // }
 
     protected log(message: string, data?: any): void {
-        if (this.logs) console.log(`${message} ${JSON.stringify(data, null, "\t") || ''}`);
     }
 
     private onConnection(): void {
@@ -170,8 +169,6 @@ export abstract class Receiver {
     //     if (this.send) {
     //         const srt: ApiRes = await api.sendrawtransaction(this.signedRawTx);
     //         if (srt.error || !srt.data) return this.terminateTrade(srt.error); 
-    //         console.log(`Sender Raw TX: ${srt.data}`);
-
     //         this.readyRes({ commits: this.commitsTx, rawTx: this.signedRawTx, trade: this.trade, tx: srt.data });
     //     } else {
     //         this.readyRes({ commits: this.commitsTx, rawTx: this.signedRawTx, trade: this.trade });

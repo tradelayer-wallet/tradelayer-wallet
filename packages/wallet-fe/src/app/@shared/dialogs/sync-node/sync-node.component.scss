@@ -1,4 +1,5 @@
 .dialog-container {
+    color: black;
     mat-dialog-content {
         .content-container {
             display: flex;
@@ -8,6 +9,11 @@
             align-items: center;
             .information {
                 margin-bottom: 1rem;
+            }
+            .synced {
+                color: green;
+                margin-bottom: 1rem;
+
             }
             .blocks-span {
                 text-align: center;

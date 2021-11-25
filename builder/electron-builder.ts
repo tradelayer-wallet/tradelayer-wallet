@@ -78,7 +78,6 @@ class ElectronApp {
     private handleMainWindowEvents() {
         if (!this.mainWindow) return;
         this.mainWindow.webContents.on('did-fail-load', () => {
-            console.log(`Fail Load`)
             if (this.mainWindow) this.loadUrl(this.mainWindow);
         });
 

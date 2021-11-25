@@ -83,6 +83,7 @@ export class AddressService {
     }
 
     removeAllKeyPairs() {
+        this.multisigPairs = [];
         this.keyPairs = [];
         this.activeKeyPair = null;
     }

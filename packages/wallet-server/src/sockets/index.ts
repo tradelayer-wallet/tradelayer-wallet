@@ -41,7 +41,7 @@ class WalletSocketSevice {
     public io: Server;
     public currentSocket: Socket;
     private socketScript: SocketScript;
-    private lastBlock: number = 0;
+    public lastBlock: number = 0;
     private selectedContractId: IContractInfo = null;
     constructor(app: FastifyInstance, socketScript: SocketScript) {
         const socketOptions = { cors: { origin: "*", methods: ["GET", "POST"] } };
@@ -55,7 +55,6 @@ class WalletSocketSevice {
     }
 
     private onConnection(socket: Socket) {
-        console.log(`FE app Connected`);
         this.currentSocket = socket;
         this.startBlockCounting();
         this.handleFromWalletToServer(socket, 'orderbook-market-filter');
@@ -99,7 +98,6 @@ class WalletSocketSevice {
                     this.lastBlock = height;
                     this.currentSocket.emit('newBlock', height);
                     this.sendFuturesOrderbookData();
-                    console.log(`New Block: ${height}`)
                 }
             }, 5000);
     }
@@ -129,25 +127,21 @@ class ServerSocketService {
 
     private handleEvents() {
         this.socket.on('connect', () => {
-            console.log(`Connected to the API Server`);
             this.socket.emit('check-versions', myVersions);
 
         });
 
         this.socket.on('version-guard', (valid: boolean) => {
-            console.log({valid});
             valid
                 ? walletSocketSevice.io.emit('server_connect')
                 : walletSocketSevice.io.emit('need-update');
         });
 
         this.socket.on('disconnect', () => {
-            console.log(`Disconnected from the API Server`);
             walletSocketSevice.io.emit('server_disconnect');
         });
 
         this.socket.on('connect_error', () => {
-            console.log(`API Server Connection Error`);
             walletSocketSevice.io.emit('server_connect_error');
         });
 

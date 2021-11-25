@@ -62,12 +62,4 @@ export class DealerService {
         if (!address || !pubkey || !this.myDealerTrades) return;
         this.socket.emit('dealer-data', data);
     }
-
-    // private startListenerScript() {
-    //     const address = this.addressService.activeKeyPair?.address;
-    //     if (address) {
-    //         this.apiService.socketScriptApi.startListener(address)
-    //             .subscribe((listenerStarted) => console.log({listenerStarted}));
-    //     }
-    // }
 }

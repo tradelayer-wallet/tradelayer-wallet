@@ -66,7 +66,7 @@ export class SocketService {
     private handleMainSocketEvents() {
         if (this.socket) {
             this.socket.on('need-update', ()=> {
-                console.log('NEED UPDATE!');
+                console.log('Wallet App Need To Be Updated!!');
                 this.toasterService.info(
                     'The application need to be updated!',
                     'INFO', 

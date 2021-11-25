@@ -26,7 +26,6 @@
 //   joinPool(pool: string) {
 //     const poolClient = io(pool, { reconnection: false });
 //     poolClient.on('connect', () => {
-//       console.log(`Connected to pool: ${pool}`)
 //       poolClient.on('settingsRequest', async () => {
 //         const port = this.port;
 //         const address = this.serverOptions.address;
@@ -41,7 +40,6 @@
 //   }
 
 //   private init(port: number): void {
-//     console.log(`Start Listener Server on port ${port}`);
 //     const httpServer = createServer();
 //     const socketOptions = { cors: { origin: "*", methods: ["GET", "POST"] } };
 //     httpServer.listen(port);
@@ -84,7 +82,6 @@
 //     }
 
 //     private log(message: string, data?: any): void {
-//       if (this.logs) console.log(`${message} ${JSON.stringify(data, null, "\t") || ''}`);
 //     }
 
 //     private saveToLog(data: any) {

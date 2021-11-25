@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import { AddressService } from 'src/app/@core/services/address.service';
+import { AuthService } from 'src/app/@core/services/auth.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 
 @Component({
@@ -15,12 +16,16 @@ export class MultisigPageComponent {
     private toastrService: ToastrService,
     private customDialogs: DialogService,
     private addressService: AddressService,
+    private authService: AuthService,
   ) {}
 
   get multisigs() {
     return this.addressService.multisigPairs;
   }
 
+  get isLoggedIn() {
+    return this.authService.isLoggedIn;;
+  }
   newMultisig() {
     this.customDialogs.openDialog(DialogTypes.NEW_MULTISIG, { disableClose: false });
   }

@@ -1,8 +1,12 @@
 <tl-side-nav *ngIf='apiServerConnected && serverConnected; else disconnectedLines'>
-    <tl-layout *ngIf='isRPCConnected && isSynced'>
+    <!-- <tl-layout *ngIf='isRPCConnected && isSynced'> -->
+    <tl-layout *ngIf='isRPCConnected && isAbleToRpc'>
         <router-outlet></router-outlet>
-        <tl-info-line></tl-info-line>
     </tl-layout>
+    <ng-container *ngIf='isRPCConnected'>
+        <ng-template *ngFor='let w of windows' [ngComponentOutlet]="w.component"></ng-template>
+        <tl-info-line></tl-info-line>
+    </ng-container>
 </tl-side-nav>
 
 <ng-template #disconnectedLines>

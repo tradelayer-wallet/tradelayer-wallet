@@ -1,0 +1,13 @@
+.tab-container {
+    align-items: center;
+    mat-form-field {
+        width: 100%;
+    }
+    .success-message {
+        margin: 0.5rem 0;
+        font-size: 1rem;
+        font-weight: bold;
+        color: blue;
+        cursor: pointer;
+    }
+}

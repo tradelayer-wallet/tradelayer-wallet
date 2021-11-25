@@ -58,7 +58,6 @@ export class SocketScript {
             const checkRes = await newAsyncClent("tl_getinfo");
             const { data, error } = checkRes;
             if (!error && data?.['blocktime']) {
-                console.log(`Socket Script is Connected to the RPC`);
                 this.asyncClient = newAsyncClent;
                 res(true);
             } else {

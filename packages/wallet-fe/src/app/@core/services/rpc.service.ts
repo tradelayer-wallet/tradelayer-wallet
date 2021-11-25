@@ -4,6 +4,8 @@ import { ApiService } from "./api.service";
 import { SocketService } from "./socket.service";
 import { DialogService, DialogTypes } from "./dialogs.service";
 import { ToastrService } from "ngx-toastr";
+import { WindowsService } from "./windows.service";
+import { LoadingService } from "./loading.service";
 
 export type TNETWORK = 'LTC' | 'LTCTEST';
 
@@ -25,13 +27,15 @@ export class RpcService {
     private rpcHost: string = '';
     private authToken: string = '';
     private _NETWORK: TNETWORK = "LTC";
-
+    public isAbleToRpc: boolean = false;
+    
     constructor(
       private http: HttpClient,
       private apiService: ApiService,
       private socketService: SocketService,
       private dialogService: DialogService,
       private toasterService: ToastrService,
+      private loadingService: LoadingService,
     ) {
       this.socket.on("rpc-connection-error", (error: string) => {
         if (!this.isConnected) return;
@@ -123,7 +127,7 @@ export class RpcService {
       const connectRes = await this.connect(connectCreds, isTestNet);
       if (!connectRes) return { error: 'Error With Node Connection' };
       this.dialogService.closeAllDialogs();
-      this.dialogService.openDialog(DialogTypes.SYNC_NODE);
+      // this.dialogService.openDialog(DialogTypes.SYNC_NODE);
       return { data: connectRes };
     }
 
@@ -149,13 +153,18 @@ export class RpcService {
       }
     }
 
-    clearRPC() {
+    async clearRPC() {
+      this.loadingService.isLoading = true;
+      if (this.isConnected) await this.socketScriptApi.terminate().toPromise();
       this.isConnected = false;
       this.isSynced = false;
+      this.isAbleToRpc = false;
       this.rpcHost = '';
       this.authToken = '';
       this.dialogService.closeAllDialogs();
       this.dialogService.openDialog(DialogTypes.RPC_CONNECT);
+      this.NETWORK = 'LTC';
+      this.loadingService.isLoading = false;
     }
 
     private _saveCreds(credentials: RPCCredentials) {

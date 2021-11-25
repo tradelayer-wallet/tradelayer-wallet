@@ -1,0 +1,33 @@
+<div class="tab-container">
+    <mat-form-field>
+        <mat-label>Transaction Type</mat-label>
+        <mat-select class='tx-type' placeholder="Select Transaction Type" [(ngModel)]="selectedTxType">
+            <mat-option
+                *ngFor='let txType of txTypes | keyvalue'
+                [value]='txType.value'
+                [disabled]='txType.value === txTypes.SEND_LTC'
+            > {{ txType.value }} </mat-option>
+        </mat-select>
+    </mat-form-field>
+
+    <mat-form-field>
+        <mat-label>From Address</mat-label>
+        <input matInput type='text' [(ngModel)]='fromAddress'>
+        <button *ngIf='fromAddress && isAddressValid === null' mat-icon-button matSuffix (click)="validateAddress(fromAddress)">
+            <mat-icon>autorenew</mat-icon>
+        </button>
+        <mat-icon matSuffix *ngIf='fromAddress && isAddressValid !== null && isAddressValid !== "PENDING"'> 
+            {{ isAddressValid === true ? 'done' : 'close' }}
+        </mat-icon>
+        <mat-spinner diameter='20' *ngIf='fromAddress && isAddressValid === "PENDING"' matSuffix></mat-spinner>
+    </mat-form-field>
+
+    <tx-type-send-vesting
+        [sender]='fromAddress'
+        (loading)='loading = $event'
+        (hexOutput)='hexOutput = $event'
+        *ngIf='selectedTxType === txTypes.SEND_VESTING'
+    ></tx-type-send-vesting>
+
+    <textarea [(ngModel)]='hexOutput'> {{ hexOutput }} </textarea>
+</div>

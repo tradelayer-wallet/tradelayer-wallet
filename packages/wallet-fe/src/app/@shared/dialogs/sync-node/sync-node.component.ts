@@ -33,16 +33,17 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     private checkTimeOutFunc: any;
 
     constructor(
-        public dialogRef: MatDialogRef<SyncNodeDialog>,
         private rpcService: RpcService,
         private apiService: ApiService,
         private socketService: SocketService,
-        private router: Router,
-        private dialogService: DialogService,
     ) {}
 
     get sochainApi() {
         return this.apiService.soChainApi;
+    }
+
+    get isSynced() {
+        return this.rpcService.isSynced;
     }
 
     ngOnInit() {
@@ -90,6 +91,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             }, 2000);
             return;
         }
+        this.rpcService.isAbleToRpc = true;
         this.stopChecking = false;
         this.nodeBlock = giRes.data.block;
         await this.checkNetworkInfo();
@@ -97,8 +99,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
         if (this.nodeBlock + 1 >= this.networkBlocks) {
             this.rpcService.isSynced = true;
-            this.dialogRef.close();
-            this.router.navigateByUrl('/');
+            this.message = 'FULL SYNCED';
         }
         this.message = ' ';
         return;
@@ -115,15 +116,16 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     async terminate() {
+        this.loading = true;
         this.message = " ";
         const stopRes = await this.rpcService.rpc('stop');
         if (stopRes.error || !stopRes.data) {
             this.message = "Error! Please restart the app!";
             return;
         }
-        this.rpcService.clearRPC();
-        this.dialogRef.close();
-        this.dialogService.openDialog(DialogTypes.RPC_CONNECT);
+        await this.rpcService.clearRPC();
+        this.loading = false;
+
     }
 
     ngOnDestroy() {

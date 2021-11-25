@@ -1,0 +1,13 @@
+<div class="tab-container">
+    <mat-form-field>
+        <mat-label>Raw Transaction Hex</mat-label>
+        <input matInput type='text' [(ngModel)]='rawTx'>
+    </mat-form-field>
+    <button mat-button [disabled]='!rawTx' (click)='decode()'> Decode </button>
+
+    <span>Litecoin Data</span>
+    <textarea [value]='decodeData' disabled> {{ decodeData }}</textarea>
+
+    <span>TradeLayer Data</span>
+    <textarea [value]='tlDecodeData' disabled> {{ tlDecodeData }}</textarea>
+</div>

@@ -1,0 +1,41 @@
+.tab-container {
+
+    .detailed {
+        display: flex;
+        flex-direction: column;
+        .tx {
+            display: flex;
+            flex-direction: column;
+            .options {
+                display: flex;
+                justify-content: space-between;
+                mat-form-field {
+                    width: 30%;
+                }
+            }
+        }
+    }
+
+    button {
+        margin: 1rem 0;
+    }
+
+    textarea {
+        min-height: 100px;
+        max-height: 500px;
+        height: 100px;
+        resize: vertical;
+        margin-bottom: 1rem;
+    }
+    .ready-to-send {
+        text-align: center;
+        width: 100%;
+        font-size: 1rem;
+        font-weight: bold;
+    }
+    .errors-string {
+        text-align: center;
+        width: 100%;
+        font-style: italic;
+    }
+}

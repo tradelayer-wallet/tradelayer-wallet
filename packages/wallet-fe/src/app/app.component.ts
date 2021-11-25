@@ -3,6 +3,7 @@ import { LoadingService } from './@core/services/loading.service';
 import { RpcService } from './@core/services/rpc.service';
 
 import { SocketService } from './@core/services/socket.service';
+import { WindowsService } from './@core/services/windows.service';
 
 @Component({
   selector: 'tl-root',
@@ -14,8 +15,12 @@ export class AppComponent {
     private socketService: SocketService,
     private loadingService: LoadingService,
     private rpcService: RpcService,
+    private windowsService: WindowsService,
   ) { }
 
+  get isAbleToRpc() {
+    return this.rpcService.isAbleToRpc;
+  }
   get isLoading(): boolean {
     return this.socketService.serversWaiting || this.loadingService.isLoading;
   }
@@ -34,5 +39,9 @@ export class AppComponent {
 
   get isSynced() {
     return this.rpcService.isSynced;
+  }
+
+  get windows() {
+    return this.windowsService.tabs;
   }
 }

@@ -48,6 +48,7 @@ export class FastifyServer {
                     setTimeout(() => res2(true), 5000);
                 });
                 await killPort(this.nodePort);
+                this.nodePort = null;
             }
             this.server.log.error(message);
             res(true);

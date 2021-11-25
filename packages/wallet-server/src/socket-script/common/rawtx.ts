@@ -33,7 +33,7 @@ export class RawTx {
         const luRes = await this.client('listunspent', 0, 999999999, [this.fromAddress]);
         const luResErrorMessage = `Error with getting unspents for address ${this.fromAddress}`;
         if (luRes.error || !luRes.data) return { error: luRes.error || luResErrorMessage };
-        if (luRes.data.length < 1) return { error: `Not enough LTC for this transaction` };
+        if (!luRes.data.length && !this.inputs?.length) return { error: `Not enough LTC for this transaction` };
         this.sortedUTXOs = luRes.data.sort((a: IInputs, b: IInputs) => b.amount - a.amount);
 
         const gmvaRes = await this.getMinVoutAmount();

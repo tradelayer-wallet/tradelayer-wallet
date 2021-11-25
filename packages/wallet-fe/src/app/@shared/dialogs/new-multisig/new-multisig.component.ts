@@ -1,11 +1,15 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
+import { first } from 'rxjs/operators';
 import { AddressService, IMultisigPair } from 'src/app/@core/services/address.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
-
+import { PasswordDialog } from '../password/password.component';
+import { AuthService } from '../../../@core/services/auth.service';
+import { decryptKeyPair, encryptKeyPair } from '../../../utils/litecore.util';
+import { DialogService } from 'src/app/@core/services/dialogs.service';
 enum KeyTypes {
     HOT = 'HOT',
     AIRGAP = 'AIRGAP',
@@ -29,11 +33,14 @@ export class NewMultisigDialog implements OnInit {
     constructor(
         @Inject(MAT_DIALOG_DATA) private data: any,
         public dialogRef: MatDialogRef<NewMultisigDialog>,
+        public matDialog: MatDialog,
         private rpcService: RpcService,
         private formBuilder: FormBuilder,
         private addressService: AddressService,
         private toastrService: ToastrService,
         private loadingService: LoadingService,
+        private authService: AuthService,
+        private dialogService: DialogService,
     ) { }
 
     get keyPair(){
@@ -117,7 +124,7 @@ export class NewMultisigDialog implements OnInit {
             return;
         } 
         key.type = value;
-        if (value === KeyTypes.HOT) key.pubkey = this.keyPair?.pubKey;
+        if (value === KeyTypes.HOT) key.pubkey = this.keyPair?.address;
         if (value === KeyTypes.AIRGAP) key.pubkey = '';
     }
 
@@ -126,12 +133,12 @@ export class NewMultisigDialog implements OnInit {
             if (action === 'add') {
                 this.nRequired < this.nAllKeys
                     ? this.nRequired = this.nRequired + 1
-                    : console.log(`Max is ${this.nAllKeys}!`);
+                    : null
             }
             if (action === 'remove') {
                 this.nRequired > 2
                 ? this.nRequired = this.nRequired - 1
-                : console.log('Min is 2!');
+                : null
             }
         }
 
@@ -139,12 +146,12 @@ export class NewMultisigDialog implements OnInit {
             if (action === 'add') {
                 this.nAllKeys < 7
                     ? this.changeKeyFields('add')
-                    : console.log('Max is 7!');
+                    : null
             }
             if (action === 'remove') {
                 this.nAllKeys > 2
                     ? this.changeKeyFields('remove')
-                    : console.log('Min is 2!');
+                    : null
             }
         }
     }
@@ -178,9 +185,26 @@ export class NewMultisigDialog implements OnInit {
         this.loadingService.isLoading = false;
     }
 
-    save() {
-        if (this.multisigAddressData) this.addressService.addMultisigAddress(this.multisigAddressData);
-        this.close();
+    async save() {
+        const passDialog = this.matDialog.open(PasswordDialog);
+        const password = await passDialog.afterClosed()
+            .pipe(first())
+            .toPromise();
+        if (!password) return;
+        const encKey = this.authService.encKey;
+        const decryptResult = decryptKeyPair(encKey, password);
+        if (!decryptResult) {
+            this.toastrService.error('Wrong Password', 'Error');
+        } else {
+            if (this.multisigAddressData) {
+                this.addressService.addMultisigAddress(this.multisigAddressData);
+                const allKeyParis = [...this.addressService.keyPairs, ...this.addressService.multisigPairs];
+                this.authService.encKey = encryptKeyPair(allKeyParis, password);
+                this.dialogService.openEncKeyDialog(this.authService.encKey);
+                this.close();
+            }
+
+        }
     }
 
     close() {

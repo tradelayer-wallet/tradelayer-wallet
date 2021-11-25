@@ -31,6 +31,8 @@ import { InfoLineComponent } from '../@shared/components/info-line/info-line.com
 import { NewMultisigDialog } from './dialogs/new-multisig/new-multisig.component';
 import { MatSelectModule } from '@angular/material/select'; 
 import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
+import { WindowComponent } from './components/window/window.component';
+import { PasswordDialog } from './dialogs/password/password.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -63,6 +65,7 @@ const DIALOGS = [
     WithdrawDialog,
     DepositDialog,
     NewMultisigDialog,
+    PasswordDialog,
 ];
 
 const COMPONENTS = [
@@ -70,6 +73,7 @@ const COMPONENTS = [
     DisconnectedLineComponent,
     OverlayLoadingComponent,
     InfoLineComponent,
+    WindowComponent,
 ];
 
 const imports = [

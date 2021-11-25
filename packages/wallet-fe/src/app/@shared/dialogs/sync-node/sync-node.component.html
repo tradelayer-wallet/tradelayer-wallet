@@ -1,17 +1,19 @@
-<div class="dialog-container">
-    <h1>Node synchronization</h1>
-    <mat-dialog-content class="mat-typography">
-        <div class="content-container">
-            <span class='information'>{{ eta }}</span>
-            <mat-progress-bar mode="determinate" [value]="readyPercent"></mat-progress-bar>
-            <span class='blocks-span'> {{ nodeBlock }} / {{ networkBlocks }} </span>
-            <p class='message'> {{ message }}</p>
-            <button
-                color="warn"
-                mat-button
-                (click)='terminate()'
-                [disabled]='!nodeBlock'
-            >Terminate</button>
-        </div>
-    </mat-dialog-content>
-</div>
+<custom-window title='Synchronization'>
+    <div class="dialog-container">
+        <mat-dialog-content class="mat-typography">
+            <div class="content-container">
+                <p class='synced' *ngIf="isSynced"> Full Syncrhonized</p>
+                <span class='information' *ngIf="!isSynced">{{ eta }}</span>
+                <mat-progress-bar mode="determinate" [value]="readyPercent"></mat-progress-bar>
+                <span class='blocks-span'> {{ nodeBlock }} / {{ networkBlocks }} </span>
+                <p class='message'> {{ message }}</p>
+                <button
+                    color="warn"
+                    mat-button
+                    (click)='terminate()'
+                    [disabled]='!nodeBlock'
+                >Terminate</button>
+            </div>
+        </mat-dialog-content>
+    </div>
+</custom-window>

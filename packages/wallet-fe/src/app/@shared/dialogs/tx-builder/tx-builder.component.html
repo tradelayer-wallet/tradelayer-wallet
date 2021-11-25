@@ -1,38 +1,24 @@
 <div class="dialog-container">
-    <div class="title">
-        <h1>Transaction Builder</h1>
-    </div>
-    <div class="content">
-        <div class="common">
-            <mat-form-field>
-                <mat-label>Address</mat-label>
-                <mat-select class='select-address' placeholder="Select Address" [(ngModel)]="selectedKeyPair">
-                    <mat-option *ngFor='let keyPair of allKeyPairs' [value]='keyPair'> {{ keyPair.address }}</mat-option>
-                </mat-select>
-            </mat-form-field>
-
-            <mat-form-field>
-                <mat-label>Transaction Type</mat-label>
-                <mat-select class='tx-type' placeholder="Select Transaction Type" [(ngModel)]="selectedTxType">
-                    <mat-option
-                        *ngFor='let txType of txTypes | keyvalue'
-                        [value]='txType.value'
-                        [disabled]='txType.value === txTypes.SEND_LTC'
-                    > {{ txType.value }} </mat-option>
-                </mat-select>
-            </mat-form-field>
-
-            <tx-type-send-vesting
-                [sender]='selectedKeyPair.address'
-                *ngIf='selectedTxType === txTypes.SEND_VESTING'
-                (rawTxEvent)='updateRawTx($event)'
-            ></tx-type-send-vesting>
-        </div>
-    </div>
-    <div class="output">
-        <textarea [(ngModel)]='rawTX'>{{ rawTX }}</textarea>
-    </div>
-    <div class="buttons">
-        <!-- <button mat-raised-button (click)="close()" color="primary">SEND</button> -->
-    </div>
+    <mat-tab-group>
+        <mat-tab label='Build'>
+            <tx-builder-build-tab
+                (loading)='setLoading($event)'
+            ></tx-builder-build-tab>
+        </mat-tab>
+        <mat-tab label='Sign'>
+            <tx-builder-sign-tab
+                (loading)='setLoading($event)'
+            ></tx-builder-sign-tab>
+        </mat-tab>
+        <mat-tab label='Send'>
+            <tx-builder-send-tab
+                (loading)='setLoading($event)'
+            ></tx-builder-send-tab>
+        </mat-tab>
+        <mat-tab label='Decode'>
+            <tx-builder-decode-tab
+                (loading)='setLoading($event)'
+            ></tx-builder-decode-tab>
+        </mat-tab>
+    </mat-tab-group>
 </div>

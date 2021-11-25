@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify"
 import SocketScript from "../socket-script";
-import { serverSocketService } from '../sockets';
+import { serverSocketService, walletSocketSevice } from '../sockets';
 import axios from 'axios';
 import { INodeConfig, myWalletNode } from "../services/wallet-node";
 import { RawTx } from "../socket-script/common/rawtx";
@@ -10,7 +10,6 @@ export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
 
         fastify.get('/rpcCall', (request, reply) => {
-            console.log(request.query);
         });
 
         fastify.get('/checkConnection', (request, reply) => {
@@ -120,14 +119,16 @@ export const socketRoutes = (socketScript: SocketScript) => {
             }
         });
 
-        fastify.get('/buildTx', async (request, reply) => {
+        fastify.post('/buildTx', async (request, reply) => {
             try {
-                const { fromAddress, toAddress, amount, txType } = request.query as {
+                const { fromAddress, toAddress, amount, txType, inputs } = request.body as {
                     fromAddress: string,
                     toAddress: string,
                     amount: string,
                     txType: string,
+                    inputs: string,
                 };
+
                 if (txType !== 'SEND_VESTING') {
                     reply.send({ error: 'Unsupported tx type' });
                     return;
@@ -142,7 +143,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 }
 
                 const payload = payloadRes.data;
-                const rawTxOptions = { fromAddress, toAddress, payload };
+                const rawTxOptions = { fromAddress, toAddress, payload, inputs: inputs ? JSON.parse(inputs) : [] };
                 const rawTx = new RawTx(rawTxOptions, client);
                 const rawTxRes = await rawTx.build();
 
@@ -197,6 +198,17 @@ export const socketRoutes = (socketScript: SocketScript) => {
                     return;
                 }
                 reply.send({ data: res.data });
+            } catch(error) {
+                reply.send({ error: error.message });
+            }
+        });
+
+        fastify.get('/terminate', async (request, reply) => {
+            try {
+                walletSocketSevice.lastBlock = 0;
+                serverSocketService.socket.disconnect();
+                await fasitfyServer.stop('Terminate From Wallet!');
+                reply.send({ data: true });
             } catch(error) {
                 reply.send({ error: error.message });
             }

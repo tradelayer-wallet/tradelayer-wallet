@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { SocketService } from 'src/app/@core/services/socket.service';
+import { IWindow, WindowsService } from 'src/app/@core/services/windows.service';
 
 @Component({
   selector: 'tl-info-line',
@@ -14,6 +15,7 @@ export class InfoLineComponent implements OnInit {
   constructor(
     private socketService: SocketService,
     private rpcService: RpcService,
+    private windowsService: WindowsService,
   ) { }
 
   get socket() {
@@ -24,6 +26,10 @@ export class InfoLineComponent implements OnInit {
     return this.rpcService.NETWORK === 'LTCTEST' ? 'TESTNET' : 'MAINNET';
   }
 
+  get windows() {
+    return this.windowsService.tabs;
+  }
+
   ngOnInit() {
     this._trackBlockHigh();
   }
@@ -32,5 +38,9 @@ export class InfoLineComponent implements OnInit {
     const giRes = await this.rpcService.rpc('tl_getinfo');
     if (!giRes.error || giRes.data?.block) this.blockHigh = giRes.data.block;
     this.socket.on('newBlock', (block: number) => this.blockHigh = block);
+  }
+
+  maximize(tab: IWindow) {
+    tab.minimized = !tab.minimized;
   }
 }

@@ -11,6 +11,7 @@ import { AuthGuard } from './@core/guards/auth.guard';
 import { PortfolioPageComponent } from './@pages/portfolio-page/portfolio-page.component';
 import { SettingsPageComponent } from './@pages/settings-page/settings-page.component';
 import { MultisigPageComponent } from './@pages/multisig-page/multisig-page.component';
+import { SyncedGuard } from './@core/guards/sync.guard';
 
 export const routes: Routes = [
   {
@@ -24,16 +25,18 @@ export const routes: Routes = [
       {
         path: 'login',
         component: LoginPageComponent,
+        canActivate: [SyncedGuard]
+
       },
       {
         path: 'spot',
         component: SpotPageComponent,
-        canActivate: [AuthGuard]
+        canActivate: [AuthGuard, SyncedGuard]
       },
       {
         path: 'futures',
         component: FuturesPageComponent,
-        canActivate: [AuthGuard]
+        canActivate: [AuthGuard, SyncedGuard]
       },
       {
         path: 'portfolio',
@@ -48,7 +51,6 @@ export const routes: Routes = [
       {
         path: 'multisig',
         component: MultisigPageComponent,
-        canActivate: [AuthGuard]
       },
       {
         path: '**',

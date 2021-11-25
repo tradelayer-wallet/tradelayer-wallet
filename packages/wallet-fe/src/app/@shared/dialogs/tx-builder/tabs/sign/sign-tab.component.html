@@ -1,0 +1,36 @@
+<div class="tab-container">
+    <mat-form-field>
+        <mat-label>Raw Transaction Hex</mat-label>
+        <input matInput type='text' [(ngModel)]='rawTx'>
+    </mat-form-field>
+
+    <mat-checkbox [(ngModel)]='detailed'>Detailed</mat-checkbox>
+
+    <div class="detailed" *ngIf='vins.length && detailed'>
+        <div class="tx" *ngFor='let tx of vins; let i = index'>
+            <mat-form-field style="width: 100%; cursor: pointer;" (click)='copy(tx.txid)'>
+                <mat-label>Input {{ i }}: Transaction ID</mat-label>
+                <input matInput type='text' [value]='tx.txid' disabled>
+            </mat-form-field>
+            <div class="options">
+                <mat-form-field>
+                    <mat-label>amount</mat-label>
+                    <input matInput type='number' [(ngModel)]='tx.amount'>
+                </mat-form-field>
+                <mat-form-field>
+                    <mat-label>Script PubKey</mat-label>
+                    <input matInput type='text' [(ngModel)]='tx.scriptPubKey'>
+                </mat-form-field>
+                <mat-form-field>
+                    <mat-label>Redeem Script</mat-label>
+                    <input matInput type='text' [(ngModel)]='tx.redeemScript'>
+                </mat-form-field>
+            </div>
+        </div>
+    </div>
+    <button mat-button [disabled]='buttonDisabled' (click)='sign()'> Sign </button>
+    <textarea [(ngModel)]='hexOutput'> {{ hexOutput }} </textarea>
+    <span class='ready-to-send' *ngIf='hexOutput'> {{ complete ? 'Completed (ready to be sent)' : 'Not Completed'}}</span>
+    <span class='errors-string' *ngIf='hexOutput && !complete && errorsObj'> {{ errorsString }}</span>
+
+</div>

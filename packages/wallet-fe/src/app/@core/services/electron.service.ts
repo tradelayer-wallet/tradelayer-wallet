@@ -21,7 +21,6 @@ export class ElectronService {
     private handleEvents() {
         // this.ipcRenderer.on('angular-electron-message', (_: any, message: any) => {
         //     const { event, data } = message;
-        //     console.log(`event: ${event}, data: ${data}`);
         // });
     }
 

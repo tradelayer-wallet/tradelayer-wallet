@@ -20,19 +20,20 @@ export class RPCGuard implements CanActivate {
         if (!this.socketService.socket?.connected) return false;
 
         const isConnected = this.rpcService.isConnected;
-        const isSynced = this.rpcService.isSynced;
+        // const isSynced = this.rpcService.isSynced;
 
         if (!isConnected) {
             this.dialogService.openDialog(DialogTypes.RPC_CONNECT);
             return false;
         }
 
-        if (isConnected && !isSynced) {
-            this.dialogService.openDialog(DialogTypes.SYNC_NODE);
-            return false;
-        }
+        // if (isConnected && !isSynced) {
+        //     this.dialogService.openDialog(DialogTypes.SYNC_NODE);
+        //     return false;
+        // }
 
-        if (isConnected && isSynced) return true;
+        // if (isConnected && isSynced) return true;
+        if (isConnected) return true;
         return false;
    }
    

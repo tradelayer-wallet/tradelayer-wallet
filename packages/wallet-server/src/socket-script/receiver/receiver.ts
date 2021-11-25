@@ -54,7 +54,6 @@ export abstract class Receiver {
     }
 
     protected log(message: string, data?: any): void {
-        if (this.logs) console.log(`${message} ${JSON.stringify(data, null, "\t") || ''}`);
     }
 
     protected init(_host: string): void {
@@ -62,7 +61,6 @@ export abstract class Receiver {
             this.socket = io(host);
             this.socket.on('connect', this.onConnection.bind(this));
             this.socket.on('connect_error', (err) => {
-                console.log({err});
                 this.terminateTrade(`Cant create Stablish Connection with ${host}`)
             });
     }

@@ -10,24 +10,25 @@ import { RpcService } from 'src/app/@core/services/rpc.service';
   styleUrls: ['./send-vesting.tx-type.component.scss']
 })
 export class SendVestingTxTypeComponent {
+    @Output('loading') loadingEmmiter: EventEmitter<boolean> = new EventEmitter();
+    @Output('hexOutput') hexOutputEmmiter: EventEmitter<string> = new EventEmitter();
+
     @Input('sender') sender: string = '';
-    @Output('rawTxEvent') rawTxEvent = new EventEmitter<string>();
 
-    _toAddress: string = '';
+    private _loading: boolean = false;
+    private _toAddress: string = '';
+
     amount: number = 0;
-
     isAddressValid: boolean | null | 'PENDING' = null;
 
-  
     constructor (
       private rpcService: RpcService,
       private toastrService: ToastrService,
       private builderSrvice: BuilderService,
-      private loadingService: LoadingService,
     ) { }
 
     get toAddress() {
-      return this._toAddress
+      return this._toAddress;
     }
 
     set toAddress(value: string) {
@@ -37,6 +38,15 @@ export class SendVestingTxTypeComponent {
 
     get buildDisabled() {
       return !this.sender || !this.toAddress || !this.amount || this.isAddressValid === 'PENDING' || this.isAddressValid === false;
+    }
+      
+    get loading() {
+      return this._loading;
+    }
+
+    set loading(value: boolean) {
+      this.loadingEmmiter.emit(value);
+      this._loading = value;
     }
 
     async validateAddress(address: string) {
@@ -54,7 +64,8 @@ export class SendVestingTxTypeComponent {
     }
   
     async build() {
-      this.loadingService.isLoading = true;
+      this.loading = true;
+      this.hexOutputEmmiter.emit('');
       const tradeData = {
         fromAddress: this.sender,
         toAddress: this.toAddress,
@@ -62,16 +73,10 @@ export class SendVestingTxTypeComponent {
         txType: 'SEND_VESTING',
       };
 
-      const result = await this.builderSrvice.build(tradeData).toPromise();
-      const { error, data } = result;
-
-      if (error || !data ) {
-        this.toastrService.error(error || 'Undefined Error!', 'Error');
-        this.loadingService.isLoading = false;
-        return;
-      }
-
-      this.rawTxEvent.emit(data);
-      this.loadingService.isLoading = false;
+      const result = await this.builderSrvice.build(tradeData);
+      result.error || !result.data
+        ? this.toastrService.error(result.error || 'Undefined Error!', 'Error')
+        : this.hexOutputEmmiter.emit(result.data);
+      this.loading = false;
     }
 }

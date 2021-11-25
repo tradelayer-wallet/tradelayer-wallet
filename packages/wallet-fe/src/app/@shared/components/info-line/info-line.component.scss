@@ -3,12 +3,26 @@
     width: 100%;
     background-color: rgba(255, 255, 255, 0.3);
     box-shadow: 0 0 0.1rem 0 black;
-    padding: 0.5rem;
+    padding: 0.25rem;
     z-index: 20;
     color: wheat;
     position: absolute;
     bottom: 0;
-    .info-line {
-        text-align: right;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    .tabs {
+        flex-shrink: 1;
+        display: flex;
+        .tab {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 0.5rem;
+            border:r 1px solid black;
+            cursor: pointer;
+            color: black;
+            background-color: wheat;
+        }
     }
 }

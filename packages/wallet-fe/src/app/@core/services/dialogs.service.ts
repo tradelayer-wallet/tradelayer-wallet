@@ -7,7 +7,6 @@ import { NewMultisigDialog } from "src/app/@shared/dialogs/new-multisig/new-mult
 import { NewNodeDialog } from "src/app/@shared/dialogs/new-node/new-node.component";
 import { RescanDialog } from "src/app/@shared/dialogs/rescan/rescan.component";
 import { RPCConnectDialog } from "src/app/@shared/dialogs/rpc-connect/rpc-connect.component";
-import { SyncNodeDialog } from "src/app/@shared/dialogs/sync-node/sync-node.component";
 import { TxBuilderDialog } from "src/app/@shared/dialogs/tx-builder/tx-builder.component";
 import { WithdrawDialog } from "src/app/@shared/dialogs/withdraw/withdraw.component";
 
@@ -16,7 +15,6 @@ export enum DialogTypes {
     ENC_KEY = "ENC_KEY",
     COMMING_SOON = 'COMMING_SOON',
     NEW_NODE = 'NEW_NODE',
-    SYNC_NODE = 'SYNC_NODE',
     RESCAN = 'RESCAN',
     WITHDRAW = 'WITHDRAW',
     DEPOSIT = 'DEPOSIT',
@@ -29,7 +27,6 @@ const dialogs: { [key: string]: any; } = {
     'ENC_KEY': EncKeyDialog,
     'COMMING_SOON': CommingSoonDialog,
     'NEW_NODE': NewNodeDialog,
-    'SYNC_NODE': SyncNodeDialog,
     'RESCAN': RescanDialog,
     'WITHDRAW': WithdrawDialog,
     'DEPOSIT': DepositDialog,

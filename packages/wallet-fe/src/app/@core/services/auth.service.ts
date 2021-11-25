@@ -2,7 +2,7 @@ import { Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { ToastrService } from "ngx-toastr";
 import ltcUtils from '../../utils/litecore.util'
-import { AddressService, IKeyPair } from "./address.service";
+import { AddressService, IKeyPair, IMultisigPair } from "./address.service";
 import { ApiService } from "./api.service";
 import { BalanceService } from "./balance.service";
 import { DialogService, DialogTypes } from "./dialogs.service";
@@ -56,13 +56,18 @@ export class AuthService {
     }
 
     async loginFromKeyFile(key: string, pass: string) {
-        const res = ltcUtils.decryptKeyPair(key, pass) as IKeyPair[];
-
-        if (!res?.length || !res[0]?.address || !res[0]?.pubKey || !res[0]?.privKey) {
+        const res = ltcUtils.decryptKeyPair(key, pass) as (IKeyPair | IMultisigPair)[];
+        if (!res?.length) {
             this.toastrService.error('Wrong Password or keyFile', 'Error');
             return;
         }
-        const vaRes = await this.rpcService.rpc('validateaddress', [res[0].address]);
+
+        const keyPairs = res.filter((e) => !('redeemScript' in e)) as IKeyPair[];
+        if (!keyPairs?.length || !keyPairs[0]?.address || !keyPairs[0]?.pubKey || !keyPairs[0]?.privKey) {
+            this.toastrService.error('Wrong keyFile', 'Error');
+            return;
+        }
+        const vaRes = await this.rpcService.rpc('validateaddress', [keyPairs[0].address]);
 
         if (vaRes.error || !vaRes.data) {
             this.toastrService.error('Error with validating wallet', 'Error');
@@ -75,12 +80,12 @@ export class AuthService {
         }
 
         if (vaRes.data?.isvalid && !vaRes.data?.ismine) {
-            const ipkRes = await this.rpcService.rpc('importprivkey', [res[0].privKey, "tl-wallet", false]);
+            const ipkRes = await this.rpcService.rpc('importprivkey', [keyPairs[0].privKey, "tl-wallet", false]);
         }
 
 
-        const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [res[0]?.address]]);
-        const scLuRes: any = await this.apiService.soChainApi.getTxUnspents(res[0]?.address).toPromise()
+        const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [keyPairs[0]?.address]]);
+        const scLuRes: any = await this.apiService.soChainApi.getTxUnspents(keyPairs[0]?.address).toPromise()
         if (luRes.error || !luRes.data || scLuRes.status !== "success" || !scLuRes.data) {
             this.toastrService.error('Unexpecter Error. Please try again!', 'Error');
             return;
@@ -92,15 +97,20 @@ export class AuthService {
         }
 
         this.login(res);
-        this.encKey = ltcUtils.encryptKeyPair(this.addressService.keyPairs, pass);
+        const allKeyParis = [...this.addressService.keyPairs, ...this.addressService.multisigPairs];
+        this.encKey = ltcUtils.encryptKeyPair(allKeyParis, pass);
         return;
     }
 
-    login(pair: IKeyPair | IKeyPair[]) {
+    login(pair: IKeyPair | (IKeyPair | IMultisigPair)[]) {
             if (Array.isArray(pair)) {
-                pair.forEach((p: IKeyPair) => {
-                    this.addressService.addDecryptedKeyPair(p);
-                    this.balanceService.updateBalances(p.address);
+                pair.forEach((p: any) => {
+                    if (p.redeemScript) {
+                        this.addressService.addMultisigAddress(p)
+                    } else {
+                        this.addressService.addDecryptedKeyPair(p);
+                        this.balanceService.updateBalances(p.address);
+                    }
                 });
             } else {
                 this.addressService.addDecryptedKeyPair(pair);
@@ -113,6 +123,7 @@ export class AuthService {
         this.addressService.removeAllKeyPairs();
         this.balanceService.restartBalance();
         this.txsService.pendingTxs = [];
+        this.encKey = '';
         this.router.navigateByUrl('login');
     }
 }

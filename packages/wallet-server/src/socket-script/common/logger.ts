@@ -7,9 +7,9 @@ export const customLogger = (data: any) => {
         const path = myWalletNode.defaultPath;
         const filePath = join(path, 'wallet-debug.log');
         appendFile(filePath, `${new Date().toISOString()}: ${data} \n`, (err) => {
-            if (err) console.log(err);
+            if (err) process.send(err);
         });
     } catch (err) {
-        console.log(err);
+        process.send(err);
     }
 };

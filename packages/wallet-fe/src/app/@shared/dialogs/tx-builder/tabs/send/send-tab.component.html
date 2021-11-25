@@ -1,0 +1,8 @@
+<div class="tab-container">
+    <mat-form-field>
+        <mat-label>Raw Transaction Hex</mat-label>
+        <input matInput type='text' [(ngModel)]='rawTx'>
+    </mat-form-field>
+    <span class='success-message' (click)="copy(successMessage)"> {{ successMessage }}</span>
+    <button mat-button [disabled]='!rawTx' (click)='send()'> SEND </button>
+</div>

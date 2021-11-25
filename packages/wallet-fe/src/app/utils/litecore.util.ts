@@ -1,5 +1,5 @@
 // import * as btc from 'bitcoinjs-lib';
-import { IKeyPair } from '../@core/services/address.service';
+import { IKeyPair, IMultisigPair } from '../@core/services/address.service';
 import { AES, enc } from 'crypto-js';
 // const tLTC = {
 //     messagePrefix: '\x19Litecoin Signed Message:\n',
@@ -18,7 +18,7 @@ import { AES, enc } from 'crypto-js';
 //     return { address, wifKey, pubKey };
 // };
 
-export const encryptKeyPair = (keypair: IKeyPair[], pass: string) => {
+export const encryptKeyPair = (keypair: (IKeyPair | IMultisigPair)[], pass: string) => {
     const message = JSON.stringify(keypair);
     return AES.encrypt(message, pass).toString();
 }

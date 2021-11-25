@@ -56,7 +56,6 @@ export class Listener {
       }
 
     private log(message: string, data?: any): void {
-      if (this.logs) console.log(`${message} ${JSON.stringify(data, null, "\t") || ''}`);
     }
 
     private handleListeners(): void {

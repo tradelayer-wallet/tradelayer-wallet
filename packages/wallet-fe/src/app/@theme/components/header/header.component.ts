@@ -26,15 +26,15 @@ export class HeaderComponent {
       id: 2,
       name: 'Spot',
       link: 'spot',
-      needAuthToShow: false,
+      needAuthToShow: true,
     },
-    {
-      id: 3,
-      name: 'Futures',
-      link: 'futures',
-      disabled: true,
-      needAuthToShow: false,
-    },
+    // {
+    //   id: 3,
+    //   name: 'Futures',
+    //   link: 'futures',
+    //   disabled: true,
+    //   needAuthToShow: true,
+    // },
     {
       id: 3,
       name: 'Portfolio',
@@ -51,15 +51,15 @@ export class HeaderComponent {
       id: 5,
       name: 'Multisig',
       link: 'multisig',
-      needAuthToShow: true,
+      needAuthToShow: false,
     },
-    {
-      id: 6,
-      name: 'Node',
-      link: '#',
-      disabled: true,
-      needAuthToShow: true,
-    }
+    // {
+    //   id: 6,
+    //   name: 'Node',
+    //   link: '#',
+    //   disabled: true,
+    //   needAuthToShow: true,
+    // }
   ];
 
   private _selectedRoute: any = this._mainRoutes[0];

@@ -27,25 +27,21 @@ export class ListenerServer {
     const { error, data } = vaRes;
     if (!error && data?.isvalid) {
         if (!data.ismine) {
-            console.log(`You dont have access to address: ${this.address}`);
         } else {
             this.pubkey = data.pubkey;
             this.init();
         }
     } else {
-        console.log(`Not valid address: ${this.address}`);
     }
   }
 
   private init(): void {
-    console.log(`init Listener Script`, this.port);
     const socketOptions = { cors: { origin: "*", methods: ["GET", "POST"] } };
     this.io = require('socket.io')(this.port, { socketOptions });
     this.io.on("connection", this.onConnection.bind(this));
   }
 
   private onConnection(socket: Socket): void {
-    console.log(`CONNECTION !`)
     new Listener(socket, this.address, this.pubkey, this.client, this.logs);
   }
 }
