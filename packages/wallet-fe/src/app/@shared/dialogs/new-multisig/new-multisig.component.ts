@@ -124,7 +124,7 @@ export class NewMultisigDialog implements OnInit {
             return;
         } 
         key.type = value;
-        if (value === KeyTypes.HOT) key.pubkey = this.keyPair?.address;
+        if (value === KeyTypes.HOT) key.pubkey = this.keyPair?.pubKey;
         if (value === KeyTypes.AIRGAP) key.pubkey = '';
     }
 

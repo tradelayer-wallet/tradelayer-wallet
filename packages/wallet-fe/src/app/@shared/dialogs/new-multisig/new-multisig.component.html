@@ -40,11 +40,11 @@
                     </mat-select>
                 </mat-form-field>
                 <mat-form-field appearance="fill" class='pubkey' *ngIf='key.type === "AIRGAP" || key.type === "HOT"'>
-                    <mat-label>Address</mat-label>
+                    <mat-label>Pubkey</mat-label>
                     <input
                         matInput
                         type="text"
-                        placeholder="Address"
+                        placeholder="Pubkey"
                         [value]='key.pubkey'
                         (keyup)='changePubKey($event, key)'
                         [readonly]='(key.type === keyTypes.HOT)'
