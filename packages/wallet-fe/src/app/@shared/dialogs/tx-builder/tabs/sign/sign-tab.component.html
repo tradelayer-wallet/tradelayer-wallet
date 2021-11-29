@@ -26,6 +26,10 @@
                     <input matInput type='text' [(ngModel)]='tx.redeemScript'>
                 </mat-form-field>
             </div>
+            <mat-form-field style="width: 100%;">
+                <mat-label>Private Key</mat-label>
+                <input matInput type='text' [value]='privKeys?.[i] || ""' (keyup)='updatePrivKeyValue($event, i)'>
+            </mat-form-field>
         </div>
     </div>
 
@@ -33,7 +37,7 @@
         <mat-checkbox [(ngModel)]='addMultisig' [disabled]='!vins.length'>Add Multisig Address First</mat-checkbox>
         <div class='keys' *ngIf='addMultisig'>
             <div class='field'>
-                <span>Requried Keys: </span>
+                <span>Required Keys: </span>
                 <span class='value'> {{ nRequired }} </span>
                 <div class="icons">
                     <mat-icon (click)="nKeysChange('required', 'add')">add</mat-icon>

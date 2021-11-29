@@ -21,6 +21,7 @@ export class TxBuilderSignTabComponent {
 
   public addMultisig: boolean = false;
   public pubkeysArray: string[] = ['',''];
+  public privKeys: string[] = [];
 
   constructor(
     private rpcService: RpcService,
@@ -54,8 +55,15 @@ export class TxBuilderSignTabComponent {
     if (!this.rawTx) return true;
     if (!this.detailed) return !this.vins.length;
     if (!this.vins.length) return true;
-    return !this.vins.every((tx: any) => tx.redeemScript && tx.amount && tx.scriptPubKey && tx.txid && (tx.vout || tx.vout === 0));
-  }
+    return !this.vins.every(
+      (tx: any, i: number) => 
+        tx.redeemScript &&
+        tx.amount &&
+        tx.scriptPubKey &&
+        tx.txid &&
+        (tx.vout || tx.vout === 0) &&
+        this.privKeys[i]
+    )}
 
   get nRequired() {
       return this._nRequired;
@@ -63,6 +71,10 @@ export class TxBuilderSignTabComponent {
 
   set nRequired(value: number) {
       this._nRequired = value;
+  }
+
+  updatePrivKeyValue(event: any, i: number) {
+    this.privKeys[i] = event.target.value;
   }
 
   changePubKey(event: any, index: number) {
@@ -125,7 +137,7 @@ export class TxBuilderSignTabComponent {
     }
     const res = !this.detailed
       ? await this.rpcService.rpc('signrawtransaction', [this.rawTx])
-      : await this.rpcService.rpc('signrawtransaction', [this.rawTx, this.vins])
+      : await this.rpcService.rpc('signrawtransaction', [this.rawTx, this.vins, this.privKeys]);
     if (res.error || !res.data) {
       this.toastrService.error(res.error || 'Unknown Error', 'Signing Error');
     } else {
@@ -134,6 +146,7 @@ export class TxBuilderSignTabComponent {
       this.hexOutput = hex;
       if (errors) this.errorsObj = errors;
     }
+    this.privKeys = [];
     this.loading = false;
   }
 

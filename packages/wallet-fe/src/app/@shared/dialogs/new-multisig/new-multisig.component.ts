@@ -94,7 +94,7 @@ export class NewMultisigDialog implements OnInit {
 
         if (action === 'remove') {
             this.nAllKeys = this.nAllKeys - 1;
-            if (this.nRequired > this.nAllKeys)this.nRequired = this.nAllKeys;
+            if (this.nRequired > this.nAllKeys) this.nRequired = this.nAllKeys;
             const oldValue: any[] = this.mainForm.value.keys;
             const newValue = oldValue.slice(0, -1);
             this.mainForm.controls.keys.setValue(newValue);
