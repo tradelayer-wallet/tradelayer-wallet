@@ -1,0 +1,46 @@
+<div class="reward-page-container">
+    <mat-card>
+        <div class="custom-header">
+            <button mat-raised-button (click)='addNewRewardAddress()'>New Node Reward Farming Address</button>
+            <div class="in-use">In Use:  {{ rewardAddresses.length }} / {{ maxRewardAddresses }}</div>
+        </div>
+        <mat-card-content>
+            <mat-table [dataSource]="rewardAddresses">
+                <ng-container matColumnDef="address">
+                    <mat-header-cell *matHeaderCellDef>Address</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                      <span> - </span>
+                      <mat-icon class='copy-icon' (click)='copy("test")'>content_copy</mat-icon>
+                    </mat-cell>
+                </ng-container>
+
+                <ng-container matColumnDef="balance">
+                    <mat-header-cell *matHeaderCellDef>Balance</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                        <span> - </span>
+                    </mat-cell>
+                </ng-container>
+
+                <ng-container matColumnDef="status">
+                    <mat-header-cell *matHeaderCellDef>Status</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                        <button mat-raised-button color="primary">Fund</button>
+                        <button mat-raised-button color="primary">Register</button>
+                        <button mat-raised-button color="primary">Auto-claim</button>
+                    </mat-cell>
+                </ng-container>
+
+                <ng-container matColumnDef="history">
+                    <mat-header-cell *matHeaderCellDef>History</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                        <mat-icon>add</mat-icon>
+                    </mat-cell>
+                </ng-container>
+
+                <mat-header-row *matHeaderRowDef="rewardTableColumns"></mat-header-row>
+                <mat-row *matRowDef="let row; columns: rewardTableColumns;"></mat-row>
+
+            </mat-table>
+        </mat-card-content>
+    </mat-card>
+</div>

@@ -1,4 +1,4 @@
-<div class="window-wrapper" [ngClass]='{ minimized: isMinimized }'>
+<div class="window-wrapper" [ngClass]='{ minimized: isMinimized }' (clickOutside)="minimize()">
     <div class="header">
         <div class="title"> {{ title }}</div>
         <div class="icons">

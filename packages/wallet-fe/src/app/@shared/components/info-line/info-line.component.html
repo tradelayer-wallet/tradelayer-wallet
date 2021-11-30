@@ -1,5 +1,5 @@
 <div class="tabs">
-    <div class="tab" *ngFor='let t of windows' (click)='maximize(t)'>{{ t.title }}</div>
+    <div class="tab" *ngFor='let t of windows' (click)='maximize($event, t)'>{{ t.title }}</div>
 </div>
 <div class="info-line">
     Block: {{ blockHigh }} | Network: {{ network }} | Wallet Version: 0.1.3

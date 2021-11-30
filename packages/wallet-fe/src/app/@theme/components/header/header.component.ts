@@ -49,17 +49,16 @@ export class HeaderComponent {
     },
     {
       id: 5,
+      name: 'Node Reward',
+      link: 'reward',
+      needAuthToShow: true,
+    },
+    {
+      id: 6,
       name: 'Multisig',
       link: 'multisig',
       needAuthToShow: false,
     },
-    // {
-    //   id: 6,
-    //   name: 'Node',
-    //   link: '#',
-    //   disabled: true,
-    //   needAuthToShow: true,
-    // }
   ];
 
   private _selectedRoute: any = this._mainRoutes[0];

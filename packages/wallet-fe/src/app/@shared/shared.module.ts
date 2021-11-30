@@ -33,6 +33,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
 import { WindowComponent } from './components/window/window.component';
 import { PasswordDialog } from './dialogs/password/password.component';
+import { ClickOutsideDirective } from './directives/click-outside.directive';
 
 const NG_MODULES = [
     CommonModule,
@@ -76,6 +77,10 @@ const COMPONENTS = [
     WindowComponent,
 ];
 
+const DIRECTIVES = [
+    ClickOutsideDirective,
+];
+
 const imports = [
     ...NG_MODULES,
     ...MAT_MODULES,
@@ -85,11 +90,13 @@ const imports = [
 const declarations = [
     ...DIALOGS,
     ...COMPONENTS,
+    ...DIRECTIVES,
 ];
 
 const exports = [
     ...DIALOGS,
     ...COMPONENTS,
+    ...DIRECTIVES,
 ];
 
 @NgModule({ imports, declarations, exports })

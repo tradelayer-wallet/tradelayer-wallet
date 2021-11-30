@@ -40,7 +40,8 @@ export class InfoLineComponent implements OnInit {
     this.socket.on('newBlock', (block: number) => this.blockHigh = block);
   }
 
-  maximize(tab: IWindow) {
+  maximize(event: Event, tab: IWindow) {
+    event.stopImmediatePropagation();
     tab.minimized = !tab.minimized;
   }
 }
