@@ -26,10 +26,6 @@
                     <input matInput type='text' [(ngModel)]='tx.redeemScript'>
                 </mat-form-field>
             </div>
-            <mat-form-field style="width: 100%;">
-                <mat-label>Private Key</mat-label>
-                <input matInput type='text' [value]='privKeys?.[i] || ""' (keyup)='updatePrivKeyValue($event, i)'>
-            </mat-form-field>
         </div>
     </div>
 

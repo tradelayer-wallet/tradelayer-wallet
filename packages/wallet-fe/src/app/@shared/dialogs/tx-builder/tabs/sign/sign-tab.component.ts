@@ -1,5 +1,6 @@
 import { Component, Output, EventEmitter } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
+import { AddressService } from 'src/app/@core/services/address.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 
 @Component({
@@ -21,11 +22,11 @@ export class TxBuilderSignTabComponent {
 
   public addMultisig: boolean = false;
   public pubkeysArray: string[] = ['',''];
-  public privKeys: string[] = [];
 
   constructor(
     private rpcService: RpcService,
     private toastrService: ToastrService,
+    private addressService: AddressService,
   ) { }
 
   get loading() {
@@ -61,8 +62,7 @@ export class TxBuilderSignTabComponent {
         tx.amount &&
         tx.scriptPubKey &&
         tx.txid &&
-        (tx.vout || tx.vout === 0) &&
-        this.privKeys[i]
+        (tx.vout || tx.vout === 0)
     )}
 
   get nRequired() {
@@ -73,8 +73,8 @@ export class TxBuilderSignTabComponent {
       this._nRequired = value;
   }
 
-  updatePrivKeyValue(event: any, i: number) {
-    this.privKeys[i] = event.target.value;
+  get activeKeyPair() {
+    return this.addressService.activeKeyPair;
   }
 
   changePubKey(event: any, index: number) {
@@ -137,7 +137,7 @@ export class TxBuilderSignTabComponent {
     }
     const res = !this.detailed
       ? await this.rpcService.rpc('signrawtransaction', [this.rawTx])
-      : await this.rpcService.rpc('signrawtransaction', [this.rawTx, this.vins, this.privKeys]);
+      : await this.rpcService.rpc('signrawtransaction', [this.rawTx, this.vins, this.vins.map(_ => this.activeKeyPair?.privKey || '')]);
     if (res.error || !res.data) {
       this.toastrService.error(res.error || 'Unknown Error', 'Signing Error');
     } else {
@@ -146,7 +146,6 @@ export class TxBuilderSignTabComponent {
       this.hexOutput = hex;
       if (errors) this.errorsObj = errors;
     }
-    this.privKeys = [];
     this.loading = false;
   }
 

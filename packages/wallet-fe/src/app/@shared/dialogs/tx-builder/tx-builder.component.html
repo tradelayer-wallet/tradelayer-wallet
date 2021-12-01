@@ -6,7 +6,7 @@
                     (loading)='setLoading($event)'
                 ></tx-builder-build-tab>
             </mat-tab>
-            <mat-tab label='Sign'>
+            <mat-tab label='Sign' [disabled]='disableSign'>
                 <tx-builder-sign-tab
                     (loading)='setLoading($event)'
                 ></tx-builder-sign-tab>
