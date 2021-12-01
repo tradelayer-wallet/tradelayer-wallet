@@ -55,7 +55,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     ngOnInit() {
-        if (!this.isOffline) this.startCheckingSync();
+        this.startCheckingSync();
     }
 
     private countETA(etaData: { stamp: number; blocks: number; }) {
@@ -104,15 +104,22 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         this.rpcService.isAbleToRpc = true;
         this.stopChecking = false;
         this.nodeBlock = giRes.data.block;
-        await this.checkNetworkInfo();
-        this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
-        this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
-        if (this.nodeBlock + 1 >= this.networkBlocks && !this.isOffline) {
-            this.rpcService.isSynced = true;
-            this.message = 'FULL SYNCED';
+        if (this.isOffline) {
+            clearInterval(this.checkIntervalFunc);
+            clearTimeout(this.checkTimeOutFunc);
+            this.message = ' ';
+            return;
+        } else {
+            await this.checkNetworkInfo();
+            this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
+            this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
+            if (this.nodeBlock + 1 >= this.networkBlocks) {
+                this.rpcService.isSynced = true;
+                this.message = 'FULL SYNCED';
+            }
+            this.message = ' ';
+            return;
         }
-        this.message = ' ';
-        return;
     }
 
     private async checkNetworkInfo() {

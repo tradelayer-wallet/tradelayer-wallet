@@ -93,6 +93,7 @@ export class RpcService {
     private setNetworkInAllServices(value: TNETWORK) {
       this.apiService.soChainApi.NETWORK = value;
       this.apiService.marketApi.NETWORK = value;
+      this.apiService.fundingApi.NETWORK = value;
     }
 
     connect(credentials: RPCCredentials, isTestNet: boolean) {

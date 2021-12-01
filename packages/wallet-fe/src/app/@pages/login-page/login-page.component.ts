@@ -24,8 +24,8 @@ export class LoginPageComponent implements OnInit {
     private rpcService: RpcService,
   ) {}
 
-  get isSynced() {
-    return this.rpcService.isSynced;
+  get onlineButNotSynced() {
+    return !this.rpcService.isSynced && !this.rpcService.isOffline;
   }
 
   ngOnInit() {

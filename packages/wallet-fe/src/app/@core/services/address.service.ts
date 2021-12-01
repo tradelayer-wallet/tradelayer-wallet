@@ -77,6 +77,10 @@ export class AddressService {
         this.multisigPairs = [...this.multisigPairs, multisig];
     }
 
+    removeMultisigAddress(multisig: IMultisigPair) {
+        this.multisigPairs = this.multisigPairs.filter(e => e !== multisig);
+    }
+
     addDecryptedKeyPair(pair: IKeyPair) {
         this.keyPairs = [...this.keyPairs, pair];
         this.activeKeyPair = pair;
