@@ -1,6 +1,6 @@
-import { Component, Inject, Input } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { Component } from '@angular/core';
 import { LoadingService } from 'src/app/@core/services/loading.service';
+import { RpcService } from 'src/app/@core/services/rpc.service';
 
 @Component({
   selector: 'tx-builder-dialog',
@@ -10,13 +10,12 @@ import { LoadingService } from 'src/app/@core/services/loading.service';
 
 export class TxBuilderDialog {
     constructor(
-        @Inject(MAT_DIALOG_DATA) private data: any,
-        public dialogRef: MatDialogRef<TxBuilderDialog>,
         private loadingService: LoadingService,
+        private rpcService: RpcService,
     ) { }
 
-    close() {
-        this.dialogRef.close();
+    get disableSend() {
+        return !this.rpcService.isSynced || this.rpcService.isOffline;
     }
 
     setLoading(loading: boolean) {

@@ -1,5 +1,5 @@
 <div class="login-page-container">
-    <mat-tab-group color='accent' backgroundColor='primary' mat-align-tabs="center" dynamicHeight>
+    <mat-tab-group color='accent' backgroundColor='primary' mat-align-tabs="center" dynamicHeight [selectedIndex]="isSynced ? 0 : 1">
         <mat-tab label="Add">
             <mat-tab-group color='accent' mat-align-tabs="center" dynamicHeight>
                 <mat-tab label='Import KeyFile'>

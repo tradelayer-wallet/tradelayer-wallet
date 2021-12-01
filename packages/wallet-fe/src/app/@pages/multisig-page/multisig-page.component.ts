@@ -3,6 +3,7 @@ import { ToastrService } from 'ngx-toastr';
 import { AddressService } from 'src/app/@core/services/address.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
+import { WindowsService } from 'src/app/@core/services/windows.service';
 
 @Component({
   selector: 'tl-multisig-page',
@@ -17,6 +18,7 @@ export class MultisigPageComponent {
     private customDialogs: DialogService,
     private addressService: AddressService,
     private authService: AuthService,
+    private windowsService: WindowsService,
   ) {}
 
   get multisigs() {
@@ -26,12 +28,14 @@ export class MultisigPageComponent {
   get isLoggedIn() {
     return this.authService.isLoggedIn;;
   }
+
   newMultisig() {
     this.customDialogs.openDialog(DialogTypes.NEW_MULTISIG, { disableClose: false });
   }
 
-  newTx() {
-        this.customDialogs.openDialog(DialogTypes.TX_BUILDER, { disableClose: false });
+  newTx(event: Event) {
+    event.stopImmediatePropagation();
+    this.windowsService.addTxBuilder();
   }
 
   copy(text: string) {

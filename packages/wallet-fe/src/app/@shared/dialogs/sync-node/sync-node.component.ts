@@ -5,6 +5,7 @@ import { ApiService } from 'src/app/@core/services/api.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { SocketService } from 'src/app/@core/services/socket.service';
+import { AuthService } from 'src/app/@core/services/auth.service';
 
 @Component({
   selector: 'sync-node-dialog',
@@ -17,6 +18,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     nodeBlock: number = 0;
     networkBlocks: number = 0;
     message: string = ' ';
+    terminateDisabled: boolean = true;
 
     eta: string = 'Calculating Remaining Time ...';
 
@@ -36,6 +38,8 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         private rpcService: RpcService,
         private apiService: ApiService,
         private socketService: SocketService,
+        private authService: AuthService,
+        private dialogService: DialogService,
     ) {}
 
     get sochainApi() {
@@ -46,8 +50,12 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         return this.rpcService.isSynced;
     }
 
+    get isOffline() {
+        return this.rpcService.isOffline;
+    }
+
     ngOnInit() {
-        this.startCheckingSync();
+        if (!this.isOffline) this.startCheckingSync();
     }
 
     private countETA(etaData: { stamp: number; blocks: number; }) {
@@ -84,6 +92,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     private async checkSync() {
         const giRes = await this.rpcService.rpc('tl_getinfo');
         if (giRes.error || !giRes.data) {
+            this.terminateDisabled = true;
             this.message = giRes.error || 'Undefined Error!';
             this.stopChecking = true;
             this.checkTimeOutFunc = setTimeout(() => {
@@ -91,13 +100,14 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             }, 2000);
             return;
         }
+        this.terminateDisabled = false;
         this.rpcService.isAbleToRpc = true;
         this.stopChecking = false;
         this.nodeBlock = giRes.data.block;
         await this.checkNetworkInfo();
         this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
         this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
-        if (this.nodeBlock + 1 >= this.networkBlocks) {
+        if (this.nodeBlock + 1 >= this.networkBlocks && !this.isOffline) {
             this.rpcService.isSynced = true;
             this.message = 'FULL SYNCED';
         }
@@ -106,9 +116,14 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     private async checkNetworkInfo() {
-        const newtorkInfo = await this.sochainApi.getNetworkInfo().toPromise();
-        if (newtorkInfo.status !== 'success' || !newtorkInfo.data?.blocks) return
-        this.networkBlocks = newtorkInfo.data.blocks;
+        try {
+            if (this.isOffline) return;
+            const newtorkInfo = await this.sochainApi.getNetworkInfo().toPromise();
+            if (newtorkInfo.status !== 'success' || !newtorkInfo.data?.blocks) return
+            this.networkBlocks = newtorkInfo.data.blocks;
+        } catch(err) {
+            console.log(err);
+        }
     }
 
     private subscribeToNewBlocks() {
@@ -116,6 +131,12 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     async terminate() {
+        if (this.authService.isLoggedIn) {
+            const encKey = this.authService.encKey;
+            const dialog = this.dialogService.openEncKeyDialog(encKey);
+            await dialog?.afterClosed().toPromise();
+            this.authService.logout();
+        }
         this.loading = true;
         this.message = " ";
         const stopRes = await this.rpcService.rpc('stop');

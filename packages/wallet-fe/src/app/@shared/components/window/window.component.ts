@@ -26,6 +26,10 @@ export class WindowComponent {
   }
 
   close() {
-    this.toastrService.error( 'This Window can not be closed!', 'Error')
+    if (this.title === 'Synchronization') {
+      this.toastrService.error( 'This Window can not be closed!', 'Error')
+    } else {
+      this.windowsService.closeTab(this.title);
+    }
   }
 }

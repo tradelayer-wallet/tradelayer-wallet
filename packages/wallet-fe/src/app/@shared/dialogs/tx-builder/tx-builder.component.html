@@ -1,24 +1,26 @@
-<div class="dialog-container">
-    <mat-tab-group>
-        <mat-tab label='Build'>
-            <tx-builder-build-tab
-                (loading)='setLoading($event)'
-            ></tx-builder-build-tab>
-        </mat-tab>
-        <mat-tab label='Sign'>
-            <tx-builder-sign-tab
-                (loading)='setLoading($event)'
-            ></tx-builder-sign-tab>
-        </mat-tab>
-        <mat-tab label='Send'>
-            <tx-builder-send-tab
-                (loading)='setLoading($event)'
-            ></tx-builder-send-tab>
-        </mat-tab>
-        <mat-tab label='Decode'>
-            <tx-builder-decode-tab
-                (loading)='setLoading($event)'
-            ></tx-builder-decode-tab>
-        </mat-tab>
-    </mat-tab-group>
-</div>
+<custom-window title='TX Builder'>
+    <div class="dialog-container">
+        <mat-tab-group>
+            <mat-tab label='Build'>
+                <tx-builder-build-tab
+                    (loading)='setLoading($event)'
+                ></tx-builder-build-tab>
+            </mat-tab>
+            <mat-tab label='Sign'>
+                <tx-builder-sign-tab
+                    (loading)='setLoading($event)'
+                ></tx-builder-sign-tab>
+            </mat-tab>
+            <mat-tab label='Send' [disabled]='disableSend'>
+                <tx-builder-send-tab
+                    (loading)='setLoading($event)'
+                ></tx-builder-send-tab>
+            </mat-tab>
+            <mat-tab label='Decode'>
+                <tx-builder-decode-tab
+                    (loading)='setLoading($event)'
+                ></tx-builder-decode-tab>
+            </mat-tab>
+        </mat-tab-group>
+    </div>
+</custom-window>

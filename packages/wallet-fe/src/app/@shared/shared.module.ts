@@ -30,10 +30,10 @@ import { DepositDialog } from './dialogs/deposit/deposit.component';
 import { InfoLineComponent } from '../@shared/components/info-line/info-line.component';
 import { NewMultisigDialog } from './dialogs/new-multisig/new-multisig.component';
 import { MatSelectModule } from '@angular/material/select'; 
-import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
-import { WindowComponent } from './components/window/window.component';
 import { PasswordDialog } from './dialogs/password/password.component';
 import { ClickOutsideDirective } from './directives/click-outside.directive';
+import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
+
 
 const NG_MODULES = [
     CommonModule,
@@ -74,11 +74,6 @@ const COMPONENTS = [
     DisconnectedLineComponent,
     OverlayLoadingComponent,
     InfoLineComponent,
-    WindowComponent,
-];
-
-const DIRECTIVES = [
-    ClickOutsideDirective,
 ];
 
 const imports = [
@@ -90,13 +85,11 @@ const imports = [
 const declarations = [
     ...DIALOGS,
     ...COMPONENTS,
-    ...DIRECTIVES,
 ];
 
 const exports = [
     ...DIALOGS,
     ...COMPONENTS,
-    ...DIRECTIVES,
 ];
 
 @NgModule({ imports, declarations, exports })

@@ -45,6 +45,7 @@ class FlagsObject implements IFlagsObject {
     public reindex: number = 0;
     public addnode: string = null;
     public datadir: string = null;
+
     constructor(options: any) {
         const toBool = (param: boolean) => param ? 1 : 0;
 
@@ -59,6 +60,8 @@ class FlagsObject implements IFlagsObject {
 
 class WalletNodeInstance {
     private nodeProcess: ChildProcess;
+    private isOffline: boolean = false;
+
     public defaultPath: string;
     constructor() {}
 
@@ -84,7 +87,11 @@ class WalletNodeInstance {
         if (isTestNet) flagsObject.addnode = addNodeServer;
 
         const versionGuard = await this._versionGuard(isTestNet);
-        if (versionGuard.error || !versionGuard.data) return { error: versionGuard.error};
+        if (versionGuard.error || !versionGuard.data) {
+            if (!this.isOffline) {
+                return { error: versionGuard.error};
+            }
+        }
 
         const upToDate = this._chechVersions(path, isTestNet);
         if (!upToDate) flagsObject.startclean = 1;
@@ -119,7 +126,7 @@ class WalletNodeInstance {
 
             return { error: errorMessage || "Undefined Error (code 53)!" };
         }
-        return { data: configObj };
+        return { data: { configObj, isOffline: this.isOffline, myVersion: myVersions.walletVersion } };
     }
 
     private execFileByCommandPromise = (command: string, options: any) => {
@@ -191,9 +198,11 @@ class WalletNodeInstance {
                 const resolve = valid
                     ? { data: true }
                     : { error: 'The Application need to be updated!' };
+                this.isOffline = false;
                 res(resolve);
             });
             sss.socket.on('connect_error', () => {
+                this.isOffline = true;
                 res({error: 'Error with API connection.'})
             });
         });

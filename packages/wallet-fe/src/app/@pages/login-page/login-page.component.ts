@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { AuthService } from 'src/app/@core/services/auth.service';
+import { RpcService } from 'src/app/@core/services/rpc.service';
 
 @Component({
   selector: 'tl-login-page',
@@ -20,7 +21,12 @@ export class LoginPageComponent implements OnInit {
     private fb: FormBuilder,
     private toasterService: ToastrService,
     private authService: AuthService,
+    private rpcService: RpcService,
   ) {}
+
+  get isSynced() {
+    return this.rpcService.isSynced;
+  }
 
   ngOnInit() {
     this._buildForms();

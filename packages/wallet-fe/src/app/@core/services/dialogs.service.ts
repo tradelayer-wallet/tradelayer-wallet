@@ -49,13 +49,13 @@ export class DialogService {
             disableClose: false,
             data: encKey,
         };
-        this.openDialog(DialogTypes.ENC_KEY, dialogOpts)
+        return this.openDialog(DialogTypes.ENC_KEY, dialogOpts)
     }
 
     openDialog(dialogType: DialogTypes, opts: MatDialogConfig = { disableClose: true }) {
         const dialog = dialogs[dialogType];
         if (!dialog) return;
-        this.matDialogService.open(dialog, opts);
+        return this.matDialogService.open(dialog, opts);
     }
 
     closeAllDialogs() {

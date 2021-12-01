@@ -84,16 +84,20 @@ export class AuthService {
         }
 
 
-        const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [keyPairs[0]?.address]]);
-        const scLuRes: any = await this.apiService.soChainApi.getTxUnspents(keyPairs[0]?.address).toPromise()
-        if (luRes.error || !luRes.data || scLuRes.status !== "success" || !scLuRes.data) {
-            this.toastrService.error('Unexpecter Error. Please try again!', 'Error');
-            return;
-        }
-
-        if (luRes.data.length < scLuRes.data.txs?.length) {
-            this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
-            return;
+        if (!this.rpcService.isOffline) {
+            const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [keyPairs[0]?.address]]);
+            const scLuRes: any = await this.apiService.soChainApi.getTxUnspents(keyPairs[0]?.address).toPromise()
+            if (luRes.error || !luRes.data || scLuRes.status !== "success" || !scLuRes.data) {
+                this.toastrService.error('Unexpecter Error. Please try again!', 'Error');
+                return;
+            }
+    
+            if (luRes.data.length < scLuRes.data.txs?.length) {
+                this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
+                return;
+            }
+        } else {
+            this.toastrService.info('There may be some incorect balance data', 'Offline wallet');
         }
 
         this.login(res);

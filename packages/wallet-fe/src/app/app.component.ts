@@ -44,4 +44,8 @@ export class AppComponent {
   get windows() {
     return this.windowsService.tabs;
   }
+
+  get isOffline() {
+    return this.rpcService.isOffline;
+  }
 }

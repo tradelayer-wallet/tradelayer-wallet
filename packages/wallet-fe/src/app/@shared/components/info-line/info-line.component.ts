@@ -30,6 +30,14 @@ export class InfoLineComponent implements OnInit {
     return this.windowsService.tabs;
   }
 
+  get isOffline() {
+    return this.rpcService.isOffline;
+  }
+
+  get myVersion() {
+    return this.rpcService.myVersion;
+  }
+
   ngOnInit() {
     this._trackBlockHigh();
   }

@@ -8,6 +8,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTabsModule } from '@angular/material/tabs';
+import { WindowComponent } from '../../components/window/window.component';
+import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { TxBuilderBuildTabComponent } from './tabs/build/build-tab.component';
 import { TxBuilderDecodeTabComponent } from './tabs/decode/decode-tab.component';
 import { TxBuilderSendTabComponent } from './tabs/send/send-tab.component';
@@ -42,18 +44,26 @@ const MAT_MODULES = [
     MatProgressSpinnerModule,
 ];
 
+const DIRECTIVES = [
+    ClickOutsideDirective,
+];
+
 const imports = [
     ...NG_MODULES,
     ...MAT_MODULES,
 ]
 const declarations = [
-    TxBuilderDialog,
     ...TABS,
     ...TX_TYPES,
+    ...DIRECTIVES,
+    TxBuilderDialog,
+    WindowComponent,
 ];
 
 const exports = [
+    ...DIRECTIVES,
     TxBuilderDialog,
+    WindowComponent,
 ];
 
 @NgModule({ imports, declarations, exports })

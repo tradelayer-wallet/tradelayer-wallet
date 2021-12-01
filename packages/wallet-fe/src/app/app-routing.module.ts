@@ -26,8 +26,6 @@ export const routes: Routes = [
       {
         path: 'login',
         component: LoginPageComponent,
-        canActivate: [SyncedGuard]
-
       },
       {
         path: 'spot',
@@ -42,12 +40,12 @@ export const routes: Routes = [
       {
         path: 'portfolio',
         component: PortfolioPageComponent,
-        canActivate: [AuthGuard]
+        canActivate: [AuthGuard],
       },
       {
         path: 'settings',
         component: SettingsPageComponent,
-        canActivate: [AuthGuard]
+        canActivate: [AuthGuard, SyncedGuard],
       },
       {
         path: 'multisig',
@@ -56,7 +54,7 @@ export const routes: Routes = [
       {
         path: 'reward',
         component: NodeRewardPageComponent,
-        canActivate: [AuthGuard],
+        canActivate: [AuthGuard, SyncedGuard],
       },
       {
         path: '**',

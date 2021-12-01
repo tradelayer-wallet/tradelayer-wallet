@@ -205,8 +205,10 @@ export const socketRoutes = (socketScript: SocketScript) => {
 
         fastify.get('/terminate', async (request, reply) => {
             try {
+                walletSocketSevice.stopBlockCounting();
                 walletSocketSevice.lastBlock = 0;
-                serverSocketService.socket.disconnect();
+                serverSocketService.terminate();
+                fasitfyServer.socketScript.asyncClient = null;
                 await fasitfyServer.stop('Terminate From Wallet!');
                 reply.send({ data: true });
             } catch(error) {

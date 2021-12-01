@@ -4,7 +4,7 @@
   </ng-template>
     <mat-card>
         <button mat-raised-button class='new-multisig-button' (click)='newMultisig()' [disabled]='!isLoggedIn'>New Multisig</button>
-        <button mat-raised-button class='new-tx-button' (click)='newTx()'>Build Transaction</button>
+        <button mat-raised-button class='new-tx-button' (click)='newTx($event)'>Build Transaction</button>
 
         <mat-card-header>My Multisigs</mat-card-header>
         <mat-card-content *ngIf='multisigs?.length; else noMultisigs'>

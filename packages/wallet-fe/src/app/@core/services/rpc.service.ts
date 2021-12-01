@@ -28,7 +28,9 @@ export class RpcService {
     private authToken: string = '';
     private _NETWORK: TNETWORK = "LTC";
     public isAbleToRpc: boolean = false;
-    
+    public isOffline: boolean = false;
+    public myVersion: string = 'Unknown';
+  
     constructor(
       private http: HttpClient,
       private apiService: ApiService,
@@ -120,9 +122,11 @@ export class RpcService {
         return { error: res.error };
       }
 
-      if (res.error || !res.data) return { error: res.error };
+      if (res.error || !res.data?.configObj) return { error: res.error };
+      this.isOffline = res.data.isOffline;
+      this.myVersion = res.data.myVersion
       const host = 'localhost';
-      const { rpcuser, rpcpassword, rpcport } = res.data;
+      const { rpcuser, rpcpassword, rpcport } = res.data.configObj;
       const connectCreds = { host, username: rpcuser, password: rpcpassword, port: rpcport };
       const connectRes = await this.connect(connectCreds, isTestNet);
       if (!connectRes) return { error: 'Error With Node Connection' };

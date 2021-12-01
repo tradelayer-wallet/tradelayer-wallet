@@ -7,8 +7,8 @@ export let walletSocketSevice: WalletSocketSevice;
 export let serverSocketService: ServerSocketService;
 
 export const myVersions = {
-    nodeVersion: '0.1.3',
-    walletVersion: '0.1.3',
+    nodeVersion: '0.1.4',
+    walletVersion: '0.1.4',
 };
 
 export const initWalletConnection = (app: FastifyInstance, socketScript: SocketScript) => {
@@ -43,6 +43,8 @@ class WalletSocketSevice {
     private socketScript: SocketScript;
     public lastBlock: number = 0;
     private selectedContractId: IContractInfo = null;
+    private blockCountingInterval: any;
+
     constructor(app: FastifyInstance, socketScript: SocketScript) {
         const socketOptions = { cors: { origin: "*", methods: ["GET", "POST"] } };
         this.io = new Server(app.server, socketOptions);
@@ -79,8 +81,12 @@ class WalletSocketSevice {
         socket.on(eventName, (data: any) => serverSocketService.socket.emit(eventName, data));
     }
 
+    stopBlockCounting() {
+        if (this.blockCountingInterval) clearInterval(this.blockCountingInterval);
+    }
+
     startBlockCounting() {
-             setInterval(async () => {
+             this.blockCountingInterval = setInterval(async () => {
                 const { asyncClient } = this.socketScript;
                 if (!asyncClient) return;
                 const bbhRes = await asyncClient('getbestblockhash');
@@ -125,6 +131,11 @@ class ServerSocketService {
         this.handleEvents();
     }
 
+    terminate() {
+        serverSocketService = null;
+        this.socket.disconnect();
+        this.socket = null;
+    }
     private handleEvents() {
         this.socket.on('connect', () => {
             this.socket.emit('check-versions', myVersions);
