@@ -18,7 +18,7 @@ export interface IWindow {
 })
 
 export class WindowsService {
-    _tabs: IWindow[] = [
+    private _tabs: IWindow[] = [
         {
             component: windowComponents.SYNC_WINDOW,
             minimized: false,

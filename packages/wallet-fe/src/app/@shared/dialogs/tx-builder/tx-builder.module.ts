@@ -15,11 +15,13 @@ import { TxBuilderDecodeTabComponent } from './tabs/decode/decode-tab.component'
 import { TxBuilderSendTabComponent } from './tabs/send/send-tab.component';
 import { TxBuilderSignTabComponent } from './tabs/sign/sign-tab.component';
 import { TxBuilderDialog } from './tx-builder.component';
+import { SendLtcTxTypeComponent } from './tx-types/send-ltc/send-ltc.tx-type.component';
 import { SendVestingTxTypeComponent } from './tx-types/send-vesting/send-vesting.tx-type.component';
 
 
 const TX_TYPES = [
     SendVestingTxTypeComponent,
+    SendLtcTxTypeComponent,
 ];
 
 const TABS = [

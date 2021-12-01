@@ -1,14 +1,14 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Inject, Input, Output, EventEmitter } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import { BuilderService } from 'src/app/@core/services/builder.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 
 @Component({
-  selector: 'tx-type-send-vesting',
-  templateUrl: './send-vesting.tx-type.component.html',
-  styleUrls: ['./send-vesting.tx-type.component.scss']
+  selector: 'tx-type-send-ltc',
+  templateUrl: './send-ltc.tx-type.component.html',
+  styleUrls: ['./send-ltc.tx-type.component.scss']
 })
-export class SendVestingTxTypeComponent {
+export class SendLtcTxTypeComponent {
     @Output('loading') loadingEmmiter: EventEmitter<boolean> = new EventEmitter();
     @Output('hexOutput') hexOutputEmmiter: EventEmitter<string> = new EventEmitter();
 
@@ -23,7 +23,7 @@ export class SendVestingTxTypeComponent {
     constructor (
       private rpcService: RpcService,
       private toastrService: ToastrService,
-      private builderSrvice: BuilderService,
+      private builderService: BuilderService,
     ) { }
 
     get toAddress() {
@@ -69,10 +69,10 @@ export class SendVestingTxTypeComponent {
         fromAddress: this.sender,
         toAddress: this.toAddress,
         amount: this.amount,
-        txType: 'SEND_VESTING',
+        txType: 'SEND_LTC',
       };
 
-      const result = await this.builderSrvice.build(tradeData);
+      const result = await this.builderService.build(tradeData);
       result.error || !result.data
         ? this.toastrService.error(result.error || 'Undefined Error!', 'Error')
         : this.hexOutputEmmiter.emit(result.data);

@@ -18,6 +18,7 @@ import { takeUntil } from 'rxjs/operators';
         .pipe(takeUntil(this._onDestroy$))
         .subscribe((e: any) => {
           if (!this._eref.nativeElement.contains(e.target)) {
+            console.log(this._eref.nativeElement)
             this.clickOutside.emit();
           }
         });

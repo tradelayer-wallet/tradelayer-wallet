@@ -12,7 +12,6 @@ export interface IKeyPair {
 export interface IMultisigPair {
     address: string;
     redeemScript: string;
-    validateInfo?: string;
     nRequired?: number;
     nAllKeys?: number;
     keys?: string[];

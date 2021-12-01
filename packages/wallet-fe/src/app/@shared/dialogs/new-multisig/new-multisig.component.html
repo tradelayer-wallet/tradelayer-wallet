@@ -2,10 +2,10 @@
     <div class="title">
         <h1>Create New Multisig</h1>
     </div>
-    <div class="content-2" *ngIf='multisigAddressData?.validateInfo'>
-        <textarea> {{ multisigAddressData?.validateInfo || 'Undefined Error!'}} </textarea>
+    <div class="content-2" *ngIf='validateInfo'>
+        <textarea> {{ validateInfo || 'Undefined Error!'}} </textarea>
     </div>
-    <div class="content" *ngIf='!multisigAddressData?.validateInfo'>
+    <div class="content" *ngIf='!validateInfo'>
         <div class='keys'>
             <div class='field'>
                 <span>Required Keys: </span>
@@ -58,7 +58,7 @@
     </div>
     <div class="buttons">
         <button mat-raised-button (click)="close()" color="warn">CANCEL</button>
-        <button *ngIf='!multisigAddressData?.validateInfo' mat-raised-button [disabled]='buttonDisabled' (click)='create()' color="primary">CREATE</button>
-        <button *ngIf='multisigAddressData?.validateInfo' mat-raised-button (click)='save()' color="primary">SAVE</button>
+        <button *ngIf='!validateInfo' mat-raised-button [disabled]='buttonDisabled' (click)='create()' color="primary">CREATE</button>
+        <button *ngIf='validateInfo' mat-raised-button (click)='save()' color="primary">SAVE</button>
     </div>
 </div>

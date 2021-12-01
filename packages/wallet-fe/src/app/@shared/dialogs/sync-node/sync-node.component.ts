@@ -6,6 +6,7 @@ import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.servi
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { SocketService } from 'src/app/@core/services/socket.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
+import { WindowsService } from 'src/app/@core/services/windows.service';
 
 @Component({
   selector: 'sync-node-dialog',
@@ -40,6 +41,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         private socketService: SocketService,
         private authService: AuthService,
         private dialogService: DialogService,
+        private windowsService: WindowsService,
     ) {}
 
     get sochainApi() {
@@ -52,6 +54,10 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     get isOffline() {
         return this.rpcService.isOffline;
+    }
+
+    get syncTab() {
+        return this.windowsService.tabs.find(e => e.title === 'Synchronization');
     }
 
     ngOnInit() {
@@ -105,6 +111,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         this.stopChecking = false;
         this.nodeBlock = giRes.data.block;
         if (this.isOffline) {
+            if (this.syncTab) this.syncTab.minimized = true;
             clearInterval(this.checkIntervalFunc);
             clearTimeout(this.checkTimeOutFunc);
             this.message = ' ';
@@ -116,6 +123,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             if (this.nodeBlock + 1 >= this.networkBlocks) {
                 this.rpcService.isSynced = true;
                 this.message = 'FULL SYNCED';
+                if (this.syncTab) this.syncTab.minimized = true;
             }
             this.message = ' ';
             return;
@@ -152,8 +160,10 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             return;
         }
         await this.rpcService.clearRPC();
+        this.windowsService.tabs
+            .filter(e => e.title !== "Synchronization")
+            .forEach(r => this.windowsService.closeTab(r.title));
         this.loading = false;
-
     }
 
     ngOnDestroy() {

@@ -5,6 +5,7 @@ import axios from 'axios';
 import { INodeConfig, myWalletNode } from "../services/wallet-node";
 import { RawTx } from "../socket-script/common/rawtx";
 import { fasitfyServer } from '../../src/index';
+import { IBuildRawTxOptions } from "../socket-script/common/types";
 
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
@@ -129,31 +130,29 @@ export const socketRoutes = (socketScript: SocketScript) => {
                     inputs: string,
                 };
 
-                if (txType !== 'SEND_VESTING') {
-                    reply.send({ error: 'Unsupported tx type' });
-                    return;
+                if (txType === 'SEND_VESTING') {
+                    const client = fasitfyServer.socketScript.asyncClient;
+                    const payloadRes = await client('tl_createpayload_sendvesting', amount.toString());
+                    if (payloadRes.error || !payloadRes.data) return reply.send({ error: payloadRes.error });
+                    const payload = payloadRes.data;
+                    const rawTxOptions: IBuildRawTxOptions = { fromAddress, toAddress, payload, inputs: inputs ? JSON.parse(inputs) : [] };
+                    const rawTx = new RawTx(rawTxOptions, client);
+                    const rawTxRes = await rawTx.build();
+                    return rawTxRes.error || !rawTxRes.data
+                        ? reply.send({ error: rawTxRes.error })
+                        : reply.send({ data: rawTxRes.data});
                 }
 
-                const client = fasitfyServer.socketScript.asyncClient;
-                const payloadRes = await client('tl_createpayload_sendvesting', amount.toString());
-
-                if (payloadRes.error || !payloadRes.data) {
-                    reply.send({ error: payloadRes.error });
-                    return;
+                if (txType === 'SEND_LTC') {
+                    const client = fasitfyServer.socketScript.asyncClient;
+                    const options: IBuildRawTxOptions = { fromAddress, toAddress, refAddressAmount: parseFloat(amount), inputs: inputs ? JSON.parse(inputs) : []  };
+                    const rawTx = new RawTx(options, client);
+                    const hexRes = await rawTx.build();
+                    return hexRes.error || !hexRes.data
+                        ? reply.send({ error: hexRes.error ||`Error with building the transaction` })
+                        : reply.send({ data: hexRes.data });
                 }
-
-                const payload = payloadRes.data;
-                const rawTxOptions = { fromAddress, toAddress, payload, inputs: inputs ? JSON.parse(inputs) : [] };
-                const rawTx = new RawTx(rawTxOptions, client);
-                const rawTxRes = await rawTx.build();
-
-                if (rawTxRes.error || !rawTxRes.data) {
-                    reply.send({ error: rawTxRes.error });
-                    return;
-                } else {
-                    reply.send({ data: rawTxRes.data});
-                }
-
+                reply.send({ error: 'Unsuported TX Type'});
             } catch (error) {
                 reply.send({ error: error.message });
             }

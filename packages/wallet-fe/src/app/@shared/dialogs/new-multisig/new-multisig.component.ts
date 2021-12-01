@@ -29,7 +29,7 @@ export class NewMultisigDialog implements OnInit {
 
     public errorMessage: string = ' ';
     public multisigAddressData: IMultisigPair | undefined;
-
+    public validateInfo: string = '';
     constructor(
         @Inject(MAT_DIALOG_DATA) private data: any,
         public dialogRef: MatDialogRef<NewMultisigDialog>,
@@ -158,6 +158,7 @@ export class NewMultisigDialog implements OnInit {
 
     async create() {
         this.loadingService.isLoading = true;
+        this.validateInfo = '';
         this.errorMessage = ' ';
         const pubkeys = this.mainForm.value.keys.map((e: any) => e.pubkey);
         const createRes = await this.rpcService.rpc('addmultisigaddress', [this.nRequired, pubkeys]);
@@ -169,6 +170,7 @@ export class NewMultisigDialog implements OnInit {
         }
 
         this.multisigAddressData = createRes.data;
+        this.validateInfo = JSON.stringify(createRes.data, null, 4);
         const validateRes = await this.rpcService.rpc('validateaddress', [createRes.data.address]);
 
         if (validateRes.error || !validateRes.data) {
@@ -177,10 +179,10 @@ export class NewMultisigDialog implements OnInit {
             return;
         }
         if (this.multisigAddressData) {
-            this.multisigAddressData.validateInfo = JSON.stringify(validateRes.data, null, 4);
+            this.validateInfo += JSON.stringify(validateRes.data, null, 4);
             this.multisigAddressData.nRequired = this.nRequired;
-            this.multisigAddressData.nAllKeys = this.nAllKeys
-            this.multisigAddressData.keys = validateRes.data.pubkeys;
+            this.multisigAddressData.nAllKeys = this.nAllKeys;
+            this.multisigAddressData.keys = validateRes.data.embedded.pubkeys;
         }
         this.loadingService.isLoading = false;
     }

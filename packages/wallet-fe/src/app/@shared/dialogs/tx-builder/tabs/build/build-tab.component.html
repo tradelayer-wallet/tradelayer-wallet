@@ -5,7 +5,6 @@
             <mat-option
                 *ngFor='let txType of txTypes | keyvalue'
                 [value]='txType.value'
-                [disabled]='txType.value === txTypes.SEND_LTC'
             > {{ txType.value }} </mat-option>
         </mat-select>
     </mat-form-field>
@@ -28,6 +27,13 @@
         (hexOutput)='hexOutput = $event'
         *ngIf='selectedTxType === txTypes.SEND_VESTING'
     ></tx-type-send-vesting>
+
+    <tx-type-send-ltc
+        [sender]='fromAddress'
+        (loading)='loading = $event'
+        (hexOutput)='hexOutput = $event'
+        *ngIf='selectedTxType === txTypes.SEND_LTC'
+    ></tx-type-send-ltc>
 
     <textarea [(ngModel)]='hexOutput'> {{ hexOutput }} </textarea>
 </div>

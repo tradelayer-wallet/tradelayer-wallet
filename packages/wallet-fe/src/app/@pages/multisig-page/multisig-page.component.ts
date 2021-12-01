@@ -56,6 +56,7 @@ export class MultisigPageComponent implements OnInit{
       return;
     }
     const res: any = await this.soChainApi.getTxUnspents(pair.address).toPromise();
+
     if (res.status !== 'success' || !res.data?.txs) {
       this.rawBalanceObj[pair.address] = '-';
     } else {
