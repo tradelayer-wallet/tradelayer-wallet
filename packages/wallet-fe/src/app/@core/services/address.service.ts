@@ -7,6 +7,7 @@ export interface IKeyPair {
     address: string;
     pubKey: string;
     privKey: string;
+    rewardAddress?: boolean;
 }
 
 export interface IMultisigPair {
@@ -32,6 +33,8 @@ export class AddressService {
     private _activeKeyPair: IKeyPair | null = null;
     private allAttestations: { [address: string]: EKYCStatus } = {};
     private _multisigPairs: IMultisigPair[] = [];
+    private _rewardAddresses: IKeyPair[] = [];
+    private _maxNRewardAddresses: number = 5;
 
     constructor(
         private rpcService: RpcService,
@@ -72,6 +75,18 @@ export class AddressService {
         return this.allAttestations[address];
     }
 
+    get rewardAddresses() {
+        return this._rewardAddresses;
+    }
+
+    set rewardAddresses(value: IKeyPair[]) {
+        this._rewardAddresses = value;
+    }
+
+    get maxNRewardAddresses() {
+        return this._maxNRewardAddresses;
+    }
+
     addMultisigAddress(multisig: IMultisigPair) {
         this.multisigPairs = [...this.multisigPairs, multisig];
     }
@@ -88,6 +103,7 @@ export class AddressService {
     removeAllKeyPairs() {
         this.multisigPairs = [];
         this.keyPairs = [];
+        this.rewardAddresses = [];
         this.activeKeyPair = null;
     }
 
@@ -125,6 +141,20 @@ export class AddressService {
         this.allAttestations[address] = EKYCStatus.PENDING;
     }
 
+    async generateRewardAddresses() {
+        if (this.rewardAddresses.length >= this.maxNRewardAddresses) return;
+        for (let i = 0; i < this.maxNRewardAddresses; i++) {
+            const keyPair = await this.generateNewKeyPair();
+            if (keyPair) {
+                keyPair.rewardAddress = true;
+                this.addRewardAddress(keyPair);
+            }
+        }
+    }
+
+    addRewardAddress(keyPair: IKeyPair) {
+        this.rewardAddresses = [...this.rewardAddresses, keyPair];
+    }
 
     async generateNewKeyPair() {
         const gnaRes = await this.rpcService.rpc('getnewaddress', ['tl-wallet']);

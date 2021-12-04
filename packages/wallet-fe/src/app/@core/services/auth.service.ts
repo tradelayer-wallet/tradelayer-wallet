@@ -34,7 +34,7 @@ export class AuthService {
     async register(pass: string) {
         const pair = await this.addressService.generateNewKeyPair() as IKeyPair;
         if (pair.address && pair.privKey, pair.pubKey) {
-            this.login(pair);
+            this.login([pair]);
         };
 
         this.encKey = ltcUtils.encryptKeyPair(this.addressService.keyPairs, pass);
@@ -106,20 +106,19 @@ export class AuthService {
         return;
     }
 
-    login(pair: IKeyPair | (IKeyPair | IMultisigPair)[]) {
-            if (Array.isArray(pair)) {
-                pair.forEach((p: any) => {
-                    if (p.redeemScript) {
-                        this.addressService.addMultisigAddress(p)
-                    } else {
-                        this.addressService.addDecryptedKeyPair(p);
-                        this.balanceService.updateBalances(p.address);
-                    }
-                });
+    login(pairs: (IKeyPair | IMultisigPair)[]) {
+        pairs.forEach((p: any) => {
+            if (p.redeemScript) {
+                this.addressService.addMultisigAddress(p)
             } else {
-                this.addressService.addDecryptedKeyPair(pair);
-                this.balanceService.updateBalances(pair.address);
+                if (p.rewardAddress) {
+                    this.addressService.addRewardAddress(p);
+                } else {
+                    this.addressService.addDecryptedKeyPair(p);
+                    this.balanceService.updateBalances(p.address);
+                }
             }
+        });
         this.router.navigateByUrl(this.savedFromUrl);
     }
 

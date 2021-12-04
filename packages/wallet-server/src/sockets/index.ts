@@ -58,7 +58,6 @@ class WalletSocketSevice {
 
     private onConnection(socket: Socket) {
         this.currentSocket = socket;
-        this.startBlockCounting();
         this.handleFromWalletToServer(socket, 'orderbook-market-filter');
         this.handleFromWalletToServer(socket, 'update-orderbook');
         this.handleFromWalletToServer(socket, 'dealer-data');
@@ -82,10 +81,14 @@ class WalletSocketSevice {
     }
 
     stopBlockCounting() {
-        if (this.blockCountingInterval) clearInterval(this.blockCountingInterval);
+        if (this.blockCountingInterval) {
+            clearInterval(this.blockCountingInterval);
+            this.blockCountingInterval = null;
+        }
     }
 
     startBlockCounting() {
+        if (this.blockCountingInterval) return;
              this.blockCountingInterval = setInterval(async () => {
                 const { asyncClient } = this.socketScript;
                 if (!asyncClient) return;

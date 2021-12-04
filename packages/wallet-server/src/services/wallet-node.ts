@@ -126,6 +126,7 @@ class WalletNodeInstance {
 
             return { error: errorMessage || "Undefined Error (code 53)!" };
         }
+        walletSocketSevice.startBlockCounting();
         return { data: { configObj, isOffline: this.isOffline, myVersion: myVersions.walletVersion } };
     }
 

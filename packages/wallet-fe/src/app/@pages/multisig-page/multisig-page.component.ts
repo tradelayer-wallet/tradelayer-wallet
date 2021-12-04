@@ -46,7 +46,6 @@ export class MultisigPageComponent implements OnInit{
 
   ngOnInit() {
     if (!this.rpcService.isOffline) this.multisigs.forEach(e => this.getBalanceForMultisig(e));
-    
   }
 
   async getBalanceForMultisig(pair: IMultisigPair) {
@@ -61,7 +60,7 @@ export class MultisigPageComponent implements OnInit{
       this.rawBalanceObj[pair.address] = '-';
     } else {
       const sum = res.data.txs.reduce((a: any, b: any) => parseFloat(b.value) + a, 0);
-      this.rawBalanceObj[pair.address] = sum.toFixed(6) || "-";
+      this.rawBalanceObj[pair.address] = sum || sum === 0 ? sum.toFixed(6) : '-';
     }
   }
 
