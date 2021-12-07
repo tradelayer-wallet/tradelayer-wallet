@@ -41,7 +41,6 @@ export class EncKeyDialog {
         } else {
             this.decodedJson = JSON.stringify(decryptResult,  null, 4);
         }
-        console.log(this.decodedJson);
     }
 
     close() {

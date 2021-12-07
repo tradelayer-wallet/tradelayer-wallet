@@ -29,7 +29,7 @@ export class SettingsPageComponent {
 
     kyc() {
       if (!this.address) return;
-      const balance = this.balanceSerivce.getFiatBalancesByAddress();
+      const balance = this.balanceSerivce.getFiatBalancesByAddress(this.address);
       const { confirmed, locked } = balance;
       const available = parseFloat((confirmed - locked).toFixed(6));
       if (available < 0.0002) {

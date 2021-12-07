@@ -53,6 +53,14 @@ export class NodeRewardPageComponent implements OnInit {
       return this.apiService.socketScriptApi;
     }
   
+    get waitingList() {
+      return this.rewardService.waitingList;
+    }
+  
+    get registeredList() {
+      return this.rewardService.registeredList;
+    }
+  
     ngOnInit() {
       if (!this.rpcService.isOffline) this.rewardAddresses.forEach(e => this.getBalanceForAddress(e));
     }
@@ -61,6 +69,14 @@ export class NodeRewardPageComponent implements OnInit {
       return this.autoClaimAddresses.includes(address)
     }
 
+    isAddressRegistered(address: string) {
+      return this.registeredList.includes(address);
+    }
+
+    isAddressWaiting(address: string) {
+      return this.waitingList.includes(address);
+    }
+  
     async getBalanceForAddress(pair: IKeyPair) {
       this.rawBalanceObj[pair.address] = '-';
       if (this.rpcService.isOffline)  {
@@ -130,10 +146,6 @@ export class NodeRewardPageComponent implements OnInit {
     }
 
     autoClaim(address: string) {
-      if (this.isAddressAutoClaiming(address)) {
-        this.toastrService.error(`This address is already auto-claim`, 'Warning');
-        return
-      }
       this.rewardService.setAutoClaim(address);
     }
 }

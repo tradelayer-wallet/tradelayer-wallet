@@ -1,9 +1,14 @@
 import { Component, OnInit } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
-import { AddressService } from 'src/app/@core/services/address.service';
+import { first } from 'rxjs/operators';
+import { AddressService, IKeyPair } from 'src/app/@core/services/address.service';
+import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
+import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
+import { decryptKeyPair, encryptKeyPair } from 'src/app/utils/litecore.util';
 
 @Component({
   selector: 'tl-portoflio-page',
@@ -20,6 +25,8 @@ export class PortfolioPageComponent implements OnInit{
     private dialogService: DialogService,
     private toastrService: ToastrService,
     private rpcService: RpcService,
+    private authService: AuthService,
+    private matDialog: MatDialog,
   ) {}
 
   get fiatBalance() {
@@ -96,6 +103,30 @@ export class PortfolioPageComponent implements OnInit{
     if (dialog === 'withdraw') {
       const data = { address: _address || this.selectedAddress, propId: _propId };
       this.dialogService.openDialog(DialogTypes.WITHDRAW, { disableClose: false, data });
+    }
+  }
+
+  async newAddress() {
+    const passDialog = this.matDialog.open(PasswordDialog);
+    const password = await passDialog.afterClosed()
+        .pipe(first())
+        .toPromise();
+    if (!password) return;
+    const encKey = this.authService.encKey;
+    const decryptResult = decryptKeyPair(encKey, password);
+    if (!decryptResult) {
+        this.toastrService.error('Wrong Password', 'Error');
+    } else {
+      const pair = await this.addressService.generateNewKeyPair() as IKeyPair;
+      this.addressService.addDecryptedKeyPair(pair);
+      const allKeyParis = [
+          ...this.addressService.keyPairs, 
+          ...this.addressService.multisigPairs, 
+          ...this.addressService.rewardAddresses,
+      ];
+      this.balanceService.updateBalances();
+      this.authService.encKey = encryptKeyPair(allKeyParis, password);
+      this.dialogService.openEncKeyDialog(this.authService.encKey);
     }
   }
 

@@ -117,14 +117,15 @@ export class BalanceService {
     }
 
     private updateFiatLockedBalance(lockedBalance: number) {
-        this.getFiatBalancesByAddress().locked = lockedBalance;
+        this.getFiatBalancesByAddress(this.selectedAddress).locked = lockedBalance;
     }
 
-    async updateBalances(_address?: string) {
-        const address = _address || this.selectedAddress;
-        if (!address) return;
-        await this.updateFiatBalanceForAddressFromUnspents(address);
-        await this.updateTokensBalanceForAddress(address);
+    async updateBalances() {
+        for (let i = 0; i < this.addressService.keyPairs.length; i++) {
+            const address = this.addressService.keyPairs[i].address;
+            await this.updateFiatBalanceForAddressFromUnspents(address);
+            await this.updateTokensBalanceForAddress(address);
+        }
     }
 
     private async updateFiatBalanceForAddressFromUnspents(address: string) {
@@ -137,7 +138,13 @@ export class BalanceService {
         const { confirmed, unconfirmed } = fiatBalanceObjRes.data;
         const fiatObj = { confirmed, unconfirmed, locked };
         if (!this._allBalancesObj[address]) this._allBalancesObj[address] = emptyBalanceObj;
-        this._allBalancesObj[address].fiatBalance = fiatObj;
+        this._allBalancesObj = {
+            ...this._allBalancesObj, 
+            [address]: {
+                ...this._allBalancesObj[address], 
+                fiatBalance: fiatObj,
+            },
+        };
     }
 
     private async updateTokensBalanceForAddress(address: string) {

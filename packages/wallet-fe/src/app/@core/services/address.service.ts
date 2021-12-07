@@ -95,9 +95,9 @@ export class AddressService {
         this.multisigPairs = this.multisigPairs.filter(e => e !== multisig);
     }
 
-    addDecryptedKeyPair(pair: IKeyPair) {
+    addDecryptedKeyPair(pair: IKeyPair, setActive: boolean = false) {
         this.keyPairs = [...this.keyPairs, pair];
-        this.activeKeyPair = pair;
+        if (setActive) this.activeKeyPair = pair;
     }
 
     removeAllKeyPairs() {

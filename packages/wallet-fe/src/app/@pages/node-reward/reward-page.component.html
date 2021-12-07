@@ -14,7 +14,7 @@
                     <mat-header-cell *matHeaderCellDef>Address</mat-header-cell>
                     <mat-cell *matCellDef="let element">
                       <span> {{ element.address }} </span>
-                      <mat-icon class='copy-icon' (click)='copy("test")'>content_copy</mat-icon>
+                      <mat-icon class='copy-icon' (click)='copy(element.address)'>content_copy</mat-icon>
                     </mat-cell>
                 </ng-container>
 
@@ -28,11 +28,23 @@
                 <ng-container matColumnDef="status">
                     <mat-header-cell *matHeaderCellDef>Status</mat-header-cell>
                     <mat-cell *matCellDef="let element">
-                        <button mat-raised-button color="primary" (click)='fund(element.address)'>Fund</button>
-                        <button mat-raised-button color="primary" (click)='register(element.address)'>Register</button>
-                        <button mat-raised-button
+                        <button
+                            mat-raised-button
+                            color="primary"
+                            (click)='fund(element.address)'
+                        >Fund</button>
+                        <button
+                            mat-raised-button
+                            color="primary"
+                            (click)='register(element.address)'
+                            *ngIf='!isAddressRegistered(element.address)'
+                            [disabled]='isAddressWaiting(element.address)'
+                        >Register</button>
+                        <button
+                            mat-raised-button
                             [color]="isAddressAutoClaiming(element.address) ? 'accent' : 'primary'"
                             (click)='autoClaim(element.address)'
+                            *ngIf='isAddressRegistered(element.address)'
                         >Auto-claim</button>
                     </mat-cell>
                 </ng-container>

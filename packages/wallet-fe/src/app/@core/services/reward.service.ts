@@ -10,6 +10,8 @@ import { SocketService } from "./socket.service";
 
 export class RewardService {
     autoClaimAddresses: string[] = [];
+    registeredList: string[] = [];
+    waitingList: string[] = [];
 
     constructor (
         private addressService: AddressService,
@@ -29,21 +31,38 @@ export class RewardService {
     }
 
     startBlockChecking() {
+        this.checkIfWin();
+        this.checkRegisteredAddresses();
         this.socketService.socket.on('newBlock', (block) => {
+            this.waitingList = [];
            this.checkIfWin();
+           this.checkRegisteredAddresses();
         })
     }
 
+    private async checkRegisteredAddresses() {
+        const lnraRes = await this.rpcService.rpc('tl_listnodereward_addresses');
+        if (lnraRes.error || !lnraRes.data) {
+            this.toastrService.error(lnraRes.error || 'Error With getting registered Addresses', "Error")
+            return;
+        } else {
+            const registeredAddresses = lnraRes.data.map((e: any) => e?.['address:']);
+            this.registeredList = this.rewardAddresses
+                .map(e => e.address)
+                .filter(e => registeredAddresses.includes(e));
+        }
+    }
     async setAutoClaim(address: string) {
         const lnraRes = await this.rpcService.rpc('tl_listnodereward_addresses');
         if (lnraRes.error || !lnraRes.data) {
             this.toastrService.error(lnraRes.error || 'Error With getting registered Addresses', "Error")
             return;
         } else {
-            if (!lnraRes.data.map((e: any) => e?.['address:'] || []).includes(address)) {
-                this.toastrService.warning('This Address is not registered', "Warning")
+            if (this.autoClaimAddresses.includes(address)) {
+                this.autoClaimAddresses = this.autoClaimAddresses.filter(e => e !== address);
             } else {
                 this.autoClaimAddresses.push(address);
+                this.checkIfWin();
             }
         }
     }
@@ -60,9 +79,12 @@ export class RewardService {
                 this.toastrService.warning('This Address is already registered', "Warning")
             } else {
                 const snaRes = await this.rpcService.rpc('tl_submit_nodeaddress', [this.activeKeyPair?.address, address]);
-                snaRes.error || !snaRes.data
-                    ? this.toastrService.error(snaRes.error || 'Error With Resgistering address', "Error")
-                    : this.toastrService.success(`${address} Registered For Node Reward`, "Success");
+                if (snaRes.error || !snaRes.data) {
+                    this.toastrService.error(snaRes.error || 'Error With Resgistering address', "Error");
+                } else {
+                    this.toastrService.success(`${address} Registered For Node Reward`, "Success");
+                    this.waitingList.push(address);
+                }
             }
         }
     }

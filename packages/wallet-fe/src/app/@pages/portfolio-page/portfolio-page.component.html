@@ -2,6 +2,7 @@
   <h3 *ngIf='nonSynced'>Because of offline/non-synced wallet You may not see correct balances.</h3>
     <mat-card>
         <mat-card-header>LTC Balance</mat-card-header>
+        <button mat-raised-button (click)='newAddress()' class='new-address-buttton'>New Address</button>
         <mat-card-content>
             <mat-table [dataSource]="fiatBalance" *ngIf='fiatBalance'>
                 <ng-container matColumnDef="address">

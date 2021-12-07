@@ -111,15 +111,15 @@ export class AuthService {
     }
 
     login(pairs: (IKeyPair | IMultisigPair)[]) {
-        pairs.forEach((p: any) => {
+        pairs.forEach((p: any, index: number) => {
             if (p.redeemScript) {
                 this.addressService.addMultisigAddress(p)
             } else {
                 if (p.rewardAddress) {
                     this.addressService.addRewardAddress(p);
                 } else {
-                    this.addressService.addDecryptedKeyPair(p);
-                    this.balanceService.updateBalances(p.address);
+                    this.addressService.addDecryptedKeyPair(p, index === 0);
+                    this.balanceService.updateBalances();
                 }
             }
         });

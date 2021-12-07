@@ -22,6 +22,7 @@ export class TxBuilderSignTabComponent {
 
   public addMultisig: boolean = false;
   public pubkeysArray: string[] = ['',''];
+  public privKeys: string[] = [];
 
   constructor(
     private rpcService: RpcService,
@@ -82,6 +83,10 @@ export class TxBuilderSignTabComponent {
     this.pubkeysArray[index] = value;
   }
 
+  updatePrivKeyValue(event: any, i: number) {
+    this.privKeys[i] = event.target.value;
+  }
+
   nKeysChange(keysType: 'required' | 'all', action: 'add' | 'remove') {
     if (keysType === 'required'){
         if (action === 'add') {
@@ -137,7 +142,12 @@ export class TxBuilderSignTabComponent {
     }
     const res = !this.detailed
       ? await this.rpcService.rpc('signrawtransaction', [this.rawTx])
-      : await this.rpcService.rpc('signrawtransaction', [this.rawTx, this.vins, this.vins.map(_ => this.activeKeyPair?.privKey || '')]);
+      : await this.rpcService.rpc('signrawtransaction',
+        [
+          this.rawTx, this.vins, 
+          this.vins.map((e, i: number) => this.privKeys[i] || this.activeKeyPair?.privKey || '')
+        ]
+      );
     if (res.error || !res.data) {
       this.toastrService.error(res.error || 'Unknown Error', 'Signing Error');
     } else {
@@ -146,6 +156,7 @@ export class TxBuilderSignTabComponent {
       this.hexOutput = hex;
       if (errors) this.errorsObj = errors;
     }
+    this.privKeys = [];
     this.loading = false;
   }
 

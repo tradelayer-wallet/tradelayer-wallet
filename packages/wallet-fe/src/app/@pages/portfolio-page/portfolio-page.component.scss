@@ -27,9 +27,15 @@
         background-color: rgba(128, 128, 128, 0.3);
         color: wheat;
         margin-bottom: 2rem;
+        padding-top: 3rem;
         mat-card-content {
             color: whitesmoke;
             overflow: auto;
+        }
+        .new-address-buttton {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
         }
     }
 }
