@@ -101,7 +101,11 @@ export class AuthService {
         }
 
         this.login(res);
-        const allKeyParis = [...this.addressService.keyPairs, ...this.addressService.multisigPairs];
+        const allKeyParis = [
+            ...this.addressService.keyPairs, 
+            ...this.addressService.multisigPairs, 
+            ...this.addressService.rewardAddresses,
+        ];
         this.encKey = ltcUtils.encryptKeyPair(allKeyParis, pass);
         return;
     }

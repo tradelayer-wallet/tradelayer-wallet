@@ -1,11 +1,16 @@
 <div class="dialog-container">
     <div class="title">Save your encrypted Key for address</div>
     <div class="content-container">
-        <div class='textarea'>{{ data }}</div>
+        <div class='textarea' *ngIf='! decodedJson?.length'>{{ data }}</div>
+        <textarea [value]='decodedJson' *ngIf='decodedJson?.length' disabled>{{ decodedJson }}</textarea>
     </div>
-    <div class="buttons">
+    <div class="buttons" *ngIf='!decodedJson?.length'>
         <button mat-raised-button [cdkCopyToClipboard]="data" color="primary">Copy to Clipboard</button>
         <button mat-raised-button (click)='save()' color="primary">Save</button>
+        <button mat-raised-button (click)='decode()' color="primary">Decode</button>
         <button mat-raised-button (click)='close()' color="warn">Close</button>
+    </div>
+    <div class="buttons" *ngIf='decodedJson?.length'>
+        <button mat-raised-button (click)='decodedJson = ""' color="warn">Close</button>
     </div>
 </div>
