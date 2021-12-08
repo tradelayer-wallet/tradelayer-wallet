@@ -122,37 +122,10 @@ export const socketRoutes = (socketScript: SocketScript) => {
 
         fastify.post('/buildTx', async (request, reply) => {
             try {
-                const { fromAddress, toAddress, amount, txType, inputs } = request.body as {
-                    fromAddress: string,
-                    toAddress: string,
-                    amount: string,
-                    txType: string,
-                    inputs: string,
-                };
-
-                if (txType === 'SEND_VESTING') {
-                    const client = fasitfyServer.socketScript.asyncClient;
-                    const payloadRes = await client('tl_createpayload_sendvesting', amount.toString());
-                    if (payloadRes.error || !payloadRes.data) return reply.send({ error: payloadRes.error });
-                    const payload = payloadRes.data;
-                    const rawTxOptions: IBuildRawTxOptions = { fromAddress, toAddress, payload, inputs: inputs ? JSON.parse(inputs) : [] };
-                    const rawTx = new RawTx(rawTxOptions, client);
-                    const rawTxRes = await rawTx.build();
-                    return rawTxRes.error || !rawTxRes.data
-                        ? reply.send({ error: rawTxRes.error })
-                        : reply.send({ data: rawTxRes.data});
-                }
-
-                if (txType === 'SEND_LTC') {
-                    const client = fasitfyServer.socketScript.asyncClient;
-                    const options: IBuildRawTxOptions = { fromAddress, toAddress, refAddressAmount: parseFloat(amount), inputs: inputs ? JSON.parse(inputs) : []  };
-                    const rawTx = new RawTx(options, client);
-                    const hexRes = await rawTx.build();
-                    return hexRes.error || !hexRes.data
-                        ? reply.send({ error: hexRes.error ||`Error with building the transaction` })
-                        : reply.send({ data: hexRes.data });
-                }
-                reply.send({ error: 'Unsuported TX Type'});
+                const res = await txBuilder(request.body);
+                res.error || !res.data
+                    ? reply.send({ error: res.error })
+                    : reply.send({ data: res.data});
             } catch (error) {
                 reply.send({ error: error.message });
             }
@@ -218,3 +191,70 @@ export const socketRoutes = (socketScript: SocketScript) => {
         done();
     }
 };
+
+const txBuilder = async (options: any) => {
+    const client = fasitfyServer.socketScript.asyncClient;
+    const { txType, fromAddress, toAddress, amount, inputs, featureid, block, minclientversion, propId } = options;
+    switch (txType) {
+        case 'SEND_LTC':
+            const sLtcRawTx = new RawTx({
+                fromAddress,
+                toAddress,
+                refAddressAmount: parseFloat(amount),
+                inputs: inputs ? JSON.parse(inputs) : [],
+            }, client);
+            const sLtcBuildHex = await sLtcRawTx.build();
+            return sLtcBuildHex.error || !sLtcBuildHex.data
+                ? { error: sLtcBuildHex.error ||`Error with building the transaction` }
+                : { data: sLtcBuildHex.data };
+
+        case 'SEND_VESTING':
+            const svPayloadRes = await client('tl_createpayload_sendvesting', amount.toString());
+            if (svPayloadRes.error || !svPayloadRes.data) return{ error: svPayloadRes.error };
+            const svRawTx = new RawTx({ 
+                fromAddress, 
+                toAddress, 
+                payload: svPayloadRes.data, 
+                inputs: inputs ? JSON.parse(inputs) : [],
+            }, client);
+            const svBuildHex = await svRawTx.build();
+            return svBuildHex.error || !svBuildHex.data
+                ? { error: svBuildHex.error }
+                : { data: svBuildHex.data };
+    
+        case 'SEND_TOKEN':
+            const stPayloadRes = await client('tl_createpayload_simplesend', parseInt(propId), amount.toString());
+            if (stPayloadRes.error || !stPayloadRes.data) return { error: stPayloadRes.error };
+            const stRawTx = new RawTx({ 
+                fromAddress,
+                toAddress,
+                payload: stPayloadRes.data,
+                inputs: inputs ? JSON.parse(inputs) : [],
+            }, client);
+            const stBuildHex = await stRawTx.build();
+            return stBuildHex.error || !stBuildHex.data
+                ? { error: stBuildHex.error }
+                : { data: stBuildHex.data };
+
+        case 'SEND_ACTIVATION':
+            const saPayloadRes = await client(
+                    'tl_createpayload_sendactivation',
+                    parseInt(featureid),
+                    parseInt(block),
+                    parseInt(minclientversion),
+                );
+            if (saPayloadRes.error || !saPayloadRes.data) return { error: saPayloadRes.error };
+            const saRawTx = new RawTx({ 
+                fromAddress,
+                toAddress,
+                payload: saPayloadRes.data,
+                inputs: inputs ? JSON.parse(inputs) : [],
+            }, client);
+            const saBuildHex = await saRawTx.build();
+            return saBuildHex.error || !saBuildHex.data
+                ? { error: saBuildHex.error }
+                : { data: saBuildHex.data };
+        default:
+            return { error: 'Unsuported TX Type' };
+    }
+}

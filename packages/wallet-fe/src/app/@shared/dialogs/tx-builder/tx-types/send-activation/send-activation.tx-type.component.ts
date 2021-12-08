@@ -1,15 +1,15 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Inject, Input, Output, EventEmitter } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import { BuilderService } from 'src/app/@core/services/builder.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { TX_TYPES } from '../../tabs/build/build-tab.component';
 
 @Component({
-  selector: 'tx-type-send-vesting',
-  templateUrl: './send-vesting.tx-type.component.html',
-  styleUrls: ['./send-vesting.tx-type.component.scss']
+  selector: 'tx-type-send-activation',
+  templateUrl: './send-activation.tx-type.component.html',
+  styleUrls: ['./send-activation.tx-type.component.scss']
 })
-export class SendVestingTxTypeComponent {
+export class SendActivationTxTypeComponent {
     @Output('loading') loadingEmmiter: EventEmitter<boolean> = new EventEmitter();
     @Output('hexOutput') hexOutputEmmiter: EventEmitter<string> = new EventEmitter();
 
@@ -18,13 +18,16 @@ export class SendVestingTxTypeComponent {
     private _loading: boolean = false;
     private _toAddress: string = '';
 
-    amount: number = 0;
+    featureId: number = NaN;
+    block: number = NaN;
+    minclientversion: number = NaN;
+
     isAddressValid: boolean | null | 'PENDING' = null;
 
     constructor (
       private rpcService: RpcService,
       private toastrService: ToastrService,
-      private builderSrvice: BuilderService,
+      private builderService: BuilderService,
     ) { }
 
     get toAddress() {
@@ -37,7 +40,13 @@ export class SendVestingTxTypeComponent {
     }
 
     get buttonDisabled() {
-      return !this.sender || !this.toAddress || !this.amount || this.isAddressValid === 'PENDING' || this.isAddressValid === false;
+      return !this.sender ||
+        !this.toAddress ||
+        !this.featureId ||
+        !this.block ||
+        !this.minclientversion ||
+        this.isAddressValid === 'PENDING' ||
+        this.isAddressValid === false;
     }
       
     get loading() {
@@ -69,11 +78,12 @@ export class SendVestingTxTypeComponent {
       const tradeData = {
         fromAddress: this.sender,
         toAddress: this.toAddress,
-        amount: this.amount,
-        txType: TX_TYPES.SEND_VESTING,
+        featureid: this.featureId,
+        block: this.block,
+        minclientversion: this.minclientversion,
+        txType: TX_TYPES.SEND_ACTIVATION,
       };
-
-      const result = await this.builderSrvice.build(tradeData);
+      const result = await this.builderService.build(tradeData);
       result.error || !result.data
         ? this.toastrService.error(result.error || 'Undefined Error!', 'Error')
         : this.hexOutputEmmiter.emit(result.data);

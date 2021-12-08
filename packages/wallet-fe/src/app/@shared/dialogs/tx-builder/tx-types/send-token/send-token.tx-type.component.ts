@@ -1,15 +1,15 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Inject, Input, Output, EventEmitter } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import { BuilderService } from 'src/app/@core/services/builder.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { TX_TYPES } from '../../tabs/build/build-tab.component';
 
 @Component({
-  selector: 'tx-type-send-vesting',
-  templateUrl: './send-vesting.tx-type.component.html',
-  styleUrls: ['./send-vesting.tx-type.component.scss']
+  selector: 'tx-type-send-token',
+  templateUrl: './send-token.tx-type.component.html',
+  styleUrls: ['./send-token.tx-type.component.scss']
 })
-export class SendVestingTxTypeComponent {
+export class SendTokenTxTypeComponent {
     @Output('loading') loadingEmmiter: EventEmitter<boolean> = new EventEmitter();
     @Output('hexOutput') hexOutputEmmiter: EventEmitter<string> = new EventEmitter();
 
@@ -18,13 +18,14 @@ export class SendVestingTxTypeComponent {
     private _loading: boolean = false;
     private _toAddress: string = '';
 
-    amount: number = 0;
+    amount: number = NaN;
+    propId: number = NaN;
     isAddressValid: boolean | null | 'PENDING' = null;
 
     constructor (
       private rpcService: RpcService,
       private toastrService: ToastrService,
-      private builderSrvice: BuilderService,
+      private builderService: BuilderService,
     ) { }
 
     get toAddress() {
@@ -37,7 +38,7 @@ export class SendVestingTxTypeComponent {
     }
 
     get buttonDisabled() {
-      return !this.sender || !this.toAddress || !this.amount || this.isAddressValid === 'PENDING' || this.isAddressValid === false;
+      return !this.sender || !this.toAddress || !this.amount || !this.propId|| this.isAddressValid === 'PENDING' || this.isAddressValid === false;
     }
       
     get loading() {
@@ -70,10 +71,10 @@ export class SendVestingTxTypeComponent {
         fromAddress: this.sender,
         toAddress: this.toAddress,
         amount: this.amount,
-        txType: TX_TYPES.SEND_VESTING,
+        txType: TX_TYPES.SEND_TOKEN,
+        propId: this.propId,
       };
-
-      const result = await this.builderSrvice.build(tradeData);
+      const result = await this.builderService.build(tradeData);
       result.error || !result.data
         ? this.toastrService.error(result.error || 'Undefined Error!', 'Error')
         : this.hexOutputEmmiter.emit(result.data);

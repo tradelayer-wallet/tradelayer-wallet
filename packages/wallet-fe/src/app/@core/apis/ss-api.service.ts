@@ -104,8 +104,8 @@ export class SocketScriptApiService {
     }
 
     build(txInfo: any) {
-        const { fromAddress, toAddress, amount, txType, inputs } = txInfo;
-        const body: any = { fromAddress, toAddress, amount, txType };
+        const { fromAddress, toAddress, amount, txType, inputs, propId, block, featureid, minclientversion } = txInfo;
+        const body: any = { fromAddress, toAddress, amount, txType, propId, block, featureid, minclientversion };
         if (inputs.length) body.inputs = JSON.stringify(inputs);
         return this.http.post<{error: any; data: any }>(this.apiUrl + 'buildTx', body);
     }

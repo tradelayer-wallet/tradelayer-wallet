@@ -2,9 +2,11 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 
-const TX_TYPES = {
+export const TX_TYPES = {
   SEND_VESTING: "SEND_VESTING",
   SEND_LTC: "SEND_LTC",
+  SEND_ACTIVATION: "SEND_ACTIVATION",
+  SEND_TOKEN: "SEND_TOKEN",
 };
 
 @Component({

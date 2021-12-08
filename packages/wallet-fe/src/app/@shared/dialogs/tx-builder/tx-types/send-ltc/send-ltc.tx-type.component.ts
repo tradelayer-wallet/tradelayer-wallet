@@ -2,6 +2,7 @@ import { Component, Inject, Input, Output, EventEmitter } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import { BuilderService } from 'src/app/@core/services/builder.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
+import { TX_TYPES } from '../../tabs/build/build-tab.component';
 
 @Component({
   selector: 'tx-type-send-ltc',
@@ -69,7 +70,7 @@ export class SendLtcTxTypeComponent {
         fromAddress: this.sender,
         toAddress: this.toAddress,
         amount: this.amount,
-        txType: 'SEND_LTC',
+        txType: TX_TYPES.SEND_LTC,
       };
 
       const result = await this.builderService.build(tradeData);
