@@ -50,20 +50,20 @@
                     
                     .mat-column-status {
                         justify-content: space-around;
-                        min-width: 20rem;
+                        min-width: 15rem;
                     }
 
                     .mat-column-balance {
                         min-width: 6rem;
                     }
 
-                    .mat-column-history {
-                        min-width: 4rem;
-                        justify-content: center;
-                        mat-icon {
-                            cursor: pointer;
-                        }
-                    }
+                    // .mat-column-history {
+                    //     min-width: 4rem;
+                    //     justify-content: center;
+                    //     mat-icon {
+                    //         cursor: pointer;
+                    //     }
+                    // }
                 }
             }
         }

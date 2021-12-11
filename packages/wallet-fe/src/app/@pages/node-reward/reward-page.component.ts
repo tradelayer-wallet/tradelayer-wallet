@@ -18,7 +18,7 @@ import { decryptKeyPair, encryptKeyPair } from 'src/app/utils/litecore.util';
   styleUrls: ['./reward-page.component.scss']
 })
 export class NodeRewardPageComponent implements OnInit {
-    rewardTableColumns: string[] = ['address', 'balance', 'status', 'history'];
+    rewardTableColumns: string[] = ['address', 'balance', 'status'];
     rawBalanceObj: any = {};
 
     constructor(
@@ -148,4 +148,8 @@ export class NodeRewardPageComponent implements OnInit {
     autoClaim(address: string) {
       this.rewardService.setAutoClaim(address);
     }
+
+    // async openHistort() {
+    //   this.toastrService.warning('Not available', 'This Feature will be available soon');
+    // }
 }

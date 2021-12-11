@@ -49,12 +49,12 @@
                     </mat-cell>
                 </ng-container>
 
-                <ng-container matColumnDef="history">
+                <!-- <ng-container matColumnDef="history">
                     <mat-header-cell *matHeaderCellDef>History</mat-header-cell>
                     <mat-cell *matCellDef="let element">
-                        <mat-icon>add</mat-icon>
+                        <mat-icon (click)='openHistort()'>add</mat-icon>
                     </mat-cell>
-                </ng-container>
+                </ng-container> -->
 
                 <mat-header-row *matHeaderRowDef="rewardTableColumns"></mat-header-row>
                 <mat-row *matRowDef="let row; columns: rewardTableColumns;"></mat-row>

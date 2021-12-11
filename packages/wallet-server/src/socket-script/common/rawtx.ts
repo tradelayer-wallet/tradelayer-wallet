@@ -147,7 +147,7 @@ export class RawTx {
         const vaToResErrorMessage = `Provided Receiver Address (${this.toAddress}) is not valid!`
         if (vaToRes.error || !vaToRes.data?.isvalid) return { error: vaToRes.error || vaToResErrorMessage };
     
-        if (this.fromAddress === this.toAddress) return { error: `Sender's and Receiver's Addresses could not be the same!`};
+        // if (this.fromAddress === this.toAddress) return { error: `Sender's and Receiver's Addresses could not be the same!`};
         return { data: true };
     }
 
