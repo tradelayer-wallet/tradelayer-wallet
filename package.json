@@ -1,6 +1,6 @@
 {
   "name": "tradelayer-wallet",
-  "version": "0.0.001",
+  "version": "0.0.1",
   "description": "Official Tradelayer Wallet",
   "author": "Valentin Peshev",
   "license": "ISC",
@@ -16,6 +16,9 @@
     "server:build:mac": "webpack --config ./packages/wallet-server/webpack.config.js --env os=MAC",
     "fe:build": "npm run build --prefix ./packages/wallet-fe",
     "fe:build:watch": "npm run build:watch --prefix ./packages/wallet-fe"
+  },
+  "dependencies": {
+    "electron-updater": "^4.6.1"
   },
   "devDependencies": {
     "@types/node": "^14.17.5",
