@@ -1,47 +1,14 @@
 {
   "name": "tradelayer-wallet",
-  "version": "1.0.0",
+  "version": "0.0.001",
   "description": "Official Tradelayer Wallet",
   "author": "Valentin Peshev",
   "license": "ISC",
   "main": "dist/main.js",
   "private": true,
-  "build": {
-    "appId": "tl.wallet.1",
-    "productName": "TradeLayer-Wallet",
-    "files": [
-      "dist/**/*"
-    ],
-    "directories": {
-      "output": "release",
-      "buildResources": "dist"
-    },
-    "asar": false,
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ],
-      "icon": "dist/fe/assets/icon.png"
-    },
-    "linux": {
-      "target": [
-        "AppImage"
-      ],
-      "icon": "dist/fe/assets/icon.png"
-    },
-    "mac": {
-      "target": "default",
-      "icon": "dist/fe/assets/icon512.png"
-    }
-  },
   "scripts": {
     "start": "electron .",
-    "electron:pack": "electron-builder --dir",
-    "electron:dist": "electron-builder",
+    "electron:dist": "electron-builder --config ./electron-builder.json",
     "electron:build": "webpack --config ./builder/builder-webpack.config.js",
     "electron:build:watch": "webpack --config ./builder/builder-webpack.config.js --watch",
     "server:build:windows": "webpack --config ./packages/wallet-server/webpack.config.js --env os=WINDOWS",

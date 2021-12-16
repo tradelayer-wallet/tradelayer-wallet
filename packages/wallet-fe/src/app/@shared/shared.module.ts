@@ -31,8 +31,9 @@ import { InfoLineComponent } from '../@shared/components/info-line/info-line.com
 import { NewMultisigDialog } from './dialogs/new-multisig/new-multisig.component';
 import { MatSelectModule } from '@angular/material/select'; 
 import { PasswordDialog } from './dialogs/password/password.component';
-import { ClickOutsideDirective } from './directives/click-outside.directive';
+// import { ClickOutsideDirective } from './directives/click-outside.directive';
 import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
+import { NewVersionDialog } from './dialogs/new-version/new-version.component';
 
 
 const NG_MODULES = [
@@ -67,6 +68,7 @@ const DIALOGS = [
     DepositDialog,
     NewMultisigDialog,
     PasswordDialog,
+    NewVersionDialog,
 ];
 
 const COMPONENTS = [

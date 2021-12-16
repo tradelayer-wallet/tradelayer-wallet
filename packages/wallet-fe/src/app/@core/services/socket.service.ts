@@ -4,7 +4,7 @@ import { ToastrService } from "ngx-toastr";
 import { Socket } from "socket.io-client";
 import { io } from 'socket.io-client'
 import { environment } from '../../../environments/environment';
-import { DialogService } from "./dialogs.service";
+import { DialogService, DialogTypes } from "./dialogs.service";
 
 export enum SocketEmits {
     LTC_INSTANT_TRADE = 'LTC_INSTANT_TRADE',
@@ -67,10 +67,11 @@ export class SocketService {
         if (this.socket) {
             this.socket.on('need-update', ()=> {
                 console.log('Wallet App Need To Be Updated!!');
+                this.dialogService.openDialog(DialogTypes.NEW_VERSION);
                 this.toasterService.info(
                     'The application need to be updated!',
                     'INFO', 
-                    { extendedTimeOut: 30000, timeOut: 30000 },
+                    { extendedTimeOut: 2000, timeOut: 2000 },
                 );
             });
 

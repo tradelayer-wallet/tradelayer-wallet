@@ -1,0 +1,32 @@
+{
+    "appId": "tl.wallet.1",
+    "productName": "TradeLayer-Wallet",
+    "files": [
+      "dist/**/*"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "dist"
+    },
+    "asar": false,
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "dist/fe/assets/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "dist/fe/assets/icon.png"
+    },
+    "mac": {
+      "target": "default",
+      "icon": "dist/fe/assets/icon512.png"
+    }
+  }

@@ -1,0 +1,9 @@
+.dialog-container {
+    mat-dialog-content {
+        .content-container {
+            display: flex;
+            flex-direction: column;
+            padding-top: 1rem;
+        }
+    }
+}
