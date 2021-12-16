@@ -1,0 +1,8 @@
+version: 0.0.1
+files:
+  - url: TradeLayer-Wallet-Setup-0.0.1.exe
+    sha512: Fmq5rsGw7rk59dMACcY+H6QvnBn9ImZ3eX3toWNt+pdKz2I8OZKAhc6FmTgT3GKbdIBznprDBtPEa59G/3+yEw==
+    size: 63473851
+path: TradeLayer-Wallet-Setup-0.0.1.exe
+sha512: Fmq5rsGw7rk59dMACcY+H6QvnBn9ImZ3eX3toWNt+pdKz2I8OZKAhc6FmTgT3GKbdIBznprDBtPEa59G/3+yEw==
+releaseDate: '2021-12-16T12:38:20.807Z'
