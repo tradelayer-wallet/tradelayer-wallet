@@ -28,5 +28,13 @@
     "mac": {
       "target": "default",
       "icon": "dist/fe/assets/icon512.png"
+    },
+    "publish": [
+      {
+        "owner": "valiopld",
+        "repo": "tradelayer-wallet",
+        "provider": "github",
+        "token": "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"
     }
+    ]
   }

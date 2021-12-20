@@ -21,6 +21,7 @@ export class AppComponent {
   get isAbleToRpc() {
     return this.rpcService.isAbleToRpc;
   }
+
   get isLoading(): boolean {
     return this.socketService.serversWaiting || this.loadingService.isLoading;
   }

@@ -67,7 +67,6 @@ export class SocketService {
         if (this.socket) {
             this.socket.on('need-update', ()=> {
                 console.log('Wallet App Need To Be Updated!!');
-                this.dialogService.openDialog(DialogTypes.NEW_VERSION);
                 this.toasterService.info(
                     'The application need to be updated!',
                     'INFO', 
