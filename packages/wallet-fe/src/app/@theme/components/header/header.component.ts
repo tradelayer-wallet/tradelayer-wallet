@@ -28,13 +28,6 @@ export class HeaderComponent {
       link: 'spot',
       needAuthToShow: true,
     },
-    // {
-    //   id: 3,
-    //   name: 'Futures',
-    //   link: 'futures',
-    //   disabled: true,
-    //   needAuthToShow: true,
-    // },
     {
       id: 3,
       name: 'Portfolio',

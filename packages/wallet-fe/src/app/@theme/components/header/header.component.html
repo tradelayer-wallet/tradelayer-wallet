@@ -1,19 +1,15 @@
 <mat-toolbar>
     <mat-toolbar-row>
-
         <div class="left-side">
             <button mat-icon-button (click)='toggleSideBar()'>
                 <mat-icon>menu</mat-icon>
+                <img src='./assets/tl-logo.svg'>
             </button>
         </div>
 
         <span class="spacer"></span>
+
         <div class="right-side">
-            <!-- <div class="theme-switch">
-                <mat-icon>dark_mode</mat-icon>
-                <mat-slide-toggle (change)='toggleTheme()'></mat-slide-toggle>
-                <mat-icon>light_mode</mat-icon>
-            </div> -->
             <div class='address' *ngIf='publicAddress'>
                 <span (click)='copyToClipboard(publicAddress)'> {{ publicAddress }}  </span>
                 <span 
