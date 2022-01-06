@@ -7,11 +7,15 @@ import { Buyer } from './common/buyer';
 import { Seller } from './common/seller';
 import { RawTx } from './common/rawtx';
 import { customLogger } from './common/logger';
+import { serverSocketService } from '../sockets';
+import { getDataDefaultStrategy } from './liquidity-provider/default-strategy';
 
 export class SocketScript {
     private _ltcClient: any;
     private _listener: ListenerServer;
     private _asyncClient: TClient;
+    private isLiquidityStarted: boolean = false;
+
     constructor() {}
 
     get ltcClient() {
@@ -108,5 +112,42 @@ export class SocketScript {
         const res = await swap.onReady();
         customLogger(`End Trade: ${JSON.stringify(res)}`);
         return res;
+    }
+
+    async runLiquidityScript(options: any) {
+        try {
+            if (this.isLiquidityStarted) serverSocketService.socket.emit('clean-by-address', options.address);
+            this.isLiquidityStarted = true;
+            const { address } = options;
+            const balanceLTCRes = await this.asyncClient('listunspent', 0, 999999999, [address]);
+            if (balanceLTCRes.error || !balanceLTCRes.data) return { error: balanceLTCRes.error || `Error with getting ${address} LTC balance` };
+            const _balanceLTC = balanceLTCRes.data
+                .map((e: any) => parseFloat(e.amount))
+                .reduce((a: number, b: number) => a + b, 0);
+            const balanceAllRes = await this.asyncClient('tl_getbalance', address, 4);
+            if (balanceAllRes.error || !balanceAllRes.data) return { error: balanceAllRes.error || `Error with getting ${address} ALL balance` };
+
+            const balanceAll = parseFloat(balanceAllRes.data.balance);
+            const balanceLTC = parseFloat(_balanceLTC.toFixed(6));
+            const data = getDataDefaultStrategy(options, balanceLTC, balanceAll);
+            this.addManyOrders(data);
+            return { data: true };
+        } catch (err) {
+            return { error: err.message };
+        }
+    }
+
+    async stopLiquidityScript(address: string) {
+        try {
+            if (this.isLiquidityStarted) serverSocketService.socket.emit('clean-by-address', address);
+            this.isLiquidityStarted = false;
+            return { data: true };
+        } catch (err) {
+            return { error: err.message };
+        }
+    }
+
+    private async addManyOrders(data: any[]) {
+        if (this.isLiquidityStarted) serverSocketService.socket.emit('add-many', data);
     }
 }

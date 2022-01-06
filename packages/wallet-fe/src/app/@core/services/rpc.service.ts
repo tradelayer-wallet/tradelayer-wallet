@@ -154,7 +154,7 @@ export class RpcService {
         if (error || !result) return { error: error.message || 'Error with RPC call' };
         return { data: result };
       } catch (err: any) {
-        return { error: err.error?.error?.message || 'Undifined Error' }
+        return { error: err.error?.error?.message || 'Undefined Error' }
       }
     }
 

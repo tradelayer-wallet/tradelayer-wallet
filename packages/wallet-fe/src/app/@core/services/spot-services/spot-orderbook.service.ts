@@ -79,8 +79,8 @@ export class SpotOrderbookService {
                 amount: o.amount,
             });
         });
-        return isBuy 
-         ? result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0))
-         : result.sort((a, b) => b.price - a.price).slice(0, 9);
+        return isBuy
+        ? result.sort((a, b) => b.price - a.price).slice(0, 9)
+        : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
     }
 }

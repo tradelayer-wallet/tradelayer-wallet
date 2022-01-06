@@ -26,9 +26,6 @@ export class DealerService {
     }
 
     set myDealerTrades(value: any) {
-        // if (!this.myDealerTrades?.length && value.length) {
-        //     this.startListenerScript();
-        // }
         this._myDealerTrades = value;
         this.emitDealerData();
     }

@@ -21,6 +21,14 @@ overlay-loading {
     transform: translateY(5000);
 }
 
+::ng-deep {
+    .mat-tab-header-pagination-chevron {
+        border-color: var(--white);
+    }
+    .mat-tab-label {
+        color: var(--white);
+    }
+}
 ::ng-deep .mat-dialog-container {
     background-color: var(--violet2);
     color: var(--softGrey);
@@ -51,4 +59,11 @@ overlay-loading {
     // .mat-checkbox-inner-container {
     //     border: 1px solid var(--softGrey);
     // }
+    .mat-form-field-label {
+        color: white !important;
+    }
+        
+    .mat-form-field-outline {
+        color: white !important;
+    }
 }

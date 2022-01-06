@@ -123,6 +123,7 @@ export class PortfolioPageComponent implements OnInit{
           ...this.addressService.keyPairs, 
           ...this.addressService.multisigPairs, 
           ...this.addressService.rewardAddresses,
+          ...this.addressService.liquidityAddresses,
       ];
       this.balanceService.updateBalances();
       this.authService.encKey = encryptKeyPair(allKeyParis, password);

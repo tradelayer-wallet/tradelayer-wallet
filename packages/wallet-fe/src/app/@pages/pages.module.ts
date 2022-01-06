@@ -34,6 +34,7 @@ import { FuturesBuySellCardComponent } from './futures-page/futures-trading-grid
 import { SettingsPageComponent } from './settings-page/settings-page.component';
 import { MultisigPageComponent } from './multisig-page/multisig-page.component';
 import { NodeRewardPageComponent } from './node-reward/reward-page.component';
+import { LiquidityProviderPageComponent } from './liquidity-provider/liquidity-provider.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -61,6 +62,7 @@ const PAGE_COMPONENTS = [
     SettingsPageComponent,
     MultisigPageComponent,
     NodeRewardPageComponent,
+    LiquidityProviderPageComponent,
 ];
 
 const SPOT_COMPONENTS = [

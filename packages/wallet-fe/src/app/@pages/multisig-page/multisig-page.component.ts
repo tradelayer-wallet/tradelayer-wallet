@@ -90,7 +90,12 @@ export class MultisigPageComponent implements OnInit{
         this.toastrService.error('Wrong Password', 'Error');
     } else {
       this.addressService.removeMultisigAddress(el);
-      const allKeyParis = [...this.addressService.keyPairs, ...this.addressService.multisigPairs];
+      const allKeyParis = [
+        ...this.addressService.keyPairs,
+        ...this.addressService.multisigPairs,
+        ...this.addressService.rewardAddresses,
+        ...this.addressService.liquidityAddresses,
+      ];
       this.authService.encKey = encryptKeyPair(allKeyParis, password);
       this.dialogService.openEncKeyDialog(this.authService.encKey);
     }

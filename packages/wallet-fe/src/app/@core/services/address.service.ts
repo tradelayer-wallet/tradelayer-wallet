@@ -8,6 +8,7 @@ export interface IKeyPair {
     pubKey: string;
     privKey: string;
     rewardAddress?: boolean;
+    liquidity_provider?: boolean;
 }
 
 export interface IMultisigPair {
@@ -35,6 +36,7 @@ export class AddressService {
     private _multisigPairs: IMultisigPair[] = [];
     private _rewardAddresses: IKeyPair[] = [];
     private _maxNRewardAddresses: number = 5;
+    private _liquidityAddresses: IKeyPair[] = [];
 
     constructor(
         private rpcService: RpcService,
@@ -87,6 +89,14 @@ export class AddressService {
         return this._maxNRewardAddresses;
     }
 
+    get liquidityAddresses() {
+        return this._liquidityAddresses;
+    }
+
+    set liquidityAddresses(value: IKeyPair[]) {
+        this._liquidityAddresses = value;
+    }
+
     addMultisigAddress(multisig: IMultisigPair) {
         this.multisigPairs = [...this.multisigPairs, multisig];
     }
@@ -104,6 +114,7 @@ export class AddressService {
         this.multisigPairs = [];
         this.keyPairs = [];
         this.rewardAddresses = [];
+        this.liquidityAddresses = [];
         this.activeKeyPair = null;
     }
 
@@ -154,6 +165,18 @@ export class AddressService {
 
     addRewardAddress(keyPair: IKeyPair) {
         this.rewardAddresses = [...this.rewardAddresses, keyPair];
+    }
+
+    async generateLiquidityAddress() {
+        const keyPair = await this.generateNewKeyPair();
+        if (keyPair) {
+            keyPair.liquidity_provider = true;
+            this.addLiquidtyAddress(keyPair);
+        }
+    }
+
+    addLiquidtyAddress(keyPair: IKeyPair) {
+        this.liquidityAddresses = [...this.liquidityAddresses, keyPair];
     }
 
     async generateNewKeyPair() {

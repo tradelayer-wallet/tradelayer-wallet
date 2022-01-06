@@ -6,6 +6,7 @@ import { INodeConfig, myWalletNode } from "../services/wallet-node";
 import { RawTx } from "../socket-script/common/rawtx";
 import { fasitfyServer } from '../../src/index';
 import { IBuildRawTxOptions } from "../socket-script/common/types";
+import { FastifyServer } from "../fastify-server";
 
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
@@ -185,6 +186,27 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 reply.send({ data: true });
             } catch(error) {
                 reply.send({ error: error.message });
+            }
+        });
+
+        fastify.post('/runLiquidityScript', async (request, reply) => {
+            try {
+                const options = request.body;
+                const res = await fasitfyServer.socketScript.runLiquidityScript(options);
+                reply.send(res);
+            } catch (err) {
+                reply.send({ error: err.message });
+            }
+        });
+
+        fastify.post('/stopLiquidityScript', async (request, reply) => {
+            try {
+                const { address } = request.body as { address: string };
+                if (!address) return reply.send({ error: `No Address Provided!`});
+                const res = await fasitfyServer.socketScript.stopLiquidityScript(address);
+                reply.send(res);
+            } catch (err) {
+                reply.send({ error: err.message });
             }
         });
 

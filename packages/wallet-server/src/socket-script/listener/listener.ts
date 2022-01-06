@@ -129,11 +129,11 @@ export class Listener {
       this.listenerCommitTx = ctcRes.data;
 
       const gtRes = await this.client("gettransaction", ctcRes.data);
-      if (gtRes.error || !gtRes.data?.hex) return this.terminateTrade(gtRes.error || 'Undifined Error 1!');
+      if (gtRes.error || !gtRes.data?.hex) return this.terminateTrade(gtRes.error || 'Undefined Error 1!');
       const drtRes = await this.client("decoderawtransaction", gtRes.data.hex);
-      if (drtRes.error || !drtRes.data) return this.terminateTrade(drtRes.error || 'Undifined Error 2!');
+      if (drtRes.error || !drtRes.data) return this.terminateTrade(drtRes.error || 'Undefined Error 2!');
       const vout = drtRes.data.vout.find(o => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData.address);
-      if (!vout) return this.terminateTrade(drtRes.error || 'Undifined Error 3!');
+      if (!vout) return this.terminateTrade(drtRes.error || 'Undefined Error 3!');
       const utxoData = {
         amount: vout.value,
         vout: vout.n,

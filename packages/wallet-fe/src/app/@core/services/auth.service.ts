@@ -7,6 +7,9 @@ import { ApiService } from "./api.service";
 import { BalanceService } from "./balance.service";
 import { DialogService, DialogTypes } from "./dialogs.service";
 import { RpcService } from "./rpc.service";
+import { SocketService } from "./socket.service";
+import { DealerService } from "./spot-services/dealer.service";
+import { SpotPositionsService } from "./spot-services/spot-positions.service";
 import { TxsService } from "./spot-services/txs.service";
 
 @Injectable({
@@ -25,6 +28,9 @@ export class AuthService {
         private apiService: ApiService,
         private txsService: TxsService,
         private rpcService: RpcService,
+        private socketService: SocketService,
+        private spotPositionsService: SpotPositionsService,
+        private dealerService: DealerService,
     ) {}
 
     get isLoggedIn() {
@@ -105,6 +111,7 @@ export class AuthService {
             ...this.addressService.keyPairs, 
             ...this.addressService.multisigPairs, 
             ...this.addressService.rewardAddresses,
+            ...this.addressService.liquidityAddresses,
         ];
         this.encKey = ltcUtils.encryptKeyPair(allKeyParis, pass);
         return;
@@ -118,19 +125,30 @@ export class AuthService {
                 if (p.rewardAddress) {
                     this.addressService.addRewardAddress(p);
                 } else {
-                    this.addressService.addDecryptedKeyPair(p, index === 0);
-                    this.balanceService.updateBalances();
+                    if (p.liquidity_provider) {
+                        this.addressService.addLiquidtyAddress(p);
+                    } else {
+                        this.addressService.addDecryptedKeyPair(p, index === 0);
+                        this.balanceService.updateBalances();
+                    }
                 }
             }
         });
         this.router.navigateByUrl(this.savedFromUrl);
     }
 
+    private clearSpotData() {
+        this.dealerService.myDealerTrades = [];
+        this.spotPositionsService.openedPositions = [];
+        this.txsService.pendingTxs = [];
+    }
+
     logout() {
+        this.clearSpotData();
         this.addressService.removeAllKeyPairs();
         this.balanceService.restartBalance();
-        this.txsService.pendingTxs = [];
         this.encKey = '';
         this.router.navigateByUrl('login');
+        this.socketService.socket.emit('logout');
     }
 }

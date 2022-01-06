@@ -62,13 +62,14 @@ class WalletSocketSevice {
         this.handleFromWalletToServer(socket, 'update-orderbook');
         this.handleFromWalletToServer(socket, 'dealer-data');
         this.handleFromWalletToServer(socket, 'close-position');
+        this.handleFromWalletToServer(socket, 'logout');
 
         socket.on('api-reconnect', (isTestNet: boolean) => initServerConnection(this.socketScript, isTestNet));
         socket.on('update-futures-orderbook', this.sendFuturesOrderbookData.bind(this));
         socket.on('orderbook-contract-filter', (contract: IContractInfo) => {
             this.selectedContractId = contract;
             this.sendFuturesOrderbookData();
-        })
+        });
     }
 
     private async sendFuturesOrderbookData() {
