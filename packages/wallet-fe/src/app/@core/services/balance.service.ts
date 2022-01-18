@@ -121,8 +121,9 @@ export class BalanceService {
     }
 
     async updateBalances() {
-        for (let i = 0; i < this.addressService.keyPairs.length; i++) {
-            const address = this.addressService.keyPairs[i].address;
+        const addressesArray = [...this.addressService.keyPairs, ...this.addressService.liquidityAddresses];
+        for (let i = 0; i < addressesArray.length; i++) {
+            const address = addressesArray[i].address;
             await this.updateFiatBalanceForAddressFromUnspents(address);
             await this.updateTokensBalanceForAddress(address);
         }

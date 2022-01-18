@@ -6,11 +6,18 @@
                 <div style='width: 15%'>Status</div>
                 <div style='width: 15%'></div>
             </div>
-            <div class="row">
+            <div class="row" *ngIf='address'>
                 <div style='width: 70%'>{{ address }}</div>
                 <div style='width: 15%'>{{ status }}</div>
                 <div style='width: 10%'>
-                    <button (click)='kyc()' [disabled]='buttonDisabled' mat-raised-button color="primary">KYC</button>
+                    <button (click)='kyc(address)' [disabled]='buttonDisabled' mat-raised-button color="primary">KYC</button>
+                </div>
+            </div>
+            <div class="row" *ngIf='liquitiyAddress'>
+                <div style='width: 70%'>{{ liquitiyAddress }}</div>
+                <div style='width: 15%'>{{ liquidityStatus }}</div>
+                <div style='width: 10%'>
+                    <button (click)='kyc(liquitiyAddress)' [disabled]='liquidityButtonDisabled' mat-raised-button color="primary">KYC</button>
                 </div>
             </div>
         </mat-tab>

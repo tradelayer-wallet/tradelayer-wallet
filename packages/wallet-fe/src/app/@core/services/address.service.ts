@@ -77,6 +77,12 @@ export class AddressService {
         return this.allAttestations[address];
     }
 
+    get liquidityAddressesKYCStatus() {
+        if (!this.liquidityAddresses?.[0]?.address) return EKYCStatus.DISABLED;
+        const address = this.liquidityAddresses[0].address;
+        return this.allAttestations[address];
+    }
+
     get rewardAddresses() {
         return this._rewardAddresses;
     }
@@ -94,6 +100,7 @@ export class AddressService {
     }
 
     set liquidityAddresses(value: IKeyPair[]) {
+        value.forEach(({ address }) => this.checkKycStatusForAddress(address));
         this._liquidityAddresses = value;
     }
 

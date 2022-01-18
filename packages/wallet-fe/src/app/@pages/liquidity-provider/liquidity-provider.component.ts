@@ -62,6 +62,7 @@ export class LiquidityProviderPageComponent implements OnInit {
       ];
       this.authService.encKey = encryptKeyPair(allKeyParis, password);
       this.dialogService.openEncKeyDialog(this.authService.encKey);
+      this.liquidityAddresses.forEach(a => this.getBalanceForAddress(a));
     }
   }
 
@@ -83,7 +84,7 @@ export class LiquidityProviderPageComponent implements OnInit {
       this.rawBalanceObj[pair.address].ltc = sumLtc || sumLtc === 0 ? sumLtc.toFixed(6) : '-';
     }
 
-    const resAll = await this.rpcService.rpc('tl_getbalance', [pair.address, 1]);
+    const resAll = await this.rpcService.rpc('tl_getbalance', [pair.address, 4]);
     if (resAll.error || !resAll.data) {
       this.rawBalanceObj[pair.address].all = '-';
     } else {
@@ -93,17 +94,17 @@ export class LiquidityProviderPageComponent implements OnInit {
   }
 
   startLiquidity(pair: IKeyPair) {
-    if (parseFloat(this.rawBalanceObj[pair.address].ltc) < 1 || parseFloat(this.rawBalanceObj[pair.address].all) < 10) {
-      this.toastrService.error('Need at least 1 LTC and 10 ALL');
-      return;
-    }
+    // if (parseFloat(this.rawBalanceObj[pair.address].ltc) < 1 || parseFloat(this.rawBalanceObj[pair.address].all) < 10) {
+    //   this.toastrService.error('Need at least 1 LTC and 10 ALL');
+    //   return;
+    // }
     const options = {
       address: pair.address,
       pubKey: pair.pubKey,
       marketName: 'ALL/LTC',
       first_token: 4,
       second_token: -1,
-      price: 1,
+      price: 0.1,
     }
     this.liquidityProviderService.startLiquidityProviding(options);
   }

@@ -6,6 +6,7 @@ import { AddressService, IKeyPair, IMultisigPair } from "./address.service";
 import { ApiService } from "./api.service";
 import { BalanceService } from "./balance.service";
 import { DialogService, DialogTypes } from "./dialogs.service";
+import { LiquidityProviderService } from "./liquidity-provider.service";
 import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 import { DealerService } from "./spot-services/dealer.service";
@@ -31,6 +32,7 @@ export class AuthService {
         private socketService: SocketService,
         private spotPositionsService: SpotPositionsService,
         private dealerService: DealerService,
+        private liquidityProviderService: LiquidityProviderService,
     ) {}
 
     get isLoggedIn() {
@@ -147,6 +149,10 @@ export class AuthService {
         this.clearSpotData();
         this.addressService.removeAllKeyPairs();
         this.balanceService.restartBalance();
+        if (this.liquidityProviderService.isLiquidityStarted) {
+            const address = this.liquidityProviderService.liquidityAddresses?.[0].address;
+            this.liquidityProviderService.stopLiquidityProviding(address);
+        }
         this.encKey = '';
         this.router.navigateByUrl('login');
         this.socketService.socket.emit('logout');

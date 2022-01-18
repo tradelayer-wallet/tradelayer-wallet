@@ -1,13 +1,12 @@
 mat-grid-list {
     margin: 0 auto;
-    margin-top: 2rem;
-    padding: 1rem;
     max-width: 100rem;
+    min-width: 1400px;
     mat-grid-tile {
         mat-card {
             width: 100%;
             height: 100%;
-            background-color: rgba(128, 128, 128, 0.3);
+            background-color: var(--darkBlue2);
             color: wheat;
         }
     }

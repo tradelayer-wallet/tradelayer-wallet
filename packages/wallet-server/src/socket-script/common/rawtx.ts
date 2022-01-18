@@ -9,7 +9,7 @@ export class RawTx {
     private refAddressAmount: number = 0;
 
     private sortedUTXOs: IInputs[];
-    private minFeeLtcPerKb = 0.0001;
+    private minFeeLtcPerKb = 0.0002;
     private txReadyForsigning: string;
     private txReadyForSend: string;
 

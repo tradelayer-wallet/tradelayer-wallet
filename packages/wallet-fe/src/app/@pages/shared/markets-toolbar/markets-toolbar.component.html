@@ -1,12 +1,13 @@
 <div class="markets-toolbar">
     <div class="market-types-container">
         <mat-tab-group 
-            mat-align-tabs="center" 
+            mat-align-tabs="start" 
             dynamicHeight 
             (selectedIndexChange)="selectMarketType($event)"
             [selectedIndex]="selectedMarketTypeIndex"
+            class='main-market-nav'
         >
-            <mat-tab 
+            <mat-tab
                 *ngFor='let marketType of marketsTypes; let mi = index'
                 [disabled]='marketType.disabled'
             >
@@ -20,11 +21,11 @@
                 >
                     <mat-tab-group
                         #marketsTabGroup
-                        mat-align-tabs="center"
+                        mat-align-tabs="start"
                         dynamicHeight
-                        backgroundColor='primary'
                         (selectedIndexChange)="selectMarket($event, mi)"
                         [selectedIndex]="selectedMarketIndex"
+                        class='sub-market-nav'
                     >
                         <mat-tab 
                             *ngFor='let market of marketsFromSelectedMarketType' 

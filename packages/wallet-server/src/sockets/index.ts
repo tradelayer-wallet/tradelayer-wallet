@@ -168,6 +168,7 @@ class ServerSocketService {
         this.handleFromServerToWallet('opened-positions');
         this.handleFromServerToWallet('orderbook-data');
         this.handleFromServerToWallet('aksfor-orderbook-update');
+        this.handleFromServerToWallet('trade-history');
 
         this.socket.on('new-channel', async (trade: any) => {
             const res = await this.socketScript.channelSwap(this.socket, trade);

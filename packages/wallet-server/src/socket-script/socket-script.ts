@@ -124,12 +124,12 @@ export class SocketScript {
             const _balanceLTC = balanceLTCRes.data
                 .map((e: any) => parseFloat(e.amount))
                 .reduce((a: number, b: number) => a + b, 0);
-            const balanceAllRes = await this.asyncClient('tl_getbalance', address, 4);
-            if (balanceAllRes.error || !balanceAllRes.data) return { error: balanceAllRes.error || `Error with getting ${address} ALL balance` };
+            const balanceTokensRes = await this.asyncClient('tl_getbalance', address, 4);
+            if (balanceTokensRes.error || !balanceTokensRes.data) return { error: balanceTokensRes.error || `Error with getting ${address} ALL balance` };
 
-            const balanceAll = parseFloat(balanceAllRes.data.balance);
+            const balanceTokens = parseFloat(balanceTokensRes.data.balance);
             const balanceLTC = parseFloat(_balanceLTC.toFixed(6));
-            const data = getDataDefaultStrategy(options, balanceLTC, balanceAll);
+            const data = getDataDefaultStrategy(options, balanceLTC, balanceTokens);
             this.addManyOrders(data);
             return { data: true };
         } catch (err) {
