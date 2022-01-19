@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-positions.service';
@@ -15,7 +15,7 @@ export interface PeriodicElement {
   styleUrls: ['../../../shared/trading-grid/orderbook/orderbook-card.component.scss']
 })
 
-export class SpotOrderbookCardComponent implements OnInit, OnDestroy, AfterViewInit {
+export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     @ViewChild('sellOrdersContainer') sellOrdersContainer: any;
 
     displayedColumns: string[] = ['price', 'amount', 'total'];
@@ -64,12 +64,11 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy, AfterViewI
     }
 
     get buyOrderbooks() {
-      // return new Array(7).fill(true).map((e, i) => ({ price: i * 0.1, amount: 100 }));
       return this.spotOrderbookService.buyOrderbooks;
     }
 
     get sellOrderbooks() {
-      // return new Array(7).fill(true).map((e, i) => ({ price: 1 - i * 0.1, amount: 100 }));
+      this.scrollToBottom();
       return this.spotOrderbookService.sellOrderbooks;
     }
 
@@ -81,8 +80,10 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy, AfterViewI
       this.spotOrderbookService.subscribeForOrderbook();
     }
 
-    ngAfterViewInit(): void {
+    scrollToBottom() {
+      if (this.sellOrdersContainer?.nativeElement) {
         this.sellOrdersContainer.nativeElement.scrollTop = this.sellOrdersContainer.nativeElement.scrollHeight;
+      }
     }
 
     ngOnDestroy() {
