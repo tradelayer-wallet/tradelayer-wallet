@@ -36,8 +36,7 @@
           </table>
         </div>
         <div class="middle">
-          <span>Price: </span>
-          <span [ngStyle]='{"color": upTrend ? "green" : "red"}' class='index'>{{ lastPrice }}</span>
+          <span class='index'>{{ lastPrice }}</span>
           <mat-icon [ngStyle]='{"color": upTrend ? "green" : "red"}'>{{ upTrend ? "arrow_upward" : "arrow_downward" }}</mat-icon>
          </div>
          <div class="buy">

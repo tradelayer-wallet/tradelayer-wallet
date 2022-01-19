@@ -15,6 +15,9 @@ export class SocketScript {
     private _listener: ListenerServer;
     private _asyncClient: TClient;
     private isLiquidityStarted: boolean = false;
+    private liqOptions: any;
+    private countLiquidityRefills: number = 0;
+    private liqTimeOut: any;
 
     constructor() {}
 
@@ -110,12 +113,34 @@ export class SocketScript {
             ? new Buyer(tradeInfo, buyerObj, sellerObj, this.asyncClient, socket)
             : new Seller(tradeInfo, sellerObj, buyerObj, this.asyncClient, socket);
         const res = await swap.onReady();
+        if (res.data?.txid) {
+            if (this.liqOptions?.address === trade.sellerAddress || this.liqOptions?.address === trade.buyerAddress) {
+                this.liquidityRefill();
+            }
+        }
         customLogger(`End Trade: ${JSON.stringify(res)}`);
         return res;
     }
 
+    liquidityRefill() {
+        if (this.liqTimeOut) {
+            clearTimeout(this.liqTimeOut);
+            this.liqTimeOut = null;
+        }
+        if (!this.isLiquidityStarted || this.countLiquidityRefills >= 3) return;
+        if (this.liqOptions) {
+            this.liqTimeOut = setTimeout(() => {
+                this.countLiquidityRefills++;
+                this.stopLiquidityScript(this.liqOptions, true)
+                this.runLiquidityScript(this.liqOptions)
+    
+            }, 30000);
+        }
+    }
+
     async runLiquidityScript(options: any) {
         try {
+            if (!this.liqOptions) this.liqOptions = options;
             if (this.isLiquidityStarted) serverSocketService.socket.emit('clean-by-address', options.address);
             this.isLiquidityStarted = true;
             const { address } = options;
@@ -137,10 +162,14 @@ export class SocketScript {
         }
     }
 
-    async stopLiquidityScript(address: string) {
+    async stopLiquidityScript(address: string, refill: boolean = false) {
         try {
             if (this.isLiquidityStarted) serverSocketService.socket.emit('clean-by-address', address);
-            this.isLiquidityStarted = false;
+            if (!refill) {
+                this.isLiquidityStarted = false;
+                this.countLiquidityRefills = 0;
+                this.liqOptions = null;
+            }
             return { data: true };
         } catch (err) {
             return { error: err.message };
