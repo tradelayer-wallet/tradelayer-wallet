@@ -75,8 +75,10 @@ export const socketRoutes = (socketScript: SocketScript) => {
         fastify.get('/ordersList', async (request, reply) => {
             try {
                 const id = serverSocketService.socket.id;
-                const port = serverSocketService.isTestnet ? '3006' : '3002';
-                const res = await axios.get(`http://66.228.57.16:${port}/trade/ordersList?id=${id}`);
+                const host = serverSocketService.isTestnet
+                    ? "http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com"
+                    : "http://66.228.57.16";
+                const res = await axios.get(`${host}:3002/trade/ordersList?id=${id}`);
                 if (res.data) return reply.send(res.data);
                 reply.send({ error: `Undefined Error`});
             } catch(error) {

@@ -26,6 +26,8 @@ import { SpotOrderbookCardComponent } from './spot-page/spot-trading-grid/spot-o
 import { SpotBottomCardComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-bottom-card.component';
 import { SpotPendingTxsComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-pending-txs/spot-pending-txs.component';
 import { SpotPositionsComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-positions/spot-positions.component';
+import { SportHistoryCardComponent } from './spot-page/spot-trading-grid/spot-history-card/spot-history-card.component';
+import { SportChartCardComponent } from './spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component';
 
 import { FuturesMarketsToolbarComponent } from './futures-page/futures-markets-toolbar/futurues-markets-toolbar.component';
 import { FuturesTradingGridComponent } from './futures-page/futures-trading-grid/futures-trading-grid.component';
@@ -73,6 +75,8 @@ const SPOT_COMPONENTS = [
     SpotBottomCardComponent,
     SpotPendingTxsComponent,
     SpotPositionsComponent,
+    SportHistoryCardComponent,
+    SportChartCardComponent,
 ];
 
 const FUTURES_COMPONENTS = [

@@ -149,6 +149,8 @@ export class AddressService {
     async kycAddress(address: string) {
         await this.checkKycStatusForAddress(address);
         if (this.allAttestations[address] !== EKYCStatus.DISABLED) return;
+        const setFeeRes = await this.rpcService.setEstimateFee();
+        if (!setFeeRes.data || setFeeRes.error) return;
         const attRes = await this.rpcService.rpc('tl_attestation', [address, address]);
         if (attRes.error || !attRes.data) {
             const attErrorMEssage = 'Error with Self KYC Attestion'

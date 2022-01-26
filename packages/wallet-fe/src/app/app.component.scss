@@ -59,11 +59,10 @@ overlay-loading {
     // .mat-checkbox-inner-container {
     //     border: 1px solid var(--softGrey);
     // }
-    .mat-form-field-label {
-        color: white !important;
-    }
-        
-    .mat-form-field-outline {
+    .mat-form-field-label,
+    .mat-form-field-outline,
+    .mat-hint,
+    .mat-input-element:disabled {
         color: white !important;
     }
 }

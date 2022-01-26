@@ -96,7 +96,7 @@ export class LiquidityProviderPageComponent implements OnInit {
   startLiquidity(pair: IKeyPair) {
     if (parseFloat(this.rawBalanceObj[pair.address].ltc) < 0.1 || parseFloat(this.rawBalanceObj[pair.address].all) < 10) {
       this.toastrService.error('Need at least 0.1 LTC and 10 ALL');
-      return;
+      // return;
     }
     const options = {
       address: pair.address,

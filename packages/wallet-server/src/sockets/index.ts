@@ -129,8 +129,10 @@ class ServerSocketService {
     public isTestnet: boolean;
     constructor(private socketScript: SocketScript, isTestnet: boolean) {
         this.isTestnet = isTestnet;
-        const port = isTestnet ? '76' : '75';
-        const host = `http://66.228.57.16:${port}`;
+        const url = isTestnet
+            ? "http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com"
+            : "http://66.228.57.16";
+        const host = `${url}:75`;
         this.socket = io(host, { reconnection: false });
         this.handleEvents();
     }
