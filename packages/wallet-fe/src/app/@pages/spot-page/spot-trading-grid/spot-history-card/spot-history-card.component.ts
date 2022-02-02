@@ -21,7 +21,7 @@ export class SportHistoryCardComponent {
                 const {amountForSale, amountDesired, txid } = trade;
                 const price = parseFloat((amountForSale / amountDesired).toFixed(4));
                 return { price, txid, amount: parseFloat(amountDesired) };
-            }).splice(0, 10).reverse()
+            }).splice(0, 10);
     }
 
     copy(text: string) {

@@ -29,7 +29,7 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     get upTrend() {
       const th = this.spotOrderbookService.tradeHistory;
       if (this.spotOrderbookService.tradeHistory.length < 2) return true;
-      const {amountForSale, amountDesired } = th[th.length - 2];
+      const {amountForSale, amountDesired } = th[1];
       const tradeBeforePrice = (amountForSale / amountDesired).toFixed(4)
       return tradeBeforePrice < this.lastPrice;
     }
@@ -37,7 +37,7 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     get lastPrice() {
       const th = this.spotOrderbookService.tradeHistory;
       if (!this.spotOrderbookService.tradeHistory.length) return (1).toFixed(4);
-      const { amountForSale, amountDesired } = th[th.length -1];
+      const { amountForSale, amountDesired } = th[0];
       return (amountForSale / amountDesired).toFixed(4)
     }
 
