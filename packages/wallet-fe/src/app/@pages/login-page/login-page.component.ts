@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { AuthService } from 'src/app/@core/services/auth.service';
+import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 
 @Component({
@@ -22,6 +23,7 @@ export class LoginPageComponent implements OnInit {
     private toasterService: ToastrService,
     private authService: AuthService,
     private rpcService: RpcService,
+    private loadingService: LoadingService,
   ) {}
 
   get onlineButNotSynced() {
@@ -57,10 +59,12 @@ export class LoginPageComponent implements OnInit {
     this.authService.loginFromPrivKey(privKey, password);
   }
 
-  loginWithJsonFile() {
+  async loginWithJsonFile() {
+    this.loadingService.isLoading = true;
     const password = this.loginFormFile.value.password;
     const key = this.jsonFromFile;
-    this.authService.loginFromKeyFile(key, password);
+    await this.authService.loginFromKeyFile(key, password);
+    this.loadingService.isLoading = false;
   }
 
   register() {
