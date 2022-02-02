@@ -47,6 +47,9 @@ mat-card {
         .order-history-container {
             width: 100%;
         }
+        mat-icon {
+            transform: scale(0.75) translate(8px, 5px);
+        }
     }
 }
 
@@ -81,7 +84,9 @@ table {
     th.cdk-column-total,
     td.cdk-column-total,
     td.cdk-column-amount,
-    th.cdk-column-amount {
+    th.cdk-column-amount,
+    td.cdk-column-txid,
+    th.cdk-column-txid {
         text-align: right;
     }
 

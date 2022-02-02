@@ -1,25 +1,19 @@
-<mat-table [dataSource]="pendingTxs">
-    <ng-container matColumnDef="id" sticky>
-      <mat-header-cell *matHeaderCellDef># </mat-header-cell>
-      <mat-cell *matCellDef="let element; let i = index"> {{ i }} </mat-cell>
-    </ng-container>
-
+<table mat-table  [dataSource]="pendingTxs">
     <ng-container matColumnDef="txid" sticky>
-      <mat-header-cell *matHeaderCellDef> txId </mat-header-cell>
-      <mat-cell *matCellDef="let element" (click)='copyToClipboard(element.txid)'> {{element.txid}} </mat-cell>
+      <th mat-header-cell *matHeaderCellDef> txId </th>
+      <td mat-cell *matCellDef="let element" (click)='copyToClipboard(element.txid)'> {{element.txid}} </td>
     </ng-container>
 
     <ng-container matColumnDef="status" >
-      <mat-header-cell *matHeaderCellDef> Status </mat-header-cell>
-      <mat-cell *matCellDef="let element"> {{element.status}} </mat-cell>
+      <th mat-header-cell *matHeaderCellDef> Status </th>
+      <td mat-cell *matCellDef="let element"> {{element.status}} </td>
     </ng-container>
 
     <ng-container matColumnDef="fee" >
-      <mat-header-cell *matHeaderCellDef> Fee </mat-header-cell>
-      <mat-cell *matCellDef="let element"> {{element.fee}} </mat-cell>
+      <th mat-header-cell *matHeaderCellDef> Fee </th>
+      <td mat-cell *matCellDef="let element"> {{element.fee}} </td>
     </ng-container>
 
-    <mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></mat-header-row>
-
-    <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
-  </mat-table>
+    <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  </table>

@@ -1,4 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
+import { ToastrService } from 'ngx-toastr';
+import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 
 @Component({
   selector: 'tl-spot-history-card',
@@ -6,14 +8,24 @@ import { Component } from '@angular/core';
   styleUrls: ['./spot-history-card.component.scss']
 })
 export class SportHistoryCardComponent {
-    displayedColumns: string[] = ['price', 'amount', 'total'];
-    get orderHistory() {
-        return new Array(20).fill(true)
-            .map(e => {
-                return {
-                    price: Math.random() * 2,
-                    amount: Math.random() * 20,
-                }
-            }).splice(0, 10);
+    displayedColumns: string[] = ['price', 'amount', 'total', 'txid'];
+    
+    constructor(
+        private spotOrderbookService: SpotOrderbookService,
+        private toastrService: ToastrService,
+    ) { }
+
+    get tradeHistory() {
+        return this.spotOrderbookService.tradeHistory   
+            .map(trade => {
+                const {amountForSale, amountDesired, txid } = trade;
+                const price = parseFloat((amountForSale / amountDesired).toFixed(4));
+                return { price, txid, amount: parseFloat(amountDesired) };
+            }).splice(0, 10).reverse()
+    }
+
+    copy(text: string) {
+        navigator.clipboard.writeText(text);
+        this.toastrService.info('Transaction Id Copied to clipboard', 'Copied')
     }
 }

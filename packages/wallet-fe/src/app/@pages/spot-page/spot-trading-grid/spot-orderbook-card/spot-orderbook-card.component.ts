@@ -37,7 +37,7 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     get lastPrice() {
       const th = this.spotOrderbookService.tradeHistory;
       if (!this.spotOrderbookService.tradeHistory.length) return (1).toFixed(4);
-      const {amountForSale, amountDesired } = th[th.length -1];
+      const { amountForSale, amountDesired } = th[th.length -1];
       return (amountForSale / amountDesired).toFixed(4)
     }
 

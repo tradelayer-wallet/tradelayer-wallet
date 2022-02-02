@@ -115,7 +115,7 @@ export class Buyer {
             const { vout, amount, txid } = commitUTXO;
             if (!vout || !amount || !txid)  return { error: 'Error Provided Commit Data' };
     
-            const bbData: number = await this.getBestBlock(10);
+            const bbData: number = await this.getBestBlock(100);
             if (!bbData) return { error: `Error with getting best block, ${bbData}` };
     
                         // ---------------------------------------
@@ -177,7 +177,7 @@ export class Buyer {
             const { vout, amount, txid } = commitUTXO;
             if (!vout || !amount || !txid)  return { error: 'Error Provided Commit Data' };
     
-            const bbData: number = await this.getBestBlock(10);
+            const bbData: number = await this.getBestBlock(100);
             if (!bbData) return { error: `Error with getting best block, ${bbData}` };
     
             const { propIdDesired, amountDesired, amountForSale } = this.tradeInfo;

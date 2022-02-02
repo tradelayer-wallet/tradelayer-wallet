@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-positions.service';
 
 @Component({
   selector: 'tl-spot-bottom-card',
@@ -6,8 +7,12 @@ import { Component, OnInit } from '@angular/core';
   styleUrls: ['./spot-bottom-card.component.scss']
 })
 
-export class SpotBottomCardComponent implements OnInit {
-    constructor() {}
+export class SpotBottomCardComponent {
+    constructor(
+      private spotPositionsService: SpotPositionsService,
+    ) {}
 
-    ngOnInit() {}
+    get allOrdersLength() {
+      return this.spotPositionsService.openedPositions?.length || 0;
+    }
 }
