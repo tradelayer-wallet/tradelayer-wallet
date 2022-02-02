@@ -22,7 +22,7 @@ export class Buyer {
     onReady() {
         return new Promise<{ data?: any, error?: any }>((res) => {
             this.readyRes = res;
-            setTimeout(() => this.terminateTrade('Undefined Error :('), 9000);
+            setTimeout(() => this.terminateTrade('Undefined Error code 1'), 20000);
         });
     }
 
@@ -118,6 +118,7 @@ export class Buyer {
             const bbData: number = await this.getBestBlock(100);
             if (!bbData) return { error: `Error with getting best block, ${bbData}` };
     
+            await this.setEstimateFee();
                         // ---------------------------------------
                         const commitData = [        
                             this.myInfo.address,
@@ -210,5 +211,18 @@ export class Buyer {
         if (bbRes.error || !bbRes.data?.height) return null;
         const height = bbRes.data.height + n;
         return height;
+    }
+
+    private async setEstimateFee() {
+        const estimateRes = await this.asyncClient('estimatesmartfee', [1]);
+        if (!estimateRes.data?.feerate) {
+            return  { error: `Error with Setting Estimate Fee. ${estimateRes?.error || ''} `, data: null };
+        }
+        const feeRate = parseFloat((parseFloat(estimateRes?.data?.feerate) * 1000).toFixed(8));
+        const setFeeRes = await this.asyncClient('settxfee', [feeRate]);
+        if (!setFeeRes.data || setFeeRes.error) {
+          return { error: `Error with Setting Estimate Fee. ${setFeeRes?.error || ''} `, data: null };
+        }
+        return setFeeRes;
     }
 }

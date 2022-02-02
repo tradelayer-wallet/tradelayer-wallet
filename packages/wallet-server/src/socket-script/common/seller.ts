@@ -23,7 +23,7 @@ export class Seller {
     onReady() {
         return new Promise<{ data?: any, error?: any }>((res) => {
             this.readyRes = res;
-            setTimeout(() => this.terminateTrade('Undefined Error :('), 9000);
+            setTimeout(() => this.terminateTrade('Undefined Error code 1'), 20000);
         });
     }
 
@@ -64,8 +64,7 @@ export class Seller {
 
     private async onCommit(cpId: string) {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
-        // if (this.tradeInfo.propIdForSale !== -1) return this.terminateTrade('The wallet dont Support this type of trade!');
-
+        await this.setEstimateFee();
         const commitData = [        
             this.myInfo.address,
             this.multySigChannelData.address,
@@ -114,5 +113,18 @@ export class Seller {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
         if (this.readyRes) this.readyRes({ data: { txid: finalTx, seller: true, trade: this.tradeInfo } });
         this.removePreviuesListeners();
+    }
+
+    private async setEstimateFee() {
+        const estimateRes = await this.asyncClient('estimatesmartfee', [1]);
+        if (!estimateRes.data?.feerate) {
+            return  { error: `Error with Setting Estimate Fee. ${estimateRes?.error || ''} `, data: null };
+        }
+        const feeRate = parseFloat((parseFloat(estimateRes?.data?.feerate) * 1000).toFixed(8));
+        const setFeeRes = await this.asyncClient('settxfee', [feeRate]);
+        if (!setFeeRes.data || setFeeRes.error) {
+          return { error: `Error with Setting Estimate Fee. ${setFeeRes?.error || ''} `, data: null };
+        }
+        return setFeeRes;
     }
 }

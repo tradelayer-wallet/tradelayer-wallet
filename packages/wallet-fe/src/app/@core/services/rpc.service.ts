@@ -189,10 +189,14 @@ export class RpcService {
     async setEstimateFee() {
       const estimateRes = await this.rpc('estimatesmartfee', [1]);
       if (estimateRes.error || !estimateRes.data?.feerate) {
-        this.toasterService.error('Error with Setting Estimate Fee');
-        return { error: true, data: null };
+        this.toasterService.warning('Error getting Estimate Fee');
       }
-      const feeRate = parseFloat((parseFloat(estimateRes.data.feerate) * 1000).toFixed(8));
+
+      const _feeRate = estimateRes.error || !estimateRes.data?.feerate
+        ? '0.001'
+        : estimateRes?.data?.feerate;
+
+      const feeRate = parseFloat((parseFloat(_feeRate) * 1000).toFixed(8));
       const setFeeRes = await this.rpc('settxfee', [feeRate]);
       if (!setFeeRes.data || setFeeRes.error) {
         this.toasterService.error('Error with Setting Estimate Fee');

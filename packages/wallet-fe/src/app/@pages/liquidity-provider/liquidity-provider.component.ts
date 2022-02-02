@@ -16,7 +16,7 @@ import { decryptKeyPair, encryptKeyPair } from 'src/app/utils/litecore.util';
   styleUrls: ['./liquidity-provider.component.scss']
 })
 export class LiquidityProviderPageComponent implements OnInit {
-  rewardTableColumns: string[] = ['address', 'balance-ltc', 'balance-all', 'actions'];
+  rewardTableColumns: string[] = ['address', 'balance-ltc', 'balance-tokens', 'actions'];
   rawBalanceObj: any = {};
 
   constructor(
@@ -72,7 +72,7 @@ export class LiquidityProviderPageComponent implements OnInit {
   }
 
   async getBalanceForAddress(pair: IKeyPair) {
-    this.rawBalanceObj[pair.address] = { ltc: '-', all: '-' };
+    this.rawBalanceObj[pair.address] = { ltc: '-', tokens: '-' };
     const resLtc = await this.rpcService.rpc('listunspent', [0, 999999999, [pair.address]]);
     if (resLtc.error || !resLtc.data) {
       this.rawBalanceObj[pair.address].ltc = '-';
@@ -84,24 +84,24 @@ export class LiquidityProviderPageComponent implements OnInit {
       this.rawBalanceObj[pair.address].ltc = sumLtc || sumLtc === 0 ? sumLtc.toFixed(6) : '-';
     }
 
-    const resAll = await this.rpcService.rpc('tl_getbalance', [pair.address, 4]);
-    if (resAll.error || !resAll.data) {
-      this.rawBalanceObj[pair.address].all = '-';
+    const resTokens= await this.rpcService.rpc('tl_getbalance', [pair.address, 4]);
+    if (resTokens.error || !resTokens.data) {
+      this.rawBalanceObj[pair.address].tokens = '-';
     } else {
-      const sumAll = parseFloat(resAll.data?.balance) || 0;
-      this.rawBalanceObj[pair.address].all = sumAll?.toFixed(6) || '-';
+      const sumTokens = parseFloat(resTokens.data?.balance) || 0;
+      this.rawBalanceObj[pair.address].tokens = sumTokens?.toFixed(6) || '-';
     }
   }
 
   startLiquidity(pair: IKeyPair) {
-    if (parseFloat(this.rawBalanceObj[pair.address].ltc) < 0.1 || parseFloat(this.rawBalanceObj[pair.address].all) < 10) {
-      this.toastrService.error('Need at least 0.1 LTC and 10 ALL');
-      // return;
+    if (parseFloat(this.rawBalanceObj[pair.address].ltc) < 0.1 || parseFloat(this.rawBalanceObj[pair.address].tokens) < 10) {
+      this.toastrService.error('Need at least 0.1 LTC and 10 wETH');
+      return;
     }
     const options = {
       address: pair.address,
       pubKey: pair.pubKey,
-      marketName: 'ALL/LTC',
+      marketName: 'wETH/LTC',
       first_token: 4,
       second_token: -1,
       price: 0.1,

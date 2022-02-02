@@ -24,10 +24,10 @@
                     </mat-cell>
                 </ng-container>
 
-                <ng-container matColumnDef="balance-all">
-                    <mat-header-cell *matHeaderCellDef>Balance ALL</mat-header-cell>
+                <ng-container matColumnDef="balance-tokens">
+                    <mat-header-cell *matHeaderCellDef>Balance wETH</mat-header-cell>
                     <mat-cell *matCellDef="let element">
-                        <span style='cursor: pointer;'(click)='getBalanceForAddress(element)'>{{ rawBalanceObj?.[element.address]?.all || '-' }}</span>
+                        <span style='cursor: pointer;'(click)='getBalanceForAddress(element)'>{{ rawBalanceObj?.[element.address]?.tokens || '-' }}</span>
                     </mat-cell>
                 </ng-container>
 

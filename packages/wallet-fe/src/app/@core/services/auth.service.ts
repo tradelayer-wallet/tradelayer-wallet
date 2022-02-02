@@ -131,10 +131,10 @@ export class AuthService {
                         this.addressService.addLiquidtyAddress(p);
                     } else {
                         this.addressService.addDecryptedKeyPair(p, index === 0);
-                        this.balanceService.updateBalances();
                     }
                 }
             }
+            this.balanceService.updateBalances();
         });
         this.router.navigateByUrl(this.savedFromUrl);
     }
