@@ -1,6 +1,49 @@
-<mat-card color='accent'>
-    <mat-card-header></mat-card-header>
-    <mat-card-content [formGroup]='buySellGroup'>
+<mat-card>
+  <mat-card-title>
+    <div class="header-wrapper">
+      <div class="title-text">
+        <span>Order Form</span>
+        <span class='contract'>wETH / LTC</span>
+      </div>
+      <div class="icons">
+        <mat-icon svgIcon="resize"></mat-icon>
+        <mat-icon svgIcon="close"></mat-icon>
+      </div>
+    </div>
+  </mat-card-title>
+  <mat-card-content>
+    <div class="order-type">
+      <div class="order-type-buttons">
+        <p [ngClass]="{ selected: true }">Limit</p>
+        <p>Market</p>
+      </div>
+    </div>
+    <div class="buy-sell-form" [formGroup]='buySellGroup'>
+      <div class="custom-form-field">
+        <div class="prefix">Price</div>
+        <input type='number' formControlName="price">
+        <div class="suffix">{{ selectedMarket.second_token.shortName }}</div>
+      </div>
+      <div class="custom-form-field">
+        <div class="prefix">Amount</div>
+        <input type='number' formControlName="amount">
+        <div class="suffix">{{ selectedMarket.first_token.shortName }}</div>
+      </div>
+    </div>
+    <div class="buttons">
+      <button
+        class='buy-button'
+        (click)='handleBuySell(true)'
+        [disabled]='getButtonDisabled(true)'
+      >Buy</button>
+      <button
+        class='sell-button'
+        (click)='handleBuySell(false)'
+        [disabled]='getButtonDisabled(false)'
+      >Sell</button>
+    </div>
+  </mat-card-content>
+    <!-- <mat-card-content [formGroup]='buySellGroup'>
         <mat-form-field appearance="outline" floatLabel="always" color='red' >
           <input matInput type="number" placeholder="0" formControlName="price">
           <span class='prefix' matPrefix>Price: </span>
@@ -42,7 +85,7 @@
                 <p>{{ getTotal(false) }}</p>
               </div>
             </div>
-    </mat-card-footer>
+    </mat-card-footer> -->
 </mat-card>
 
 <div class="overlay-loading" *ngIf='isLoading'>

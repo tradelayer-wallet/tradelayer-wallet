@@ -13,6 +13,7 @@ import { NodeRewardPageComponent } from './@pages/node-reward/reward-page.compon
 import { RPCGuard } from './@core/guards/rpc.guard';
 import { AuthGuard } from './@core/guards/auth.guard';
 import { SyncedGuard } from './@core/guards/sync.guard';
+import { LiquidityProviderPageComponent } from './@pages/liquidity-provider/liquidity-provider.component';
 
 export const routes: Routes = [
   {
@@ -54,6 +55,11 @@ export const routes: Routes = [
       {
         path: 'reward',
         component: NodeRewardPageComponent,
+        canActivate: [AuthGuard, SyncedGuard],
+      },
+      {
+        path: 'liquidity-provider',
+        component: LiquidityProviderPageComponent,
         canActivate: [AuthGuard, SyncedGuard],
       },
       {

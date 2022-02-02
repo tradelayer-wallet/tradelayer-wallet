@@ -8,7 +8,7 @@ import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-
 })
 
 export class SpotPositionsComponent implements OnInit {
-    displayedColumns: string[] = ['id', 'market', 'amount', 'price', 'isBuy', 'close'];
+    displayedColumns: string[] = ['market', 'amount', 'price', 'isBuy', 'close'];
 
     constructor(
       private spotPositionsService: SpotPositionsService

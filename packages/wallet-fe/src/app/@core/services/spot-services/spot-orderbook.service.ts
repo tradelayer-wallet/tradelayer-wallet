@@ -19,6 +19,7 @@ export class SpotOrderbookService {
     outsidePriceHandler: Subject<number> = new Subject();
     buyOrderbooks: { amount: number, price: number }[] = [];
     sellOrderbooks: { amount: number, price: number }[] = [];
+    tradeHistory: any[] = [];
 
     constructor(
         private socketService: SocketService,
@@ -51,11 +52,16 @@ export class SpotOrderbookService {
             this.socket.emit('update-orderbook');
         });
         this.socket.emit('update-orderbook');
+
+        this.socket.on('trade-history', (tradesHistory: any) => {
+            this.tradeHistory = tradesHistory;
+        });
     }
 
     endOrderbookSbuscription() {
         this.socket.off('orderbook-data');
         this.socket.off('aksfor-orderbook-update');
+        this.socket.off('trade-history');
     }
 
     private structureOrderBook() {
@@ -67,7 +73,7 @@ export class SpotOrderbookService {
         const propIdDesired = isBuy ? this.selectedMarket.first_token.propertyId : this.selectedMarket.second_token.propertyId;
         const propIdForSale = isBuy ? this.selectedMarket.second_token.propertyId : this.selectedMarket.first_token.propertyId;
         const filteredOrderbook = this.rawOrderbookData.filter(o => o.propIdDesired === propIdDesired && o.propIdForSale === propIdForSale);
-        const range = 100;
+        const range = 1000;
         const result: {price: number, amount: number}[] = [];
         filteredOrderbook.forEach(o => {
           const _price = Math.trunc(o.price*range)
@@ -75,12 +81,12 @@ export class SpotOrderbookService {
           existing
             ? existing.amount += o.amount
             : result.push({
-                price: parseFloat(o.price.toFixed(2)),
+                price: parseFloat(o.price.toFixed(4)),
                 amount: o.amount,
             });
         });
-        return isBuy 
-         ? result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0))
-         : result.sort((a, b) => b.price - a.price).slice(0, 9);
+        return isBuy
+        ? result.sort((a, b) => b.price - a.price).slice(0, 9)
+        : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
     }
 }

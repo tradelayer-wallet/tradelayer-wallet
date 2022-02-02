@@ -78,6 +78,9 @@ export class RewardService {
             if (lnraRes.data.map((e: any) => e?.['address:'] || []).includes(address)) {
                 this.toastrService.warning('This Address is already registered', "Warning")
             } else {
+                const setFeeRes = await this.rpcService.setEstimateFee();
+                if (!setFeeRes.data || setFeeRes.error) return;
+
                 const snaRes = await this.rpcService.rpc('tl_submit_nodeaddress', [this.activeKeyPair?.address, address]);
                 if (snaRes.error || !snaRes.data) {
                     this.toastrService.error(snaRes.error || 'Error With Resgistering address', "Error");

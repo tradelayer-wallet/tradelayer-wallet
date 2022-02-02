@@ -95,7 +95,7 @@ class WalletNodeInstance {
 
         const upToDate = this._chechVersions(path, isTestNet);
         if (!upToDate) flagsObject.startclean = 1;
-        if (upToDate === 0) flagsObject.reindex = 1;
+        if (upToDate === 0) flagsObject.startclean = 1;
 
         //check config file
         const configFilePath = join(path, 'litecoin.conf');

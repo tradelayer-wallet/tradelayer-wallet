@@ -9,7 +9,7 @@ import { TxsService } from 'src/app/@core/services/spot-services/txs.service';
 })
 
 export class SpotPendingTxsComponent implements OnInit {
-    displayedColumns: string[] = ['id', 'status', 'txid', 'fee'];
+    displayedColumns: string[] = [ 'txid', 'status', 'fee'];
     constructor(
       private txsService: TxsService,
       private toastrService: ToastrService,

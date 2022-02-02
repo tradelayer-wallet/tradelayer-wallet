@@ -42,7 +42,7 @@ export class BalanceService {
     } = {};
 
     constructor(
-        private rpcServic: RpcService,
+        private rpcService: RpcService,
         private addressService: AddressService,
         private socketService: SocketService,
         private toastrService: ToastrService,
@@ -121,8 +121,9 @@ export class BalanceService {
     }
 
     async updateBalances() {
-        for (let i = 0; i < this.addressService.keyPairs.length; i++) {
-            const address = this.addressService.keyPairs[i].address;
+        const addressesArray = [...this.addressService.keyPairs, ...this.addressService.liquidityAddresses];
+        for (let i = 0; i < addressesArray.length; i++) {
+            const address = addressesArray[i].address;
             await this.updateFiatBalanceForAddressFromUnspents(address);
             await this.updateTokensBalanceForAddress(address);
         }
@@ -160,9 +161,9 @@ export class BalanceService {
 
     private async getFiatBalanceObjForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-        const luResConfirmed = await this.rpcServic.rpc('listunspent', [minBlocksForBalanceConf, 999999999, [address]]);
+        const luResConfirmed = await this.rpcService.rpc('listunspent', [minBlocksForBalanceConf, 999999999, [address]]);
         if (luResConfirmed.error || !luResConfirmed.data) return { error: luResConfirmed.error || 'Undefined Error' };
-        const luResUnconfirmed = await this.rpcServic.rpc('listunspent', [0, minBlocksForBalanceConf - 1, [address]]);
+        const luResUnconfirmed = await this.rpcService.rpc('listunspent', [0, minBlocksForBalanceConf - 1, [address]]);
         if (luResUnconfirmed.error || !luResUnconfirmed.data) return { error: luResUnconfirmed.error || 'Undefined Error' };
 
         const _confirmed: number = luResConfirmed.data.map((e: any) => e.amount).reduce((a: number, b: number) => a + b, 0);
@@ -174,7 +175,7 @@ export class BalanceService {
 
     private async getTokensBalanceArrForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-        const balanceRes = await this.rpcServic.rpc('tl_getallbalancesforaddress', [address]);
+        const balanceRes = await this.rpcService.rpc('tl_getallbalancesforaddress', [address]);
         if (!balanceRes.data || balanceRes.error) return { data: [] };
         try {
             const promisesArray = (balanceRes.data as { propertyid: number, balance: string, reserved: string }[])
@@ -197,7 +198,7 @@ export class BalanceService {
     }
 
     private async getTokenNameById(id: number) {
-        const gpRes = await this.rpcServic.rpc('tl_getproperty', [id]);
+        const gpRes = await this.rpcService.rpc('tl_getproperty', [id]);
         if (gpRes.error || !gpRes.data?.name) return `ID_${id}`;
         return gpRes.data.name;
     }
@@ -208,7 +209,9 @@ export class BalanceService {
             const res = await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
             return res;
         } else {
-            const res = await this.rpcServic.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);
+            const setFeeRes = await this.rpcService.setEstimateFee();
+            if (!setFeeRes.data || setFeeRes.error) return { error: 'Error with setting fee' };
+            const res = await this.rpcService.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);
             return res;
         }
 

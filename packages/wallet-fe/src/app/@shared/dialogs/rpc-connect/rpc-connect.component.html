@@ -2,12 +2,8 @@
     <h1>Connect to the Local NODE</h1>
     <mat-dialog-content class="mat-typography">
         <div class="content-container">
-            <div style='display: flex; align-items: center; justify-content: center;'>
-                <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='defaultDirectoryCheckbox'> Default Directory </mat-checkbox>
-                <!-- <mat-form-field class="example-form-field" *ngIf='!defaultDirectoryCheckbox'>
-                    <mat-label>Path Directory</mat-label>
-                    <input matInput [(ngModel)]='directory'>
-                </mat-form-field> -->
+            <div style='display: flex; align-items: center; justify-content: space-between;'>
+                <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='defaultDirectoryCheckbox'> Default Directory </mat-checkbox>
                 <button
                     [ngStyle]="{ visibility: defaultDirectoryCheckbox ? 'hidden' : 'visible' }"
                     style='margin: 0.5rem 0; background: lightsteelblue; max-width: 8rem;'
@@ -16,71 +12,18 @@
                 >Select Directory</button>
             </div>
             <span style="text-align: center; width: 100%;">{{ directory.length > 30 ? "..." + directory.slice(-30) : directory }}</span>
-            <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>-testnet</mat-checkbox>
-            <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='reindex'>-reindex</mat-checkbox>
-            <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='startclean'>-startclean</mat-checkbox>
+            <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>-testnet</mat-checkbox>
+            <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='reindex'>-reindex</mat-checkbox>
+            <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='startclean'>-startclean</mat-checkbox>
 
             <p class='message'> {{ message2 }}</p>
             <button
-                style='margin: 0.5rem 0; background: mediumseagreen;'
+                style='margin: 0.5rem 0;'
+                class='greenButton'
                 mat-button
                 (click)='startWalletNode()'
                 [disabled]='!defaultDirectoryCheckbox && !directory?.length'
             >Start Node</button>
-            <!-- <button
-                style='margin: 0.5rem 0; background: lightsteelblue;'
-                mat-button
-                (click)='newNodeConfiguration()'
-            >New Node Configuration</button> -->
         </div>
-        <!-- <mat-tab-group>
-            <mat-tab label='Wallet Node'>
-                <div class="content-container">
-                    <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='defaultDirectoryCheckbox' disabled> Default Directory </mat-checkbox>
-                    <mat-form-field class="example-form-field" *ngIf='!defaultDirectoryCheckbox'>
-                        <mat-label>Path Directory</mat-label>
-                        <input matInput [(ngModel)]='directory'>
-                    </mat-form-field>
-                    <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>Testnet</mat-checkbox>
-                    <p class='message'> {{ message2 }}</p>
-                    <button
-                        style='margin: 0.5rem 0; background: mediumseagreen;'
-                        mat-button
-                        (click)='startWalletNode()'
-                    >Start Node</button>
-                    <button
-                        style='margin: 0.5rem 0; background: lightsteelblue;'
-                        mat-button
-                        (click)='newNodeConfiguration()'
-                    >New Node Configuration</button>
-                </div>
-            </mat-tab>
-            <mat-tab label='External Node'>
-                <div class="content-container">
-                    <mat-form-field class="example-form-field">
-                        <mat-label>Host</mat-label>
-                        <input matInput type="text" [(ngModel)]='host'>
-                    </mat-form-field>     
-            
-                    <mat-form-field class="example-form-field">
-                        <mat-label>Port</mat-label>
-                        <input matInput type="number" [(ngModel)]='port'>
-                    </mat-form-field>    
-            
-                    <mat-form-field class="example-form-field">
-                        <mat-label>Useername</mat-label>
-                        <input matInput type="text" [(ngModel)]='username'>
-                    </mat-form-field>    
-            
-                    <mat-form-field class="example-form-field">
-                        <mat-label>Password</mat-label>
-                        <input matInput type="password" [(ngModel)]='password'>
-                    </mat-form-field>
-                    <mat-checkbox style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>Testnet</mat-checkbox>
-                    <p class='message'> {{ message }}</p>
-                    <button mat-button (click)='connect()'>Connect</button>
-                </div>
-            </mat-tab>
-        </mat-tab-group> -->
     </mat-dialog-content>
 </div>

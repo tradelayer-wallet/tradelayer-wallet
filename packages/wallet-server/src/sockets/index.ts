@@ -7,8 +7,8 @@ export let walletSocketSevice: WalletSocketSevice;
 export let serverSocketService: ServerSocketService;
 
 export const myVersions = {
-    nodeVersion: '0.0.1',
-    walletVersion: '0.0.1',
+    nodeVersion: '0.0.2',
+    walletVersion: '0.0.2',
 };
 
 export const initWalletConnection = (app: FastifyInstance, socketScript: SocketScript) => {
@@ -62,13 +62,14 @@ class WalletSocketSevice {
         this.handleFromWalletToServer(socket, 'update-orderbook');
         this.handleFromWalletToServer(socket, 'dealer-data');
         this.handleFromWalletToServer(socket, 'close-position');
+        this.handleFromWalletToServer(socket, 'logout');
 
         socket.on('api-reconnect', (isTestNet: boolean) => initServerConnection(this.socketScript, isTestNet));
         socket.on('update-futures-orderbook', this.sendFuturesOrderbookData.bind(this));
         socket.on('orderbook-contract-filter', (contract: IContractInfo) => {
             this.selectedContractId = contract;
             this.sendFuturesOrderbookData();
-        })
+        });
     }
 
     private async sendFuturesOrderbookData() {
@@ -128,8 +129,10 @@ class ServerSocketService {
     public isTestnet: boolean;
     constructor(private socketScript: SocketScript, isTestnet: boolean) {
         this.isTestnet = isTestnet;
-        const port = isTestnet ? '76' : '75';
-        const host = `http://66.228.57.16:${port}`;
+        const url = isTestnet
+            ? "http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com"
+            : "http://66.228.57.16";
+        const host = `${url}:75`;
         this.socket = io(host, { reconnection: false });
         this.handleEvents();
     }
@@ -167,6 +170,7 @@ class ServerSocketService {
         this.handleFromServerToWallet('opened-positions');
         this.handleFromServerToWallet('orderbook-data');
         this.handleFromServerToWallet('aksfor-orderbook-update');
+        this.handleFromServerToWallet('trade-history');
 
         this.socket.on('new-channel', async (trade: any) => {
             const res = await this.socketScript.channelSwap(this.socket, trade);

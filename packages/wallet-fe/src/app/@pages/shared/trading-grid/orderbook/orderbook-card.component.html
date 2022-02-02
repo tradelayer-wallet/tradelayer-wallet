@@ -1,53 +1,62 @@
 <mat-card>
+  <mat-card-title>
+    <div class="header-wrapper">
+      <div class="title-text">
+        <span>Order Book</span>
+        <span class='contract'>wETH / LTC</span>
+      </div>
+      <div class="icons">
+        <mat-icon svgIcon="settings"></mat-icon>
+        <mat-icon svgIcon="resize"></mat-icon>
+        <mat-icon svgIcon="close"></mat-icon>
+      </div>
+    </div>
+  </mat-card-title>
     <mat-card-content>
-        <div class="sell">
+        <div class="sell" #sellOrdersContainer>
           <table mat-table [dataSource]="sellOrderbooks">
             <ng-container matColumnDef="price">
               <th mat-header-cell *matHeaderCellDef>Price</th>
-              <td mat-cell *matCellDef="let el"> {{el.price.toFixed(2)}} </td>
+              <td mat-cell *matCellDef="let el"> {{el.price.toFixed(4)}} </td>
             </ng-container>
             <ng-container matColumnDef="amount">
               <th mat-header-cell *matHeaderCellDef>Amount</th>
-              <td mat-cell *matCellDef="let el"> {{el.amount.toFixed(2)}} </td>
+              <td mat-cell *matCellDef="let el"> {{el.amount.toFixed(4)}} </td>
             </ng-container>
             <ng-container matColumnDef="total">
               <th mat-header-cell *matHeaderCellDef>Total</th>
-              <td mat-cell *matCellDef="let el"> {{(el.price * el.amount).toFixed(2)}} </td>
+              <td mat-cell *matCellDef="let el"> {{(el.price * el.amount).toFixed(4)}} </td>
             </ng-container>
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
             <tr
               mat-row
-              *matRowDef="let row; columns: displayedColumns;"
+              *matRowDef="let row; columns: displayedColumns"
               (click)='fillBuySellPrice(row.price)'
-              [ngClass]='{ "opened-sell-position": haveOpenedPositionOnThisPrice(false, row.price) }'
             ></tr>
           </table>
         </div>
         <div class="middle">
-          <!-- <span>index: </span>
-          <span [ngStyle]='{"color": upTrend ? "green" : "red"}' class='index'>{{ "100.00" }}</span>
-          <mat-icon [ngStyle]='{"color": upTrend ? "green" : "red"}'>{{ upTrend ? "arrow_upward" : "arrow_downward" }}</mat-icon> -->
+          <span class='index'>{{ lastPrice }}</span>
+          <mat-icon [ngStyle]='{"color": upTrend ? "green" : "red"}'>{{ upTrend ? "arrow_upward" : "arrow_downward" }}</mat-icon>
          </div>
          <div class="buy">
           <table mat-table [dataSource]="buyOrderbooks">
             <ng-container matColumnDef="price">
               <th mat-header-cell *matHeaderCellDef>Price</th>
-              <td mat-cell *matCellDef="let el"> {{el.price.toFixed(2)}} </td>
+              <td mat-cell *matCellDef="let el"> {{el.price.toFixed(4)}} </td>
             </ng-container>
             <ng-container matColumnDef="amount">
               <th mat-header-cell *matHeaderCellDef>Amount</th>
-              <td mat-cell *matCellDef="let el"> {{el.amount.toFixed(2)}} </td>
+              <td mat-cell *matCellDef="let el"> {{el.amount.toFixed(4)}} </td>
             </ng-container>
             <ng-container matColumnDef="total">
               <th mat-header-cell *matHeaderCellDef>Total</th>
-              <td mat-cell *matCellDef="let el">  {{(el.price * el.amount).toFixed(2)}}  </td>
+              <td mat-cell *matCellDef="let el">  {{(el.price * el.amount).toFixed(4)}}  </td>
             </ng-container>
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr 
               mat-row
               *matRowDef="let row; columns: displayedColumns;"
               (click)='fillBuySellPrice(row.price)'
-              [ngClass]='{ "opened-buy-position": haveOpenedPositionOnThisPrice(true, row.price) }'
             ></tr>
           </table>
         </div>

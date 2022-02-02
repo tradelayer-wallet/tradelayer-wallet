@@ -6,6 +6,7 @@ import { INodeConfig, myWalletNode } from "../services/wallet-node";
 import { RawTx } from "../socket-script/common/rawtx";
 import { fasitfyServer } from '../../src/index';
 import { IBuildRawTxOptions } from "../socket-script/common/types";
+import { FastifyServer } from "../fastify-server";
 
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
@@ -74,8 +75,10 @@ export const socketRoutes = (socketScript: SocketScript) => {
         fastify.get('/ordersList', async (request, reply) => {
             try {
                 const id = serverSocketService.socket.id;
-                const port = serverSocketService.isTestnet ? '3006' : '3002';
-                const res = await axios.get(`http://66.228.57.16:${port}/trade/ordersList?id=${id}`);
+                const host = serverSocketService.isTestnet
+                    ? "http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com"
+                    : "http://66.228.57.16";
+                const res = await axios.get(`${host}:3002/trade/ordersList?id=${id}`);
                 if (res.data) return reply.send(res.data);
                 reply.send({ error: `Undefined Error`});
             } catch(error) {
@@ -185,6 +188,27 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 reply.send({ data: true });
             } catch(error) {
                 reply.send({ error: error.message });
+            }
+        });
+
+        fastify.post('/runLiquidityScript', async (request, reply) => {
+            try {
+                const options = request.body;
+                const res = await fasitfyServer.socketScript.runLiquidityScript(options);
+                reply.send(res);
+            } catch (err) {
+                reply.send({ error: err.message });
+            }
+        });
+
+        fastify.post('/stopLiquidityScript', async (request, reply) => {
+            try {
+                const { address } = request.body as { address: string };
+                if (!address) return reply.send({ error: `No Address Provided!`});
+                const res = await fasitfyServer.socketScript.stopLiquidityScript(address);
+                reply.send(res);
+            } catch (err) {
+                reply.send({ error: err.message });
             }
         });
 

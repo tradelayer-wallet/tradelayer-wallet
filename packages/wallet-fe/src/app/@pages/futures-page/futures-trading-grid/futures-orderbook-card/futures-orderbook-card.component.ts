@@ -19,6 +19,8 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     displayedColumns: string[] = ['price', 'amount', 'total'];
     clickedRows = new Set<PeriodicElement>();
     upTrend: boolean = false;
+    lastPrice = (1).toFixed(4);
+
     constructor(
       private futuresOrderbookService: FuturesOrderbookService,
       // private positionsService: PositionsService,
@@ -66,7 +68,7 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy() {
-      this.futuresOrderbookService.endOrderbookSbuscription()
+      // this.futuresOrderbookService.endOrderbookSbuscription()
     }
 
     fillBuySellPrice(price: number) {

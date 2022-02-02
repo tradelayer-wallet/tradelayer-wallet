@@ -36,3 +36,37 @@
 .market-pair-span {
     color: whitesmoke;
 }
+
+::ng-deep .main-market-nav {
+    .mat-tab-label {
+        background-color: #1B1E34;
+        min-width: 100px;
+        opacity: 1;
+    }
+
+    .mat-tab-disabled {
+        opacity: 0.8;
+    }
+
+    .mat-tab-label-active {
+        background-color: #272A3E;
+    }
+
+    .sub-market-nav {
+        .mat-tab-label {
+            background-color: #1B1E34;
+            min-width: 100px;
+            border-radius: 3px;
+            height: 38px;
+            min-width: 120px;
+        }
+
+        .mat-tab-label-active {
+            background-color: var(--lightBlue);
+        }
+    }
+
+    .mat-ink-bar {
+        display: none;
+    }
+}

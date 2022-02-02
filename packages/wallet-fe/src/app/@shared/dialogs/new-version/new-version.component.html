@@ -5,6 +5,7 @@
             <mat-spinner *ngIf="loading" diameter='50'></mat-spinner>
             <button
                 *ngIf='downloadButton'
+                class='greenButton'
                 mat-button
                 (click)='download()'
             >Download</button>

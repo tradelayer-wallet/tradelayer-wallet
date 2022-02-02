@@ -8,6 +8,7 @@ export interface IKeyPair {
     pubKey: string;
     privKey: string;
     rewardAddress?: boolean;
+    liquidity_provider?: boolean;
 }
 
 export interface IMultisigPair {
@@ -35,6 +36,7 @@ export class AddressService {
     private _multisigPairs: IMultisigPair[] = [];
     private _rewardAddresses: IKeyPair[] = [];
     private _maxNRewardAddresses: number = 5;
+    private _liquidityAddresses: IKeyPair[] = [];
 
     constructor(
         private rpcService: RpcService,
@@ -75,6 +77,12 @@ export class AddressService {
         return this.allAttestations[address];
     }
 
+    get liquidityAddressesKYCStatus() {
+        if (!this.liquidityAddresses?.[0]?.address) return EKYCStatus.DISABLED;
+        const address = this.liquidityAddresses[0].address;
+        return this.allAttestations[address];
+    }
+
     get rewardAddresses() {
         return this._rewardAddresses;
     }
@@ -85,6 +93,15 @@ export class AddressService {
 
     get maxNRewardAddresses() {
         return this._maxNRewardAddresses;
+    }
+
+    get liquidityAddresses() {
+        return this._liquidityAddresses;
+    }
+
+    set liquidityAddresses(value: IKeyPair[]) {
+        value.forEach(({ address }) => this.checkKycStatusForAddress(address));
+        this._liquidityAddresses = value;
     }
 
     addMultisigAddress(multisig: IMultisigPair) {
@@ -104,6 +121,7 @@ export class AddressService {
         this.multisigPairs = [];
         this.keyPairs = [];
         this.rewardAddresses = [];
+        this.liquidityAddresses = [];
         this.activeKeyPair = null;
     }
 
@@ -131,6 +149,8 @@ export class AddressService {
     async kycAddress(address: string) {
         await this.checkKycStatusForAddress(address);
         if (this.allAttestations[address] !== EKYCStatus.DISABLED) return;
+        const setFeeRes = await this.rpcService.setEstimateFee();
+        if (!setFeeRes.data || setFeeRes.error) return;
         const attRes = await this.rpcService.rpc('tl_attestation', [address, address]);
         if (attRes.error || !attRes.data) {
             const attErrorMEssage = 'Error with Self KYC Attestion'
@@ -154,6 +174,18 @@ export class AddressService {
 
     addRewardAddress(keyPair: IKeyPair) {
         this.rewardAddresses = [...this.rewardAddresses, keyPair];
+    }
+
+    async generateLiquidityAddress() {
+        const keyPair = await this.generateNewKeyPair();
+        if (keyPair) {
+            keyPair.liquidity_provider = true;
+            this.addLiquidtyAddress(keyPair);
+        }
+    }
+
+    addLiquidtyAddress(keyPair: IKeyPair) {
+        this.liquidityAddresses = [...this.liquidityAddresses, keyPair];
     }
 
     async generateNewKeyPair() {

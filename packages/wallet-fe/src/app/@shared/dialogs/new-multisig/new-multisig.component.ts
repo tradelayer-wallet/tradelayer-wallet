@@ -203,7 +203,8 @@ export class NewMultisigDialog implements OnInit {
                 const allKeyParis = [
                     ...this.addressService.keyPairs, 
                     ...this.addressService.multisigPairs, 
-                    ...this.addressService.rewardAddresses
+                    ...this.addressService.rewardAddresses,
+                    ...this.addressService.liquidityAddresses,
                 ];
                 this.authService.encKey = encryptKeyPair(allKeyParis, password);
                 this.dialogService.openEncKeyDialog(this.authService.encKey);

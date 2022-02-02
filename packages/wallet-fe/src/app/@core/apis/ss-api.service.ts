@@ -113,4 +113,14 @@ export class SocketScriptApiService {
     terminate() {
         return this.http.get<{error: any; data: any }>(this.apiUrl + 'terminate');
     }
+
+    startLiquidityScript(options: any): Observable<any> {
+        const body = { ...options };
+        return this.http.post<{error: any; data: any }>(this.apiUrl + 'runLiquidityScript', body);
+    }
+
+    stopLiquidityScript(address: string): Observable<any> {
+        const body = { address };
+        return this.http.post<{error: any; data: any }>(this.apiUrl + 'stopLiquidityScript', body);
+    }
 }

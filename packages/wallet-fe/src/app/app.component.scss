@@ -20,3 +20,49 @@ overlay-loading {
 .minimized {
     transform: translateY(5000);
 }
+
+::ng-deep {
+    .mat-tab-header-pagination-chevron {
+        border-color: var(--white);
+    }
+    .mat-tab-label {
+        color: var(--white);
+    }
+}
+::ng-deep .mat-dialog-container {
+    background-color: var(--violet2);
+    color: var(--softGrey);
+
+    .blueButton {
+        background: var(--blue);
+        color: var(--white);
+        &:hover {
+            background: var(--lightBlue);
+            color: var(--white);
+        }
+    }
+
+    .greenButton {
+        background: var(--mossGreen);
+        color: var(--white);
+        &:hover {
+            background: var(--mossGreen);
+            color: var(--white);
+        }
+    }
+
+    button:disabled {
+        background: var(--darkBlue);
+        color: var(--greyBlue);
+    }
+
+    // .mat-checkbox-inner-container {
+    //     border: 1px solid var(--softGrey);
+    // }
+    .mat-form-field-label,
+    .mat-form-field-outline,
+    .mat-hint,
+    .mat-input-element:disabled {
+        color: white !important;
+    }
+}

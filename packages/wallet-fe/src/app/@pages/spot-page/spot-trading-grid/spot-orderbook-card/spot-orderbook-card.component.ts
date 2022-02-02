@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-positions.service';
@@ -16,14 +16,30 @@ export interface PeriodicElement {
 })
 
 export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
+    @ViewChild('sellOrdersContainer') sellOrdersContainer: any;
+
     displayedColumns: string[] = ['price', 'amount', 'total'];
     clickedRows = new Set<PeriodicElement>();
-    upTrend: boolean = false;
     constructor(
       private spotOrderbookService: SpotOrderbookService,
       private spotPositionsService: SpotPositionsService,
       private spotMarketsService: SpotMarketsService,
     ) {}
+
+    get upTrend() {
+      const th = this.spotOrderbookService.tradeHistory;
+      if (this.spotOrderbookService.tradeHistory.length < 2) return true;
+      const {amountForSale, amountDesired } = th[1];
+      const tradeBeforePrice = (amountForSale / amountDesired).toFixed(4)
+      return tradeBeforePrice < this.lastPrice;
+    }
+
+    get lastPrice() {
+      const th = this.spotOrderbookService.tradeHistory;
+      if (!this.spotOrderbookService.tradeHistory.length) return (1).toFixed(4);
+      const { amountForSale, amountDesired } = th[0];
+      return (amountForSale / amountDesired).toFixed(4)
+    }
 
     get openedPoisiton() {
       return this.spotPositionsService.openedPositions;
@@ -52,6 +68,7 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     get sellOrderbooks() {
+      this.scrollToBottom();
       return this.spotOrderbookService.sellOrderbooks;
     }
 
@@ -63,8 +80,14 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
       this.spotOrderbookService.subscribeForOrderbook();
     }
 
+    scrollToBottom() {
+      if (this.sellOrdersContainer?.nativeElement) {
+        this.sellOrdersContainer.nativeElement.scrollTop = this.sellOrdersContainer.nativeElement.scrollHeight;
+      }
+    }
+
     ngOnDestroy() {
-      this.spotOrderbookService.endOrderbookSbuscription()
+      // this.spotOrderbookService.endOrderbookSbuscription()
     }
 
     fillBuySellPrice(price: number) {

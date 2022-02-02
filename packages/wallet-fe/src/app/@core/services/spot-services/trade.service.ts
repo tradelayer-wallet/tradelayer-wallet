@@ -3,6 +3,7 @@ import { ToastrService } from "ngx-toastr";
 import { AddressService } from "../address.service";
 import { ApiService } from "../api.service";
 import { BalanceService } from "../balance.service";
+import { LiquidityProviderService } from "../liquidity-provider.service";
 import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
 import { TxsService } from "./txs.service";
@@ -31,6 +32,7 @@ export class TradeService {
         private toastrService: ToastrService,
         private txsService: TxsService,
         private balanceService: BalanceService,
+        private liquidityProviderService: LiquidityProviderService
     ) {
         this.handleTradeSocketEvents();
     }
@@ -53,9 +55,10 @@ export class TradeService {
             this.balanceService.updateBalances();
         });
 
-        this.socket.on('trade:saved', (message: string) => {
+        this.socket.on('trade:saved', (data: any) => {
             this.loadingService.tradesLoading = false;
-            this.toastrService.success(message || `Unknow Message`, "Success");
+            const lpAddresses = this.liquidityProviderService.liquidityAddresses.map(e => e.address);
+            if (!lpAddresses.includes(data?.data?.address)) this.toastrService.success(`The Order is Saved in Orderbook`, "Success");
             this.balanceService.updateBalances();
         });
 

@@ -4,27 +4,65 @@
 }
 
 mat-card {
+    background-color: var(--darkBlue2);
     width: 100%;
     height: 100%;
-    background-color: rgba(128, 128, 128, 0.3);
-    color: wheat;
+    color: var(--white);
     padding: unset;
+    mat-card-title {
+        padding: 24px 16px;
+        height: 3rem;
+        .header-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--darkBlue);
+            .title-text {
+                display: flex;
+                font-size: 0.75rem;
+                white-space: nowrap;
+                font-weight: 400;
+                .contract {
+                    margin-left: 3px;
+                }
+            }
+            .icons {
+                display: flex;
+                align-items: center;
+                mat-icon {
+                    width: 16px;
+                    height: 16px;
+                    margin: 0 0.25rem;
+                    cursor: pointer;
+                }
+            }
+        }
+    }
     mat-card-content {
         display: flex;
         flex-direction: column;
-        height: 100%;
-        padding: 1rem 0;
+        height: calc(100% - calc(3rem + 8px));
+        justify-content: center;
+        .buy,
         .sell {
+            overflow: auto;
+            font-size: 0.75rem;
             overflow: hidden;
-            height: 45%;
+            max-height: 45%;
+        }
+        .sell {
             td.cdk-column-price {
-                color: red
+                color: red;
             }
         }
         .middle {
             display: flex;
             align-items: center;
-            justify-content: center;
+            // justify-content: center;
+            margin-left: 1rem;
             height: 10%;
             color: white;
             .index {
@@ -36,10 +74,8 @@ mat-card {
             }
         }
         .buy {
-            overflow: hidden;
-            height: 45%;
             td.cdk-column-price {
-                color: green
+                color: green;
             }
         }
 
@@ -49,34 +85,51 @@ mat-card {
 table {
     width: 100%;
     background-color: unset;
-        tr {
-            height: 1rem;
-        }
-        .opened-buy-position {
-            background-color: rgba(0,255,0,0.05);
-        }
-        .opened-sell-position {
-            background-color: rgba(255,0,0,0.05);
-        }
-        th {
-            color: gainsboro;
-            font-weight: 200;
-        }
-        td {
-            color: whitesmoke;
-            font-weight: 300;
+    tr {
+        height: 1.75rem;
+        cursor: pointer;
+    }
 
-        }
+    tr:nth-child(odd) {
+        background-color: var(--darkBlue);
+    }
 
-        tr.cdk-row:hover {
-            background-color: rgba(128, 128, 128, 0.25);
-            cursor: pointer;
-        }
+    .mat-header-row {
+        background-color: var(--darkBlu2) !important;
+    }
 
-        th.cdk-column-total,
-        td.cdk-column-total,
-        th.cdk-column-amount,
-        td.cdk-column-amount {
-            text-align: right;
-        }
+    td {
+        color: var(--white);
+        font-size: 0.75rem;
+        font-weight: 300;
+    }
+
+    th {
+        color: var(--hardGrey);
+        font-size: 0.75rem;;
+        font-weight: 300;
+        background-color: var(--darkBlue2);
+    }
+    // tr.cdk-row:hover {
+    //     background-color: rgba(128, 128, 128, 0.25);
+    //     cursor: pointer;
+    // }
+
+    th.cdk-column-total,
+    td.cdk-column-total,
+    td.cdk-column-amount,
+    th.cdk-column-amount {
+        text-align: right;
+    }
+
+    td.cdk-column-price,
+    th.cdk-column-price {
+        text-align: left;
+    }
+
+    th.mat-header-cell:first-of-type, 
+    td.mat-cell:first-of-type,
+    td.mat-footer-cell:first-of-type {
+        padding-left: 16px !important;
+    }
 }

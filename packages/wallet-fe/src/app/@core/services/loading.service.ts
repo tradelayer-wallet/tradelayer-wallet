@@ -27,7 +27,7 @@ export class LoadingService {
     }
 
     set tradesLoading(value: boolean) {
-        if(value === true) this._setMaxLoadingTime('tradesLoading', 10000);
+        if(value === true) this._setMaxLoadingTime('tradesLoading', 100000);
         this._tradesLoading = value;
     }
 

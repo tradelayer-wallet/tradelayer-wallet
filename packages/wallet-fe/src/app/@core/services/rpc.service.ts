@@ -4,7 +4,7 @@ import { ApiService } from "./api.service";
 import { SocketService } from "./socket.service";
 import { DialogService, DialogTypes } from "./dialogs.service";
 import { ToastrService } from "ngx-toastr";
-import { WindowsService } from "./windows.service";
+// import { WindowsService } from "./windows.service";
 import { LoadingService } from "./loading.service";
 
 export type TNETWORK = 'LTC' | 'LTCTEST';
@@ -102,7 +102,9 @@ export class RpcService {
           const isReady = await this._sendCredsToHomeApi(credentials);
           if (isReady) {
             this._saveCreds(credentials);
-            if (isTestNet) this.NETWORK = "LTCTEST";
+            isTestNet
+              ? this.NETWORK = "LTCTEST"
+              : this.NETWORK = "LTC";
           }
           res(isReady);
         } catch (error) {
@@ -154,7 +156,7 @@ export class RpcService {
         if (error || !result) return { error: error.message || 'Error with RPC call' };
         return { data: result };
       } catch (err: any) {
-        return { error: err.error?.error?.message || 'Undifined Error' }
+        return { error: err.error?.error?.message || 'Undefined Error' }
       }
     }
 
@@ -182,5 +184,24 @@ export class RpcService {
   
     private _getHeaders(token: string) {
       return new HttpHeaders().set('Authorization', `Basic ${token}`);
+    }
+
+    async setEstimateFee() {
+      const estimateRes = await this.rpc('estimatesmartfee', [1]);
+      if (estimateRes.error || !estimateRes.data?.feerate) {
+        this.toasterService.warning('Error getting Estimate Fee');
+      }
+
+      const _feeRate = estimateRes.error || !estimateRes.data?.feerate
+        ? '0.001'
+        : estimateRes?.data?.feerate;
+
+      const feeRate = parseFloat((parseFloat(_feeRate) * 1000).toFixed(8));
+      const setFeeRes = await this.rpc('settxfee', [feeRate]);
+      if (!setFeeRes.data || setFeeRes.error) {
+        this.toasterService.error('Error with Setting Estimate Fee');
+        return { error: true, data: null };
+      }
+      return setFeeRes;
     }
   }
