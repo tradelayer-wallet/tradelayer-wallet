@@ -4,8 +4,8 @@
             <div class="content-container">
                 <p class='synced' *ngIf="isSynced || isOffline">{{ isOffline ? "Offline Wallet" : "Full Syncrhonized" }} </p>
                 <span class='information' *ngIf="!isSynced && !isOffline">{{ eta }}</span>
-                <mat-progress-bar mode="determinate" [value]="readyPercent"></mat-progress-bar>
-                <span class='blocks-span'> {{ nodeBlock }} / {{ networkBlocks }} </span>
+                <mat-progress-bar *ngIf="!isOffline" mode="determinate" [value]="readyPercent"></mat-progress-bar>
+                <span class='blocks-span' *ngIf="!isOffline"> {{ nodeBlock }} / {{ networkBlocks }} </span>
                 <p class='message'> {{ message }}</p>
                 <button
                     color="warn"

@@ -87,7 +87,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     private async startCheckingSync() {
-        // this.subscribeToNewBlocks();
+        this.subscribeToNewBlocks();
         await this.checkNetworkInfo();
         this.checkSync();
         this.checkIntervalFunc = setInterval(() => {
@@ -103,7 +103,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             this.stopChecking = true;
             this.checkTimeOutFunc = setTimeout(() => {
                 this.checkSync();
-            }, 2000);
+            }, 1000);
             return;
         }
         this.terminateDisabled = false;
@@ -111,7 +111,6 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         this.stopChecking = false;
         this.nodeBlock = giRes.data.block;
         if (this.isOffline) {
-            if (this.syncTab) this.syncTab.minimized = true;
             clearInterval(this.checkIntervalFunc);
             clearTimeout(this.checkTimeOutFunc);
             this.message = ' ';
