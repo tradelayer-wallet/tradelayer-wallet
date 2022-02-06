@@ -26,6 +26,8 @@ export class RPCConnectDialog {
 
   public reindex: boolean = false;
   public startclean: boolean = false;
+  public showAdvanced: boolean = false;
+
   constructor(
     private rpcService: RpcService,
     public dialogRef: MatDialogRef<RPCConnectDialog>,
@@ -42,6 +44,14 @@ export class RPCConnectDialog {
   set defaultDirectoryCheckbox(value: boolean) {
     this.directory = '';
     this._defaultDirectoryCheckbox = value;
+  }
+
+  toggleAdvanced() {
+    this.showAdvanced = !this.showAdvanced;
+    if (!this.showAdvanced) {
+      this.reindex = false;
+      this.startclean = false;
+    }    
   }
 
   openDirSelectDialog() {
