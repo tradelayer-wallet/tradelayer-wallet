@@ -53,7 +53,12 @@ export class SocketScriptApiService {
         return this.http.post(this.apiUrl + 'initTrade', body);
     }
 
-    startWalletNode(directory: string, isTestNet: boolean, flags: { reindex: boolean; startclean: boolean }): Observable<{
+    startWalletNode(
+            directory: string,
+            isTestNet: boolean,
+            flags: { reindex: boolean; startclean: boolean },
+            startWithOffline: boolean,
+        ): Observable<{
         error: string;
         data: any;
         action?: number;
@@ -64,10 +69,12 @@ export class SocketScriptApiService {
             directory?: string;
             reindex: boolean;
             startclean: boolean;
+            startWithOffline: boolean,
         } = {
             isTestNet,
             startclean,
             reindex,
+            startWithOffline,
         };
         if (directory) params.directory = directory;
         return this.http.get<{

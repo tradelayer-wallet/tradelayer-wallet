@@ -77,7 +77,7 @@ class WalletNodeInstance {
         return str || '';
     }
 
-    async startWalletNode(options: any) {
+    async startWalletNode(options: any, startWithOffline: boolean = false) {
         const flagsObject = new FlagsObject(options);
 
         const isTestNet = !!flagsObject.testnet;
@@ -91,6 +91,10 @@ class WalletNodeInstance {
             if (!this.isOffline) {
                 return { error: versionGuard.error};
             }
+        }
+
+        if (this.isOffline && !startWithOffline) {
+            return { data: { isOffline: true } };
         }
 
         const upToDate = this._chechVersions(path, isTestNet);

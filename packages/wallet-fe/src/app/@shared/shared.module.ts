@@ -34,6 +34,7 @@ import { PasswordDialog } from './dialogs/password/password.component';
 // import { ClickOutsideDirective } from './directives/click-outside.directive';
 import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
 import { NewVersionDialog } from './dialogs/new-version/new-version.component';
+import { OfflineWalletDialog } from './dialogs/offline-wallet/offline-wallet.component';
 
 
 const NG_MODULES = [
@@ -69,6 +70,7 @@ const DIALOGS = [
     NewMultisigDialog,
     PasswordDialog,
     NewVersionDialog,
+    OfflineWalletDialog,
 ];
 
 const COMPONENTS = [

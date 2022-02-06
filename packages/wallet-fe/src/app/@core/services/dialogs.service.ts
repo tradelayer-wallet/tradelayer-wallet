@@ -6,6 +6,7 @@ import { EncKeyDialog } from "src/app/@shared/dialogs/enc-key/enc-key.component"
 import { NewMultisigDialog } from "src/app/@shared/dialogs/new-multisig/new-multisig.component";
 import { NewNodeDialog } from "src/app/@shared/dialogs/new-node/new-node.component";
 import { NewVersionDialog } from "src/app/@shared/dialogs/new-version/new-version.component";
+import { OfflineWalletDialog } from "src/app/@shared/dialogs/offline-wallet/offline-wallet.component";
 import { RescanDialog } from "src/app/@shared/dialogs/rescan/rescan.component";
 import { RPCConnectDialog } from "src/app/@shared/dialogs/rpc-connect/rpc-connect.component";
 import { TxBuilderDialog } from "src/app/@shared/dialogs/tx-builder/tx-builder.component";
@@ -22,6 +23,7 @@ export enum DialogTypes {
     NEW_MULTISIG = 'NEW_MULTISIG',
     TX_BUILDER = 'TX_BUILDER',
     NEW_VERSION = 'NEW_VERSION',
+    OFFLINE_WALLET = 'OFFLINE_WALLET',
 };
 
 const dialogs: { [key: string]: any; } = {
@@ -35,6 +37,7 @@ const dialogs: { [key: string]: any; } = {
     'NEW_MULTISIG': NewMultisigDialog,
     'TX_BUILDER': TxBuilderDialog,
     'NEW_VERSION': NewVersionDialog,
+    'OFFLINE_WALLET': OfflineWalletDialog,
 };
 
 @Injectable({
