@@ -50,6 +50,10 @@ export class PortfolioPageComponent implements OnInit{
     return this.rpcService.isOffline || !this.rpcService.isSynced;
   }
 
+  get isApiRPC() {
+    return this.rpcService.isApiRPC;
+  }
+
   ngOnInit() {}
 
   getAvailableFiatBalance(element: any) {

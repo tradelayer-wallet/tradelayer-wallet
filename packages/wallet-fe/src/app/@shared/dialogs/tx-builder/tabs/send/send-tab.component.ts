@@ -35,7 +35,7 @@ export class TxBuilderSendTabComponent {
     const hex = this.rawTx;
     const setFeeRes = await this.rpcService.setEstimateFee();
     if (!setFeeRes.data || setFeeRes.error) return;
-    const resSend = await this.rpcService.rpc('sendrawtransaction', [hex]);
+    const resSend = await this.rpcService.smartRpc('sendrawtransaction', [hex]);
     resSend.error || !resSend.data
       ? this.toastrService.error(resSend.error || 'Undefined Error!', 'Error')
       : this.successMessage = resSend.data;

@@ -4,7 +4,7 @@ import { ChildProcess, exec } from 'child_process';
 import { fasitfyServer } from '../index';
 import { coreFilePathObj, defaultDirObj } from '../conf/windows.conf';
 import { addTESTNETNodeServer } from '../conf/conf';
-import { initServerConnection, myVersions, walletSocketSevice } from '../sockets';
+import { initOrderbookConnection, myVersions, walletSocketSevice } from '../sockets';
 import { customLogger } from '../socket-script/common/logger';
 import { Client } from 'litecoin'
 import { asyncClient } from '../socket-script/common/async-client';
@@ -198,7 +198,7 @@ class WalletNodeInstance {
     };
     private _versionGuard(isTestNet: boolean) {
         return new Promise<{ error?: string, data?: boolean }>(res => {
-            const sss = initServerConnection(fasitfyServer.socketScript, isTestNet);
+            const sss = initOrderbookConnection(fasitfyServer.socketScript, isTestNet);
             sss.socket.on('version-guard', (valid: boolean) => {
                 const resolve = valid
                     ? { data: true }

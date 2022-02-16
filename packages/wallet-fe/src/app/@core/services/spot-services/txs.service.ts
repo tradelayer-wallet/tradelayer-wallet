@@ -41,6 +41,10 @@ export class TxsService {
         this._pendingTxs = value;
     }
 
+    get isApiRPC() {
+        return this.rpcService.isApiRPC;
+    }
+
     async addTxToPending(txid: string, tradeData: { propId: number, amount: string }) {
         const { propId, amount } = tradeData;
         const fee = await this.getTxFee(txid)
@@ -55,6 +59,7 @@ export class TxsService {
 
     private checkPendingTxs() {
         this.socketService.socket.on('newBlock', () => {
+            if (this.isApiRPC) return;
             if (!this.pendingTxs?.length) return
             this.pendingTxs
                 .filter(tx => tx.status === TXSTATUS.PENDING)

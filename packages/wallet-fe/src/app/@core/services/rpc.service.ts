@@ -23,6 +23,7 @@ export interface RPCCredentials {
 export class RpcService {
     private _isConnected: boolean = false;
     private _isSynced: boolean = false;
+    private _isApiRPC: boolean = true;
 
     private rpcHost: string = '';
     private authToken: string = '';
@@ -51,13 +52,22 @@ export class RpcService {
       });
     }
 
+    get isApiRPC() {
+      if (this.isOffline) return false;
+      return this._isApiRPC;
+    }
+
+    set isApiRPC(value: boolean) {
+      this._isApiRPC = value;
+    }
+
     get NETWORK() {
       return this._NETWORK;
     }
 
     set NETWORK(value: TNETWORK) {
-      this.setNetworkInAllServices(value);
-        this._NETWORK = value;
+      this.apiService._setNETOWRK(value);
+      this._NETWORK = value;
     }
 
     get isConnected() {
@@ -73,7 +83,8 @@ export class RpcService {
     }
 
     set isSynced(value: boolean) {
-      this.saveConfigFile();
+      if (value === true) this.saveConfigFile();
+      this._isApiRPC = !value;
       this._isSynced = value;
     }
 
@@ -85,15 +96,13 @@ export class RpcService {
       return this.apiService.socketScriptApi;
     }
 
+    get tlApi() {
+      return this.apiService.tlApi;
+    }
+
     private async saveConfigFile() {
       const isTestNet = this.NETWORK === "LTCTEST";
       const res = await this.socketScriptApi.saveConfigFile(isTestNet).toPromise();
-    }
-
-    private setNetworkInAllServices(value: TNETWORK) {
-      this.apiService.soChainApi.NETWORK = value;
-      this.apiService.marketApi.NETWORK = value;
-      this.apiService.fundingApi.NETWORK = value;
     }
 
     connect(credentials: RPCCredentials, isTestNet: boolean) {
@@ -156,10 +165,29 @@ export class RpcService {
       return res;
     }
 
-    async rpc(method: string, params: any[] = [], credentials?: RPCCredentials) {
+    async smartRpc(method: string, params: any[] = []) {
+      return this.isApiRPC
+        ? this.apiRpc(method, params)
+        : this.rpc(method, params);
+    }
+
+    localRpcCall(method: string, params: any) {
+      return this.socketScriptApi.postRpcCall(method, params);
+    }
+
+    async apiRpc(method: string, params: any[] = []) {
       try {
-        const url = credentials ? `http://${credentials.host}:${credentials.port}` : this.rpcHost;
-        const authToken = credentials ? window.btoa(`${credentials.username}:${credentials.password}`) : this.authToken;
+        const res = await this.tlApi.rpc(method, params).toPromise();
+        return res;
+      } catch (err: any) {
+        return { error: err.message || 'API-RPC: Undefined Error' };
+      }
+    }
+
+    async rpc(method: string, params: any[] = []) {
+      try {
+        const url = this.rpcHost;
+        const authToken = this.authToken;
         const id = Date.now();
         const body = { id, method, params };
         const headers = this._getHeaders(authToken);

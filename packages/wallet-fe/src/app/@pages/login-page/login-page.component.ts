@@ -52,12 +52,12 @@ export class LoginPageComponent implements OnInit {
     }, { validator: this.matchPasswords('password', 'confirmPass') });
   }
 
-  loginWithPrivKey() {
-    const password = this.loginFormPrivKey.value.password;
-    const privKey = this.loginFormPrivKey.value.privKey;
+  // loginWithPrivKey() {
+  //   const password = this.loginFormPrivKey.value.password;
+  //   const privKey = this.loginFormPrivKey.value.privKey;
 
-    this.authService.loginFromPrivKey(privKey, password);
-  }
+  //   this.authService.loginFromPrivKey(privKey, password);
+  // }
 
   async loginWithJsonFile() {
     this.loadingService.isLoading = true;

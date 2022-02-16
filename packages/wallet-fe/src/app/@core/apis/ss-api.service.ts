@@ -24,6 +24,18 @@ export class SocketScriptApiService {
         return this.http.get(this.apiUrl + 'rpcCall', { params });
     }
 
+    postRpcCall(method: string, params: any): Observable<{
+        data: any;
+        error: any;
+    }> {
+        const body = params;
+        const url = this.apiUrl + 'rpcCall/' + method;
+        return this.http.post<{
+            data: any;
+            error: any;
+        }>(url, body);
+    }
+
     checkWalletServer() {
         return this.http.get(this.apiUrl + 'checkConnection');
     }
@@ -33,20 +45,6 @@ export class SocketScriptApiService {
         const params = { user: username, pass: password, port };
         return this.http.get(this.apiUrl + 'connect', { params });
     }
-
-    // startListener(address: string) {
-    //     const params = { address };
-    //     return this.http.get(this.apiUrl + 'listStart', { params });
-    // }
-
-    // stopListener() {
-    //     return this.http.get(this.apiUrl + 'listStop');
-    // }
-
-    // initTrade(trade: ITradeConf, keyPair: any) {
-    //     const params = { trade: JSON.stringify(trade), keyPair: JSON.stringify(keyPair)};
-    //     return this.http.get(this.apiUrl + 'initTrade', { params });
-    // }
 
     postInitTrade(trade: ITradeConf, keyPair: any) {
         const body = { trade, keyPair };
@@ -95,10 +93,10 @@ export class SocketScriptApiService {
         }>(this.apiUrl + 'createNewNode', { params });
     }
 
-    extractKeyPairFromPrivKey(privKey: string): Observable<any> {
-        const params = { privKey };
-        return this.http.get<any>(this.apiUrl + 'extractKeyPairFromPrivKey', { params });
-    }
+    // extractKeyPairFromPrivKey(privKey: string): Observable<any> {
+    //     const params = { privKey };
+    //     return this.http.get<any>(this.apiUrl + 'extractKeyPairFromPrivKey', { params });
+    // }
 
     withdraw(fromAddress: string, toAddress: string, amount: number): Observable<{ error: any; data: string }> {
         const params = { fromAddress, toAddress, amount };

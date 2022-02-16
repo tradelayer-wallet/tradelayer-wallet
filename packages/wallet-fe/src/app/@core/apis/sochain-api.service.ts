@@ -1,7 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
-import { RpcService, TNETWORK } from "../services/rpc.service";
+import { TNETWORK } from "../services/rpc.service";
 
 
 @Injectable({
@@ -9,22 +9,18 @@ import { RpcService, TNETWORK } from "../services/rpc.service";
 })
 
 export class SoChainApiService {
-    private _NETWORK: TNETWORK = "LTC";
+    private NETWORK: TNETWORK = "LTC";
 
     constructor(
-        private http: HttpClient,
+        private http: HttpClient
     ) {}
 
     private get apiUrl() {
         return 'https://sochain.com/api/v2/';
     }
 
-    get NETWORK() {
-        return this._NETWORK;
-    }
-
-    set NETWORK(value: TNETWORK) {
-        this._NETWORK = value;
+    _setNETWORK(value: TNETWORK) {
+        this.NETWORK = value;
     }
 
     getTxUnspents(address: string) {

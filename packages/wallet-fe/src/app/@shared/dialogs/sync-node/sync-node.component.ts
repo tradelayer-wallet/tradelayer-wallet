@@ -120,7 +120,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
             this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
             if (this.nodeBlock + 1 >= this.networkBlocks) {
-                this.rpcService.isSynced = true;
+                if (!this.rpcService.isSynced) this.rpcService.isSynced = true;
                 this.message = 'FULL SYNCED';
                 if (this.syncTab) this.syncTab.minimized = true;
             }

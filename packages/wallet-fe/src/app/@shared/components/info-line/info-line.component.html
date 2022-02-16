@@ -2,5 +2,8 @@
     <div class="tab" *ngFor='let t of windows' (click)='maximize($event, t)'>{{ t.title }}</div>
 </div>
 <div class="info-line">
-    {{ isOffline ? "Offline  |" : null}} Block: {{ blockHigh }} | Network: {{ network }} | Wallet Version: {{ myVersion }}
+    {{ isOffline ? "Offline  |" : null}}
+    {{ isAbleToRpc ? isApiRPC ? 'API-RPC |' : 'Block:' + blockHigh + ' | ' : null }}
+    Network: {{ network }} 
+    | Wallet Version: {{ myVersion }}
 </div>

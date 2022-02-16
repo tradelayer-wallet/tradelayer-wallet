@@ -59,9 +59,9 @@ export class AuthService {
             });
     }
 
-    async loginFromPrivKey(privKey: string, pass: string) {
-        const res = await this.apiService.socketScriptApi.extractKeyPairFromPrivKey(privKey).toPromise();
-    }
+    // async loginFromPrivKey(privKey: string, pass: string) {
+    //     const res = await this.apiService.socketScriptApi.extractKeyPairFromPrivKey(privKey).toPromise();
+    // }
 
     async loginFromKeyFile(key: string, pass: string) {
         const res = ltcUtils.decryptKeyPair(key, pass) as (IKeyPair | IMultisigPair)[];
@@ -92,8 +92,8 @@ export class AuthService {
         }
 
 
-        if (!this.rpcService.isOffline) {
-            const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [keyPairs[0]?.address]]);
+        if (!this.rpcService.isOffline && !this.rpcService.isApiRPC) {
+            const luRes = await this.rpcService.smartRpc('listunspent', [0, 999999999, [keyPairs[0]?.address]]);
             const scLuRes: any = await this.apiService.soChainApi.getTxUnspents(keyPairs[0]?.address).toPromise()
             if (luRes.error || !luRes.data || scLuRes.status !== "success" || !scLuRes.data) {
                 this.toastrService.error('Unexpecter Error. Please try again!', 'Error');
@@ -104,7 +104,9 @@ export class AuthService {
                 this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
                 return;
             }
-        } else {
+        }
+
+        if (this.rpcService.isOffline) {
             this.toastrService.info('There may be some incorect balance data', 'Offline wallet');
         }
 

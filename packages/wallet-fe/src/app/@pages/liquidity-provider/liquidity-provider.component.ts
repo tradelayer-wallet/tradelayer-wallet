@@ -73,7 +73,7 @@ export class LiquidityProviderPageComponent implements OnInit {
 
   async getBalanceForAddress(pair: IKeyPair) {
     this.rawBalanceObj[pair.address] = { ltc: '-', tokens: '-' };
-    const resLtc = await this.rpcService.rpc('listunspent', [0, 999999999, [pair.address]]);
+    const resLtc = await this.rpcService.smartRpc('listunspent', [0, 999999999, [pair.address]]);
     if (resLtc.error || !resLtc.data) {
       this.rawBalanceObj[pair.address].ltc = '-';
     } else {
@@ -84,7 +84,7 @@ export class LiquidityProviderPageComponent implements OnInit {
       this.rawBalanceObj[pair.address].ltc = sumLtc || sumLtc === 0 ? sumLtc.toFixed(6) : '-';
     }
 
-    const resTokens= await this.rpcService.rpc('tl_getbalance', [pair.address, 4]);
+    const resTokens= await this.rpcService.smartRpc('tl_getbalance', [pair.address, 4]);
     if (resTokens.error || !resTokens.data) {
       this.rawBalanceObj[pair.address].tokens = '-';
     } else {

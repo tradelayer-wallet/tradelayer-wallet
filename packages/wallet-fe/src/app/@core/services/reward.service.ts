@@ -30,10 +30,15 @@ export class RewardService {
         return this.addressService.activeKeyPair;
     }
 
+    get isApiRPC() {
+        return this.rpcService.isApiRPC;
+    }
+
     startBlockChecking() {
         this.checkIfWin();
         this.checkRegisteredAddresses();
         this.socketService.socket.on('newBlock', (block) => {
+            if (this.isApiRPC) return;
             this.waitingList = [];
            this.checkIfWin();
            this.checkRegisteredAddresses();
@@ -41,7 +46,7 @@ export class RewardService {
     }
 
     private async checkRegisteredAddresses() {
-        const lnraRes = await this.rpcService.rpc('tl_listnodereward_addresses');
+        const lnraRes = await this.rpcService.smartRpc('tl_listnodereward_addresses');
         if (lnraRes.error || !lnraRes.data) {
             this.toastrService.error(lnraRes.error || 'Error With getting registered Addresses', "Error")
             return;
@@ -53,7 +58,7 @@ export class RewardService {
         }
     }
     async setAutoClaim(address: string) {
-        const lnraRes = await this.rpcService.rpc('tl_listnodereward_addresses');
+        const lnraRes = await this.rpcService.smartRpc('tl_listnodereward_addresses');
         if (lnraRes.error || !lnraRes.data) {
             this.toastrService.error(lnraRes.error || 'Error With getting registered Addresses', "Error")
             return;
@@ -70,7 +75,7 @@ export class RewardService {
     async register(address: string) {
         if (!this.activeKeyPair?.address) return;
 
-        const lnraRes = await this.rpcService.rpc('tl_listnodereward_addresses');
+        const lnraRes = await this.rpcService.smartRpc('tl_listnodereward_addresses');
         if (lnraRes.error || !lnraRes.data) {
             this.toastrService.error(lnraRes.error || 'Error With getting registered Addresses', "Error")
             return;
@@ -95,7 +100,7 @@ export class RewardService {
     checkIfWin() {
         if (!this.rewardAddresses?.length) return;
         this.autoClaimAddresses.forEach(async address => {
-            const iawRes = await this.rpcService.rpc('tl_isaddresswinner', [address]);
+            const iawRes = await this.rpcService.smartRpc('tl_isaddresswinner', [address]);
             if (iawRes.error || !iawRes.data) {
                 this.toastrService.error(iawRes.error || 'Check Winner Error', "Error");
             } else {
