@@ -17,7 +17,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
             try {
                 const { method } =  request.params as { method: string };
                 const params = request.body;
-                const res = await buildAndSend(method, params);
+                const res = await buildAndSend(socketScript, method, params);
                 reply.send(res);    
             } catch (err) {
                 reply.send({ error: err.message || `Error with buling the transction`});

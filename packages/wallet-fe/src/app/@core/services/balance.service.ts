@@ -63,6 +63,10 @@ export class BalanceService {
         return this._allBalancesObj;
     }
 
+    get isApiRPC() {
+        return this.rpcService.isApiRPC;
+    }
+
     getTokensBalancesByAddress(_address?: string) {
         const address = _address || this.selectedAddress;
         if (!address) return [];
@@ -211,7 +215,9 @@ export class BalanceService {
         } else {
             const setFeeRes = await this.rpcService.setEstimateFee();
             if (!setFeeRes.data || setFeeRes.error) return { error: 'Error with setting fee' };
-            const res = await this.rpcService.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);
+            const res = this.isApiRPC
+                ?  await this.rpcService.localRpcCall('tl_send', [fromAddress, toAddress, propId, amount.toString()]).toPromise()
+                :  await this.rpcService.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);
             return res;
         }
 
