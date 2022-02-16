@@ -4,7 +4,7 @@ import { ChildProcess, exec } from 'child_process';
 import { fasitfyServer } from '../index';
 import { coreFilePathObj, defaultDirObj } from '../conf/windows.conf';
 import { addTESTNETNodeServer } from '../conf/conf';
-import { initOrderbookConnection, myVersions, walletSocketSevice } from '../sockets';
+import { initApiService, initOrderbookConnection, myVersions, walletSocketSevice } from '../sockets';
 import { customLogger } from '../socket-script/common/logger';
 import { Client } from 'litecoin'
 import { asyncClient } from '../socket-script/common/async-client';
@@ -198,6 +198,7 @@ class WalletNodeInstance {
     };
     private _versionGuard(isTestNet: boolean) {
         return new Promise<{ error?: string, data?: boolean }>(res => {
+            const sapi = initApiService(isTestNet);
             const sss = initOrderbookConnection(fasitfyServer.socketScript, isTestNet);
             sss.socket.on('version-guard', (valid: boolean) => {
                 const resolve = valid
@@ -208,7 +209,7 @@ class WalletNodeInstance {
             });
             sss.socket.on('connect_error', () => {
                 this.isOffline = true;
-                res({error: 'Error with API connection.'})
+                res({error: 'Error with Orderbook-API connection.'})
             });
         });
     }
