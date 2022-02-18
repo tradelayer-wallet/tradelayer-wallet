@@ -228,6 +228,7 @@ export class RpcService {
     }
 
     async setEstimateFee() {
+      if (this.isApiRPC) return;
       const estimateRes = await this.rpc('estimatesmartfee', [1]);
       if (estimateRes.error || !estimateRes.data?.feerate) {
         this.toasterService.warning('Error getting Estimate Fee');

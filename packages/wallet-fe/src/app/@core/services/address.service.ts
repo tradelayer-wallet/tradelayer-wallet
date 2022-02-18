@@ -130,6 +130,11 @@ export class AddressService {
     }
 
     private handleSocketEvents() {
+        this.socketService.socket.on('newBlock-api', () => {
+            if (!this.isApiRPC) return;
+            if (this.activeAddressKYCStatus === EKYCStatus.PENDING) this.checkKycStatusForAddress();
+        });
+
         this.socketService.socket.on('newBlock', () => {
             if (this.isApiRPC) return;
             if (this.activeAddressKYCStatus === EKYCStatus.PENDING) this.checkKycStatusForAddress();
@@ -155,7 +160,7 @@ export class AddressService {
         await this.checkKycStatusForAddress(address);
         if (this.allAttestations[address] !== EKYCStatus.DISABLED) return;
         const setFeeRes = await this.rpcService.setEstimateFee();
-        if (!setFeeRes.data || setFeeRes.error) return;
+        // if (!setFeeRes.data || setFeeRes.error) return;
         const attRes = this.isApiRPC
             ? await this.rpcService.localRpcCall('tl_attestation', [address, address]).toPromise()
             : await this.rpcService.rpc('tl_attestation', [address, address]);

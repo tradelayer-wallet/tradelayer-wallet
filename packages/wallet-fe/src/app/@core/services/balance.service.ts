@@ -81,6 +81,11 @@ export class BalanceService {
     }
 
     private handleSocketEvents() {
+        this.socketService.socket.on('newBlock-api', () => {
+            if (!this.rpcService.isApiRPC) return;
+            this.updateBalances();
+        });
+
         this.socketService.socket.on('newBlock', (blockHeight) => {
             if (this.rpcService.isApiRPC) return;
             this.updateBalances();
@@ -210,11 +215,13 @@ export class BalanceService {
     async withdraw(optionsObj: { fromAddress: string, toAddress: string, amount: number, propId: number }) {
         const { fromAddress, toAddress, amount, propId } = optionsObj;
         if (propId === -1) {
-            const res = await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
+            const res = this.isApiRPC
+                ? await this.rpcService.localRpcCall('sendtoaddress', [fromAddress, toAddress, amount]).toPromise()
+                : await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
             return res;
         } else {
             const setFeeRes = await this.rpcService.setEstimateFee();
-            if (!setFeeRes.data || setFeeRes.error) return { error: 'Error with setting fee' };
+            // if (!setFeeRes.data || setFeeRes.error) return { error: 'Error with setting fee' };
             const res = this.isApiRPC
                 ?  await this.rpcService.localRpcCall('tl_send', [fromAddress, toAddress, propId, amount.toString()]).toPromise()
                 :  await this.rpcService.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);

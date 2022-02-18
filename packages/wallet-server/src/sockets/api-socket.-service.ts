@@ -38,7 +38,8 @@ export class ApiSocketService {
         });
 
         this.socket.on('newBlock', (block) => {
-            process.send({ block });
+            // process.send({ block });
+            walletSocketSevice.currentSocket.emit('newBlock-api', block)
         })
     }
     

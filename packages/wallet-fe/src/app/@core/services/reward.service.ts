@@ -37,12 +37,19 @@ export class RewardService {
     startBlockChecking() {
         this.checkIfWin();
         this.checkRegisteredAddresses();
+        this.socketService.socket.on('newBlock-api', (block) => {
+            if (!this.isApiRPC) return;
+            this.waitingList = [];
+            this.checkIfWin();
+            this.checkRegisteredAddresses();
+        });
+
         this.socketService.socket.on('newBlock', (block) => {
             if (this.isApiRPC) return;
             this.waitingList = [];
            this.checkIfWin();
            this.checkRegisteredAddresses();
-        })
+        });
     }
 
     private async checkRegisteredAddresses() {
@@ -84,7 +91,7 @@ export class RewardService {
                 this.toastrService.warning('This Address is already registered', "Warning")
             } else {
                 const setFeeRes = await this.rpcService.setEstimateFee();
-                if (!setFeeRes.data || setFeeRes.error) return;
+                // if (!setFeeRes.data || setFeeRes.error) return;
 
                 const snaRes = await this.rpcService.rpc('tl_submit_nodeaddress', [this.activeKeyPair?.address, address]);
                 if (snaRes.error || !snaRes.data) {
