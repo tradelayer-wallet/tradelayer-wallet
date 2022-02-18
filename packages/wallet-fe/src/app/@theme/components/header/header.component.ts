@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { AddressService } from 'src/app/@core/services/address.service';
@@ -7,6 +7,7 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { MenuService } from 'src/app/@core/services/menu.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
+import { WindowsService } from 'src/app/@core/services/windows.service';
 // import { Themes, ThemesService } from 'src/app/@services/themes.services';
 
 @Component({
@@ -15,7 +16,7 @@ import { RpcService } from 'src/app/@core/services/rpc.service';
   styleUrls: ['./header.component.scss']
 })
 
-export class HeaderComponent {
+export class HeaderComponent implements OnInit {
   private _mainRoutes: any[] = [
     {
       id: 1,
@@ -80,6 +81,7 @@ export class HeaderComponent {
     private balanceService: BalanceService,
     private toastrService: ToastrService,
     private rpcService: RpcService,
+    private windowsService: WindowsService,
   ) { }
 
   get isApiRPC() {
@@ -112,6 +114,11 @@ export class HeaderComponent {
 
   get addressBalance() {
     return 
+  }
+
+  ngOnInit(): void {
+      const tab = this.windowsService.tabs.find(e => e.title === 'Synchronization');
+      if (tab) tab.minimized = true;
   }
 
   getAvailableBalance() {

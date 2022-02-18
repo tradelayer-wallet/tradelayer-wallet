@@ -107,7 +107,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             return;
         }
         this.terminateDisabled = false;
-        this.rpcService.isAbleToRpc = true;
+        if (!this.rpcService.isAbleToRpc) this.rpcService.isAbleToRpc = true;
         this.stopChecking = false;
         this.nodeBlock = giRes.data.block;
         if (this.isOffline) {
@@ -122,7 +122,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             if (this.nodeBlock + 1 >= this.networkBlocks) {
                 if (!this.rpcService.isSynced) this.rpcService.isSynced = true;
                 this.message = 'FULL SYNCED';
-                if (this.syncTab) this.syncTab.minimized = true;
+                // if (this.syncTab) this.syncTab.minimized = true;
             }
             this.message = ' ';
             return;
