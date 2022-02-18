@@ -9,9 +9,12 @@
         padding: 1rem;
         mat-form-field {
             width: 100%;
-            color: white;
+            color: black;
         }
     }
+    .icon-display {
+        transform: scale(1.5);
+     }
 }
 
 .input-file {

@@ -24,7 +24,10 @@
                         </div>
                         <mat-form-field>
                             <mat-label>Password</mat-label>
-                            <input type='password' matInput formControlName='password'>
+                            <input matInput [type]="hide ? 'password' : 'text'" spellcheck='false' formControlName='password'>
+                            <button mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hide">
+                            <mat-icon class="icon-display">{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
+                            </button>
                         </mat-form-field>
                         <button type='button' (click)='loginWithJsonFile()' [disabled]='!loginFormFile.valid' mat-raised-button color="primary">Login</button>
                     </form>
@@ -51,12 +54,15 @@
         <mat-tab label="Create New Account">
             <form class='form'  [formGroup]='registerForm'>
                 <mat-form-field >
+                    <button mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hide">
+                    <mat-icon class="icon-display">{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
+                    </button>
                     <mat-label>Password</mat-label>
-                    <input type='password' formControlName='password' matInput>
+                    <input matInput [type]="hide ? 'password' : 'text'" spellcheck='false' formControlName='password'>
                 </mat-form-field>
                 <mat-form-field >
                     <mat-label>Confirm Password</mat-label>
-                    <input type='password' formControlName='confirmPass' matInput>
+                    <input matInput [type]="hide ? 'password' : 'text'" spellcheck='false' formControlName='confirmPass'>
                 </mat-form-field>
                 <button 
                     type='button'

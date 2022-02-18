@@ -14,6 +14,8 @@ export class LoginPageComponent implements OnInit {
 
   private jsonFromFile: any = null;
 
+  hide = true;
+
   public loginFormPrivKey: FormGroup = new FormGroup({});
   public loginFormFile: FormGroup = new FormGroup({});
   public registerForm: FormGroup = new FormGroup({});
