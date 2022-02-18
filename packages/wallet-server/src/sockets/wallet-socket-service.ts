@@ -1,7 +1,7 @@
 import { Socket, Server } from "socket.io";
 import { SocketScript } from '../socket-script/socket-script';
 import { FastifyInstance } from "fastify"
-import { initOrderbookConnection, orderbookSocketService } from ".";
+import { initApiService, initOrderbookConnection, orderbookSocketService } from ".";
 import { TClient } from "../socket-script/common/types";
 
 interface IContractInfo {
@@ -37,6 +37,8 @@ export class WalletSocketSevice {
         this.handleFromWalletToServer(socket, 'logout');
 
         socket.on('api-reconnect', (isTestNet: boolean) => initOrderbookConnection(this.socketScript, isTestNet));
+        socket.on('api-2-reconnect', (isTestNet: boolean) => initApiService(isTestNet));
+
         socket.on('update-futures-orderbook', this.sendFuturesOrderbookData.bind(this));
         socket.on('orderbook-contract-filter', (contract: IContractInfo) => {
             this.selectedContractId = contract;

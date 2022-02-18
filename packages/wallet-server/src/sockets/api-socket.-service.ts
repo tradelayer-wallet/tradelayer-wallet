@@ -23,22 +23,19 @@ export class ApiSocketService {
 
     private handleEvents() {
         this.socket.on('connect', () => {
-            //
+            walletSocketSevice.io.emit('api_connect');
         });
 
         this.socket.on('disconnect', () => {
-            // walletSocketSevice.io.emit('api_disconnect');
-            process.send(`Disconnect`)
+            walletSocketSevice.io.emit('api_disconnect');
 
         });
 
         this.socket.on('connect_error', () => {
-            process.send(`Connect Error `)
-            // walletSocketSevice.io.emit('api_connect_error');
+            walletSocketSevice.io.emit('api_connect_error');
         });
 
         this.socket.on('newBlock', (block) => {
-            // process.send({ block });
             walletSocketSevice.currentSocket.emit('newBlock-api', block)
         })
     }
