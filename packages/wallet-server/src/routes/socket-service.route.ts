@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify"
 import SocketScript from "../socket-script";
-import { orderbookSocketService, walletSocketSevice } from '../sockets';
+import { apiSocketService, orderbookSocketService, walletSocketSevice } from '../sockets';
 import axios from 'axios';
 import { INodeConfig, myWalletNode } from "../services/wallet-node";
 import { RawTx } from "../socket-script/common/rawtx";
@@ -196,6 +196,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 walletSocketSevice.stopBlockCounting();
                 walletSocketSevice.lastBlock = 0;
                 orderbookSocketService.terminate();
+                apiSocketService.terminate();
                 fasitfyServer.socketScript.asyncClient = null;
                 await fasitfyServer.stop('Terminate From Wallet!');
                 reply.send({ data: true });

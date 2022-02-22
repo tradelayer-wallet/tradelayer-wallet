@@ -123,7 +123,7 @@ export class SocketService {
             });
 
             this.socket.on('api_connect', () => {
-                console.log(`API2 Server Connection Error`);
+                console.log(`API Server Connected`);
                 this._api2ServerConnected = true;
                 this.api2ServerWaiting = false;
             });
@@ -135,7 +135,7 @@ export class SocketService {
             });
 
             this.socket.on('api_connect_error', () => {
-                console.log(`Disconnected from the API Server`);
+                console.log(`API SERVER Connection Error`);
                 this._api2ServerConnected = false;
                 this.api2ServerWaiting = false;
             });
