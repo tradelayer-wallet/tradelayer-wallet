@@ -101,6 +101,7 @@ export class Buyer {
     private async sendRawTransaction(hex: string) {
         this.sendCounter++;
         await new Promise(res => setTimeout(() => res(true), 500));
+        // if api-first use api sendrawtransaction
         const result = await this.asyncClient("sendrawtransaction", hex);
         if (result.error || !result.data) {
             return this.sendCounter < 15
@@ -126,10 +127,12 @@ export class Buyer {
                             this.tradeInfo.propIdForSale,
                             this.tradeInfo.amountForSale,
                         ];
+                        //api-first commit to channel
                         const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);
                         const ctcErrorMessage = `Error with Commiting tokens to channel`;
                         if (ctcRes.error || !ctcRes.data) return { error: `tl_commit_tochannel: ${ctcRes.error}` || ctcErrorMessage };
 
+                        // if api-first gettransction not workign
                         const gtRes = await this.asyncClient("gettransaction", ctcRes.data);
                         if (gtRes.error || !gtRes.data?.hex) return { error: `gettransaction: ${gtRes.error}`}
                         const drtRes = await this.asyncClient("decoderawtransaction", gtRes.data.hex);
@@ -154,7 +157,7 @@ export class Buyer {
                 return { error: `tl_createpayload_instant_trade: ${cpitRes.error}` || `Error with creating payload` };
             }
 
-
+            // if api-first ; add utxos from api to inputs;
             const rawTxOptions: IBuildRawTxOptions = {
                 fromAddress: this.myInfo.address,
                 toAddress: this.cpInfo.address,
@@ -187,6 +190,7 @@ export class Buyer {
             if (cpitRes.error || !cpitRes.data) {
                 return { error: `tl_createpayload_instant_ltc_trade: ${cpitRes.error}` || `Error with creating payload` };
             }
+            // if api-first ; add utxos from api to inputs;
             const rawTxOptions: IBuildRawTxOptions = {
                 fromAddress: this.myInfo.address,
                 toAddress: this.cpInfo.address,
@@ -205,6 +209,7 @@ export class Buyer {
 
 
     private async getBestBlock(n: number) {
+        // if api-first use api getbrestblock
         const bbhRes = await this.asyncClient('getbestblockhash');
         if (bbhRes.error || !bbhRes.data) return null;
         const bbRes = await this.asyncClient('getblock', bbhRes.data);
@@ -214,6 +219,7 @@ export class Buyer {
     }
 
     private async setEstimateFee() {
+        // if api-first use api-first estimatesmartfee
         const estimateRes = await this.asyncClient('estimatesmartfee', [1]);
         if (!estimateRes.data?.feerate) {
             return  { error: `Error with Setting Estimate Fee. ${estimateRes?.error || ''} `, data: null };
