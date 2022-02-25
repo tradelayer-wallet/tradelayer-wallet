@@ -83,7 +83,7 @@ export class RpcService {
     }
 
     set isSynced(value: boolean) {
-      if (value === true) this.saveConfigFile();
+      // if (value === true) this.saveConfigFile();
       this._isApiRPC = !value;
       this._isSynced = value;
     }
@@ -100,7 +100,7 @@ export class RpcService {
       return this.apiService.tlApi;
     }
 
-    private async saveConfigFile() {
+    async saveConfigFile() {
       const isTestNet = this.NETWORK === "LTCTEST";
       const res = await this.socketScriptApi.saveConfigFile(isTestNet).toPromise();
     }

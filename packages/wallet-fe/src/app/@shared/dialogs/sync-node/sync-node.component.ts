@@ -107,7 +107,10 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             return;
         }
         this.terminateDisabled = false;
-        if (!this.rpcService.isAbleToRpc) this.rpcService.isAbleToRpc = true;
+        if (!this.rpcService.isAbleToRpc) {
+            this.rpcService.isAbleToRpc = true;
+            this.rpcService.saveConfigFile();
+        }
         this.stopChecking = false;
         this.nodeBlock = giRes.data.block;
         if (this.isOffline) {
