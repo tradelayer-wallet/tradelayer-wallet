@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { AddressService } from 'src/app/@core/services/address.service';
@@ -6,6 +6,8 @@ import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { MenuService } from 'src/app/@core/services/menu.service';
+import { RpcService } from 'src/app/@core/services/rpc.service';
+import { WindowsService } from 'src/app/@core/services/windows.service';
 // import { Themes, ThemesService } from 'src/app/@services/themes.services';
 
 @Component({
@@ -14,7 +16,7 @@ import { MenuService } from 'src/app/@core/services/menu.service';
   styleUrls: ['./header.component.scss']
 })
 
-export class HeaderComponent {
+export class HeaderComponent implements OnInit {
   private _mainRoutes: any[] = [
     {
       id: 1,
@@ -51,12 +53,14 @@ export class HeaderComponent {
       name: 'Node Reward',
       link: 'reward',
       needAuthToShow: true,
+      needFullSync: true,
     },
     {
       id: 7,
       name: 'Liquidity Provider',
       link: 'liquidity-provider',
       needAuthToShow: true,
+      needFullSync: true,
     },
     {
       id: 8,
@@ -76,12 +80,18 @@ export class HeaderComponent {
     private addressService: AddressService,
     private balanceService: BalanceService,
     private toastrService: ToastrService,
-
+    private rpcService: RpcService,
+    private windowsService: WindowsService,
   ) { }
+
+  get isApiRPC() {
+    return this.rpcService.isApiRPC;
+  }
 
   get mainRoutes(){
     return this._mainRoutes
       .filter(r => r.needAuthToShow ? this.isLoggedIn : true)
+      .filter(r => r.needFullSync ? !this.isApiRPC : true);
   }
 
   get selectedRoute(){
@@ -104,6 +114,11 @@ export class HeaderComponent {
 
   get addressBalance() {
     return 
+  }
+
+  ngOnInit(): void {
+      const tab = this.windowsService.tabs.find(e => e.title === 'Synchronization');
+      if (tab) tab.minimized = true;
   }
 
   getAvailableBalance() {

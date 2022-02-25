@@ -87,9 +87,12 @@ export class RawTx {
         return { data: crtxcRes.data };
     }
 
-    async signRawTx() {
-        if (!this.txReadyForsigning) return { error: `Not found ready for signing tx`}
-        const srtxRes = await this.client('signrawtransaction', this.txReadyForsigning);
+    async signRawTx(prevTxs: boolean = false) {
+        if (!this.txReadyForsigning) return { error: `Not found ready for signing tx`};
+        const ptxs = this.inputs.map(e => ({ txid: e.txid, vout: e.vout, amount: e.amount, scriptPubKey: e.scriptPubKey }));
+        const srtxRes = prevTxs
+            ? await this.client('signrawtransaction', this.txReadyForsigning, ptxs)
+            : await this.client('signrawtransaction', this.txReadyForsigning);
         const srtxErrorMessage =  `Error with Siging rawtx`;
         if (srtxRes.error || !srtxRes.data?.hex) return { error: srtxRes.error || srtxErrorMessage };
         if (srtxRes.data.complete) this.txReadyForSend = srtxRes.data.hex;

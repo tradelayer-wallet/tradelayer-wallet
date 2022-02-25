@@ -104,6 +104,10 @@ export class AddressService {
         this._liquidityAddresses = value;
     }
 
+    get isApiRPC() {
+        return this.rpcService.isApiRPC;
+    }
+
     addMultisigAddress(multisig: IMultisigPair) {
         this.multisigPairs = [...this.multisigPairs, multisig];
     }
@@ -126,7 +130,13 @@ export class AddressService {
     }
 
     private handleSocketEvents() {
+        this.socketService.socket.on('newBlock-api', () => {
+            if (!this.isApiRPC) return;
+            if (this.activeAddressKYCStatus === EKYCStatus.PENDING) this.checkKycStatusForAddress();
+        });
+
         this.socketService.socket.on('newBlock', () => {
+            if (this.isApiRPC) return;
             if (this.activeAddressKYCStatus === EKYCStatus.PENDING) this.checkKycStatusForAddress();
         });
     }
@@ -134,7 +144,7 @@ export class AddressService {
     async checkKycStatusForAddress(_address?: string) {
         const address = _address || this.activeKeyPair?.address;
         if (!address) return EKYCStatus.DISABLED;
-        const laRes = await this.rpcService.rpc('tl_list_attestation');
+        const laRes = await this.rpcService.smartRpc('tl_list_attestation');
         if (laRes.error || !laRes.data) {
             this.toastrService.error('Error with getting KYC status', 'Error');
             this.allAttestations[address] = EKYCStatus.DISABLED;
@@ -150,8 +160,11 @@ export class AddressService {
         await this.checkKycStatusForAddress(address);
         if (this.allAttestations[address] !== EKYCStatus.DISABLED) return;
         const setFeeRes = await this.rpcService.setEstimateFee();
-        if (!setFeeRes.data || setFeeRes.error) return;
-        const attRes = await this.rpcService.rpc('tl_attestation', [address, address]);
+        // if (!setFeeRes.data || setFeeRes.error) return;
+        const attRes = this.isApiRPC
+            ? await this.rpcService.localRpcCall('tl_attestation', [address, address]).toPromise()
+            : await this.rpcService.rpc('tl_attestation', [address, address]);
+
         if (attRes.error || !attRes.data) {
             const attErrorMEssage = 'Error with Self KYC Attestion'
             this.toastrService.error(attRes.error || attErrorMEssage, 'Error');

@@ -18,7 +18,9 @@ export enum SocketEmits {
 export class SocketService {
     private _socket: Socket | null = null;
     private _apiServerConnected: boolean = false;
-
+    private _api2ServerConnected: boolean = false;
+    
+    api2ServerWaiting: boolean = false;
     apiServerWaiting: boolean = false;
     localServerWaiting: boolean = false;
 
@@ -36,13 +38,17 @@ export class SocketService {
         return this._apiServerConnected;
     }
 
+    get api2ServerConnected() {
+        return this._api2ServerConnected;
+    }
+
     get socket() {
         if (!this._socket) return this.socketConnect();
         return this._socket;
     }
 
     get serversWaiting(): boolean {
-        return this.apiServerWaiting || this.localServerWaiting;
+        return this.apiServerWaiting || this.localServerWaiting || this.api2ServerWaiting;
     }
 
     socketConnect() {
@@ -61,6 +67,11 @@ export class SocketService {
     apiReconnect(isTestNet: boolean) {
         this.apiServerWaiting = true;
         this.socket.emit('api-reconnect', isTestNet);
+    }
+
+    api2Reconnect(isTestNet: boolean) {
+        this.api2ServerWaiting = true;
+        this.socket.emit('api-2-reconnect', isTestNet);
     }
 
     private handleMainSocketEvents() {
@@ -94,21 +105,39 @@ export class SocketService {
             });
 
             this.socket.on('server_connect', () => {
-                console.log(`Connect to the API Server`);
+                console.log(`Connect to the Orderbook Server`);
                 this._apiServerConnected = true;
                 this.apiServerWaiting = false;
             });
 
             this.socket.on('server_connect_error', () => {
-                console.log(`API Server Connection Error`);
+                console.log(`Orderbook Server Connection Error`);
                 this._apiServerConnected = false;
                 this.apiServerWaiting = false;
             });
 
             this.socket.on('server_disconnect', () => {
-                console.log(`Disconnected from the API Server`);
+                console.log(`Disconnected from the Orderbook Server`);
                 this._apiServerConnected = false;
                 this.apiServerWaiting = false;
+            });
+
+            this.socket.on('api_connect', () => {
+                console.log(`API Server Connected`);
+                this._api2ServerConnected = true;
+                this.api2ServerWaiting = false;
+            });
+
+            this.socket.on('api_disconnect', () => {
+                console.log(`Disconnected from the API Server`);
+                this._api2ServerConnected = false;
+                this.api2ServerWaiting = false;
+            });
+
+            this.socket.on('api_connect_error', () => {
+                console.log(`API SERVER Connection Error`);
+                this._api2ServerConnected = false;
+                this.api2ServerWaiting = false;
             });
 
             this.socket.on('error_message', (message: string) => {

@@ -59,9 +59,9 @@ export class AuthService {
             });
     }
 
-    async loginFromPrivKey(privKey: string, pass: string) {
-        const res = await this.apiService.socketScriptApi.extractKeyPairFromPrivKey(privKey).toPromise();
-    }
+    // async loginFromPrivKey(privKey: string, pass: string) {
+    //     const res = await this.apiService.socketScriptApi.extractKeyPairFromPrivKey(privKey).toPromise();
+    // }
 
     async loginFromKeyFile(key: string, pass: string) {
         const res = ltcUtils.decryptKeyPair(key, pass) as (IKeyPair | IMultisigPair)[];
@@ -71,29 +71,34 @@ export class AuthService {
         }
 
         const keyPairs = res.filter((e) => !('redeemScript' in e)) as IKeyPair[];
-        if (!keyPairs?.length || !keyPairs[0]?.address || !keyPairs[0]?.pubKey || !keyPairs[0]?.privKey) {
-            this.toastrService.error('Wrong keyFile', 'Error');
-            return;
+
+        if (!keyPairs?.length) return this.toastrService.error('Wrong keyFile', 'Error');
+        for (const i in keyPairs) {
+            const kp = keyPairs[i];
+            if (!kp?.address || !kp?.pubKey || !kp?.privKey) {
+                this.toastrService.error('Wrong keyFile', 'Error');
+                return;
+            }
+            const vaRes = await this.rpcService.rpc('validateaddress', [kp.address]);
+
+            if (vaRes.error || !vaRes.data) {
+                this.toastrService.error('Error with validating wallet', 'Error');
+                return;
+            }
+
+            if (!vaRes.data?.isvalid) {
+                this.toastrService.error('The Address is not valid', 'Error');
+                return;
+            }
+    
+            if (vaRes.data?.isvalid && !vaRes.data?.ismine) {
+                const ipkRes = await this.rpcService.rpc('importprivkey', [kp.privKey, "tl-wallet", false]);
+            }
         }
-        const vaRes = await this.rpcService.rpc('validateaddress', [keyPairs[0].address]);
 
-        if (vaRes.error || !vaRes.data) {
-            this.toastrService.error('Error with validating wallet', 'Error');
-            return;
-        }
-
-        if (!vaRes.data?.isvalid) {
-            this.toastrService.error('The Address is not valid', 'Error');
-            return;
-        }
-
-        if (vaRes.data?.isvalid && !vaRes.data?.ismine) {
-            const ipkRes = await this.rpcService.rpc('importprivkey', [keyPairs[0].privKey, "tl-wallet", false]);
-        }
-
-
-        if (!this.rpcService.isOffline) {
-            const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [keyPairs[0]?.address]]);
+        
+        if (!this.rpcService.isOffline && !this.rpcService.isApiRPC) {
+            const luRes = await this.rpcService.smartRpc('listunspent', [0, 999999999, [keyPairs[0]?.address]]);
             const scLuRes: any = await this.apiService.soChainApi.getTxUnspents(keyPairs[0]?.address).toPromise()
             if (luRes.error || !luRes.data || scLuRes.status !== "success" || !scLuRes.data) {
                 this.toastrService.error('Unexpecter Error. Please try again!', 'Error');
@@ -104,7 +109,9 @@ export class AuthService {
                 this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
                 return;
             }
-        } else {
+        }
+
+        if (this.rpcService.isOffline) {
             this.toastrService.info('There may be some incorect balance data', 'Offline wallet');
         }
 

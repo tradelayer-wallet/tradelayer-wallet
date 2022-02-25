@@ -63,6 +63,10 @@ export class BalanceService {
         return this._allBalancesObj;
     }
 
+    get isApiRPC() {
+        return this.rpcService.isApiRPC;
+    }
+
     getTokensBalancesByAddress(_address?: string) {
         const address = _address || this.selectedAddress;
         if (!address) return [];
@@ -77,8 +81,13 @@ export class BalanceService {
     }
 
     private handleSocketEvents() {
+        this.socketService.socket.on('newBlock-api', () => {
+            if (!this.rpcService.isApiRPC) return;
+            this.updateBalances();
+        });
+
         this.socketService.socket.on('newBlock', (blockHeight) => {
-            console.log(`New Block: ${blockHeight}`);
+            if (this.rpcService.isApiRPC) return;
             this.updateBalances();
         });
 
@@ -161,9 +170,9 @@ export class BalanceService {
 
     private async getFiatBalanceObjForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-        const luResConfirmed = await this.rpcService.rpc('listunspent', [minBlocksForBalanceConf, 999999999, [address]]);
+        const luResConfirmed = await this.rpcService.smartRpc('listunspent', [minBlocksForBalanceConf, 999999999, [address]]);
         if (luResConfirmed.error || !luResConfirmed.data) return { error: luResConfirmed.error || 'Undefined Error' };
-        const luResUnconfirmed = await this.rpcService.rpc('listunspent', [0, minBlocksForBalanceConf - 1, [address]]);
+        const luResUnconfirmed = await this.rpcService.smartRpc('listunspent', [0, minBlocksForBalanceConf - 1, [address]]);
         if (luResUnconfirmed.error || !luResUnconfirmed.data) return { error: luResUnconfirmed.error || 'Undefined Error' };
 
         const _confirmed: number = luResConfirmed.data.map((e: any) => e.amount).reduce((a: number, b: number) => a + b, 0);
@@ -175,7 +184,7 @@ export class BalanceService {
 
     private async getTokensBalanceArrForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-        const balanceRes = await this.rpcService.rpc('tl_getallbalancesforaddress', [address]);
+        const balanceRes = await this.rpcService.smartRpc('tl_getallbalancesforaddress', [address]);
         if (!balanceRes.data || balanceRes.error) return { data: [] };
         try {
             const promisesArray = (balanceRes.data as { propertyid: number, balance: string, reserved: string }[])
@@ -198,7 +207,7 @@ export class BalanceService {
     }
 
     private async getTokenNameById(id: number) {
-        const gpRes = await this.rpcService.rpc('tl_getproperty', [id]);
+        const gpRes = await this.rpcService.smartRpc('tl_getproperty', [id]);
         if (gpRes.error || !gpRes.data?.name) return `ID_${id}`;
         return gpRes.data.name;
     }
@@ -206,12 +215,16 @@ export class BalanceService {
     async withdraw(optionsObj: { fromAddress: string, toAddress: string, amount: number, propId: number }) {
         const { fromAddress, toAddress, amount, propId } = optionsObj;
         if (propId === -1) {
-            const res = await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
+            const res = this.isApiRPC
+                ? await this.rpcService.localRpcCall('sendtoaddress', [fromAddress, toAddress, amount]).toPromise()
+                : await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
             return res;
         } else {
             const setFeeRes = await this.rpcService.setEstimateFee();
-            if (!setFeeRes.data || setFeeRes.error) return { error: 'Error with setting fee' };
-            const res = await this.rpcService.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);
+            // if (!setFeeRes.data || setFeeRes.error) return { error: 'Error with setting fee' };
+            const res = this.isApiRPC
+                ?  await this.rpcService.localRpcCall('tl_send', [fromAddress, toAddress, propId, amount.toString()]).toPromise()
+                :  await this.rpcService.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);
             return res;
         }
 

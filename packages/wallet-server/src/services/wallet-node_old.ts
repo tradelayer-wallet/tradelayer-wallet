@@ -1,10 +1,10 @@
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs'
+import { readFileSync, existsSync} from 'fs'
 import { join } from 'path'
 import { ChildProcess, exec } from 'child_process';
 import { fasitfyServer } from '../index';
 import { coreFilePathObj, defaultDirObj } from '../conf/windows.conf';
 import { addTESTNETNodeServer } from '../conf/conf';
-import { initServerConnection, myVersions } from '../sockets';
+import { initOrderbookConnection, myVersions } from '../sockets';
 import { customLogger } from '../socket-script/common/logger';
  
 const defaultDir = defaultDirObj;
@@ -40,7 +40,7 @@ export const startWalletNode = async (
     try {
         customLogger(`Start Wallet Node: ${JSON.stringify({ isTestNet, reindex, startclean })}`);
         const versionGuard = await new Promise<{ error?: string, data?: boolean }>(res => {
-            const sss = initServerConnection(fasitfyServer.socketScript, isTestNet);
+            const sss = initOrderbookConnection(fasitfyServer.socketScript, isTestNet);
             sss.socket.on('version-guard', (valid: boolean) => {
                 const resolve = valid
                     ? { data: true }

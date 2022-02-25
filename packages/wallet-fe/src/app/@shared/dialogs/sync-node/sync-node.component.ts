@@ -87,7 +87,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     private async startCheckingSync() {
-        // this.subscribeToNewBlocks();
+        this.subscribeToNewBlocks();
         await this.checkNetworkInfo();
         this.checkSync();
         this.checkIntervalFunc = setInterval(() => {
@@ -103,15 +103,14 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             this.stopChecking = true;
             this.checkTimeOutFunc = setTimeout(() => {
                 this.checkSync();
-            }, 2000);
+            }, 1000);
             return;
         }
         this.terminateDisabled = false;
-        this.rpcService.isAbleToRpc = true;
+        if (!this.rpcService.isAbleToRpc) this.rpcService.isAbleToRpc = true;
         this.stopChecking = false;
         this.nodeBlock = giRes.data.block;
         if (this.isOffline) {
-            if (this.syncTab) this.syncTab.minimized = true;
             clearInterval(this.checkIntervalFunc);
             clearTimeout(this.checkTimeOutFunc);
             this.message = ' ';
@@ -121,9 +120,9 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
             this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
             if (this.nodeBlock + 1 >= this.networkBlocks) {
-                this.rpcService.isSynced = true;
+                if (!this.rpcService.isSynced) this.rpcService.isSynced = true;
                 this.message = 'FULL SYNCED';
-                if (this.syncTab) this.syncTab.minimized = true;
+                // if (this.syncTab) this.syncTab.minimized = true;
             }
             this.message = ' ';
             return;

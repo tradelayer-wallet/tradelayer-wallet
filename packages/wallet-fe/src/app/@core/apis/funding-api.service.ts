@@ -8,24 +8,20 @@ import { TNETWORK } from "../services/rpc.service";
 })
 
 export class FundingApiService {
-    private _NETWORK: TNETWORK = "LTC";
+    private NETWORK: TNETWORK = "LTC";
 
     constructor(
-        private http: HttpClient
+        private http: HttpClient,
     ) {}
-
-    get NETWORK() {
-        return this._NETWORK;
-    }
-
-    set NETWORK(value: TNETWORK) {
-        this._NETWORK = value;
-    }
 
     private get apiUrl() {
         return this.NETWORK === "LTC"
             ? environment.apiUrl + '/funding/'
             : environment.apiUrlTestnet + '/funding/';
+    }
+
+    _setNETWORK(value: TNETWORK) {
+        this.NETWORK = value;
     }
 
     fundAddress(address: string) {

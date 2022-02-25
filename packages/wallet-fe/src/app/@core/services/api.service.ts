@@ -3,6 +3,8 @@ import { FundingApiService } from "../apis/funding-api.service";
 import { MarketApiService } from "../apis/market-api.service";
 import { SoChainApiService } from "../apis/sochain-api.service";
 import { SocketScriptApiService } from "../apis/ss-api.service";
+import { TradeLayerApiService } from "../apis/tl-api.service";
+import { TNETWORK } from "./rpc.service";
 
 
 @Injectable({
@@ -16,7 +18,16 @@ export class ApiService {
         private fundingApiService: FundingApiService,
         private soChainApiService: SoChainApiService,
         private socketScriptApiService: SocketScriptApiService,
+        private tradeLayerApiService: TradeLayerApiService,
     ) {}
+
+    _setNETOWRK(value: TNETWORK) {
+        this.marketApi._setNETWORK(value);
+        this.fundingApi._setNETWORK(value);
+        this.soChainApi._setNETWORK(value);
+        // this.socketScriptApi
+        this.tradeLayerApiService._setNETWORK(value);
+    }
 
     get marketApi(){ 
         return this.marketApiService;
@@ -32,5 +43,9 @@ export class ApiService {
 
     get socketScriptApi() {
         return this.socketScriptApiService;
+    }
+
+    get tlApi() {
+        return this.tradeLayerApiService;
     }
 }

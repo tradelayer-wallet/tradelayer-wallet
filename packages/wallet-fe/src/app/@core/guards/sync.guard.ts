@@ -18,11 +18,13 @@ export class SyncedGuard implements CanActivate {
     canActivate(): boolean {
         const isOffline = this.rpcService.isOffline;
         const isSynced = this.rpcService.isSynced;
+        const isApiRPC = this.rpcService.isApiRPC;
+
         if (isOffline) {
             this.toastrService.warning('Not allowed in offline mode', 'Warning');
             return false;
         }
-        if (!isSynced) {
+        if (!isSynced && !isApiRPC) {
             this.toastrService.warning('Need full sync!', 'Warning');
             return false;
         }

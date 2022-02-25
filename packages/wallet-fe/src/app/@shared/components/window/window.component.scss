@@ -20,18 +20,18 @@
         transition: transform 0.25s ease-in-out;
         z-index: 16;
         .header {
-            background-color: gray;
+            background-color: var(--darkBlue2);
             height: 2rem;
             padding: 0 4px;
             display: flex;
             justify-content: space-between;
+            color: var(--white);
             cursor: pointer;
             .title {
                 display: flex;
                 align-items: center;
                 height: 100%;
                 font-size: 1rem;
-                font-weight: bold;
             }
             .icons {
                 display: flex;

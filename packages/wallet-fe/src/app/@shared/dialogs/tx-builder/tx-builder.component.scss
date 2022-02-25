@@ -9,3 +9,12 @@
     flex-direction: column;
     padding-top: 1rem;
 }
+
+::ng-deep .tx-builder-group {
+    .mat-tab-label {
+        color: black;
+    }
+    .mat-tab-disabled {
+        opacity: 0.15;
+    }
+}

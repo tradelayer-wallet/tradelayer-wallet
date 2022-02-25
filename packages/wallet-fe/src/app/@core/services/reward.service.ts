@@ -30,18 +30,30 @@ export class RewardService {
         return this.addressService.activeKeyPair;
     }
 
+    get isApiRPC() {
+        return this.rpcService.isApiRPC;
+    }
+
     startBlockChecking() {
         this.checkIfWin();
         this.checkRegisteredAddresses();
+        this.socketService.socket.on('newBlock-api', (block) => {
+            if (!this.isApiRPC) return;
+            this.waitingList = [];
+            this.checkIfWin();
+            this.checkRegisteredAddresses();
+        });
+
         this.socketService.socket.on('newBlock', (block) => {
+            if (this.isApiRPC) return;
             this.waitingList = [];
            this.checkIfWin();
            this.checkRegisteredAddresses();
-        })
+        });
     }
 
     private async checkRegisteredAddresses() {
-        const lnraRes = await this.rpcService.rpc('tl_listnodereward_addresses');
+        const lnraRes = await this.rpcService.smartRpc('tl_listnodereward_addresses');
         if (lnraRes.error || !lnraRes.data) {
             this.toastrService.error(lnraRes.error || 'Error With getting registered Addresses', "Error")
             return;
@@ -53,7 +65,7 @@ export class RewardService {
         }
     }
     async setAutoClaim(address: string) {
-        const lnraRes = await this.rpcService.rpc('tl_listnodereward_addresses');
+        const lnraRes = await this.rpcService.smartRpc('tl_listnodereward_addresses');
         if (lnraRes.error || !lnraRes.data) {
             this.toastrService.error(lnraRes.error || 'Error With getting registered Addresses', "Error")
             return;
@@ -70,7 +82,7 @@ export class RewardService {
     async register(address: string) {
         if (!this.activeKeyPair?.address) return;
 
-        const lnraRes = await this.rpcService.rpc('tl_listnodereward_addresses');
+        const lnraRes = await this.rpcService.smartRpc('tl_listnodereward_addresses');
         if (lnraRes.error || !lnraRes.data) {
             this.toastrService.error(lnraRes.error || 'Error With getting registered Addresses', "Error")
             return;
@@ -79,7 +91,7 @@ export class RewardService {
                 this.toastrService.warning('This Address is already registered', "Warning")
             } else {
                 const setFeeRes = await this.rpcService.setEstimateFee();
-                if (!setFeeRes.data || setFeeRes.error) return;
+                // if (!setFeeRes.data || setFeeRes.error) return;
 
                 const snaRes = await this.rpcService.rpc('tl_submit_nodeaddress', [this.activeKeyPair?.address, address]);
                 if (snaRes.error || !snaRes.data) {
@@ -95,7 +107,7 @@ export class RewardService {
     checkIfWin() {
         if (!this.rewardAddresses?.length) return;
         this.autoClaimAddresses.forEach(async address => {
-            const iawRes = await this.rpcService.rpc('tl_isaddresswinner', [address]);
+            const iawRes = await this.rpcService.smartRpc('tl_isaddresswinner', [address]);
             if (iawRes.error || !iawRes.data) {
                 this.toastrService.error(iawRes.error || 'Check Winner Error', "Error");
             } else {

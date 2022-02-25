@@ -4,7 +4,7 @@ import { ChildProcess, exec } from 'child_process';
 import { fasitfyServer } from '../index';
 import { coreFilePathObj, defaultDirObj } from '../conf/windows.conf';
 import { addTESTNETNodeServer } from '../conf/conf';
-import { initServerConnection, myVersions, walletSocketSevice } from '../sockets';
+import { initApiService, initOrderbookConnection, myVersions, walletSocketSevice } from '../sockets';
 import { customLogger } from '../socket-script/common/logger';
 import { Client } from 'litecoin'
 import { asyncClient } from '../socket-script/common/async-client';
@@ -77,7 +77,7 @@ class WalletNodeInstance {
         return str || '';
     }
 
-    async startWalletNode(options: any) {
+    async startWalletNode(options: any, startWithOffline: boolean = false) {
         const flagsObject = new FlagsObject(options);
 
         const isTestNet = !!flagsObject.testnet;
@@ -91,6 +91,10 @@ class WalletNodeInstance {
             if (!this.isOffline) {
                 return { error: versionGuard.error};
             }
+        }
+
+        if (this.isOffline && !startWithOffline) {
+            return { data: { isOffline: true } };
         }
 
         const upToDate = this._chechVersions(path, isTestNet);
@@ -194,7 +198,8 @@ class WalletNodeInstance {
     };
     private _versionGuard(isTestNet: boolean) {
         return new Promise<{ error?: string, data?: boolean }>(res => {
-            const sss = initServerConnection(fasitfyServer.socketScript, isTestNet);
+            const sapi = initApiService(isTestNet);
+            const sss = initOrderbookConnection(fasitfyServer.socketScript, isTestNet);
             sss.socket.on('version-guard', (valid: boolean) => {
                 const resolve = valid
                     ? { data: true }
@@ -204,7 +209,7 @@ class WalletNodeInstance {
             });
             sss.socket.on('connect_error', () => {
                 this.isOffline = true;
-                res({error: 'Error with API connection.'})
+                res({error: 'Error with Orderbook-API connection.'})
             });
         });
     }

@@ -13,8 +13,16 @@
             </div>
             <span style="text-align: center; width: 100%;">{{ directory.length > 30 ? "..." + directory.slice(-30) : directory }}</span>
             <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>-testnet</mat-checkbox>
-            <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='reindex'>-reindex</mat-checkbox>
-            <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='startclean'>-startclean</mat-checkbox>
+            <div class="advanced">
+                <mat-icon (click)="toggleAdvanced()">
+                    {{ showAdvanced ? "arrow_drop_up" : "arrow_drop_down" }}
+                </mat-icon>
+                <span (click)="toggleAdvanced()">Advanced Options</span>
+            </div>
+            <div class="advaned-options" *ngIf="showAdvanced">
+                <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='reindex'>-reindex</mat-checkbox>
+                <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='startclean'>-startclean</mat-checkbox>
+            </div>
 
             <p class='message'> {{ message2 }}</p>
             <button

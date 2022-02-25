@@ -34,6 +34,10 @@ export class AppComponent {
     return this.socketService.apiServerConnected;
   }
 
+  get api2ServerConnected() {
+    return this.socketService.api2ServerConnected;
+  }
+
   get isRPCConnected() {
     return this.rpcService.isConnected;
   }

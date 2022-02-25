@@ -7,7 +7,7 @@ import { Buyer } from './common/buyer';
 import { Seller } from './common/seller';
 import { RawTx } from './common/rawtx';
 import { customLogger } from './common/logger';
-import { serverSocketService } from '../sockets';
+import { orderbookSocketService } from '../sockets';
 import { getDataDefaultStrategy } from './liquidity-provider/default-strategy';
 
 export class SocketScript {
@@ -141,7 +141,7 @@ export class SocketScript {
     async runLiquidityScript(options: any) {
         try {
             if (!this.liqOptions) this.liqOptions = options;
-            if (this.isLiquidityStarted) serverSocketService.socket.emit('clean-by-address', options.address);
+            if (this.isLiquidityStarted) orderbookSocketService.socket.emit('clean-by-address', options.address);
             this.isLiquidityStarted = true;
             const { address } = options;
             const balanceLTCRes = await this.asyncClient('listunspent', 0, 999999999, [address]);
@@ -164,7 +164,7 @@ export class SocketScript {
 
     async stopLiquidityScript(address: string, refill: boolean = false) {
         try {
-            if (this.isLiquidityStarted) serverSocketService.socket.emit('clean-by-address', address);
+            if (this.isLiquidityStarted) orderbookSocketService.socket.emit('clean-by-address', address);
             if (!refill) {
                 this.isLiquidityStarted = false;
                 this.countLiquidityRefills = 0;
@@ -177,6 +177,6 @@ export class SocketScript {
     }
 
     private async addManyOrders(data: any[]) {
-        if (this.isLiquidityStarted) serverSocketService.socket.emit('add-many', data);
+        if (this.isLiquidityStarted) orderbookSocketService.socket.emit('add-many', data);
     }
 }

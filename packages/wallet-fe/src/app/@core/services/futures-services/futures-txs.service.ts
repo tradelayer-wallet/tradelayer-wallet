@@ -25,7 +25,15 @@ export class FuturesTxsService {
         private rpcService: RpcService,
         private toasterService: ToastrService,
     ) {
-        this.socketService.socket.on('newBlock', this.checkPendingTxs.bind(this));
+        this.socketService.socket.on('newBlock-api', () => {
+            if (!this.isApiRPC) return;
+            this.checkPendingTxs();
+        });
+
+        this.socketService.socket.on('newBlock', () => {
+            if (this.isApiRPC) return;
+            this.checkPendingTxs();
+        });
     }
 
     get pendingTxs() {
@@ -34,6 +42,10 @@ export class FuturesTxsService {
 
     set pendingTxs(value: IPedningTXS[]) {
         this._pendingTxs = value;
+    }
+
+    get isApiRPC() {
+        return this.rpcService.isApiRPC;
     }
 
     async addFuturesTransaction(txid: string,) {

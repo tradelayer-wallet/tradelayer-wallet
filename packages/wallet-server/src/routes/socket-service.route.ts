@@ -1,17 +1,27 @@
 import { FastifyInstance } from "fastify"
 import SocketScript from "../socket-script";
-import { serverSocketService, walletSocketSevice } from '../sockets';
+import { apiSocketService, orderbookSocketService, walletSocketSevice } from '../sockets';
 import axios from 'axios';
 import { INodeConfig, myWalletNode } from "../services/wallet-node";
 import { RawTx } from "../socket-script/common/rawtx";
 import { fasitfyServer } from '../../src/index';
-import { IBuildRawTxOptions } from "../socket-script/common/types";
-import { FastifyServer } from "../fastify-server";
+import { buildAndSend } from '../services/txs';
 
 export const socketRoutes = (socketScript: SocketScript) => {
     return (fastify: FastifyInstance, opts: any, done: any) => {
 
         fastify.get('/rpcCall', (request, reply) => {
+        });
+
+        fastify.post('/rpcCall/:method', async (request, reply) => {
+            try {
+                const { method } =  request.params as { method: string };
+                const params = request.body;
+                const res = await buildAndSend(socketScript, method, params);
+                reply.send(res);    
+            } catch (err) {
+                reply.send({ error: err.message || `Error with buling the transction`});
+            }
         });
 
         fastify.get('/checkConnection', (request, reply) => {
@@ -36,7 +46,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 const tradeObj = JSON.parse(trade);
                 const keyPairObj = JSON.parse(keyPair);
                 const { address, pubKey } = keyPairObj;
-                serverSocketService.socket.emit('init-trade', {...tradeObj, address, pubKey});
+                orderbookSocketService.socket.emit('init-trade', {...tradeObj, address, pubKey});
                 reply.send({data: 'Sent'});
             } catch(error) {
                 reply.send({ error: error.message });
@@ -51,7 +61,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
                     return;
                 }
                 const { address, pubKey } = keyPair;
-                serverSocketService.socket.emit('init-trade', { ...trade, address, pubKey });
+                orderbookSocketService.socket.emit('init-trade', { ...trade, address, pubKey });
                 reply.send({data: 'Sent'});
             } catch(error) {
                 reply.send({ error: error.message });
@@ -65,7 +75,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
                     reply.send({ error: 'Missing Data' });
                     return;
                 }
-                serverSocketService.socket.emit('close-position', order);
+                orderbookSocketService.socket.emit('close-position', order);
                 reply.send({data: 'Sent'});
             } catch(error) {
                 reply.send({ error: error.message });
@@ -74,8 +84,8 @@ export const socketRoutes = (socketScript: SocketScript) => {
 
         fastify.get('/ordersList', async (request, reply) => {
             try {
-                const id = serverSocketService.socket.id;
-                const host = serverSocketService.isTestnet
+                const id = orderbookSocketService.socket.id;
+                const host = orderbookSocketService.isTestnet
                     ? "http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com"
                     : "http://66.228.57.16";
                 const res = await axios.get(`${host}:3002/trade/ordersList?id=${id}`);
@@ -88,15 +98,18 @@ export const socketRoutes = (socketScript: SocketScript) => {
 
         fastify.get('/startWalletNode', async (request, reply) => {
             try {
-                const { directory, isTestNet, reindex, startclean } = request.query as { 
+                const { directory, isTestNet, reindex, startclean, startWithOffline } = request.query as { 
                     directory: string, 
                     isTestNet: string, 
                     reindex: string,
                     startclean: string, 
+                    startWithOffline: string,
                 };
                 const _isTestNetBool = isTestNet === 'true';
                 const isReindex = reindex === 'true';
                 const isStartclean = startclean === 'true';
+
+                const isStartWithOffline = startWithOffline === 'true';
 
                 const walletNodeOptions = {
                     testnet: _isTestNetBool,
@@ -105,7 +118,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
                     startclean: isStartclean,
                 };
 
-                const res = await myWalletNode.startWalletNode(walletNodeOptions);
+                const res = await myWalletNode.startWalletNode(walletNodeOptions, isStartWithOffline);
                 reply.send(res);
             } catch (error) {
                 reply.send({ error: error.message });
@@ -182,7 +195,8 @@ export const socketRoutes = (socketScript: SocketScript) => {
             try {
                 walletSocketSevice.stopBlockCounting();
                 walletSocketSevice.lastBlock = 0;
-                serverSocketService.terminate();
+                orderbookSocketService.terminate();
+                apiSocketService.terminate();
                 fasitfyServer.socketScript.asyncClient = null;
                 await fasitfyServer.stop('Terminate From Wallet!');
                 reply.send({ data: true });

@@ -50,6 +50,10 @@ export class PortfolioPageComponent implements OnInit{
     return this.rpcService.isOffline || !this.rpcService.isSynced;
   }
 
+  get isApiRPC() {
+    return this.rpcService.isApiRPC;
+  }
+
   ngOnInit() {}
 
   getAvailableFiatBalance(element: any) {
@@ -91,10 +95,11 @@ export class PortfolioPageComponent implements OnInit{
   }
 
   openDialog(dialog: string, _address?: any, _propId?: number) {
-    if (this.nonSynced) {
+    if (this.nonSynced && !this.isApiRPC) {
       this.toastrService.warning('Not Allowed on offline wallet', 'Warning');
       return;
     }
+
     if (dialog === 'deposit') {
       const data = { address: _address || this.selectedAddress };
       this.dialogService.openDialog(DialogTypes.DEPOSIT, { disableClose: false, data });

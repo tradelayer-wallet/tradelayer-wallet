@@ -1,8 +1,8 @@
 <div class="login-page-container">
-    <mat-tab-group color='accent' backgroundColor='primary' mat-align-tabs="center" dynamicHeight [selectedIndex]="onlineButNotSynced ? 1 : 0">
-        <mat-tab label="Add" [disabled]='onlineButNotSynced'>
-            <mat-tab-group color='accent' mat-align-tabs="center" dynamicHeight>
-                <mat-tab label='Import KeyFile'>
+    <mat-tab-group color='accent' backgroundColor='primary' mat-align-tabs="center" dynamicHeight [selectedIndex]="0">
+        <mat-tab label="Import Account">
+            <!-- <mat-tab-group color='accent' mat-align-tabs="center" dynamicHeight>
+                <mat-tab label='Import KeyFile'> -->
                     <form class='form' [formGroup]='loginFormFile'>
                         <div class='input-file'>
                             <button
@@ -31,8 +31,8 @@
                         </mat-form-field>
                         <button type='button' (click)='loginWithJsonFile()' [disabled]='!loginFormFile.valid' mat-raised-button color="primary">Login</button>
                     </form>
-                </mat-tab>
-                <mat-tab label='Import PrivKey' disabled>
+                <!-- </mat-tab> -->
+                <!-- <mat-tab label='Import PrivKey' disabled>
                     <form class='form' [formGroup]='loginFormPrivKey'>
                         <mat-form-field>
                             <mat-label>Key</mat-label>
@@ -48,10 +48,10 @@
                         </mat-form-field>
                         <button type='button' (click)='loginWithPrivKey()' [disabled]='!loginFormPrivKey.valid' mat-raised-button color="primary">Login</button>
                     </form>
-                </mat-tab>
-            </mat-tab-group>
+                </mat-tab> -->
+            <!-- </mat-tab-group> -->
         </mat-tab>
-        <mat-tab label="Create New">
+        <mat-tab label="Create New Account">
             <form class='form'  [formGroup]='registerForm'>
                 <mat-form-field >
                     <button mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hide">

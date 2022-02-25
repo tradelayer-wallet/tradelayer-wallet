@@ -18,6 +18,14 @@ export class InfoLineComponent implements OnInit {
     private windowsService: WindowsService,
   ) { }
 
+  get isAbleToRpc() {
+    return this.rpcService.isAbleToRpc;
+  }
+
+  get isApiRPC() {
+    return this.rpcService.isApiRPC;
+  }
+
   get socket() {
     return this.socketService.socket;
   }
@@ -45,7 +53,15 @@ export class InfoLineComponent implements OnInit {
   private async _trackBlockHigh() {
     const giRes = await this.rpcService.rpc('tl_getinfo');
     if (!giRes.error || giRes.data?.block) this.blockHigh = giRes.data.block;
-    this.socket.on('newBlock', (block: number) => this.blockHigh = block);
+    this.socket.on('newBlock-api', (block: number) => {
+      console.log(`New Block (Api): ${block}`);
+      // this.blockHigh = block;
+    });
+
+    this.socket.on('newBlock', (block: number) => {
+      console.log(`New Block (Local): ${block}`);
+      this.blockHigh = block;
+    });
   }
 
   maximize(event: Event, tab: IWindow) {

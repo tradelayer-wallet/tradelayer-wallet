@@ -71,10 +71,12 @@ export class Seller {
             this.tradeInfo.propIdDesired,
             this.tradeInfo.amountDesired,
         ];
+        //api-first update tl_commit_tochannel
         const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);
         if (ctcRes.error || !ctcRes.data) return this.terminateTrade(`tl_commit_tochannel: ${ctcRes.error}`);
         this.commitTx = ctcRes.data;
 
+        //api-first update gettransaction
         const gtRes = await this.asyncClient("gettransaction", this.commitTx);
         if (gtRes.error || !gtRes.data?.hex) return this.terminateTrade(`gettransaction: ${gtRes.error}`);
         const drtRes = await this.asyncClient("decoderawtransaction", gtRes.data.hex);
@@ -116,6 +118,7 @@ export class Seller {
     }
 
     private async setEstimateFee() {
+        // api first update: setestimatefee
         const estimateRes = await this.asyncClient('estimatesmartfee', [1]);
         if (!estimateRes.data?.feerate) {
             return  { error: `Error with Setting Estimate Fee. ${estimateRes?.error || ''} `, data: null };

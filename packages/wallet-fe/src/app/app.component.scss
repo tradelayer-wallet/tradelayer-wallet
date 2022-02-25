@@ -42,6 +42,15 @@ overlay-loading {
         }
     }
 
+    .redButton {
+        background: var(--red2);
+        color: var(--white);
+        &:hover {
+            background: var(--redError);
+            color: var(--white);
+        }
+    }
+
     .greenButton {
         background: var(--mossGreen);
         color: var(--white);
