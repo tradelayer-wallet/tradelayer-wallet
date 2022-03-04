@@ -35,7 +35,7 @@ import { PasswordDialog } from './dialogs/password/password.component';
 import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
 import { NewVersionDialog } from './dialogs/new-version/new-version.component';
 import { OfflineWalletDialog } from './dialogs/offline-wallet/offline-wallet.component';
-
+import { OrderbookServerDialog } from './dialogs/orderbook-server/orderbook-server.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -71,6 +71,7 @@ const DIALOGS = [
     PasswordDialog,
     NewVersionDialog,
     OfflineWalletDialog,
+    OrderbookServerDialog,
 ];
 
 const COMPONENTS = [

@@ -7,6 +7,7 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { MenuService } from 'src/app/@core/services/menu.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
+import { SocketService } from 'src/app/@core/services/socket.service';
 import { WindowsService } from 'src/app/@core/services/windows.service';
 // import { Themes, ThemesService } from 'src/app/@services/themes.services';
 
@@ -29,6 +30,7 @@ export class HeaderComponent implements OnInit {
       name: 'Spot',
       link: 'spot',
       needAuthToShow: true,
+      needFullSync: true,
     },
     // {
     //   id: 3,
@@ -82,6 +84,7 @@ export class HeaderComponent implements OnInit {
     private toastrService: ToastrService,
     private rpcService: RpcService,
     private windowsService: WindowsService,
+    private socketService: SocketService,
   ) { }
 
   get isApiRPC() {
@@ -135,6 +138,15 @@ export class HeaderComponent implements OnInit {
   }
 
   navigateTo(route: any) {
+    // route id 2 = Spot trading
+    if (route.id === 2) {
+      if (!this.socketService.orderbookServerConnected) {
+        this.toastrService.warning('Please first connect to orderbook Server');
+        const window = this.windowsService.tabs.find(tab => tab.title === 'Orderbook Server');
+        if (window) window.minimized = false;
+        return;
+      }
+    }
     this.selectedRoute = route;
     this.router.navigateByUrl(route.link);
   }

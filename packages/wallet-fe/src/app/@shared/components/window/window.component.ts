@@ -26,7 +26,7 @@ export class WindowComponent {
   }
 
   close() {
-    if (this.title === 'Synchronization') {
+    if (this.title === 'Synchronization' || this.title === 'Orderbook Server') {
       this.toastrService.error( 'This Window can not be closed!', 'Error')
     } else {
       this.windowsService.closeTab(this.title);

@@ -87,7 +87,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 const id = orderbookSocketService.socket.id;
                 const host = orderbookSocketService.isTestnet
                     ? "http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com"
-                    : "http://66.228.57.16";
+                    : "http://170.187.147.182";
                 const res = await axios.get(`${host}:3002/trade/ordersList?id=${id}`);
                 if (res.data) return reply.send(res.data);
                 reply.send({ error: `Undefined Error`});

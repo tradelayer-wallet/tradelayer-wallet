@@ -1,0 +1,44 @@
+.dialog-container {
+    color: black;
+    mat-dialog-content {
+        .content-container {
+            display: flex;
+            flex-direction: column;
+            padding-top: 1rem;
+            min-width: 25rem;
+            align-items: center;
+            .servers-conteiner {
+                width: 100%;
+                padding-bottom: 2rem;
+                .server {
+                    display: flex;
+                    width: 100%;
+                    align-items: center;
+                    height: 2rem;
+                    margin: 0.25rem 0;
+
+                    .is-selected {
+                        width: 10%;
+                        height: 100%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        p {
+                            width: 7px;
+                            height: 7px;
+                            border-radius: 100%;
+                            margin: 0;
+                        }
+                    }
+                    .buttons {
+                        width: 25%;
+                    }
+
+                    .url {
+                        width: 65%;
+                    }
+                }
+            }
+        }
+    }
+}

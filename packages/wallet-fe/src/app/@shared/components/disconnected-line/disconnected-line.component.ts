@@ -22,10 +22,10 @@ export class DisconnectedLineComponent {
       this.socketService.socketConnect();
     }
 
-    if (this.serverType === 'ORDERBOOK') {
-      const isTesNet = this.rpcService.NETWORK === 'LTCTEST';
-      this.socketService.apiReconnect(isTesNet);
-    }
+    // if (this.serverType === 'ORDERBOOK') {
+    //   const isTesNet = this.rpcService.NETWORK === 'LTCTEST';
+    //   this.socketService.apiReconnect(isTesNet);
+    // }
 
     if (this.serverType === 'API') {
       const isTesNet = this.rpcService.NETWORK === 'LTCTEST';

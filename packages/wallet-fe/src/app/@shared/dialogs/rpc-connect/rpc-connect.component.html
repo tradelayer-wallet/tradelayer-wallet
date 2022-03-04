@@ -1,6 +1,10 @@
 <div class="dialog-container">
     <h1>Connect to the Local NODE</h1>
     <mat-dialog-content class="mat-typography">
+        <div *ngIf="!isOnline" class="offline">
+            <p>No internet Connection!</p>
+            <p>Wallet will be started in offline mode</p>
+        </div>
         <div class="content-container">
             <div style='display: flex; align-items: center; justify-content: space-between;'>
                 <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='defaultDirectoryCheckbox'> Default Directory </mat-checkbox>

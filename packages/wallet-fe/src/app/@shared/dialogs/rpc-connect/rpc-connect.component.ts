@@ -28,6 +28,8 @@ export class RPCConnectDialog {
   public startclean: boolean = false;
   public showAdvanced: boolean = false;
 
+  public isOnline: boolean = window.navigator.onLine;
+
   constructor(
     private rpcService: RpcService,
     public dialogRef: MatDialogRef<RPCConnectDialog>,
@@ -88,7 +90,7 @@ export class RPCConnectDialog {
     const path = this.defaultDirectoryCheckbox ? '' : this.directory;
     const { reindex, startclean } = this;
     const flags = { reindex, startclean };
-    const res = await this.rpcService.startWalletNode(path, isTestNet, flags);
+    const res = await this.rpcService.startWalletNode(path, isTestNet, flags, !this.isOnline);
     if (res.error || !res.data) {
       if (!res.error?.includes("Config file doesn't exist in")) {
         this.message2 = res.error || 'Please Try Again!';

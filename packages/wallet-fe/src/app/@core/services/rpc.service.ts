@@ -133,18 +133,19 @@ export class RpcService {
         startWithOffline: boolean = false,
       ) {
       const res = await this.socketScriptApi.startWalletNode(directory, isTestNet, flags, startWithOffline).toPromise();
+      this.socketService.mainApiServerWaiting = true;
       if (res.error?.includes("Config file doesn't exist in")) {
         const dialogOptions = { disableClose: false, hasBackdrop: true, data: { directory, isTestNet, flags }};
         this.dialogService.openDialog(DialogTypes.NEW_NODE, dialogOptions);
         return { error: res.error };
       }
 
-      if (res.data?.isOffline && !startWithOffline) {
-        const data = { directory, isTestNet, flags };
-        const dialogOptions = { disableClose: false, hasBackdrop: true, data };
-        this.dialogService.openDialog(DialogTypes.OFFLINE_WALLET, dialogOptions);
-        return { error: 'Unable to connect to web server!' };
-      }
+      // if (res.data?.isOffline && !startWithOffline) {
+      //   const data = { directory, isTestNet, flags };
+      //   const dialogOptions = { disableClose: false, hasBackdrop: true, data };
+      //   this.dialogService.openDialog(DialogTypes.OFFLINE_WALLET, dialogOptions);
+      //   return { error: 'Unable to connect to web server!' };
+      // }
 
       if (res.error || !res.data?.configObj) return { error: res.error };
 
@@ -154,7 +155,7 @@ export class RpcService {
       const { rpcuser, rpcpassword, rpcport } = res.data.configObj;
       const connectCreds = { host, username: rpcuser, password: rpcpassword, port: rpcport };
       const connectRes = await this.connect(connectCreds, isTestNet);
-      if (!connectRes) return { error: 'Unable to connect to web server!' };
+      if (!connectRes) return { error: 'Unable to start local node. Probably already running' };
       this.dialogService.closeAllDialogs();
       // this.dialogService.openDialog(DialogTypes.SYNC_NODE);
       return { data: connectRes };

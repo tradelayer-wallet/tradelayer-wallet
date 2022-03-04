@@ -1,10 +1,12 @@
 import { Injectable } from "@angular/core";
+import { OrderbookServerDialog } from "src/app/@shared/dialogs/orderbook-server/orderbook-server.component";
 import { SyncNodeDialog } from "src/app/@shared/dialogs/sync-node/sync-node.component";
 import { TxBuilderDialog } from "src/app/@shared/dialogs/tx-builder/tx-builder.component";
 
 export const windowComponents = {
     SYNC_WINDOW: SyncNodeDialog,
     TX_BUILDER: TxBuilderDialog,
+    ORDERBOOK_SERVER: OrderbookServerDialog,
 };
 
 export interface IWindow {
@@ -23,6 +25,11 @@ export class WindowsService {
             component: windowComponents.SYNC_WINDOW,
             minimized: false,
             title: 'Synchronization'
+        },
+        {
+            component: windowComponents.ORDERBOOK_SERVER,
+            minimized: true,
+            title: 'Orderbook Server'
         },
     ];
     constructor() { }

@@ -1,5 +1,5 @@
 import { io, Socket as SocketClient } from 'socket.io-client';
-import { clearApiService, walletSocketSevice } from '.';
+import { clearApiService, walletSocketSevice, myVersions } from '.';
 
 export class ApiSocketService {
     public socket: SocketClient;
@@ -9,7 +9,7 @@ export class ApiSocketService {
         this.isTestnet = isTestnet;
         const url = isTestnet
             ? "http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com"
-            : "http://66.228.57.16";
+            : "http://170.187.147.182";
         const host = `${url}:77`;
         this.socket = io(host, { reconnection: false });
         this.handleEvents();
@@ -23,7 +23,13 @@ export class ApiSocketService {
 
     private handleEvents() {
         this.socket.on('connect', () => {
-            walletSocketSevice.io.emit('api_connect');
+            this.socket.emit('check-versions', myVersions);
+        });
+
+        this.socket.on('version-guard', (valid: boolean) => {
+            valid
+                ? walletSocketSevice.io.emit('api_connect')
+                : walletSocketSevice.io.emit('need-update');
         });
 
         this.socket.on('disconnect', () => {

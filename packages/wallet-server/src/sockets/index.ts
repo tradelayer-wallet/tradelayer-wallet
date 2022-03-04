@@ -18,12 +18,27 @@ export const initWalletConnection = (app: FastifyInstance, socketScript: SocketS
     return walletSocketSevice
 };
 
-export const initOrderbookConnection = (socketScript: SocketScript, isTestnet: boolean) => {
-    orderbookSocketService = new OrderbookSocketService(socketScript, isTestnet);
+export const initOrderbookConnection = (socketScript: SocketScript, url: string) => {
+    if (orderbookSocketService) {
+        orderbookSocketService.terminate();
+        orderbookSocketService = null;
+    }
+    orderbookSocketService = new OrderbookSocketService(socketScript, url);
     return orderbookSocketService;
 };
 
+export const disconnectFromOrderbook = () => {
+    if (orderbookSocketService) {
+        orderbookSocketService.terminate();
+        orderbookSocketService = null;
+    }
+}
+
 export const initApiService = (isTestnet: boolean) => {
+    if (apiSocketService) {
+        apiSocketService.terminate();
+        apiSocketService = null;
+    }
     apiSocketService = new ApiSocketService(isTestnet);
     return apiSocketService;
 }

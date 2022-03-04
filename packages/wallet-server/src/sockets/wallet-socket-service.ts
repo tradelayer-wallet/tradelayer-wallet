@@ -1,7 +1,7 @@
 import { Socket, Server } from "socket.io";
 import { SocketScript } from '../socket-script/socket-script';
 import { FastifyInstance } from "fastify"
-import { initApiService, initOrderbookConnection, orderbookSocketService } from ".";
+import { disconnectFromOrderbook, initApiService, initOrderbookConnection, orderbookSocketService } from ".";
 import { TClient } from "../socket-script/common/types";
 
 interface IContractInfo {
@@ -36,7 +36,9 @@ export class WalletSocketSevice {
         this.handleFromWalletToServer(socket, 'close-position');
         this.handleFromWalletToServer(socket, 'logout');
 
-        socket.on('api-reconnect', (isTestNet: boolean) => initOrderbookConnection(this.socketScript, isTestNet));
+        socket.on('api-reconnect', (url: string) => initOrderbookConnection(this.socketScript, url));
+        socket.on('orderbook-disconnect', () => disconnectFromOrderbook());
+
         socket.on('api-2-reconnect', (isTestNet: boolean) => initApiService(isTestNet));
 
         socket.on('update-futures-orderbook', this.sendFuturesOrderbookData.bind(this));
@@ -64,26 +66,26 @@ export class WalletSocketSevice {
 
     startBlockCounting() {
         if (this.blockCountingInterval) return;
-             this.blockCountingInterval = setInterval(async () => {
-                const { asyncClient } = this.socketScript;
-                if (!asyncClient) return;
-                const bbhRes = await asyncClient('getbestblockhash');
-                if (bbhRes.error || !bbhRes.data) {
-                    this.onTimeOutMessage(bbhRes.error);
-                    return null;
-                }
-                const bbRes = await asyncClient('getblock', bbhRes.data);
-                if (bbRes.error || !bbRes.data) {
-                    this.onTimeOutMessage(bbhRes.error);
-                    return null;
-                };
-                const height = bbRes.data.height;
-                if (this.lastBlock < height) {
-                    this.lastBlock = height;
-                    this.currentSocket.emit('newBlock', height);
-                    this.sendFuturesOrderbookData();
-                }
-            }, 2500);
+        this.blockCountingInterval = setInterval(async () => {
+            const { asyncClient } = this.socketScript;
+            if (!asyncClient) return;
+            const bbhRes = await asyncClient('getbestblockhash');
+            if (bbhRes.error || !bbhRes.data) {
+                this.onTimeOutMessage(bbhRes.error);
+                return null;
+            }
+            const bbRes = await asyncClient('getblock', bbhRes.data);
+            if (bbRes.error || !bbRes.data) {
+                this.onTimeOutMessage(bbhRes.error);
+                return null;
+            };
+            const height = bbRes.data.height;
+            if (this.lastBlock < height) {
+                this.lastBlock = height;
+                this.currentSocket.emit('newBlock', height);
+                this.sendFuturesOrderbookData();
+            }
+        }, 2500);
     }
 
     async onTimeOutMessage(message: string) {

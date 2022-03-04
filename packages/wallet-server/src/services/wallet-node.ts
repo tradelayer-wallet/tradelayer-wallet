@@ -86,16 +86,17 @@ class WalletNodeInstance {
         customLogger(`Start Wallet Node: ${JSON.stringify(options)}`);
         if (isTestNet) flagsObject.addnode = addNodeServer;
 
-        const versionGuard = await this._versionGuard(isTestNet);
-        if (versionGuard.error || !versionGuard.data) {
-            if (!this.isOffline) {
-                return { error: versionGuard.error};
-            }
-        }
-
-        if (this.isOffline && !startWithOffline) {
-            return { data: { isOffline: true } };
-        }
+        // const versionGuard = await this._versionGuard(isTestNet);
+        // if (versionGuard.error || !versionGuard.data) {
+        //     if (!this.isOffline) {
+        //         return { error: versionGuard.error};
+        //     }
+        // }
+        // const isOffline = !global.navigator.onLine
+        // process.send({ isOffline })
+        // if (this.isOffline && !startWithOffline) {
+        //     return { data: { isOffline: true } };
+        // }
 
         const upToDate = this._chechVersions(path, isTestNet);
         if (!upToDate) flagsObject.startclean = 1;
@@ -131,7 +132,8 @@ class WalletNodeInstance {
             return { error: errorMessage || "Undefined Error (code 53)!" };
         }
         walletSocketSevice.startBlockCounting();
-        return { data: { configObj, isOffline: this.isOffline, myVersion: myVersions.walletVersion } };
+        const sapi = initApiService(isTestNet);
+        return { data: { configObj, isOffline: startWithOffline, myVersion: myVersions.walletVersion } };
     }
 
     private execFileByCommandPromise = (command: string, options: any) => {
@@ -196,23 +198,25 @@ class WalletNodeInstance {
             return 0;
         }
     };
-    private _versionGuard(isTestNet: boolean) {
-        return new Promise<{ error?: string, data?: boolean }>(res => {
-            const sapi = initApiService(isTestNet);
-            const sss = initOrderbookConnection(fasitfyServer.socketScript, isTestNet);
-            sss.socket.on('version-guard', (valid: boolean) => {
-                const resolve = valid
-                    ? { data: true }
-                    : { error: 'The Application need to be updated!' };
-                this.isOffline = false;
-                res(resolve);
-            });
-            sss.socket.on('connect_error', () => {
-                this.isOffline = true;
-                res({error: 'Error with Orderbook-API connection.'})
-            });
-        });
-    }
+
+    // private _versionGuard(isTestNet: boolean) {
+    //     return new Promise<{ error?: string, data?: boolean }>(res => {
+    //         const sapi = initApiService(isTestNet);
+    //         const sss = initOrderbookConnection(fasitfyServer.socketScript, isTestNet);
+
+    //         sapi.socket.on('version-guard', (valid: boolean) => {
+    //             const resolve = valid
+    //                 ? { data: true }
+    //                 : { error: 'The Application need to be updated!' };
+    //             this.isOffline = false;
+    //             res(resolve);
+    //         });
+    //         sss.socket.on('connect_error', () => {
+    //             this.isOffline = true;
+    //             res({error: 'Error with Orderbook-API connection.'})
+    //         });
+    //     });
+    // }
 
     createNodeConfig(config: INodeConfig) {
         try {

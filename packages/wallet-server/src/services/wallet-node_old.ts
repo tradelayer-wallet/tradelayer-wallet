@@ -40,16 +40,16 @@ export const startWalletNode = async (
     try {
         customLogger(`Start Wallet Node: ${JSON.stringify({ isTestNet, reindex, startclean })}`);
         const versionGuard = await new Promise<{ error?: string, data?: boolean }>(res => {
-            const sss = initOrderbookConnection(fasitfyServer.socketScript, isTestNet);
-            sss.socket.on('version-guard', (valid: boolean) => {
-                const resolve = valid
-                    ? { data: true }
-                    : { error: 'The Application need to be updated!' };
-                res(resolve);
-            });
-            sss.socket.on('connect_error', () => {
-                res({error: 'Error with API connection.'})
-            });
+            // const sss = initOrderbookConnection(fasitfyServer.socketScript, isTestNet);
+            // sss.socket.on('version-guard', (valid: boolean) => {
+            //     const resolve = valid
+            //         ? { data: true }
+            //         : { error: 'The Application need to be updated!' };
+            //     res(resolve);
+            // });
+            // sss.socket.on('connect_error', () => {
+            //     res({error: 'Error with API connection.'})
+            // });
         });
         if (versionGuard.error || !versionGuard.data) return { error: versionGuard.error};
 

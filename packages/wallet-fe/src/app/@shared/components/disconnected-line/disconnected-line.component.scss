@@ -3,14 +3,16 @@
     width: 100vw;
     height: 100vh;
     z-index: 1001;
-    background-color: rgba(0, 0, 0, 0.7);
+    top: 0;
+    pointer-events: none;
     .disconnected-line {
+        pointer-events: all;
         display: flex;
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
-        background-color: rgba(0, 0, 0, 0.6);
+        background-color: rgba(0, 0, 0, 0.8);
         box-shadow: 0 0 0.5rem 0.1rem black;
         justify-content: center;
         align-items: center;

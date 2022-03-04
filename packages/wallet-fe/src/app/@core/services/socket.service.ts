@@ -17,11 +17,11 @@ export enum SocketEmits {
 
 export class SocketService {
     private _socket: Socket | null = null;
-    private _apiServerConnected: boolean = false;
-    private _api2ServerConnected: boolean = false;
+    private _orderbookServerConnected: boolean = false;
+    private _mainApiServerConnected: boolean = false;
     
-    api2ServerWaiting: boolean = false;
-    apiServerWaiting: boolean = false;
+    mainApiServerWaiting: boolean = false;
+    orderbookServerWaiting: boolean = false;
     localServerWaiting: boolean = false;
 
     constructor(
@@ -34,12 +34,12 @@ export class SocketService {
         return environment.homeApiUrl;
     }
 
-    get apiServerConnected() {
-        return this._apiServerConnected;
+    get orderbookServerConnected() {
+        return this._orderbookServerConnected;
     }
 
-    get api2ServerConnected() {
-        return this._api2ServerConnected;
+    get mainApiServerConnected() {
+        return this._mainApiServerConnected;
     }
 
     get socket() {
@@ -48,7 +48,7 @@ export class SocketService {
     }
 
     get serversWaiting(): boolean {
-        return this.apiServerWaiting || this.localServerWaiting || this.api2ServerWaiting;
+        return this.localServerWaiting || this.mainApiServerWaiting;
     }
 
     socketConnect() {
@@ -64,13 +64,17 @@ export class SocketService {
         }
     };
 
-    apiReconnect(isTestNet: boolean) {
-        this.apiServerWaiting = true;
-        this.socket.emit('api-reconnect', isTestNet);
+    apiReconnect(url: string) {
+        this.orderbookServerWaiting = true;
+        this.socket.emit('api-reconnect', url);
+    }
+
+    disconenctOrderbook() {
+        this.socket.emit('orderbook-disconnect');
     }
 
     api2Reconnect(isTestNet: boolean) {
-        this.api2ServerWaiting = true;
+        this.mainApiServerWaiting = true;
         this.socket.emit('api-2-reconnect', isTestNet);
     }
 
@@ -106,38 +110,39 @@ export class SocketService {
 
             this.socket.on('server_connect', () => {
                 console.log(`Connect to the Orderbook Server`);
-                this._apiServerConnected = true;
-                this.apiServerWaiting = false;
+                this._orderbookServerConnected = true;
+                this.orderbookServerWaiting = false;
             });
 
             this.socket.on('server_connect_error', () => {
                 console.log(`Orderbook Server Connection Error`);
-                this._apiServerConnected = false;
-                this.apiServerWaiting = false;
+                this.toasterService.error('Orderbook Conenction Error', 'Error');
+                this._orderbookServerConnected = false;
+                this.orderbookServerWaiting = false;
             });
 
             this.socket.on('server_disconnect', () => {
                 console.log(`Disconnected from the Orderbook Server`);
-                this._apiServerConnected = false;
-                this.apiServerWaiting = false;
+                this._orderbookServerConnected = false;
+                this.orderbookServerWaiting = false;
             });
 
             this.socket.on('api_connect', () => {
                 console.log(`API Server Connected`);
-                this._api2ServerConnected = true;
-                this.api2ServerWaiting = false;
+                this._mainApiServerConnected = true;
+                this.mainApiServerWaiting = false;
             });
 
             this.socket.on('api_disconnect', () => {
                 console.log(`Disconnected from the API Server`);
-                this._api2ServerConnected = false;
-                this.api2ServerWaiting = false;
+                this._mainApiServerConnected = false;
+                this.mainApiServerWaiting = false;
             });
 
             this.socket.on('api_connect_error', () => {
                 console.log(`API SERVER Connection Error`);
-                this._api2ServerConnected = false;
-                this.api2ServerWaiting = false;
+                this._mainApiServerConnected = false;
+                this.mainApiServerWaiting = false;
             });
 
             this.socket.on('error_message', (message: string) => {

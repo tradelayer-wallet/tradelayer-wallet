@@ -22,7 +22,10 @@ export class NewVersionDialog implements OnInit {
 
   ngOnInit() {
     this.handleUpdateEvents();
-    this.electronService.emitEvent('check-version');
+    window.navigator.onLine
+      ? this.electronService.emitEvent('check-version')
+      : this.close();
+    
   }
 
   private handleUpdateEvents() {
