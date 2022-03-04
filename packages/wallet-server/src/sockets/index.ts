@@ -9,8 +9,8 @@ export let orderbookSocketService: OrderbookSocketService;
 export let apiSocketService: ApiSocketService;
 
 export const myVersions = {
-    nodeVersion: '0.0.3',
-    walletVersion: '0.0.3',
+    nodeVersion: '0.0.4',
+    walletVersion: '0.0.4',
 };
 
 export const initWalletConnection = (app: FastifyInstance, socketScript: SocketScript) => {
