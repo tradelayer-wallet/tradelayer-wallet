@@ -15,7 +15,11 @@
     "server:build:linux": "webpack --config ./packages/wallet-server/webpack.config.js --env os=LINUX",
     "server:build:mac": "webpack --config ./packages/wallet-server/webpack.config.js --env os=MAC",
     "fe:build": "npm run build --prefix ./packages/wallet-fe",
-    "fe:build:watch": "npm run build:watch --prefix ./packages/wallet-fe"
+    "fe:build:watch": "npm run build:watch --prefix ./packages/wallet-fe",
+    "install:all": "npm install && npm install --prefix ./packages/wallet-fe",
+    "build:all:windows": "npm run fe:build && npm run server:build:windows && npm run electron:build",
+    "build:all:linux": "npm run fe:build && npm run server:build:linux && npm run electron:build",
+    "build:all:mac": "npm run fe:build && npm run server:build:mac && npm run electron:build"
   },
   "dependencies": {
     "electron-updater": "^4.6.1"
