@@ -33,6 +33,8 @@ import { FuturesMarketsToolbarComponent } from './futures-page/futures-markets-t
 import { FuturesTradingGridComponent } from './futures-page/futures-trading-grid/futures-trading-grid.component';
 import { FuturesOrderbookCardComponent } from './futures-page/futures-trading-grid/futures-orderbook-card/futures-orderbook-card.component';
 import { FuturesBuySellCardComponent } from './futures-page/futures-trading-grid/futures-buy-sell-card/futures-buy-sell-card.component';
+import { FuturesHistoryCardComponent } from './futures-page/futures-trading-grid/futures-history-card/futures-history-card.component';
+
 import { SettingsPageComponent } from './settings-page/settings-page.component';
 import { MultisigPageComponent } from './multisig-page/multisig-page.component';
 import { NodeRewardPageComponent } from './node-reward/reward-page.component';
@@ -84,6 +86,7 @@ const FUTURES_COMPONENTS = [
     FuturesTradingGridComponent,
     FuturesOrderbookCardComponent,
     FuturesBuySellCardComponent,
+    FuturesHistoryCardComponent,
 ];
 
 const imports = [

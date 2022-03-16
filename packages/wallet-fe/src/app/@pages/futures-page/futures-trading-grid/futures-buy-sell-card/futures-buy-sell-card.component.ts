@@ -7,8 +7,8 @@ import { FuturesMarketsService, IContract } from 'src/app/@core/services/futures
 
 @Component({
   selector: 'tl-futures-buy-sell-card',
-  templateUrl: './futures-buy-sell-card.component.html',
-  styleUrls: ['./futures-buy-sell-card.component.scss']
+  templateUrl: '../../../shared/trading-grid/buy-sell/shared-buy-sell-card.component.html',
+  styleUrls: ['../../../shared/trading-grid/buy-sell/shared-buy-sell-card.component.scss'],
 })
 export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);

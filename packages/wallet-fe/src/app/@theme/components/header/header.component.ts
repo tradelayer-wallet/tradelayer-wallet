@@ -32,12 +32,13 @@ export class HeaderComponent implements OnInit {
       needAuthToShow: true,
       needFullSync: true,
     },
-    // {
-    //   id: 3,
-    //   name: 'Futures',
-    //   link: 'futures',
-    //   needAuthToShow: true,
-    // },
+    {
+      id: 3,
+      name: 'Futures',
+      link: 'futures',
+      needAuthToShow: true,
+      needFullSync: true,
+    },
     {
       id: 4,
       name: 'Portfolio',

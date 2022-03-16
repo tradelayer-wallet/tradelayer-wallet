@@ -11,8 +11,8 @@ import { TradeService, ITradeConf } from 'src/app/@core/services/spot-services/t
 
 @Component({
   selector: 'tl-spot-buy-sell-card',
-  templateUrl: './spot-buy-sell-card.component.html',
-  styleUrls: ['./spot-buy-sell-card.component.scss']
+  templateUrl: '../../../shared/trading-grid/buy-sell/shared-buy-sell-card.component.html',
+  styleUrls: ['../../../shared/trading-grid/buy-sell/shared-buy-sell-card.component.scss'],
 })
 export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
