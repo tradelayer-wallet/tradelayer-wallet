@@ -1,4 +1,5 @@
 import { Injectable } from "@angular/core";
+import { ToastrService } from "ngx-toastr";
 import { SocketService } from "../socket.service";
 
 export interface Position {
@@ -18,6 +19,7 @@ export class SpotPositionsService {
     private _openedPositions: Position[] = []
     constructor(
         private socketService: SocketService,
+        private toastrService: ToastrService
     ) {
         this._subscribeToSocketEvents()
     }
@@ -42,5 +44,6 @@ export class SpotPositionsService {
 
     closeOpenedPosition(position: any) {
         this.socket.emit('close-position', position);
+        this.toastrService.success('Order was closed successful', 'Success');
     }
 }

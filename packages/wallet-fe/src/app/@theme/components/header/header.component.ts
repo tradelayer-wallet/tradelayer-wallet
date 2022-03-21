@@ -140,7 +140,7 @@ export class HeaderComponent implements OnInit {
 
   navigateTo(route: any) {
     // route id 2 = Spot trading
-    if (route.id === 2) {
+    if (route.id === 2 && route.id === 3) {
       if (!this.socketService.orderbookServerConnected) {
         this.toastrService.warning('Please first connect to orderbook Server');
         const window = this.windowsService.tabs.find(tab => tab.title === 'Orderbook Server');
