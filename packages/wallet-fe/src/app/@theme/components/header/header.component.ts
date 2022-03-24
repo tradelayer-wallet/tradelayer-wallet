@@ -128,9 +128,9 @@ export class HeaderComponent implements OnInit {
   getAvailableBalance() {
     if (!this.publicAddress) return`${(0).toFixed(5)} LTC`;
     const balanceObj = this.balanceService.getFiatBalancesByAddress(this.publicAddress);
-    const { confirmed, locked } = balanceObj;
-    const available = confirmed - locked;
-    return `${available.toFixed(5)} LTC`;
+    // const { confirmed, locked } = balanceObj;
+    // const available = confirmed - locked;
+    return `${balanceObj.confirmed.toFixed(5)} LTC`;
   }
 
   copyToClipboard(text: string) {

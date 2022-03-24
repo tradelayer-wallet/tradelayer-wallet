@@ -42,8 +42,8 @@ export class SettingsPageComponent {
   
     kyc(address: string) {
       const balance = this.balanceSerivce.getFiatBalancesByAddress(address);
-      const { confirmed, locked } = balance;
-      const available = parseFloat((confirmed - locked).toFixed(6));
+      // const { confirmed, locked } = balance;
+      const available = parseFloat((balance.confirmed).toFixed(6));
       if (available < 0.0002) {
         this.toasterService.error('You need at least 0.0002 ltc for Self-Attestation,');
         return;

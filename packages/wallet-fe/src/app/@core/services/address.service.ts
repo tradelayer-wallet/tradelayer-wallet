@@ -45,7 +45,15 @@ export class AddressService {
     ) {
         this.handleSocketEvents();
     }
-    
+
+    get allAddresses() {
+        return [
+            ...this._keyPairs, 
+            ...this._rewardAddresses, 
+            ...this._liquidityAddresses,
+        ];
+    }
+
     get multisigPairs() {
         return this._multisigPairs;
     }

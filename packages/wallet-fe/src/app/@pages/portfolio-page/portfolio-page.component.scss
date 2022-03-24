@@ -1,6 +1,7 @@
 :host {
     width: 100%;
     overflow-y: auto;
+    scroll-behavior: smooth;
 }
 
 .portfolio-page-container {
@@ -9,7 +10,6 @@
     justify-content: center;
     width: 100%;
     padding: 5rem 2rem 0rem 2rem;
-
     mat-table {
         width: 100%;
         background-color: unset;
@@ -28,9 +28,19 @@
         color: wheat;
         margin-bottom: 2rem;
         padding-top: 3rem;
+        mat-card-header {
+            margin-bottom: 1rem;
+            span {
+                color: whitesmoke;
+                padding: 0 0.5rem;
+            }
+        }
         mat-card-content {
             color: whitesmoke;
             overflow: auto;
+            .no-tokens {
+                text-align: center;
+            }
         }
         .new-address-buttton {
             position: absolute;
@@ -54,6 +64,7 @@
 
 .mat-column-actions {
     .span-button {
+        white-space: nowrap;
         color: whitesmoke;
         cursor: pointer;
         margin: 0 0.5rem;
@@ -64,21 +75,17 @@
 }
 
   .mat-column-address {
-    min-width: 23rem;
+    min-width: 12rem;
   }
 
   .mat-column-propertyid,
   .mat-column-name,
-  .mat-column-locked,
-  .mat-column-available,
-  .mat-column-reserved {
+  .mat-column-confirmed,
+  .mat-column-unconfirmed,
+  .mat-column-balance {
     min-width: 6rem;
   }
 
-  .mat-column-total {
-    min-width: 10rem;
-  }
-
   .mat-column-actions {
-    min-width: 12rem;
+    min-width: 16rem;
   }

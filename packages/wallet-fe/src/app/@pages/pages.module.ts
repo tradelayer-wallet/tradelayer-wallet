@@ -39,6 +39,7 @@ import { SettingsPageComponent } from './settings-page/settings-page.component';
 import { MultisigPageComponent } from './multisig-page/multisig-page.component';
 import { NodeRewardPageComponent } from './node-reward/reward-page.component';
 import { LiquidityProviderPageComponent } from './liquidity-provider/liquidity-provider.component';
+import { ShortAddressPipe } from '../@shared/pipes/short-address.pipe';
 
 const NG_MODULES = [
     CommonModule,
@@ -89,6 +90,10 @@ const FUTURES_COMPONENTS = [
     FuturesHistoryCardComponent,
 ];
 
+const PIPES = [
+    ShortAddressPipe,
+];
+
 const imports = [
     ...NG_MODULES,
     ...MAT_MODULES,
@@ -98,6 +103,7 @@ const declarations = [
     ...PAGE_COMPONENTS,
     ...SPOT_COMPONENTS,
     ...FUTURES_COMPONENTS,
+    ...PIPES,
 ];
 
 @NgModule({ imports, declarations })

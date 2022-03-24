@@ -104,7 +104,7 @@ export class AuthService {
                 this.toastrService.error('Unexpecter Error. Please try again!', 'Error');
                 return;
             }
-    
+            console.log({luRes, scLuRes})
             if (luRes.data.length < scLuRes.data.txs?.length) {
                 this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
                 return;
