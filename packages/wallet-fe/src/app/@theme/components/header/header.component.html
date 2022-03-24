@@ -10,8 +10,17 @@
         <span class="spacer"></span>
 
         <div class="right-side">
-            <div class='address' *ngIf='publicAddress'>
-                <span (click)='copyToClipboard(publicAddress)'> {{ publicAddress }}  </span>
+            <div class='address' *ngIf='publicAddress && isLoggedIn'>
+                <span class='main-address' (click)='copyToClipboard(publicAddress)'> {{ publicAddress }}  </span>
+                <div class="all-addresses" *ngIf="allMainAddresses?.length > 1">
+                    <div
+                        class="sub-address"
+                        *ngFor="let kp of allMainAddresses"
+                        (click)="setMainAddress(kp)"
+                    >
+                        {{ kp.address }}
+                    </div>
+                </div>
                 <span 
                     class='balance'
                     (click)='updateBalance()'

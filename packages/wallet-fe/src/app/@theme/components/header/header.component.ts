@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { AddressService } from 'src/app/@core/services/address.service';
+import { AddressService, IKeyPair } from 'src/app/@core/services/address.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
@@ -110,6 +110,12 @@ export class HeaderComponent implements OnInit {
     return this.authService.isLoggedIn;
   }
 
+  get allMainAddresses() {
+    return this.isLoggedIn
+      ? this.addressService.keyPairs
+      : null;
+  }
+
   get publicAddress() {
     return this.isLoggedIn
       ? this.addressService.activeKeyPair?.address
@@ -171,4 +177,9 @@ export class HeaderComponent implements OnInit {
       this.balanceService.updateBalances();
   }
 
+  setMainAddress(kp: IKeyPair) {
+    if (this.addressService.activeKeyPair === kp) return;
+    this.addressService.activeKeyPair = kp;
+    this.toastrService.success('Main Address is changed', 'Success');
+  }
 }
