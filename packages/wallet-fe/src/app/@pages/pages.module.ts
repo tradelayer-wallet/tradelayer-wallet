@@ -1,7 +1,7 @@
 import { NgModule } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -40,10 +40,13 @@ import { MultisigPageComponent } from './multisig-page/multisig-page.component';
 import { NodeRewardPageComponent } from './node-reward/reward-page.component';
 import { LiquidityProviderPageComponent } from './liquidity-provider/liquidity-provider.component';
 import { ShortAddressPipe } from '../@shared/pipes/short-address.pipe';
+import { LoginContainerComponent } from './login-page/login-container/login-container.component';
+import { HomePageComponent } from './home-page/home-page.component';
 
 const NG_MODULES = [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
 ];
 
 const MAT_MODULES = [
@@ -60,6 +63,7 @@ const MAT_MODULES = [
 ];
 
 const PAGE_COMPONENTS = [
+    HomePageComponent,
     LoginPageComponent,
     SpotPageComponent,
     FuturesPageComponent,
@@ -68,6 +72,7 @@ const PAGE_COMPONENTS = [
     MultisigPageComponent,
     NodeRewardPageComponent,
     LiquidityProviderPageComponent,
+    LoginContainerComponent,
 ];
 
 const SPOT_COMPONENTS = [

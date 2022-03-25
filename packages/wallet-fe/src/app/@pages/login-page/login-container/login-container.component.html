@@ -1,0 +1,105 @@
+<div class="login-container">
+    <div class="tabs-header">
+        <div
+            class="tab"
+            (click)='selectTab(1)'
+            [ngClass]="{ activeTabHeader: activeTab === 1}"
+        >Import Wallet</div>
+        <div
+            class="tab"
+            (click)='selectTab(2)'
+            [ngClass]="{ activeTabHeader: activeTab === 2}"
+        >Create New Wallet</div>
+    </div>
+    <div class="activeTab login" *ngIf="activeTab === 1">
+        <div class="input-file">
+            <button
+                type="button"
+                mat-raised-button
+                (click)="fileInput.click()"
+                [ngStyle]="{ overflow: 'hidden' }"
+            >
+                Choose File
+            </button>
+            <input
+                hidden
+                #fileInput
+                type="file"
+                id="file"
+                (change)='onFileSelect($event, fileInput.value)'
+            >
+            <span class='selected-file'>{{ filePath || 'Please Select file'}}</span>
+        </div>
+        <mat-form-field appearance="legacy">
+            <mat-label>Password</mat-label>
+            <input
+                [type]="securePass ? 'password' : 'text'"
+                matInput
+                [(ngModel)]="password"
+            >
+            <mat-error *ngIf="false">Please enter a valid Password address</mat-error>
+            <button
+                mat-icon-button
+                matSuffix
+                (click)="securePass = !securePass"
+                [attr.aria-label]="'Hide password'"
+                [attr.aria-pressed]="securePass"
+            >
+                <mat-icon>{{ securePass ? 'visibility' : 'visibility_off' }}</mat-icon>
+            </button>
+        </mat-form-field>
+        <button
+            mat-button
+            class="blueButton"
+            (click)="loginWithJsonFile()"
+            [disabled]="!password || !jsonFile"
+        >Login</button>
+    </div>
+    <div class="activeTab register" *ngIf="activeTab === 2">
+        <mat-form-field appearance="legacy">
+            <mat-label>Password</mat-label>
+            <input
+                [type]="securePass ? 'password' : 'text'"
+                matInput
+                [(ngModel)]="password"
+            >
+            <mat-error *ngIf="false">Please enter a valid Password address</mat-error>
+            <button
+                mat-icon-button
+                matSuffix
+                (click)="securePass = !securePass"
+                [attr.aria-label]="'Hide password'"
+                [attr.aria-pressed]="securePass"
+            >
+                <mat-icon>{{ securePass ? 'visibility' : 'visibility_off' }}</mat-icon>
+            </button>
+        </mat-form-field>
+
+          <mat-form-field appearance="legacy">
+            <mat-label>Re-password</mat-label>
+            <input
+                [type]="securePass ? 'password' : 'text'"
+                matInput
+                [(ngModel)]="confirmPassword"
+            >
+            <button
+                mat-icon-button
+                matSuffix
+                (click)="securePass = !securePass"
+                [attr.aria-label]="'Hide password'"
+                [attr.aria-pressed]="securePass"
+            >
+                <mat-icon>{{ securePass ? 'visibility' : 'visibility_off' }}</mat-icon>
+            </button>
+          </mat-form-field>
+          <button
+            mat-button
+            class="blueButton"
+            (click)="register()"
+            [disabled]="!password || password !== confirmPassword"
+          >Create Wallet</button>
+    </div>
+    <div class="activeTab recover" *ngIf="activeTab === 3">
+        Recover
+    </div>
+</div>
