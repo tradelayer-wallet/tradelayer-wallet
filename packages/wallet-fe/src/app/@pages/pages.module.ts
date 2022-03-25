@@ -1,7 +1,7 @@
 import { NgModule } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -33,14 +33,20 @@ import { FuturesMarketsToolbarComponent } from './futures-page/futures-markets-t
 import { FuturesTradingGridComponent } from './futures-page/futures-trading-grid/futures-trading-grid.component';
 import { FuturesOrderbookCardComponent } from './futures-page/futures-trading-grid/futures-orderbook-card/futures-orderbook-card.component';
 import { FuturesBuySellCardComponent } from './futures-page/futures-trading-grid/futures-buy-sell-card/futures-buy-sell-card.component';
+import { FuturesHistoryCardComponent } from './futures-page/futures-trading-grid/futures-history-card/futures-history-card.component';
+
 import { SettingsPageComponent } from './settings-page/settings-page.component';
 import { MultisigPageComponent } from './multisig-page/multisig-page.component';
 import { NodeRewardPageComponent } from './node-reward/reward-page.component';
 import { LiquidityProviderPageComponent } from './liquidity-provider/liquidity-provider.component';
+import { ShortAddressPipe } from '../@shared/pipes/short-address.pipe';
+import { LoginContainerComponent } from './login-page/login-container/login-container.component';
+import { HomePageComponent } from './home-page/home-page.component';
 
 const NG_MODULES = [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
 ];
 
 const MAT_MODULES = [
@@ -57,6 +63,7 @@ const MAT_MODULES = [
 ];
 
 const PAGE_COMPONENTS = [
+    HomePageComponent,
     LoginPageComponent,
     SpotPageComponent,
     FuturesPageComponent,
@@ -65,6 +72,7 @@ const PAGE_COMPONENTS = [
     MultisigPageComponent,
     NodeRewardPageComponent,
     LiquidityProviderPageComponent,
+    LoginContainerComponent,
 ];
 
 const SPOT_COMPONENTS = [
@@ -84,6 +92,11 @@ const FUTURES_COMPONENTS = [
     FuturesTradingGridComponent,
     FuturesOrderbookCardComponent,
     FuturesBuySellCardComponent,
+    FuturesHistoryCardComponent,
+];
+
+const PIPES = [
+    ShortAddressPipe,
 ];
 
 const imports = [
@@ -95,6 +108,7 @@ const declarations = [
     ...PAGE_COMPONENTS,
     ...SPOT_COMPONENTS,
     ...FUTURES_COMPONENTS,
+    ...PIPES,
 ];
 
 @NgModule({ imports, declarations })

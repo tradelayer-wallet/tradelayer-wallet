@@ -9,10 +9,8 @@ import { Position } from "./spot-services/spot-positions.service";
 const minBlocksForBalanceConf: number = 1;
 const emptyBalanceObj = {
     fiatBalance: {
-        total: 0,
         confirmed: 0,
         unconfirmed: 0,
-        locked: 0,
     },
     tokensBalance: [],
 };
@@ -29,14 +27,11 @@ export class BalanceService {
             fiatBalance: {
                 confirmed: number;
                 unconfirmed: number;
-                locked: number;
             };
             tokensBalance: {
-                locked: number;
                 name: string;
                 propertyid: number;
                 balance: number;
-                reserved: number;
             }[];
         }
     } = {};
@@ -92,45 +87,45 @@ export class BalanceService {
         });
 
         this.socketService.socket.on('opened-positions', (openedPositions: Position[]) => {
-            this.updateLockedBalanceByOpenedPositions(openedPositions);
+            // this.updateLockedBalanceByOpenedPositions(openedPositions);
         });
     }
 
-    private updateLockedBalanceByOpenedPositions(openedPositions: Position[]) {
-        const myPositions = openedPositions.filter(p => p.address === this.selectedAddress);
-        if (!myPositions) return;
-        const lockedBalancesArray: { propIdForSale: number, locked: number }[] = [];
-        myPositions.forEach(pos => {
-            const { amount, price, propIdForSale, isBuy} = pos;
-            const _locked = isBuy ? amount * price : amount;
-            const locked = parseFloat(_locked.toFixed(5));
-            const existing = lockedBalancesArray.find(e => e.propIdForSale === propIdForSale);
-            existing
-                ? existing.locked = parseFloat((existing.locked + locked).toFixed(5))
-                : lockedBalancesArray.push({ propIdForSale, locked });
-        });
+    // private updateLockedBalanceByOpenedPositions(openedPositions: Position[]) {
+    //     const myPositions = openedPositions.filter(p => p.address === this.selectedAddress);
+    //     if (!myPositions) return;
+    //     const lockedBalancesArray: { propIdForSale: number, locked: number }[] = [];
+    //     myPositions.forEach(pos => {
+    //         const { amount, price, propIdForSale, isBuy} = pos;
+    //         const _locked = isBuy ? amount * price : amount;
+    //         const locked = parseFloat(_locked.toFixed(5));
+    //         const existing = lockedBalancesArray.find(e => e.propIdForSale === propIdForSale);
+    //         existing
+    //             ? existing.locked = parseFloat((existing.locked + locked).toFixed(5))
+    //             : lockedBalancesArray.push({ propIdForSale, locked });
+    //     });
 
-        const fbLocked = lockedBalancesArray.find(lb => lb.propIdForSale === -1)?.locked || 0;
-        this.updateFiatLockedBalance(fbLocked);
+    //     const fbLocked = lockedBalancesArray.find(lb => lb.propIdForSale === -1)?.locked || 0;
+    //     this.updateFiatLockedBalance(fbLocked);
 
-        this.getTokensBalancesByAddress().forEach(tb => {
-            const tbLocked = lockedBalancesArray.find(lb => lb.propIdForSale === tb.propertyid)?.locked || 0;
-            this.updateTokenLockedBalanceById(tbLocked, tb.propertyid);
-        });
-    }
+    //     this.getTokensBalancesByAddress().forEach(tb => {
+    //         const tbLocked = lockedBalancesArray.find(lb => lb.propIdForSale === tb.propertyid)?.locked || 0;
+    //         this.updateTokenLockedBalanceById(tbLocked, tb.propertyid);
+    //     });
+    // }
 
-    private updateTokenLockedBalanceById(lockedBalance: number, propid: number) {
-        const tokenBalanceObj = this.getTokensBalancesByAddress().find(t => t.propertyid === propid);
-        if (!tokenBalanceObj) return;
-        tokenBalanceObj.locked = lockedBalance;
-    }
+    // private updateTokenLockedBalanceById(lockedBalance: number, propid: number) {
+    //     const tokenBalanceObj = this.getTokensBalancesByAddress().find(t => t.propertyid === propid);
+    //     if (!tokenBalanceObj) return;
+    //     tokenBalanceObj.locked = lockedBalance;
+    // }
 
-    private updateFiatLockedBalance(lockedBalance: number) {
-        this.getFiatBalancesByAddress(this.selectedAddress).locked = lockedBalance;
-    }
+    // private updateFiatLockedBalance(lockedBalance: number) {
+    //     this.getFiatBalancesByAddress(this.selectedAddress).locked = lockedBalance;
+    // }
 
     async updateBalances() {
-        const addressesArray = [...this.addressService.keyPairs, ...this.addressService.liquidityAddresses];
+        const addressesArray = this.addressService.allAddresses;
         for (let i = 0; i < addressesArray.length; i++) {
             const address = addressesArray[i].address;
             await this.updateFiatBalanceForAddressFromUnspents(address);
@@ -144,9 +139,9 @@ export class BalanceService {
             this.toastrService.error(fiatBalanceObjRes.error || `Error with updating balances`, 'Error');
             return;
         }
-        const locked = this.getFiatBalancesByAddress(address)?.locked || 0;
+        // const locked = this.getFiatBalancesByAddress(address)?.locked || 0;
         const { confirmed, unconfirmed } = fiatBalanceObjRes.data;
-        const fiatObj = { confirmed, unconfirmed, locked };
+        const fiatObj = { confirmed, unconfirmed };
         if (!this._allBalancesObj[address]) this._allBalancesObj[address] = emptyBalanceObj;
         this._allBalancesObj = {
             ...this._allBalancesObj, 
@@ -191,12 +186,12 @@ export class BalanceService {
                 .map(async (token) => ({ ...token, name: await this.getTokenNameById(token.propertyid)}));
             const arr = await Promise.all(promisesArray);
             const data = arr.map((t) => {
-                const locked = this.getTokensBalancesByAddress()?.find(tb => tb.propertyid === t.propertyid)?.locked || 0;
+                // const locked = this.getTokensBalancesByAddress()?.find(tb => tb.propertyid === t.propertyid)?.locked || 0;
                 const balObj = {
                     ...t, 
                     balance: parseFloat(t.balance), 
-                    reserved: parseFloat(t.reserved),
-                    locked,
+                    // reserved: parseFloat(t.reserved),
+                    // locked,
                 };
                 return balObj;
             });

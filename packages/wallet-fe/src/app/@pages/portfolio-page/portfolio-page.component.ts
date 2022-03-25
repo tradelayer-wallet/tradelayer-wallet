@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { first } from 'rxjs/operators';
@@ -15,10 +15,11 @@ import { decryptKeyPair, encryptKeyPair } from 'src/app/utils/litecore.util';
   templateUrl: './portfolio-page.component.html',
   styleUrls: ['./portfolio-page.component.scss']
 })
-export class PortfolioPageComponent implements OnInit{
-  cryptoBalanceColumns: string[] = ['address', 'available', 'reserved', 'total', 'actions'];
-  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'locked', 'reserved', 'actions'];
-  
+export class PortfolioPageComponent implements OnInit {
+  cryptoBalanceColumns: string[] = ['address', 'confirmed', 'unconfirmed', 'actions'];
+  tokensBalanceColums: string[] = ['propertyid', 'name', 'balance', 'actions'];
+  selectedAddress: string = '';
+
   constructor(
     private balanceService: BalanceService,
     private addressService: AddressService,
@@ -27,7 +28,12 @@ export class PortfolioPageComponent implements OnInit{
     private rpcService: RpcService,
     private authService: AuthService,
     private matDialog: MatDialog,
+    private elRef: ElementRef,
   ) {}
+
+  get allAddresses() {
+    return this.addressService.allAddresses;
+  }
 
   get fiatBalance() {
     return Object.keys(this.allBalances)
@@ -35,11 +41,7 @@ export class PortfolioPageComponent implements OnInit{
   }
 
   get tokensBalances() {
-    return this.balanceService.getTokensBalancesByAddress();
-  }
-
-  get selectedAddress() {
-    return this.addressService.activeKeyPair?.address;
+    return this.balanceService.getTokensBalancesByAddress(this.selectedAddress);
   }
 
   get allBalances() {
@@ -56,59 +58,57 @@ export class PortfolioPageComponent implements OnInit{
 
   ngOnInit() {}
 
-  getAvailableFiatBalance(element: any) {
-    const confirmed = element?.confirmed || 0;
-    const locked = element?.locked || 0;
-    const _available = confirmed - locked;
-    const available = _available <= 0 ? 0 : _available;
-    return available.toFixed(5);
-  }
+  // getAvailableFiatBalance(element: any) {
+  //   const confirmed = element?.confirmed || 0;
+  //   const locked = element?.locked || 0;
+  //   const _available = confirmed - locked;
+  //   const available = _available <= 0 ? 0 : _available;
+  //   return available.toFixed(5);
+  // }
 
-  getReservedFiatBalance(element: any) {
-    const locked = element?.locked || 0;
-    return locked.toFixed(5);
-  }
+  // getReservedFiatBalance(element: any) {
+  //   const locked = element?.locked || 0;
+  //   return locked.toFixed(5);
+  // }
 
-  getTotalFiatBalnace(element: any) {
-    const confirmed = element?.confirmed || 0;
-    const unconfirmed = element?.unconfirmed || 0;
+  // getTotalFiatBalnace(element: any) {
+  //   const confirmed = element?.confirmed || 0;
+  //   const unconfirmed = element?.unconfirmed || 0;
 
-    return `${confirmed.toFixed(3)}/${unconfirmed.toFixed(3)}`
-  }
+  //   return `${confirmed.toFixed(3)}/${unconfirmed.toFixed(3)}`
+  // }
 
-  getAvailableTokensBalance(element: any) {
-    const balance = element?.balance || 0;
-    const locked = element?.locked || 0;
-    const _available = balance - locked;
-    const available = _available <= 0 ? 0 : _available;
-    return available.toFixed(5);
-  }
+  // getAvailableTokensBalance(element: any) {
+  //   const balance = element?.balance || 0;
+  //   const locked = element?.locked || 0;
+  //   const _available = balance - locked;
+  //   const available = _available <= 0 ? 0 : _available;
+  //   return available.toFixed(5);
+  // }
 
-  getLockedTokensBalance(element: any) {
-    const locked = element?.locked || 0;
-    return locked.toFixed(5);
-  }
+  // getLockedTokensBalance(element: any) {
+  //   const locked = element?.locked || 0;
+  //   return locked.toFixed(5);
+  // }
 
-  getReservedTokensBalance(element: any) {
-    const locked = element?.reserved || 0;
-    return locked.toFixed(5);
-  }
+  // getReservedTokensBalance(element: any) {
+  //   const locked = element?.reserved || 0;
+  //   return locked.toFixed(5);
+  // }
 
-  openDialog(dialog: string, _address?: any, _propId?: number) {
+  openDialog(dialog: string, address?: any, _propId?: number) {
     if (this.nonSynced && !this.isApiRPC) {
       this.toastrService.warning('Not Allowed on offline wallet', 'Warning');
       return;
     }
-
-    if (dialog === 'deposit') {
-      const data = { address: _address || this.selectedAddress };
-      this.dialogService.openDialog(DialogTypes.DEPOSIT, { disableClose: false, data });
-    }
-
-    if (dialog === 'withdraw') {
-      const data = { address: _address || this.selectedAddress, propId: _propId };
-      this.dialogService.openDialog(DialogTypes.WITHDRAW, { disableClose: false, data });
-    }
+    const data = { address };
+    const TYPE = dialog === 'deposit'
+      ? DialogTypes.DEPOSIT
+      : dialog === 'withdraw'
+        ? DialogTypes.WITHDRAW
+        : null;
+    if (!TYPE || !data) return;
+    this.dialogService.openDialog(TYPE, { disableClose: false, data });
   }
 
   async newAddress() {
@@ -134,6 +134,14 @@ export class PortfolioPageComponent implements OnInit{
       this.authService.encKey = encryptKeyPair(allKeyParis, password);
       this.dialogService.openEncKeyDialog(this.authService.encKey);
     }
+  }
+
+  showTokens(address: string) {
+    this.selectedAddress = address;
+    try {
+        const { nativeElement } = this.elRef;
+        setTimeout(() => nativeElement.scrollTop = nativeElement.scrollHeight);
+    } catch(err) { }   
   }
 
   copy(text: string) {

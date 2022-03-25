@@ -42,17 +42,17 @@ export class WithdrawDialog {
     get maxWithdrawAmount() {
         if (this.propId === -1) {
             const balanceObj = this.balanceService.getFiatBalancesByAddress(this.fromAddress);
-            const { confirmed, locked } = balanceObj;
-            const available = confirmed - locked;
-            const max = parseFloat((available - 0.001).toFixed(6))
+            // const { confirmed, locked } = balanceObj;
+            // const available = confirmed - locked;
+            const max = parseFloat((balanceObj.confirmed - 0.001).toFixed(6))
             return max < 0 ? 0 : max;
         } else {
             const balanceObj = this.balanceService.getTokensBalancesByAddress(this.fromAddress)
                 .find(o => o.propertyid === this.propId);
             if (!balanceObj) return 0;
-            const { balance, locked } = balanceObj;
-            const _available = balance - locked;
-            const available = parseFloat((_available).toFixed(6))
+            // const { balance, locked } = balanceObj;
+            // const _available = balance - locked;
+            const available = parseFloat((balanceObj.balance).toFixed(6))
             return available < 0 ? 0 : available;
         }
     }

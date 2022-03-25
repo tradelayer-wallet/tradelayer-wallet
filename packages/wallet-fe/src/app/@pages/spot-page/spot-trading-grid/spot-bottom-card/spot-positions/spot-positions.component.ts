@@ -19,7 +19,7 @@ export class SpotPositionsComponent implements OnInit {
     }
 
     closePosition(position: any) {
-      this.spotPositionsService.closeOpenedPosition(position)
+      this.spotPositionsService.closeOpenedPosition(position);
     }
 
     ngOnInit() {}

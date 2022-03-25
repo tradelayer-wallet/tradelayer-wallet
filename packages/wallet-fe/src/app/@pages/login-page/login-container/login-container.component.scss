@@ -1,0 +1,64 @@
+:host {
+    width: 100%;
+    height: 100%;
+    .login-container {
+        width: 100%;
+        display: flex;
+        background-color: var(--violet2);
+        flex-direction: column;
+        padding: 3rem;
+        min-width: 25rem;
+        .tabs-header {
+            display: flex;
+            width: 100%;
+            justify-content: center;
+            .tab {
+                border-bottom: 1px solid var(--darkBlue);
+                padding: 0.25rem 3rem;
+                cursor: pointer;
+                transition: all 0.25s;
+                color: var(--darkGrey);
+                white-space: nowrap;
+
+            }
+            .activeTabHeader {
+                border-bottom: 1px solid var(--lightBlue);
+                color: var(--white);
+            }
+        }
+        .activeTab {
+            padding-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            button {
+                margin-top: 2rem;
+            }
+        }
+        .login {
+            .input-file {
+                display: flex;
+                width: 100%;
+                margin: 1rem 0;
+                button {
+                    margin-top: 0 !important;
+                }
+                .selected-file {
+                    display: flex;
+                    align-items: center;
+                    color: var(--softGrey);
+                    margin: 0 1rem;
+                    overflow: hidden;
+                }
+            }
+        }
+    }
+}
+
+::ng-deep {
+    mat-form-field {
+        margin-bottom: 1rem;
+        .mat-form-field-label {
+            color: var(--softGrey) !important;
+        }
+    }
+}

@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { AddressService } from 'src/app/@core/services/address.service';
+import { AddressService, IKeyPair } from 'src/app/@core/services/address.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
@@ -32,12 +32,13 @@ export class HeaderComponent implements OnInit {
       needAuthToShow: true,
       needFullSync: true,
     },
-    // {
-    //   id: 3,
-    //   name: 'Futures',
-    //   link: 'futures',
-    //   needAuthToShow: true,
-    // },
+    {
+      id: 3,
+      name: 'Futures',
+      link: 'futures',
+      needAuthToShow: true,
+      needFullSync: true,
+    },
     {
       id: 4,
       name: 'Portfolio',
@@ -109,6 +110,12 @@ export class HeaderComponent implements OnInit {
     return this.authService.isLoggedIn;
   }
 
+  get allMainAddresses() {
+    return this.isLoggedIn
+      ? this.addressService.keyPairs
+      : null;
+  }
+
   get publicAddress() {
     return this.isLoggedIn
       ? this.addressService.activeKeyPair?.address
@@ -127,9 +134,9 @@ export class HeaderComponent implements OnInit {
   getAvailableBalance() {
     if (!this.publicAddress) return`${(0).toFixed(5)} LTC`;
     const balanceObj = this.balanceService.getFiatBalancesByAddress(this.publicAddress);
-    const { confirmed, locked } = balanceObj;
-    const available = confirmed - locked;
-    return `${available.toFixed(5)} LTC`;
+    // const { confirmed, locked } = balanceObj;
+    // const available = confirmed - locked;
+    return `${balanceObj.confirmed.toFixed(5)} LTC`;
   }
 
   copyToClipboard(text: string) {
@@ -139,7 +146,7 @@ export class HeaderComponent implements OnInit {
 
   navigateTo(route: any) {
     // route id 2 = Spot trading
-    if (route.id === 2) {
+    if (route.id === 2 && route.id === 3) {
       if (!this.socketService.orderbookServerConnected) {
         this.toastrService.warning('Please first connect to orderbook Server');
         const window = this.windowsService.tabs.find(tab => tab.title === 'Orderbook Server');
@@ -170,4 +177,9 @@ export class HeaderComponent implements OnInit {
       this.balanceService.updateBalances();
   }
 
+  setMainAddress(kp: IKeyPair) {
+    if (this.addressService.activeKeyPair === kp) return;
+    this.addressService.activeKeyPair = kp;
+    this.toastrService.success('Main Address is changed', 'Success');
+  }
 }

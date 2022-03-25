@@ -1,5 +1,5 @@
 import { Component, ViewChildren } from '@angular/core';
-import {  SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
+import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 
 @Component({
   selector: 'tl-spot-markets-toolbar',

@@ -11,8 +11,8 @@ import { TradeService, ITradeConf } from 'src/app/@core/services/spot-services/t
 
 @Component({
   selector: 'tl-spot-buy-sell-card',
-  templateUrl: './spot-buy-sell-card.component.html',
-  styleUrls: ['./spot-buy-sell-card.component.scss']
+  templateUrl: '../../../shared/trading-grid/buy-sell/shared-buy-sell-card.component.html',
+  styleUrls: ['../../../shared/trading-grid/buy-sell/shared-buy-sell-card.component.scss'],
 })
 export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
@@ -81,15 +81,15 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const getAvailable = (propId: number) => {
         if (propId === -1) {
           const balanceObj = this.balanceService.getFiatBalancesByAddress(this.currentAddress);
-          const { confirmed, locked } = balanceObj;
-          const _available = (confirmed - locked).toFixed(6);
+          // const { confirmed, locked } = balanceObj;
+          const _available = (balanceObj.confirmed).toFixed(6);
           return parseFloat(_available);
         } else {
           const balanceObj = this.balanceService.getTokensBalancesByAddress();
           const tokenBalance = balanceObj?.find(t => t.propertyid === propId);
           if (!tokenBalance) return 0;
-          const { balance, locked } = tokenBalance;
-          const _available = (balance - locked).toFixed(6);
+          // const { balance, locked } = tokenBalance;
+          const _available = (tokenBalance.balance).toFixed(6);
           return parseFloat(_available);
         }
       };
@@ -127,8 +127,8 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
 
         const balanceObj = this.balanceService.getFiatBalancesByAddress(this.currentAddress);
-        const { confirmed, locked } = balanceObj;
-        const _available = (confirmed - locked).toFixed(6);
+        // const { confirmed, locked } = confirmed;
+        const _available = (balanceObj.confirmed).toFixed(6);
         const available =  parseFloat(_available);
         const v2 = available > 0.01; 
         return !this.buySellGroup.valid || !v || !v2;
