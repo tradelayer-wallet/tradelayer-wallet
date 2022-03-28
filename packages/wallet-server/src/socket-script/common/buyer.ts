@@ -196,7 +196,7 @@ export class Buyer {
                         const commitData = [        
                             this.myInfo.address,
                             this.multySigChannelData.address,
-                            this.tradeInfo.contractId,
+                            4,
                             (this.tradeInfo.amount).toString(),
                         ];
                         //api-first commit to channel

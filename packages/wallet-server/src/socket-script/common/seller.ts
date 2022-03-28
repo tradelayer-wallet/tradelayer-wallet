@@ -69,7 +69,7 @@ export class Seller {
         const commitData = [
             this.myInfo.address,
             this.multySigChannelData.address,
-            contractId ? contractId : propIdDesired,
+            contractId ? 4 : propIdDesired,
             contractId ? (amount).toString() : amountDesired,
         ];
         //api-first update tl_commit_tochannel
