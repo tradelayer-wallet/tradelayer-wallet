@@ -232,9 +232,9 @@ export class Buyer {
                 2,
             ];
 
-            const cpitRes = await this.asyncClient('tl_createpayload_instant_trade', ...cpitLTCOptions);
+            const cpitRes = await this.asyncClient('tl_createpayload_contract_instant_trade', ...cpitLTCOptions);
             if (cpitRes.error || !cpitRes.data) {
-                return { error: `tl_createpayload_instant_trade: ${cpitRes.error}` || `Error with creating payload` };
+                return { error: `tl_createpayload_contract_instant_trade: ${cpitRes.error}` || `Error with creating payload` };
             }
             process.send({cpitRes});
             // if api-first ; add utxos from api to inputs;
