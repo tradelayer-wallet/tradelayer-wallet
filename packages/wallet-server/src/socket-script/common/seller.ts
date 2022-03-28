@@ -70,7 +70,7 @@ export class Seller {
             this.myInfo.address,
             this.multySigChannelData.address,
             contractId ? contractId : propIdDesired,
-            contractId ? amount : amountDesired,
+            contractId ? (amount).toString() : amountDesired,
         ];
         //api-first update tl_commit_tochannel
         const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);

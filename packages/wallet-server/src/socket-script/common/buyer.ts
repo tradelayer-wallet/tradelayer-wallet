@@ -197,7 +197,7 @@ export class Buyer {
                             this.myInfo.address,
                             this.multySigChannelData.address,
                             this.tradeInfo.contractId,
-                            this.tradeInfo.amount,
+                            (this.tradeInfo.amount).toString(),
                         ];
                         //api-first commit to channel
                         const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);
