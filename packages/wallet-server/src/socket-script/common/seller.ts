@@ -9,7 +9,7 @@ export class Seller {
 
 
     constructor(
-        private tradeInfo: ITradeInfo, 
+        private tradeInfo: ITradeInfo | any, 
         private myInfo: TBuyerSellerInfo, 
         private cpInfo: TBuyerSellerInfo,
         private asyncClient: TClient,
@@ -65,11 +65,12 @@ export class Seller {
     private async onCommit(cpId: string) {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
         await this.setEstimateFee();
-        const commitData = [        
+        const { contractId, propIdDesired, amountDesired, amount } = this.tradeInfo;
+        const commitData = [
             this.myInfo.address,
             this.multySigChannelData.address,
-            this.tradeInfo.propIdDesired,
-            this.tradeInfo.amountDesired,
+            contractId ? contractId : propIdDesired,
+            contractId ? amount : amountDesired,
         ];
         //api-first update tl_commit_tochannel
         const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);
@@ -88,6 +89,7 @@ export class Seller {
             vout: vout.n,
             txid: this.commitTx
         };
+        process.send(this.utxoData);
         this.socket.emit(`${this.myInfo.socketId}::SELLER:COMMIT_UTXO`, this.utxoData);
     }
 
