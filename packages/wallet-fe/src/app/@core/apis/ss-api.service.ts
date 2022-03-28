@@ -3,7 +3,7 @@ import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { environment } from "src/environments/environment";
 import { RPCCredentials } from "../services/rpc.service";
-import { ITradeConf } from "../services/spot-services/trade.service";
+import { IContractTradeConf, ITradeConf } from "../services/spot-services/trade.service";
 
 @Injectable({
     providedIn: 'root',
@@ -46,7 +46,7 @@ export class SocketScriptApiService {
         return this.http.get(this.apiUrl + 'connect', { params });
     }
 
-    postInitTrade(trade: ITradeConf, keyPair: any) {
+    postInitTrade(trade: ITradeConf | IContractTradeConf, keyPair: any) {
         const body = { trade, keyPair };
         return this.http.post(this.apiUrl + 'initTrade', body);
     }

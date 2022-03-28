@@ -4,6 +4,7 @@ import { ReplaySubject } from 'rxjs';
 import { AddressService } from 'src/app/@core/services/address.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { FuturesMarketsService, IContract } from 'src/app/@core/services/futures-services/futures-markets.service';
+import { IContractTradeConf, TradeService } from 'src/app/@core/services/spot-services/trade.service';
 
 @Component({
   selector: 'tl-futures-buy-sell-card',
@@ -19,6 +20,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       private fb: FormBuilder,
       private addressService: AddressService,
       private loadingService: LoadingService,
+      private tradeService: TradeService,
     ) {}
 
     get isLoading(): boolean {
@@ -81,22 +83,19 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
 
     handleBuySell(isBuy: boolean) {
-      // const { price, amount } = this.buySellGroup.value;
-      // const market = this.selectedMarket;
-      // const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
-      // const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
-      // const marketName = market.pairString;
-      // if (!propIdForSale || !propIdDesired || !price || !amount) return;
-      // const newTrade: ITradeConf = { price, amount, propIdForSale, propIdDesired, isBuy, marketName };
-      // this.tradeService.initNewTrade(newTrade);
-      // this.buySellGroup.reset();
+      const { price, amount } = this.buySellGroup.value;
+      const market = this.selectedMarket;
+      const contractId = 4;
+      const newTrade: IContractTradeConf = { price, amount, contractId, isBuy };
+      this.tradeService.initNewTrade(newTrade);
+      this.buySellGroup.reset();
     }
 
     getButtonDisabled(isBuy: boolean) {
       // const availableLTC = this.balanceService.getLtcBalance()?.available || 0;
       // const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
       // return !this.buySellGroup.valid || !v || availableLTC < 0.05;
-      return true;
+      return false;
     }
 
     private trackPriceHandler() {

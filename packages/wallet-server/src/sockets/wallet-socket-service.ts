@@ -36,22 +36,26 @@ export class WalletSocketSevice {
         this.handleFromWalletToServer(socket, 'close-position');
         this.handleFromWalletToServer(socket, 'logout');
 
+        this.handleFromWalletToServer(socket, 'orderbook-market-filter-futures');
+        this.handleFromWalletToServer(socket, 'update-orderbook-futures');
+        this.handleFromWalletToServer(socket, 'close-position-futures');
+
         socket.on('api-reconnect', (url: string) => initOrderbookConnection(this.socketScript, url));
         socket.on('orderbook-disconnect', () => disconnectFromOrderbook());
 
         socket.on('api-2-reconnect', (isTestNet: boolean) => initApiService(isTestNet));
 
-        socket.on('update-futures-orderbook', this.sendFuturesOrderbookData.bind(this));
-        socket.on('orderbook-contract-filter', (contract: IContractInfo) => {
-            this.selectedContractId = contract;
-            this.sendFuturesOrderbookData();
-        });
+        // socket.on('update-futures-orderbook', this.sendFuturesOrderbookData.bind(this));
+        // socket.on('orderbook-contract-filter', (contract: IContractInfo) => {
+        //     this.selectedContractId = contract;
+        //     this.sendFuturesOrderbookData();
+        // });
     }
 
-    private async sendFuturesOrderbookData() {
-        if (!this.selectedContractId) return;
-        this.currentSocket.emit('futures-orderbook-data', await getFuturesOrderBookData(this.selectedContractId, this.socketScript.asyncClient));
-    }
+    // private async sendFuturesOrderbookData() {
+    //     if (!this.selectedContractId) return;
+    //     this.currentSocket.emit('futures-orderbook-data', await getFuturesOrderBookData(this.selectedContractId, this.socketScript.asyncClient));
+    // }
 
     private handleFromWalletToServer(socket: Socket, eventName: string) {
         socket.on(eventName, (data: any) => orderbookSocketService.socket.emit(eventName, data));
@@ -83,7 +87,7 @@ export class WalletSocketSevice {
             if (this.lastBlock < height) {
                 this.lastBlock = height;
                 this.currentSocket.emit('newBlock', height);
-                this.sendFuturesOrderbookData();
+                // this.sendFuturesOrderbookData();
             }
         }, 2500);
     }
@@ -100,13 +104,13 @@ export class WalletSocketSevice {
     }
 }
 
-const getFuturesOrderBookData = async (contract: IContractInfo, asyncClient: TClient) => {
-    const { contractName } = contract;
-    const buyOrderbooksRes = await asyncClient('tl_getcontract_orderbook', contractName, 1);
-    const sellOrderbooksRes = await asyncClient('tl_getcontract_orderbook', contractName, 2);
-    const convertData = (d: any) => ({ contractId: d.contractid, price: parseFloat(d.effectiveprice), amount: d.amountforsale })
-    const buyOrderbook = (buyOrderbooksRes.error || !buyOrderbooksRes.data) ? [] : buyOrderbooksRes.data.map(convertData)
-    const sellOrderbook = (sellOrderbooksRes.error || !sellOrderbooksRes.data) ? [] : sellOrderbooksRes.data.map(convertData);
-    const orderbookObject = { buyOrderbook, sellOrderbook };
-    return orderbookObject;
-}
+// const getFuturesOrderBookData = async (contract: IContractInfo, asyncClient: TClient) => {
+//     const { contractName } = contract;
+//     const buyOrderbooksRes = await asyncClient('tl_getcontract_orderbook', contractName, 1);
+//     const sellOrderbooksRes = await asyncClient('tl_getcontract_orderbook', contractName, 2);
+//     const convertData = (d: any) => ({ contractId: d.contractid, price: parseFloat(d.effectiveprice), amount: d.amountforsale })
+//     const buyOrderbook = (buyOrderbooksRes.error || !buyOrderbooksRes.data) ? [] : buyOrderbooksRes.data.map(convertData)
+//     const sellOrderbook = (sellOrderbooksRes.error || !sellOrderbooksRes.data) ? [] : sellOrderbooksRes.data.map(convertData);
+//     const orderbookObject = { buyOrderbook, sellOrderbook };
+//     return orderbookObject;
+// }

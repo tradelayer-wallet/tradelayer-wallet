@@ -92,6 +92,6 @@ export class FuturesMarketsService {
             contractId: _contract.contractId,
             contractName: _contract.contractName,
         };
-        this.socket.emit('orderbook-contract-filter', contract);
+        this.socket.emit('orderbook-market-filter-futures', contract);
     }
 }

@@ -50,6 +50,11 @@ export class OrderbookSocketService {
         this.handleFromServerToWallet('aksfor-orderbook-update');
         this.handleFromServerToWallet('trade-history');
 
+        this.handleFromServerToWallet('aksfor-orderbook-update-futures');
+        this.handleFromServerToWallet('trade-history-futures');
+        this.handleFromServerToWallet('orderbook-data-futures');
+        this.handleFromServerToWallet('opened-positions-futures');
+
         this.socket.on('new-channel', async (trade: any) => {
             const res = await this.socketScript.channelSwap(this.socket, trade);
             res.error || !res.data

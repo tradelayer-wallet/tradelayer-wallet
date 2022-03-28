@@ -19,6 +19,13 @@ export interface ITradeConf {
     marketName: string,
 }
 
+export interface IContractTradeConf {
+    amount: number,
+    price: number,
+    isBuy: boolean,
+    contractId: number,
+}
+
 @Injectable({
     providedIn: 'root',
 })
@@ -80,7 +87,7 @@ export class TradeService {
         });
     }
 
-    async initNewTrade(trade: ITradeConf) {
+    async initNewTrade(trade: ITradeConf | IContractTradeConf) {
         this.loadingService.tradesLoading = true;
         const res = await this.ssApi.postInitTrade(trade, this.keyPair).toPromise();
         this.balanceService.updateBalances();
