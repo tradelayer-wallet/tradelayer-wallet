@@ -225,13 +225,13 @@ export class Buyer {
             // const { amount, contractId, propIdForSale, amountForSale } = this.tradeInfo;
             const cpitLTCOptions = [
                 this.tradeInfo.contractId,
-                this.tradeInfo.amount,
-                bbData,
-                10,
+                (this.tradeInfo.amount).toString(),
+                255,
+                (10).toString(),
                 this.tradeInfo.buyer ?  1 : 2,
-                2,
+                (2).toString(),
             ];
-
+            process.send({cpitLTCOptions});
             const cpitRes = await this.asyncClient('tl_createpayload_contract_instant_trade', ...cpitLTCOptions);
             if (cpitRes.error || !cpitRes.data) {
                 return { error: `tl_createpayload_contract_instant_trade: ${cpitRes.error}` || `Error with creating payload` };
