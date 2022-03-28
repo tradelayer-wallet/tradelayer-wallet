@@ -57,7 +57,6 @@ export class Buyer {
         if (amaRes.error || !amaRes.data) return this.terminateTrade(`addmultisigaddress: ${amaRes.error}`);
         if (amaRes.data.redeemScript !== msData.redeemScript) return this.terminateTrade(`redeemScript of Multysig address is not matching`);
         this.multySigChannelData = msData;
-        return;
         this.socket.emit(`${this.myInfo.socketId}::BUYER:COMMIT`);
     }
 
