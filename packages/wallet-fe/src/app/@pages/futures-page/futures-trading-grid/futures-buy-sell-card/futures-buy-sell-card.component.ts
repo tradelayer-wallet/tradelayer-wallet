@@ -85,7 +85,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     handleBuySell(isBuy: boolean) {
       const { price, amount } = this.buySellGroup.value;
       const market = this.selectedMarket;
-      const contractId = 4;
+      const contractId = market.contractId;
       const newTrade: IContractTradeConf = { price, amount, contractId, isBuy };
       this.tradeService.initNewTrade(newTrade);
       this.buySellGroup.reset();
