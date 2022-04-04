@@ -132,7 +132,7 @@ export class Buyer {
                             this.myInfo.address,
                             this.multySigChannelData.address,
                             this.tradeInfo.propIdForSale,
-                            this.tradeInfo.amountForSale,
+                            (this.tradeInfo.amountForSale).toString(),
                         ];
                         //api-first commit to channel
                         const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);
@@ -158,7 +158,7 @@ export class Buyer {
                         // -------------------------
                         
             const { propIdDesired, amountDesired, propIdForSale, amountForSale } = this.tradeInfo;
-            const cpitLTCOptions = [ propIdForSale, amountForSale, propIdDesired, amountDesired, bbData ];
+            const cpitLTCOptions = [ propIdForSale, (amountForSale).toString(), propIdDesired, (amountDesired).toString(), bbData ];
             const cpitRes = await this.asyncClient('tl_createpayload_instant_trade', ...cpitLTCOptions);
             if (cpitRes.error || !cpitRes.data) {
                 return { error: `tl_createpayload_instant_trade: ${cpitRes.error}` || `Error with creating payload` };
@@ -231,12 +231,10 @@ export class Buyer {
                 this.tradeInfo.buyer ?  1 : 2,
                 (2).toString(),
             ];
-            process.send({cpitLTCOptions});
             const cpitRes = await this.asyncClient('tl_createpayload_contract_instant_trade', ...cpitLTCOptions);
             if (cpitRes.error || !cpitRes.data) {
                 return { error: `tl_createpayload_contract_instant_trade: ${cpitRes.error}` || `Error with creating payload` };
             }
-            process.send({cpitRes});
             // if api-first ; add utxos from api to inputs;
             const rawTxOptions: IBuildRawTxOptions = {
                 fromAddress: this.myInfo.address,
@@ -245,7 +243,6 @@ export class Buyer {
                 inputs: [commitUTXO, this.commitUTXO],
                 isTTTrade: true,
             };
-            process.send({rawTxOptions});
 
             const ltcIt = new RawTx(rawTxOptions, this.asyncClient);
             const bLTCit = await ltcIt.build();
@@ -266,7 +263,7 @@ export class Buyer {
             if (!bbData) return { error: `Error with getting best block, ${bbData}` };
     
             const { propIdDesired, amountDesired, amountForSale } = this.tradeInfo;
-            const cpitLTCOptions = [ propIdDesired, amountDesired, amountForSale, bbData ];
+            const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), (amountForSale).toString(), bbData ];
             const cpitRes = await this.asyncClient('tl_createpayload_instant_ltc_trade', ...cpitLTCOptions);
             if (cpitRes.error || !cpitRes.data) {
                 return { error: `tl_createpayload_instant_ltc_trade: ${cpitRes.error}` || `Error with creating payload` };

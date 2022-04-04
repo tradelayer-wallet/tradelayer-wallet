@@ -110,14 +110,12 @@ export class SocketScript {
         const tradeInfo: ITradeInfo | IContractTradeInfo = contractId
             ? { amount, price, contractId }
             : { amountDesired, amountForSale, propIdDesired, propIdForSale };
-        process.send({tradeInfo});
         const buyerObj = { address: buyerAddress, pubKey: buyerPubKey, socketId: buyerSocketId };
         const sellerObj = { address: sellerAddress, pubKey: sellerPubKey, socketId: sellerSocketId };
         const swap = buyer
             ? new Buyer(tradeInfo, buyerObj, sellerObj, this.asyncClient, socket)
             : new Seller(tradeInfo, sellerObj, buyerObj, this.asyncClient, socket);
         const res = await swap.onReady();
-        process.send({res});
         if (res.data?.txid) {
             if (this.liqOptions?.address === trade.sellerAddress || this.liqOptions?.address === trade.buyerAddress) {
                 this.liquidityRefill();

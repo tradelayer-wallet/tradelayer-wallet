@@ -70,7 +70,7 @@ export class Seller {
             this.myInfo.address,
             this.multySigChannelData.address,
             contractId ? 4 : propIdDesired,
-            contractId ? (amount).toString() : amountDesired,
+            contractId ? (amount).toString() : (amountDesired).toString(),
         ];
         //api-first update tl_commit_tochannel
         const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);
@@ -89,7 +89,6 @@ export class Seller {
             vout: vout.n,
             txid: this.commitTx
         };
-        process.send(this.utxoData);
         this.socket.emit(`${this.myInfo.socketId}::SELLER:COMMIT_UTXO`, this.utxoData);
     }
 
