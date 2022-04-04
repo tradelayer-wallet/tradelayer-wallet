@@ -1,6 +1,6 @@
 import { Socket } from 'socket.io-client';
 import { RawTx } from './rawtx';
-import { IBuildRawTxOptions, IInputs, ITradeInfo, IContractTradeInfo,  IUTXOData, MSChannelData, TBuyerSellerInfo, TClient } from "./types";
+import { IBuildRawTxOptions, IInputs, ITradeInfo, IUTXOData, MSChannelData, TBuyerSellerInfo, TClient } from "./types";
 
 export class Buyer {
     private multySigChannelData: MSChannelData;
@@ -196,7 +196,7 @@ export class Buyer {
                         const commitData = [
                             this.myInfo.address,
                             this.multySigChannelData.address,
-                            4,
+                            this.tradeInfo.collateral,
                             (this.tradeInfo.amountDesired).toString(),
                         ];
                         //api-first commit to channel
@@ -225,8 +225,8 @@ export class Buyer {
             // const { amount, contractId, propIdForSale, amountForSale } = this.tradeInfo;
             const cpitLTCOptions = [
                 this.tradeInfo.contractId,
-                (this.tradeInfo.amount).toString(),
-                255,
+                (this.tradeInfo.amountDesired).toString(),
+                bbData,
                 (10).toString(),
                 this.tradeInfo.buyer ?  1 : 2,
                 (2).toString(),

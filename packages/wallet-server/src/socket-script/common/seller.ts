@@ -65,11 +65,11 @@ export class Seller {
     private async onCommit(cpId: string) {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Error with p2p connection: code 6');
         await this.setEstimateFee();
-        const { contractId, propIdDesired, amountDesired, amount } = this.tradeInfo;
+        const { contractId, propIdDesired, amountDesired, collateral } = this.tradeInfo;
         const commitData = [
             this.myInfo.address,
             this.multySigChannelData.address,
-            contractId ? 4 : propIdDesired,
+            contractId ? collateral : propIdDesired,
             (amountDesired).toString(),
         ];
         //api-first update tl_commit_tochannel

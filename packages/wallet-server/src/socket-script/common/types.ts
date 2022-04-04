@@ -101,8 +101,8 @@ export interface ITradeInfo {
 
 export interface IContractTradeInfo {
     contractId: number,
-    amount: string,
-    price: string,
+    amountDesired: string,
+    collateral: number,
 }
 
 export interface TBuyerSellerInfo {

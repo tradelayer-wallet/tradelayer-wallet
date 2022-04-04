@@ -104,11 +104,11 @@ export class SocketScript {
             amountDesired, amountForSale, propIdDesired, propIdForSale, 
             buyerAddress, buyerPubKey, buyerSocketId,
             sellerAddress, sellerPubKey, sellerSocketId, 
-            buyer, contractId, amount, price,
+            buyer, contractId,
         } = trade;
 
         const tradeInfo: ITradeInfo | IContractTradeInfo = contractId
-            ? { amount, price, contractId }
+            ? { amountDesired, contractId, collateral: 4 }
             : { amountDesired, amountForSale, propIdDesired, propIdForSale };
         const buyerObj = { address: buyerAddress, pubKey: buyerPubKey, socketId: buyerSocketId };
         const sellerObj = { address: sellerAddress, pubKey: sellerPubKey, socketId: sellerSocketId };
