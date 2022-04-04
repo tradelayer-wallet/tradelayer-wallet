@@ -144,6 +144,8 @@ export class SocketService {
         this.socket.on('OBSERVER::disconnect', () => {
             this._orderbookServerConnected = false;
             this.orderbookServerWaiting = false;
+            this.router.navigateByUrl('/');
+            this.toasterService.error('Orderbook Conenction Error', 'Error');
         });
     }
 }

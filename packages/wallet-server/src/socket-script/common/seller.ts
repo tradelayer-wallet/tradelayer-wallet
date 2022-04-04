@@ -14,7 +14,7 @@ export class Seller {
         private cpInfo: TBuyerSellerInfo,
         private asyncClient: TClient,
         private socket: Socket,
-    ) { 
+    ) {
         this.handleOnEvents();
         this.initTrade();
         this.onReady();

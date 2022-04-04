@@ -32,6 +32,10 @@ export class SpotPositionsService {
         this.socket.on('OBSERVER::placed-orders', (openedPositions: ISpotOrder[]) => {
             this.openedPositions = openedPositions
         });
+
+        this.socket.on('OBSERVER::disconnect', () => {
+            this.openedPositions = [];
+        });
     }
 
     closeOpenedPosition(uuid: string) {
