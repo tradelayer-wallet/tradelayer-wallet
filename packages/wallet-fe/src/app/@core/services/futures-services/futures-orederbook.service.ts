@@ -88,7 +88,9 @@ export class FuturesOrderbookService {
 
     private _structureOrderbook(isBuy: boolean) {
         const contractid = this.selectedMarket.contractId
-        const filteredOrderbook = this.rawOrderbookData.filter(o => o.props.contract_id === contractid && o.action === "BUY");
+        const filteredOrderbook = isBuy 
+            ? this.rawOrderbookData.filter(o => o.props.contract_id === contractid && o.action === "BUY")
+            : this.rawOrderbookData.filter(o => o.props.contract_id === contractid && o.action === "SELL");
         const range = 1000;
         const result: {price: number, amount: number}[] = [];
         filteredOrderbook.forEach(o => {
