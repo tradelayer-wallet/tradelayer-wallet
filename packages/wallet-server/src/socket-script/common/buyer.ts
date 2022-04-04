@@ -193,11 +193,11 @@ export class Buyer {
     
             await this.setEstimateFee();
                         // ---------------------------------------
-                        const commitData = [        
+                        const commitData = [
                             this.myInfo.address,
                             this.multySigChannelData.address,
                             4,
-                            (this.tradeInfo.amount).toString(),
+                            (this.tradeInfo.amountDesired).toString(),
                         ];
                         //api-first commit to channel
                         const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);
