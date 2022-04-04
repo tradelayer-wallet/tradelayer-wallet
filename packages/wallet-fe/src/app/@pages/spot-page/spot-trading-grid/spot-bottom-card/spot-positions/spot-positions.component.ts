@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { ISpotOrder } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-positions.service';
 
 @Component({
@@ -18,8 +19,8 @@ export class SpotPositionsComponent implements OnInit {
       return this.spotPositionsService.openedPositions;
     }
 
-    closePosition(position: any) {
-      this.spotPositionsService.closeOpenedPosition(position);
+    closePosition(uuid: string) {
+      this.spotPositionsService.closeOpenedPosition(uuid);
     }
 
     ngOnInit() {}

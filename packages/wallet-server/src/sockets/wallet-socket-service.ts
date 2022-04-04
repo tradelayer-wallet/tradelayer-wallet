@@ -30,7 +30,7 @@ export class WalletSocketSevice {
         if (this.currentSocket) this.currentSocket.offAny()
         this.currentSocket = socket;
 
-        ['update-orderbook', 'new-order']
+        ['update-orderbook', 'new-order', 'close-order']
             .forEach(m => this.handleFromWalletToServer(m));
 
         socket.on('orderbook-server-reconnect', (url: string) => initOrderbookConnection(this.socketScript, url));

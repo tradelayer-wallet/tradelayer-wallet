@@ -3,11 +3,23 @@ import { Subject } from "rxjs";
 import { SpotMarketsService } from "./spot-markets.service";
 import { SocketService } from "../socket.service";
 
-export interface IOrderbook {
-    amount: number,
-    price: number,
-    propIdDesired: number,
-    propIdForSale: number,
+export interface ISpotOrder {
+    action: "SELL" | "BUY",
+    keypair: {
+        address: string;
+        pubkey: string;
+    },
+    lock: boolean;
+    props: {
+        amount: number;
+        id_desired: number,
+        id_for_sale: number;
+        price: number;
+    };
+    socket_id: string;
+    timestamp: number;
+    type: "SPOT";
+    uuid: string;
 }
 
 @Injectable({
@@ -15,7 +27,7 @@ export interface IOrderbook {
 })
 
 export class SpotOrderbookService {
-    private _rawOrderbookData: IOrderbook[] = [];
+    private _rawOrderbookData: ISpotOrder[] = [];
     outsidePriceHandler: Subject<number> = new Subject();
     buyOrderbooks: { amount: number, price: number }[] = [];
     sellOrderbooks: { amount: number, price: number }[] = [];
@@ -34,7 +46,7 @@ export class SpotOrderbookService {
         return this._rawOrderbookData;
     }
 
-    set rawOrderbookData(value: IOrderbook[]) {
+    set rawOrderbookData(value: ISpotOrder[]) {
         this._rawOrderbookData = value;
         this.structureOrderBook();
     } 
@@ -43,14 +55,18 @@ export class SpotOrderbookService {
         return this.socketService.socket;
     }
 
+    get marketFilter() {
+        return this.spotMarkertService.marketFilter;
+    };
+
     subscribeForOrderbook() {
         this.endOrderbookSbuscription();
         
-        this.socket.on('OBSERVER::update-request', () => {
-            const filter = {};
-            this.socket.emit('update', filter)
+        this.socket.on('OBSERVER::update-orders-request', () => {
+            this.socket.emit('update-orderbook', this.marketFilter)
         });
-        this.socket.on('OBSERVER::orderbook-data', (orderbookData: IOrderbook[]) => {
+
+        this.socket.on('OBSERVER::orderbook-data', (orderbookData: ISpotOrder[]) => {
             this.rawOrderbookData = orderbookData;
         });
 
@@ -58,11 +74,11 @@ export class SpotOrderbookService {
             this.tradeHistory = tradesHistory;
         });
 
-        this.socket.emit('update');
+        this.socket.emit('update-orderbook', this.marketFilter);
     }
 
     endOrderbookSbuscription() {
-        ['update-request', 'orderbook-data', 'trade-history']
+        ['update-orders-request', 'orderbook-data', 'trade-history']
             .forEach(m => this.socket.off(`OBSERVER::${m}`));
     }
 
@@ -74,17 +90,17 @@ export class SpotOrderbookService {
     private _structureOrderbook(isBuy: boolean) {
         const propIdDesired = isBuy ? this.selectedMarket.first_token.propertyId : this.selectedMarket.second_token.propertyId;
         const propIdForSale = isBuy ? this.selectedMarket.second_token.propertyId : this.selectedMarket.first_token.propertyId;
-        const filteredOrderbook = this.rawOrderbookData.filter(o => o.propIdDesired === propIdDesired && o.propIdForSale === propIdForSale);
+        const filteredOrderbook = this.rawOrderbookData.filter(o => o.props.id_desired === propIdDesired && o.props.id_for_sale === propIdForSale);
         const range = 1000;
         const result: {price: number, amount: number}[] = [];
         filteredOrderbook.forEach(o => {
-          const _price = Math.trunc(o.price*range)
+          const _price = Math.trunc(o.props.price*range)
           const existing = result.find(_o =>  Math.trunc(_o.price*range) === _price);
           existing
-            ? existing.amount += o.amount
+            ? existing.amount += o.props.amount
             : result.push({
-                price: parseFloat(o.price.toFixed(4)),
-                amount: o.amount,
+                price: parseFloat(o.props.price.toFixed(4)),
+                amount: o.props.amount,
             });
         });
         return isBuy

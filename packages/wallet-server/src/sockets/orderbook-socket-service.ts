@@ -23,7 +23,7 @@ export class OrderbookSocketService {
     private handleEvents() {
         const mainSocketMesages = [
             'connect', 'disconnect', 'connect_error', 'error_message', 
-            'order:saved', 'order:error'];
+            'order:saved', 'order:error', 'update-orders-request', 'orderbook-data', 'placed-orders'];
         mainSocketMesages.forEach(m => this.handleFromServerToWallet(m));
 
         this.socket.on('new-channel', async (trade: any) => {

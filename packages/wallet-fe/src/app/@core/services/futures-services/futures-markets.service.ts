@@ -79,6 +79,13 @@ export class FuturesMarketsService {
         return this.contractsFromSelectedFuturesMarketType.indexOf(this.selectedContract);
     }
 
+    get marketFilter() {
+        return {
+            type: 'FUTURES',
+            contractId: this.selectedContract.contractId,
+        };
+    };
+
     getMarkets() {
         this.apiService.marketApi.getFuturesMarkets()
             .subscribe((futuresMarketTypes: IFuturesMarketType[]) => {
@@ -88,9 +95,6 @@ export class FuturesMarketsService {
     }
 
     private changeOrderbookContractFilter(_contract: IContract) {
-        const contract = {
-            contractId: _contract.contractId,
-            contractName: _contract.contractName,
-        };
+        this.socket.emit('update-orderbook', this.marketFilter);
     }
 }
