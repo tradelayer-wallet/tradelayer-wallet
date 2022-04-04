@@ -12,7 +12,7 @@ export class OrderbookServerDialog implements OnInit, OnDestroy {
     loading: boolean = true;
     public servers: string[] = this.isTestnet
       ? [environment.orderbook_service_url_testnet, 'http://testnet-testurl.com']
-      : ['http://170.187.147.182:75', 'http://mainet-testUrl.com'];
+      : [environment.orderbook_service_url, 'http://mainet-testUrl.com'];
 
     selectedServer: string = this.servers[0];
 
