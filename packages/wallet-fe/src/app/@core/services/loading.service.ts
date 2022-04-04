@@ -35,7 +35,7 @@ export class LoadingService {
         setTimeout(() => {
             if (this[loading] === true) {
                 this[loading] = false;
-                this.toastrService.warning(`Something goes wrong`, "Warning");
+                this.toastrService.warning(`Loading Warning`, "Warning");
             }
         }, ms);
     }

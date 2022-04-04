@@ -45,23 +45,25 @@ export class FuturesOrderbookService {
 
     subscribeForOrderbook() {
         this.endOrderbookSbuscription();
-        this.socket.on('orderbook-data-futures', (orderbookData: IOrderbook[]) => {
+        
+        this.socket.on('OBSERVER::update-request', () => {
+            const filter = {};
+            this.socket.emit('update', filter)
+        });
+        this.socket.on('OBSERVER::orderbook-data', (orderbookData: IOrderbook[]) => {
             this.rawOrderbookData = orderbookData;
         });
-        this.socket.on('aksfor-orderbook-update-futures', () => {
-            this.socket.emit('update-orderbook-futures');
-        });
-        this.socket.emit('update-orderbook-futures');
 
-        this.socket.on('trade-history-futures', (tradesHistory: any) => {
+        this.socket.on('OBSERVER::trade-history', (tradesHistory: any) => {
             this.tradeHistory = tradesHistory;
         });
+
+        this.socket.emit('update');
     }
 
     endOrderbookSbuscription() {
-        this.socket.off('orderbook-data-futures');
-        this.socket.off('aksfor-orderbook-update-futures');
-        this.socket.off('trade-history-futures');
+        ['update-request', 'orderbook-data', 'trade-history']
+            .forEach(m => this.socket.off(`OBSERVER::${m}`));
     }
 
     private structureOrderBook() {

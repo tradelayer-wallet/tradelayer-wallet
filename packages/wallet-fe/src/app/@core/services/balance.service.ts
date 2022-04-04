@@ -76,7 +76,7 @@ export class BalanceService {
     }
 
     private handleSocketEvents() {
-        this.socketService.socket.on('newBlock-api', () => {
+        this.socketService.socket.on('API::newBlock', () => {
             if (!this.rpcService.isApiRPC) return;
             this.updateBalances();
         });

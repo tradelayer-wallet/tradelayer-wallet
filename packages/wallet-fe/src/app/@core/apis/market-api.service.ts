@@ -17,8 +17,8 @@ export class MarketApiService {
 
     private get apiUrl() {
         return this.NETWORK === "LTC"
-            ? environment.apiUrl + '/market/'
-            : environment.apiUrlTestnet + '/market/';
+            ? environment.orderbook_service_url + '/markets/'
+            : environment.orderbook_service_url_testnet + '/markets/';
     }
 
     _setNETWORK(value: TNETWORK) {
@@ -26,12 +26,12 @@ export class MarketApiService {
     }
 
     getSpotMarkets() {
-        return this.http.get(this.apiUrl + 'listMarkets')
+        return this.http.get(this.apiUrl + 'spot')
             .pipe(map((res: any) => res.data));
     }
 
     getFuturesMarkets() {
-        return this.http.get(this.apiUrl + 'listFuturesMarkets')
+        return this.http.get(this.apiUrl + 'futures')
             .pipe(map((res: any) => res.data));
     }
 }

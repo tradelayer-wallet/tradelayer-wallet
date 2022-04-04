@@ -25,7 +25,7 @@ export class FuturesTxsService {
         private rpcService: RpcService,
         private toasterService: ToastrService,
     ) {
-        this.socketService.socket.on('newBlock-api', () => {
+        this.socketService.socket.on('API::newBlock', () => {
             if (!this.isApiRPC) return;
             this.checkPendingTxs();
         });

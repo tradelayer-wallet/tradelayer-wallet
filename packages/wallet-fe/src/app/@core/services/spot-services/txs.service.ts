@@ -58,7 +58,7 @@ export class TxsService {
     }
 
     private checkPendingTxs() {
-        this.socketService.socket.on('newBlock-api', () => {
+        this.socketService.socket.on('API::newBlock', () => {
             if (!this.isApiRPC) return;
             if (!this.pendingTxs?.length) return
             this.pendingTxs

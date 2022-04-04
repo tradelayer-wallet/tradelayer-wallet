@@ -45,23 +45,25 @@ export class SpotOrderbookService {
 
     subscribeForOrderbook() {
         this.endOrderbookSbuscription();
-        this.socket.on('orderbook-data', (orderbookData: IOrderbook[]) => {
+        
+        this.socket.on('OBSERVER::update-request', () => {
+            const filter = {};
+            this.socket.emit('update', filter)
+        });
+        this.socket.on('OBSERVER::orderbook-data', (orderbookData: IOrderbook[]) => {
             this.rawOrderbookData = orderbookData;
         });
-        this.socket.on('aksfor-orderbook-update', () => {
-            this.socket.emit('update-orderbook');
-        });
-        this.socket.emit('update-orderbook');
 
-        this.socket.on('trade-history', (tradesHistory: any) => {
+        this.socket.on('OBSERVER::trade-history', (tradesHistory: any) => {
             this.tradeHistory = tradesHistory;
         });
+
+        this.socket.emit('update');
     }
 
     endOrderbookSbuscription() {
-        this.socket.off('orderbook-data');
-        this.socket.off('aksfor-orderbook-update');
-        this.socket.off('trade-history');
+        ['update-request', 'orderbook-data', 'trade-history']
+            .forEach(m => this.socket.off(`OBSERVER::${m}`));
     }
 
     private structureOrderBook() {

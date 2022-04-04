@@ -57,6 +57,6 @@ export class DealerService {
         const pubkey = this.addressService.activeKeyPair?.pubKey;
         const data = { tradesData: this.myDealerTrades, addressPair: { address, pubkey } };
         if (!address || !pubkey || !this.myDealerTrades) return;
-        this.socket.emit('dealer-data', data);
+        // this.socket.emit('dealer-data', data);
     }
 }

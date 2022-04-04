@@ -91,6 +91,5 @@ export class SpotMarketsService {
             firstId: market.first_token.propertyId,
             secondId: market.second_token.propertyId,
         };
-        this.socket.emit('orderbook-market-filter', marketFilter);
     }
 }

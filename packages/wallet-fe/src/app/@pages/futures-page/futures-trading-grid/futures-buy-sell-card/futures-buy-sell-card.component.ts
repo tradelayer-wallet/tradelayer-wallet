@@ -4,7 +4,7 @@ import { ReplaySubject } from 'rxjs';
 import { AddressService } from 'src/app/@core/services/address.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { FuturesMarketsService, IContract } from 'src/app/@core/services/futures-services/futures-markets.service';
-import { IContractTradeConf, TradeService } from 'src/app/@core/services/spot-services/trade.service';
+import { IFuturesTradeConf, TradeService } from 'src/app/@core/services/trade.service';
 
 @Component({
   selector: 'tl-futures-buy-sell-card',
@@ -29,6 +29,10 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
     get selectedMarket(): IContract {
       return this.futuresMarketsService.selectedContract;
+    }
+
+    get activeKeyPair() {
+      return this.addressService.activeKeyPair;
     }
 
     get currentAddress() {
@@ -86,8 +90,21 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       const { price, amount } = this.buySellGroup.value;
       const market = this.selectedMarket;
       const contractId = market.contractId;
-      const newTrade: IContractTradeConf = { price, amount, contractId, isBuy };
-      this.tradeService.initNewTrade(newTrade);
+      if (!this.activeKeyPair) return;
+      const order: IFuturesTradeConf = {
+        keypair: {
+          address: this.activeKeyPair?.address,
+          pubkey: this.activeKeyPair?.pubKey,
+        },
+        action: isBuy ? "BUY" : "SELL",
+        type: "FUTURES",
+        props: {
+          contract_id: contractId,
+          amount: amount,
+          price: price,
+        }
+      };
+      this.tradeService.newOrder(order);
       this.buySellGroup.reset();
     }
 
