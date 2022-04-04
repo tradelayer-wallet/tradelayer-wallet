@@ -35,7 +35,7 @@ export class SpotMarketsService {
 
     constructor(
         private apiService: ApiService,
-        private socketServic: SocketService,
+        private socketService: SocketService,
     ) { }
 
     get spotMarketsTypes() {
@@ -67,7 +67,7 @@ export class SpotMarketsService {
 
     set selectedMarket(value: IMarket) {
         this._selectedMarket = value;
-        this.changeOrderbookMarketFilter(value);
+        this.changeOrderbookMarketFilter();
     }
 
     get selectedMarketIndex() {
@@ -75,9 +75,17 @@ export class SpotMarketsService {
     }
 
     get socket() {
-        return this.socketServic.socket;
+        return this.socketService.socket;
     }
     
+    get marketFilter() {
+        return {
+            type: 'SPOT',
+            first_token: this.selectedMarket.first_token.propertyId,
+            second_token: this.selectedMarket.second_token.propertyId,
+        };
+    };
+
     getMarkets() {
         this.apiService.marketApi.getSpotMarkets()
             .subscribe((marketTypes: ISpotMarketType[]) => {
@@ -86,11 +94,7 @@ export class SpotMarketsService {
             });
     }
 
-    private changeOrderbookMarketFilter(market: IMarket) {
-        const marketFilter = {
-            firstId: market.first_token.propertyId,
-            secondId: market.second_token.propertyId,
-        };
-        this.socket.emit('orderbook-market-filter', marketFilter);
+    private changeOrderbookMarketFilter() {
+        this.socket.emit('update-orderbook', this.marketFilter);
     }
 }

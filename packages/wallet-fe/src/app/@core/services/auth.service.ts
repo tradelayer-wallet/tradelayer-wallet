@@ -47,17 +47,17 @@ export class AuthService {
 
         this.encKey = ltcUtils.encryptKeyPair(this.addressService.keyPairs, pass);
         this.dialogService.openEncKeyDialog(this.encKey);
-        if (this.rpcService.NETWORK === "LTCTEST") this.fundAddress(pair.address);
+        // if (this.rpcService.NETWORK === "LTCTEST") this.fundAddress(pair.address);
     }
 
-    private fundAddress(address: string) {
-        this.apiService.fundingApi.fundAddress(address)
-            .subscribe((res: any) => {
-                res.error || !res.data
-                    ? this.toastrService.error(res.error || 'Error with funding the address!')
-                    : this.toastrService.success(res.data || `Address Funded!`);
-            });
-    }
+    // private fundAddress(address: string) {
+    //     this.apiService.fundingApi.fundAddress(address)
+    //         .subscribe((res: any) => {
+    //             res.error || !res.data
+    //                 ? this.toastrService.error(res.error || 'Error with funding the address!')
+    //                 : this.toastrService.success(res.data || `Address Funded!`);
+    //         });
+    // }
 
     // async loginFromPrivKey(privKey: string, pass: string) {
     //     const res = await this.apiService.socketScriptApi.extractKeyPairFromPrivKey(privKey).toPromise();
@@ -104,7 +104,6 @@ export class AuthService {
                 this.toastrService.error('Unexpecter Error. Please try again!', 'Error');
                 return;
             }
-            console.log({luRes, scLuRes})
             if (luRes.data.length < scLuRes.data.txs?.length) {
                 this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
                 return;

@@ -99,6 +99,12 @@ export interface ITradeInfo {
     propIdForSale: number;
 }
 
+export interface IContractTradeInfo {
+    contractId: number,
+    amountDesired: string,
+    collateral: number,
+}
+
 export interface TBuyerSellerInfo {
     address: string;
     pubKey: string;

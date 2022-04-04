@@ -2,7 +2,6 @@ import { Socket, Server } from "socket.io";
 import { SocketScript } from '../socket-script/socket-script';
 import { FastifyInstance } from "fastify"
 import { disconnectFromOrderbook, initApiService, initOrderbookConnection, orderbookSocketService } from ".";
-import { TClient } from "../socket-script/common/types";
 
 interface IContractInfo {
     contractName: string;
@@ -14,7 +13,6 @@ export class WalletSocketSevice {
     public currentSocket: Socket;
     private socketScript: SocketScript;
     public lastBlock: number = 0;
-    private selectedContractId: IContractInfo = null;
     private blockCountingInterval: any;
 
     constructor(app: FastifyInstance, socketScript: SocketScript) {
@@ -29,32 +27,19 @@ export class WalletSocketSevice {
     }
 
     private onConnection(socket: Socket) {
+        if (this.currentSocket) this.currentSocket.offAny()
         this.currentSocket = socket;
-        this.handleFromWalletToServer(socket, 'orderbook-market-filter');
-        this.handleFromWalletToServer(socket, 'update-orderbook');
-        this.handleFromWalletToServer(socket, 'dealer-data');
-        this.handleFromWalletToServer(socket, 'close-position');
-        this.handleFromWalletToServer(socket, 'logout');
 
-        socket.on('api-reconnect', (url: string) => initOrderbookConnection(this.socketScript, url));
-        socket.on('orderbook-disconnect', () => disconnectFromOrderbook());
+        ['update-orderbook', 'new-order', 'close-order']
+            .forEach(m => this.handleFromWalletToServer(m));
 
-        socket.on('api-2-reconnect', (isTestNet: boolean) => initApiService(isTestNet));
-
-        socket.on('update-futures-orderbook', this.sendFuturesOrderbookData.bind(this));
-        socket.on('orderbook-contract-filter', (contract: IContractInfo) => {
-            this.selectedContractId = contract;
-            this.sendFuturesOrderbookData();
-        });
+        socket.on('orderbook-server-reconnect', (url: string) => initOrderbookConnection(this.socketScript, url));
+        socket.on('orderbook-server-disconnect', () => disconnectFromOrderbook());
+        socket.on('api-server-reconnect', (isTestNet: boolean) => initApiService(isTestNet));
     }
 
-    private async sendFuturesOrderbookData() {
-        if (!this.selectedContractId) return;
-        this.currentSocket.emit('futures-orderbook-data', await getFuturesOrderBookData(this.selectedContractId, this.socketScript.asyncClient));
-    }
-
-    private handleFromWalletToServer(socket: Socket, eventName: string) {
-        socket.on(eventName, (data: any) => orderbookSocketService.socket.emit(eventName, data));
+    private handleFromWalletToServer(eventName: string) {
+        this.currentSocket.on(eventName, (data: any) => orderbookSocketService.socket.emit(eventName, data));
     }
 
     stopBlockCounting() {
@@ -83,7 +68,6 @@ export class WalletSocketSevice {
             if (this.lastBlock < height) {
                 this.lastBlock = height;
                 this.currentSocket.emit('newBlock', height);
-                this.sendFuturesOrderbookData();
             }
         }, 2500);
     }
@@ -98,15 +82,4 @@ export class WalletSocketSevice {
             }
         }
     }
-}
-
-const getFuturesOrderBookData = async (contract: IContractInfo, asyncClient: TClient) => {
-    const { contractName } = contract;
-    const buyOrderbooksRes = await asyncClient('tl_getcontract_orderbook', contractName, 1);
-    const sellOrderbooksRes = await asyncClient('tl_getcontract_orderbook', contractName, 2);
-    const convertData = (d: any) => ({ contractId: d.contractid, price: parseFloat(d.effectiveprice), amount: d.amountforsale })
-    const buyOrderbook = (buyOrderbooksRes.error || !buyOrderbooksRes.data) ? [] : buyOrderbooksRes.data.map(convertData)
-    const sellOrderbook = (sellOrderbooksRes.error || !sellOrderbooksRes.data) ? [] : sellOrderbooksRes.data.map(convertData);
-    const orderbookObject = { buyOrderbook, sellOrderbook };
-    return orderbookObject;
 }

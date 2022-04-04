@@ -37,7 +37,7 @@ export class RewardService {
     startBlockChecking() {
         this.checkIfWin();
         this.checkRegisteredAddresses();
-        this.socketService.socket.on('newBlock-api', (block) => {
+        this.socketService.socket.on('API::newBlock', (block) => {
             if (!this.isApiRPC) return;
             this.waitingList = [];
             this.checkIfWin();

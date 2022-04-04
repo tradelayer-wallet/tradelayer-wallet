@@ -7,7 +7,7 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { IMarket, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
-import { TradeService, ITradeConf } from 'src/app/@core/services/spot-services/trade.service';
+import { TradeService, ISpotTradeConf } from 'src/app/@core/services/trade.service';
 
 @Component({
   selector: 'tl-spot-buy-sell-card',
@@ -38,6 +38,10 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
     get currentAddress() {
       return this.addressService.activeKeyPair?.address;
+    }
+
+    get activeKeyPair() {
+      return this.addressService.activeKeyPair;
     }
 
     ngOnInit() {
@@ -110,8 +114,23 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
       const marketName = market.pairString;
       if (!propIdForSale || !propIdDesired || !price || !amount) return;
-      const newTrade: ITradeConf = { price, amount, propIdForSale, propIdDesired, isBuy, marketName };
-      this.tradeService.initNewTrade(newTrade);
+      if (!this.activeKeyPair) return;
+  
+      const order: ISpotTradeConf = { 
+        keypair: {
+          address: this.activeKeyPair?.address,
+          pubkey: this.activeKeyPair?.pubKey,
+        },
+        action: isBuy ? "BUY" : "SELL",
+        type: "SPOT",
+        props: {
+          id_desired: propIdDesired,
+          id_for_sale: propIdForSale,
+          amount: amount,
+          price: price,
+        }
+      };
+      this.tradeService.newOrder(order);
       this.buySellGroup.reset();
     }
 
@@ -133,15 +152,14 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         const v2 = available > 0.01; 
         return !this.buySellGroup.valid || !v || !v2;
       }
-
     }
 
     private trackPriceHandler() {
       this.spotOrderbookService.outsidePriceHandler
-      .pipe(takeUntil(this.destroyed$))
-      .subscribe(price => {
-        this.buySellGroup.controls['price'].setValue(price);
-      })
+        .pipe(takeUntil(this.destroyed$))
+        .subscribe(price => {
+          this.buySellGroup.controls['price'].setValue(price);
+        });
     }
 
     ngOnDestroy() {

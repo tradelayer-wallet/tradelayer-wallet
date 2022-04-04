@@ -138,7 +138,7 @@ export class AddressService {
     }
 
     private handleSocketEvents() {
-        this.socketService.socket.on('newBlock-api', () => {
+        this.socketService.socket.on('API::newBlock', () => {
             if (!this.isApiRPC) return;
             if (this.activeAddressKYCStatus === EKYCStatus.PENDING) this.checkKycStatusForAddress();
         });

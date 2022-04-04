@@ -47,19 +47,19 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
 
     get openedBuyPositions() {
       return this.openedPoisiton.filter(p => {
-        const isBuy = p.isBuy;
-        const matchPropDesired = p.propIdDesired === this.selectedMarket.first_token.propertyId;
-        const matchPropForSale = p.propIdForSale === this.selectedMarket.second_token.propertyId;
+        const isBuy = p.action === "BUY";
+        const matchPropDesired = p.props.id_desired === this.selectedMarket.first_token.propertyId;
+        const matchPropForSale = p.props.id_for_sale === this.selectedMarket.second_token.propertyId;
         return isBuy && matchPropDesired && matchPropForSale;
       });
     }
 
     get openedSellPositions() {
       return this.openedPoisiton.filter(p => {
-        const isBuy = !p.isBuy;
-        const matchPropDesired = p.propIdDesired === this.selectedMarket.second_token.propertyId;
-        const matchPropForSale = p.propIdForSale === this.selectedMarket.first_token.propertyId;
-        return isBuy && matchPropDesired && matchPropForSale;
+        const isSell = p.action === "SELL";
+        const matchPropDesired = p.props.id_desired === this.selectedMarket.second_token.propertyId;
+        const matchPropForSale = p.props.id_for_sale === this.selectedMarket.first_token.propertyId;
+        return isSell && matchPropDesired && matchPropForSale;
       });
     }
 
@@ -87,7 +87,7 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy() {
-      // this.spotOrderbookService.endOrderbookSbuscription()
+      this.spotOrderbookService.endOrderbookSbuscription()
     }
 
     fillBuySellPrice(price: number) {
@@ -98,6 +98,6 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
       const positions = isBuy
         ? this.openedBuyPositions
         : this.openedSellPositions;
-      return positions.map(e => e.price).some(e => e >= price && (e < price + 0.01));
+      return positions.map(e => e.props.price).some(e => e >= price && (e < price + 0.01));
     }
 }

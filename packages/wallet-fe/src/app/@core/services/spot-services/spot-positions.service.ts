@@ -1,22 +1,14 @@
 import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
 import { SocketService } from "../socket.service";
-
-export interface Position {
-    address: string;
-    amount: number;
-    isBuy: boolean;
-    price: number;
-    propIdDesired: number;
-    propIdForSale: number;
-}
+import { ISpotOrder } from "./spot-orderbook.service";
 
 @Injectable({
     providedIn: 'root',
 })
 
 export class SpotPositionsService {
-    private _openedPositions: Position[] = []
+    private _openedPositions: ISpotOrder[] = []
     constructor(
         private socketService: SocketService,
         private toastrService: ToastrService
@@ -28,22 +20,26 @@ export class SpotPositionsService {
         return this.socketService.socket;
     }
 
-    get openedPositions(): Position[] {
+    get openedPositions(): ISpotOrder[] {
         return this._openedPositions;
     }
 
-    set openedPositions(value: Position[]) {
+    set openedPositions(value: ISpotOrder[]) {
         this._openedPositions = value;
     }
 
     private _subscribeToSocketEvents() {
-        this.socket.on('opened-positions', (openedPositions: Position[]) => {
+        this.socket.on('OBSERVER::placed-orders', (openedPositions: ISpotOrder[]) => {
             this.openedPositions = openedPositions
+        });
+
+        this.socket.on('OBSERVER::disconnect', () => {
+            this.openedPositions = [];
         });
     }
 
-    closeOpenedPosition(position: any) {
-        this.socket.emit('close-position', position);
+    closeOpenedPosition(uuid: string) {
+        this.socket.emit('close-order', uuid);
         this.toastrService.success('Order was closed successful', 'Success');
     }
 }

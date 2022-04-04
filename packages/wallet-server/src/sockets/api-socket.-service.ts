@@ -28,25 +28,15 @@ export class ApiSocketService {
 
         this.socket.on('version-guard', (valid: boolean) => {
             valid
-                ? walletSocketSevice.io.emit('api_connect')
-                : walletSocketSevice.io.emit('need-update');
+                ? walletSocketSevice.io.emit('API::connect')
+                : walletSocketSevice.io.emit('API::need-update');
         });
 
-        this.socket.on('disconnect', () => {
-            walletSocketSevice.io.emit('api_disconnect');
-
-        });
-
-        this.socket.on('connect_error', () => {
-            walletSocketSevice.io.emit('api_connect_error');
-        });
-
-        this.socket.on('newBlock', (block) => {
-            walletSocketSevice.currentSocket.emit('newBlock-api', block)
-        })
+        const mainApiEvents = ['disconnect', 'connect_error', 'newBlock'];
+        mainApiEvents.forEach(m => this.handleFromApiToWallet(m));
     }
     
     private handleFromApiToWallet(eventName: string) {
-        this.socket.on(eventName, (data: any) => walletSocketSevice.currentSocket.emit(eventName, data));
+        this.socket.on(eventName, (data: any) => walletSocketSevice.currentSocket.emit(`API::${eventName}`, data));
     }
 }

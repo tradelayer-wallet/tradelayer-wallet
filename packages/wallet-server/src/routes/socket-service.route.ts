@@ -40,61 +40,61 @@ export const socketRoutes = (socketScript: SocketScript) => {
                 });
         });
 
-        fastify.get('/initTrade', (request, reply) => {
-            try {
-                const { trade, keyPair } = request.query as { trade: string, keyPair: string };
-                const tradeObj = JSON.parse(trade);
-                const keyPairObj = JSON.parse(keyPair);
-                const { address, pubKey } = keyPairObj;
-                orderbookSocketService.socket.emit('init-trade', {...tradeObj, address, pubKey});
-                reply.send({data: 'Sent'});
-            } catch(error) {
-                reply.send({ error: error.message });
-            }
-        });
+        // fastify.get('/initTrade', (request, reply) => {
+        //     try {
+        //         const { trade, keyPair } = request.query as { trade: string, keyPair: string };
+        //         const tradeObj = JSON.parse(trade);
+        //         const keyPairObj = JSON.parse(keyPair);
+        //         const { address, pubKey } = keyPairObj;
+        //         orderbookSocketService.socket.emit('init-trade', {...tradeObj, address, pubKey});
+        //         reply.send({data: 'Sent'});
+        //     } catch(error) {
+        //         reply.send({ error: error.message });
+        //     }
+        // });
 
-        fastify.post('/initTrade', (request, reply) => {
-            try {
-                const { trade, keyPair } = request.body as { trade: any, keyPair: any };
-                if (!trade || !keyPair?.address || !keyPair?.pubKey) {
-                    reply.send({ error: 'Missing Data' });
-                    return;
-                }
-                const { address, pubKey } = keyPair;
-                orderbookSocketService.socket.emit('init-trade', { ...trade, address, pubKey });
-                reply.send({data: 'Sent'});
-            } catch(error) {
-                reply.send({ error: error.message });
-            }
-        })
+        // fastify.post('/initTrade', (request, reply) => {
+        //     try {
+        //         const { trade, keyPair } = request.body as { trade: any, keyPair: any };
+        //         if (!trade || !keyPair?.address || !keyPair?.pubKey) {
+        //             reply.send({ error: 'Missing Data' });
+        //             return;
+        //         }
+        //         const { address, pubKey } = keyPair;
+        //         orderbookSocketService.socket.emit('init-trade', { ...trade, address, pubKey });
+        //         reply.send({data: 'Sent'});
+        //     } catch(error) {
+        //         reply.send({ error: error.message });
+        //     }
+        // })
 
-        fastify.post('/removeOrder', (request, reply) => {
-            try {
-                const { order } = request.body as { order: any };
-                if (!order) {
-                    reply.send({ error: 'Missing Data' });
-                    return;
-                }
-                orderbookSocketService.socket.emit('close-position', order);
-                reply.send({data: 'Sent'});
-            } catch(error) {
-                reply.send({ error: error.message });
-            }
-        });
+        // fastify.post('/removeOrder', (request, reply) => {
+        //     try {
+        //         const { order } = request.body as { order: any };
+        //         if (!order) {
+        //             reply.send({ error: 'Missing Data' });
+        //             return;
+        //         }
+        //         orderbookSocketService.socket.emit('close-position', order);
+        //         reply.send({data: 'Sent'});
+        //     } catch(error) {
+        //         reply.send({ error: error.message });
+        //     }
+        // });
 
-        fastify.get('/ordersList', async (request, reply) => {
-            try {
-                const id = orderbookSocketService.socket.id;
-                const host = orderbookSocketService.isTestnet
-                    ? "http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com"
-                    : "http://170.187.147.182";
-                const res = await axios.get(`${host}:3002/trade/ordersList?id=${id}`);
-                if (res.data) return reply.send(res.data);
-                reply.send({ error: `Undefined Error`});
-            } catch(error) {
-                reply.send({ error: error.message });
-            }
-        });
+        // fastify.get('/ordersList', async (request, reply) => {
+        //     try {
+        //         const id = orderbookSocketService.socket.id;
+        //         const host = orderbookSocketService.isTestnet
+        //             ? "http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com"
+        //             : "http://170.187.147.182";
+        //         const res = await axios.get(`${host}:3002/trade/ordersList?id=${id}`);
+        //         if (res.data) return reply.send(res.data);
+        //         reply.send({ error: `Undefined Error`});
+        //     } catch(error) {
+        //         reply.send({ error: error.message });
+        //     }
+        // });
 
         fastify.get('/startWalletNode', async (request, reply) => {
             try {

@@ -5,7 +5,7 @@ import { SocketService } from "../socket.service";
 
 export interface IFuturesMarketType {
     name: string;
-    contracts: IContract[];
+    markets: IContract[];
     icon: string;
     disabled: boolean;
 }
@@ -33,7 +33,7 @@ export class FuturesMarketsService {
     private _futuresMarketsTypes: IFuturesMarketType[] = [];
 
     private _selectedFuturesMarketType: IFuturesMarketType = this.futuresMarketsTypes[0] || null;
-    private _selectedContract: IContract = this.selectedFuturesMarketType?.contracts[0] || null;
+    private _selectedContract: IContract = this.selectedFuturesMarketType?.markets[0] || null;
 
     constructor(
         private apiService: ApiService,
@@ -60,7 +60,7 @@ export class FuturesMarketsService {
 
     get contractsFromSelectedFuturesMarketType(): IContract[] {
         if (!this.futuresMarketsTypes.length) return [];
-        return this.selectedFuturesMarketType.contracts;
+        return this.selectedFuturesMarketType.markets;
     }
     get selectedFutururesMarketTypeIndex() {
         return this.futuresMarketsTypes.indexOf(this.selectedFuturesMarketType);
@@ -79,6 +79,13 @@ export class FuturesMarketsService {
         return this.contractsFromSelectedFuturesMarketType.indexOf(this.selectedContract);
     }
 
+    get marketFilter() {
+        return {
+            type: 'FUTURES',
+            contractId: this.selectedContract.contractId,
+        };
+    };
+
     getMarkets() {
         this.apiService.marketApi.getFuturesMarkets()
             .subscribe((futuresMarketTypes: IFuturesMarketType[]) => {
@@ -88,10 +95,6 @@ export class FuturesMarketsService {
     }
 
     private changeOrderbookContractFilter(_contract: IContract) {
-        const contract = {
-            contractId: _contract.contractId,
-            contractName: _contract.contractName,
-        };
-        this.socket.emit('orderbook-contract-filter', contract);
+        this.socket.emit('update-orderbook', this.marketFilter);
     }
 }

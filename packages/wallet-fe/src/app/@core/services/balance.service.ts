@@ -4,7 +4,6 @@ import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 import { ToastrService } from "ngx-toastr";
 import { ApiService } from "./api.service";
-import { Position } from "./spot-services/spot-positions.service";
 
 const minBlocksForBalanceConf: number = 1;
 const emptyBalanceObj = {
@@ -76,7 +75,7 @@ export class BalanceService {
     }
 
     private handleSocketEvents() {
-        this.socketService.socket.on('newBlock-api', () => {
+        this.socketService.socket.on('API::newBlock', () => {
             if (!this.rpcService.isApiRPC) return;
             this.updateBalances();
         });
@@ -86,9 +85,9 @@ export class BalanceService {
             this.updateBalances();
         });
 
-        this.socketService.socket.on('opened-positions', (openedPositions: Position[]) => {
-            // this.updateLockedBalanceByOpenedPositions(openedPositions);
-        });
+        // this.socketService.socket.on('opened-positions', (openedPositions: Position[]) => {
+        //     this.updateLockedBalanceByOpenedPositions(openedPositions);
+        // });
     }
 
     // private updateLockedBalanceByOpenedPositions(openedPositions: Position[]) {

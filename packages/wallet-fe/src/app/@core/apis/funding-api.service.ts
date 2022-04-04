@@ -16,16 +16,16 @@ export class FundingApiService {
 
     private get apiUrl() {
         return this.NETWORK === "LTC"
-            ? environment.apiUrl + '/funding/'
-            : environment.apiUrlTestnet + '/funding/';
+            ? environment.orderbook_service_url + '/funding/'
+            : environment.orderbook_service_url_testnet + '/funding/';
     }
 
     _setNETWORK(value: TNETWORK) {
         this.NETWORK = value;
     }
 
-    fundAddress(address: string) {
-        const params = { address };
-        return this.http.get(this.apiUrl + 'address', { params });
-    }
+    // fundAddress(address: string) {
+    //     const params = { address };
+    //     return this.http.get(this.apiUrl + 'address', { params });
+    // }
 }

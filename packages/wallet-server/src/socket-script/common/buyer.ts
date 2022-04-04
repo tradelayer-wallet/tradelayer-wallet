@@ -9,7 +9,7 @@ export class Buyer {
     private commitUTXO: any;
 
     constructor(
-        private tradeInfo: ITradeInfo, 
+        private tradeInfo: ITradeInfo | any, 
         private myInfo: TBuyerSellerInfo, 
         private cpInfo: TBuyerSellerInfo,
         private asyncClient: TClient,
@@ -65,6 +65,13 @@ export class Buyer {
         const { scriptPubKey, redeemScript } = this.multySigChannelData;
         if (!scriptPubKey || !redeemScript) return this.terminateTrade('Error with getting multysig channel data');
         const commitInput: IInputs = { ...commitUTXO,  scriptPubKey, redeemScript };
+
+        if (this.tradeInfo.contractId) {
+            const rawHex = await this.buildContractTrade(commitInput);
+            if (rawHex.error || !rawHex.data) return this.terminateTrade(rawHex.error || `Error with Buildng Trade`);
+            this.socket.emit(`${this.myInfo.socketId}::BUYER:RAWTX`, { rawTx: rawHex.data, prevTx: this.commitUTXO });
+            return;
+        }
 
         const propIdForSale = this.tradeInfo.propIdForSale;
         if (propIdForSale === -1) {
@@ -125,7 +132,7 @@ export class Buyer {
                             this.myInfo.address,
                             this.multySigChannelData.address,
                             this.tradeInfo.propIdForSale,
-                            this.tradeInfo.amountForSale,
+                            (this.tradeInfo.amountForSale).toString(),
                         ];
                         //api-first commit to channel
                         const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);
@@ -151,7 +158,7 @@ export class Buyer {
                         // -------------------------
                         
             const { propIdDesired, amountDesired, propIdForSale, amountForSale } = this.tradeInfo;
-            const cpitLTCOptions = [ propIdForSale, amountForSale, propIdDesired, amountDesired, bbData ];
+            const cpitLTCOptions = [ propIdForSale, (amountForSale).toString(), propIdDesired, (amountDesired).toString(), bbData ];
             const cpitRes = await this.asyncClient('tl_createpayload_instant_trade', ...cpitLTCOptions);
             if (cpitRes.error || !cpitRes.data) {
                 return { error: `tl_createpayload_instant_trade: ${cpitRes.error}` || `Error with creating payload` };
@@ -176,6 +183,77 @@ export class Buyer {
 
     }
 
+    private async buildContractTrade(commitUTXO: IInputs) {
+        try {
+            const { vout, amount, txid } = commitUTXO;
+            if (!vout || !amount || !txid)  return { error: 'Error Provided Commit Data' };
+    
+            const bbData: number = await this.getBestBlock(100);
+            if (!bbData) return { error: `Error with getting best block, ${bbData}` };
+    
+            await this.setEstimateFee();
+                        // ---------------------------------------
+                        const commitData = [
+                            this.myInfo.address,
+                            this.multySigChannelData.address,
+                            this.tradeInfo.collateral,
+                            (this.tradeInfo.amountDesired).toString(),
+                        ];
+                        //api-first commit to channel
+                        const ctcRes = await this.asyncClient("tl_commit_tochannel", ...commitData);
+                        const ctcErrorMessage = `Error with Commiting tokens to channel`;
+                        if (ctcRes.error || !ctcRes.data) return { error: `tl_commit_tochannel: ${ctcRes.error}` || ctcErrorMessage };
+
+                        // if api-first gettransction not workign
+                        const gtRes = await this.asyncClient("gettransaction", ctcRes.data);
+                        if (gtRes.error || !gtRes.data?.hex) return { error: `gettransaction: ${gtRes.error}`}
+                        const drtRes = await this.asyncClient("decoderawtransaction", gtRes.data.hex);
+                        if (drtRes.error || !drtRes.data?.vout) return { error: `decoderawtransaction: ${drtRes.error}` }
+                        const _vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData.address);
+                        if (!_vout) return { error: 'Undefined error. Code 963' };
+                        const { scriptPubKey, redeemScript } = this.multySigChannelData;
+
+                        this.commitUTXO = {
+                            amount: _vout.value,
+                            vout: _vout.n,
+                            txid: ctcRes.data,
+                            scriptPubKey,
+                            redeemScript,
+                        } as IInputs;
+                        // -------------------------
+                        
+            // const { amount, contractId, propIdForSale, amountForSale } = this.tradeInfo;
+            const cpitLTCOptions = [
+                this.tradeInfo.contractId,
+                (this.tradeInfo.amountDesired).toString(),
+                bbData,
+                (10).toString(),
+                this.tradeInfo.buyer ?  1 : 2,
+                (2).toString(),
+            ];
+            const cpitRes = await this.asyncClient('tl_createpayload_contract_instant_trade', ...cpitLTCOptions);
+            if (cpitRes.error || !cpitRes.data) {
+                return { error: `tl_createpayload_contract_instant_trade: ${cpitRes.error}` || `Error with creating payload` };
+            }
+            // if api-first ; add utxos from api to inputs;
+            const rawTxOptions: IBuildRawTxOptions = {
+                fromAddress: this.myInfo.address,
+                toAddress: this.cpInfo.address,
+                payload: cpitRes.data,
+                inputs: [commitUTXO, this.commitUTXO],
+                isTTTrade: true,
+            };
+
+            const ltcIt = new RawTx(rawTxOptions, this.asyncClient);
+            const bLTCit = await ltcIt.build();
+            if (bLTCit.error || !bLTCit.data) return { error: bLTCit.error || `Error with Building LTC Instat Trade` };
+            return { data: bLTCit.data };
+        } catch (error) {
+            return { error: error.message }
+        }
+
+    }
+
     private async buildLTCInstantTrade(commitUTXO: IInputs) {
         try {
             const { vout, amount, txid } = commitUTXO;
@@ -185,7 +263,7 @@ export class Buyer {
             if (!bbData) return { error: `Error with getting best block, ${bbData}` };
     
             const { propIdDesired, amountDesired, amountForSale } = this.tradeInfo;
-            const cpitLTCOptions = [ propIdDesired, amountDesired, amountForSale, bbData ];
+            const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), (amountForSale).toString(), bbData ];
             const cpitRes = await this.asyncClient('tl_createpayload_instant_ltc_trade', ...cpitLTCOptions);
             if (cpitRes.error || !cpitRes.data) {
                 return { error: `tl_createpayload_instant_ltc_trade: ${cpitRes.error}` || `Error with creating payload` };

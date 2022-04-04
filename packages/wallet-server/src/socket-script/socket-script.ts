@@ -1,7 +1,7 @@
 import { Client } from 'litecoin'
 import { ListenerServer } from './listener';
 import { asyncClient } from './common/async-client';
-import { IBuildRawTxOptions, IRPCConenction, ITradeInfo, TClient } from './common/types';
+import { IBuildRawTxOptions, IContractTradeInfo, IRPCConenction, ITradeInfo, TClient } from './common/types';
 import { Socket } from 'socket.io-client';
 import { Buyer } from './common/buyer';
 import { Seller } from './common/seller';
@@ -104,9 +104,12 @@ export class SocketScript {
             amountDesired, amountForSale, propIdDesired, propIdForSale, 
             buyerAddress, buyerPubKey, buyerSocketId,
             sellerAddress, sellerPubKey, sellerSocketId, 
-            buyer
+            buyer, contractId,
         } = trade;
-        const tradeInfo: ITradeInfo = { amountDesired, amountForSale, propIdDesired, propIdForSale };
+
+        const tradeInfo: ITradeInfo | IContractTradeInfo = contractId
+            ? { amountDesired, contractId, collateral: 4 }
+            : { amountDesired, amountForSale, propIdDesired, propIdForSale };
         const buyerObj = { address: buyerAddress, pubKey: buyerPubKey, socketId: buyerSocketId };
         const sellerObj = { address: sellerAddress, pubKey: sellerPubKey, socketId: sellerSocketId };
         const swap = buyer
