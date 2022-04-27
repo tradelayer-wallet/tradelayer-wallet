@@ -78,7 +78,6 @@ export class RPCConnectDialog {
       this.message = 'Please try again! ';
     } else {
       this.dialogRef.close();
-      // this.dialogService.openDialog(DialogTypes.SYNC_NODE);
       this.loadingService.isLoading = false;
     }
   }
@@ -102,10 +101,4 @@ export class RPCConnectDialog {
     this.router.navigateByUrl('/');
     this.loadingService.isLoading = false;
   }
-
-  // async newNodeConfiguration() {
-  //   this.message2 = ' ';
-  //   const dialogOptions = { disableClose: false, hasBackdrop: true };
-  //   this.dialogService.openDialog(DialogTypes.NEW_NODE, dialogOptions);
-  // }
 }

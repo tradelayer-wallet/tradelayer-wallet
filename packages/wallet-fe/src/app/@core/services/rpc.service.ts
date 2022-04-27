@@ -83,7 +83,6 @@ export class RpcService {
     }
 
     set isSynced(value: boolean) {
-      // if (value === true) this.saveConfigFile();
       this._isApiRPC = !value;
       this._isSynced = value;
     }
@@ -140,13 +139,6 @@ export class RpcService {
         return { error: res.error };
       }
 
-      // if (res.data?.isOffline && !startWithOffline) {
-      //   const data = { directory, isTestNet, flags };
-      //   const dialogOptions = { disableClose: false, hasBackdrop: true, data };
-      //   this.dialogService.openDialog(DialogTypes.OFFLINE_WALLET, dialogOptions);
-      //   return { error: 'Unable to connect to web server!' };
-      // }
-
       if (res.error || !res.data?.configObj) return { error: res.error };
 
       this.isOffline = res.data.isOffline;
@@ -157,7 +149,6 @@ export class RpcService {
       const connectRes = await this.connect(connectCreds, isTestNet);
       if (!connectRes) return { error: 'Unable to start local node. Probably already running' };
       this.dialogService.closeAllDialogs();
-      // this.dialogService.openDialog(DialogTypes.SYNC_NODE);
       return { data: connectRes };
     }
 
@@ -217,7 +208,6 @@ export class RpcService {
     }
 
     private _saveCreds(credentials: RPCCredentials) {
-      // window.localStorage.setItem('nodeConnection', JSON.stringify(credentials));
       this.isConnected = true;
       const url = `http://${credentials.host}:${credentials.port}`;
       this.rpcHost = url;

@@ -125,7 +125,6 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             if (this.nodeBlock + 1 >= this.networkBlocks) {
                 if (!this.rpcService.isSynced) this.rpcService.isSynced = true;
                 this.message = 'FULL SYNCED';
-                // if (this.syncTab) this.syncTab.minimized = true;
             }
             this.message = ' ';
             return;

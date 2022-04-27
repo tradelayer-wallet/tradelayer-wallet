@@ -84,44 +84,7 @@ export class BalanceService {
             if (this.rpcService.isApiRPC) return;
             this.updateBalances();
         });
-
-        // this.socketService.socket.on('opened-positions', (openedPositions: Position[]) => {
-        //     this.updateLockedBalanceByOpenedPositions(openedPositions);
-        // });
     }
-
-    // private updateLockedBalanceByOpenedPositions(openedPositions: Position[]) {
-    //     const myPositions = openedPositions.filter(p => p.address === this.selectedAddress);
-    //     if (!myPositions) return;
-    //     const lockedBalancesArray: { propIdForSale: number, locked: number }[] = [];
-    //     myPositions.forEach(pos => {
-    //         const { amount, price, propIdForSale, isBuy} = pos;
-    //         const _locked = isBuy ? amount * price : amount;
-    //         const locked = parseFloat(_locked.toFixed(5));
-    //         const existing = lockedBalancesArray.find(e => e.propIdForSale === propIdForSale);
-    //         existing
-    //             ? existing.locked = parseFloat((existing.locked + locked).toFixed(5))
-    //             : lockedBalancesArray.push({ propIdForSale, locked });
-    //     });
-
-    //     const fbLocked = lockedBalancesArray.find(lb => lb.propIdForSale === -1)?.locked || 0;
-    //     this.updateFiatLockedBalance(fbLocked);
-
-    //     this.getTokensBalancesByAddress().forEach(tb => {
-    //         const tbLocked = lockedBalancesArray.find(lb => lb.propIdForSale === tb.propertyid)?.locked || 0;
-    //         this.updateTokenLockedBalanceById(tbLocked, tb.propertyid);
-    //     });
-    // }
-
-    // private updateTokenLockedBalanceById(lockedBalance: number, propid: number) {
-    //     const tokenBalanceObj = this.getTokensBalancesByAddress().find(t => t.propertyid === propid);
-    //     if (!tokenBalanceObj) return;
-    //     tokenBalanceObj.locked = lockedBalance;
-    // }
-
-    // private updateFiatLockedBalance(lockedBalance: number) {
-    //     this.getFiatBalancesByAddress(this.selectedAddress).locked = lockedBalance;
-    // }
 
     async updateBalances() {
         const addressesArray = this.addressService.allAddresses;
@@ -138,7 +101,6 @@ export class BalanceService {
             this.toastrService.error(fiatBalanceObjRes.error || `Error with updating balances`, 'Error');
             return;
         }
-        // const locked = this.getFiatBalancesByAddress(address)?.locked || 0;
         const { confirmed, unconfirmed } = fiatBalanceObjRes.data;
         const fiatObj = { confirmed, unconfirmed };
         if (!this._allBalancesObj[address]) this._allBalancesObj[address] = emptyBalanceObj;
@@ -185,12 +147,9 @@ export class BalanceService {
                 .map(async (token) => ({ ...token, name: await this.getTokenNameById(token.propertyid)}));
             const arr = await Promise.all(promisesArray);
             const data = arr.map((t) => {
-                // const locked = this.getTokensBalancesByAddress()?.find(tb => tb.propertyid === t.propertyid)?.locked || 0;
                 const balObj = {
                     ...t, 
-                    balance: parseFloat(t.balance), 
-                    // reserved: parseFloat(t.reserved),
-                    // locked,
+                    balance: parseFloat(t.balance),
                 };
                 return balObj;
             });
@@ -215,7 +174,6 @@ export class BalanceService {
             return res;
         } else {
             const setFeeRes = await this.rpcService.setEstimateFee();
-            // if (!setFeeRes.data || setFeeRes.error) return { error: 'Error with setting fee' };
             const res = this.isApiRPC
                 ?  await this.rpcService.localRpcCall('tl_send', [fromAddress, toAddress, propId, amount.toString()]).toPromise()
                 :  await this.rpcService.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);

@@ -134,8 +134,6 @@ export class HeaderComponent implements OnInit {
   getAvailableBalance() {
     if (!this.publicAddress) return`${(0).toFixed(5)} LTC`;
     const balanceObj = this.balanceService.getFiatBalancesByAddress(this.publicAddress);
-    // const { confirmed, locked } = balanceObj;
-    // const available = confirmed - locked;
     return `${balanceObj.confirmed.toFixed(5)} LTC`;
   }
 
@@ -145,7 +143,6 @@ export class HeaderComponent implements OnInit {
   }
 
   navigateTo(route: any) {
-    // route id 2 = Spot trading
     if (route.id === 2 || route.id === 3) {
       if (!this.socketService.orderbookServerConnected) {
         this.toastrService.warning('Please first connect to orderbook Server');

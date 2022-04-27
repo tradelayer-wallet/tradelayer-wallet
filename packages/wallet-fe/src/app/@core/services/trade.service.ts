@@ -69,10 +69,6 @@ export class TradeService {
         this.socket.on('OBSERVER::order:saved', (data: any) => {
             this.loadingService.tradesLoading = false;
             this.balanceService.updateBalances();
-            //dont send toastr message if the order is from liquidity provider address;
-            // const lpAddresses = this.liquidityProviderService.liquidityAddresses.map(e => e.address);
-            // if (lpAddresses.includes(data?.data?.address)) return;
-            //
             this.toastrService.success(`The Order is Saved in Orderbook`, "Success");
         });
 
