@@ -4,9 +4,9 @@ const CopyPlugin = require("copy-webpack-plugin");
 const webpack = require('webpack');
 
 const osPATH = {
-  WINDOWS: path.resolve(__dirname, 'src', 'litecoind.exe'),
-  LINUX: path.resolve(__dirname, 'src', 'litecoind'),
-  MAC: path.resolve(__dirname, 'src', 'litecoind-mac'),
+  WINDOWS: path.resolve(__dirname, 'src', 'core', 'litecoind.exe'),
+  LINUX: path.resolve(__dirname, 'src', 'core', 'litecoind'),
+  MAC: path.resolve(__dirname, 'src', 'core', 'litecoind-mac'),
 };
 
 module.exports = (env) => {
