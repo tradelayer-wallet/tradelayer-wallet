@@ -1,5 +1,4 @@
 import { Client } from 'litecoin'
-import { ListenerServer } from './listener';
 import { asyncClient } from './common/async-client';
 import { IBuildRawTxOptions, IContractTradeInfo, IRPCConenction, ITradeInfo, TClient } from './common/types';
 import { Socket } from 'socket.io-client';
@@ -12,7 +11,6 @@ import { getDataDefaultStrategy } from './liquidity-provider/default-strategy';
 
 export class SocketScript {
     private _ltcClient: any;
-    private _listener: ListenerServer;
     private _asyncClient: TClient;
     private isLiquidityStarted: boolean = false;
     private liqOptions: any;
@@ -27,14 +25,6 @@ export class SocketScript {
 
     private set ltcClient(value: any) {
         this._ltcClient = value;
-    }
-
-    private get listener() {
-        return this._listener;
-    }
-
-    private set listener(value: ListenerServer) {
-        this._listener = value;
     }
 
     get asyncClient() {

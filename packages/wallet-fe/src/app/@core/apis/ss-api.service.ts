@@ -18,11 +18,6 @@ export class SocketScriptApiService {
         return environment.homeApiUrl + '/ss/'
     }
 
-    rpcCall(command: string) {
-        const params = { command };
-        return this.http.get(this.apiUrl + 'rpcCall', { params });
-    }
-
     postRpcCall(method: string, params: any): Observable<{
         data: any;
         error: any;
@@ -35,20 +30,11 @@ export class SocketScriptApiService {
         }>(url, body);
     }
 
-    checkWalletServer() {
-        return this.http.get(this.apiUrl + 'checkConnection');
-    }
-
     connect(creds: RPCCredentials) {
         const { username, password, port } = creds;
         const params = { user: username, pass: password, port };
         return this.http.get(this.apiUrl + 'connect', { params });
     }
-
-    // postInitTrade(trade: ITradeConf | IContractTradeConf, keyPair: any) {
-    //     const body = { trade, keyPair };
-    //     return this.http.post(this.apiUrl + 'initTrade', body);
-    // }
 
     startWalletNode(
             directory: string,
@@ -91,11 +77,6 @@ export class SocketScriptApiService {
             data: any;
         }>(this.apiUrl + 'createNewNode', { params });
     }
-
-    // extractKeyPairFromPrivKey(privKey: string): Observable<any> {
-    //     const params = { privKey };
-    //     return this.http.get<any>(this.apiUrl + 'extractKeyPairFromPrivKey', { params });
-    // }
 
     withdraw(fromAddress: string, toAddress: string, amount: number): Observable<{ error: any; data: string }> {
         const params = { fromAddress, toAddress, amount };
