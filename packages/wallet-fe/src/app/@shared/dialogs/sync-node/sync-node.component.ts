@@ -170,5 +170,6 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     ngOnDestroy() {
         clearInterval(this.checkIntervalFunc);
         clearTimeout(this.checkTimeOutFunc);
+        this.socketService.socket.off('newBlock');
     }
 }
