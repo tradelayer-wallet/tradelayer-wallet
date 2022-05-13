@@ -173,7 +173,7 @@ export class BalanceService {
                 : await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
             return res;
         } else {
-            const setFeeRes = await this.rpcService.setEstimateFee();
+            // const setFeeRes = await this.rpcService.setEstimateFee();
             const res = this.isApiRPC
                 ?  await this.rpcService.localRpcCall('tl_send', [fromAddress, toAddress, propId, amount.toString()]).toPromise()
                 :  await this.rpcService.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);

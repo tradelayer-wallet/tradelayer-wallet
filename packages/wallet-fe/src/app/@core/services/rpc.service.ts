@@ -218,23 +218,23 @@ export class RpcService {
       return new HttpHeaders().set('Authorization', `Basic ${token}`);
     }
 
-    async setEstimateFee() {
-      if (this.isApiRPC) return;
-      const estimateRes = await this.rpc('estimatesmartfee', [1]);
-      if (estimateRes.error || !estimateRes.data?.feerate) {
-        this.toasterService.warning('Error getting Estimate Fee');
-      }
+    // async setEstimateFee() {
+    //   if (this.isApiRPC) return;
+    //   const estimateRes = await this.rpc('estimatesmartfee', [1]);
+    //   if (estimateRes.error || !estimateRes.data?.feerate) {
+    //     this.toasterService.warning('Error getting Estimate Fee');
+    //   }
 
-      const _feeRate = estimateRes.error || !estimateRes.data?.feerate
-        ? '0.001'
-        : estimateRes?.data?.feerate;
+    //   const _feeRate = estimateRes.error || !estimateRes.data?.feerate
+    //     ? '0.001'
+    //     : estimateRes?.data?.feerate;
 
-      const feeRate = parseFloat((parseFloat(_feeRate) * 1000).toFixed(8));
-      const setFeeRes = await this.rpc('settxfee', [feeRate]);
-      if (!setFeeRes.data || setFeeRes.error) {
-        this.toasterService.error('Error with Setting Estimate Fee');
-        return { error: true, data: null };
-      }
-      return setFeeRes;
-    }
+    //   const feeRate = parseFloat((parseFloat(_feeRate) * 1000).toFixed(8));
+    //   const setFeeRes = await this.rpc('settxfee', [feeRate]);
+    //   if (!setFeeRes.data || setFeeRes.error) {
+    //     this.toasterService.error('Error with Setting Estimate Fee');
+    //     return { error: true, data: null };
+    //   }
+    //   return setFeeRes;
+    // }
   }

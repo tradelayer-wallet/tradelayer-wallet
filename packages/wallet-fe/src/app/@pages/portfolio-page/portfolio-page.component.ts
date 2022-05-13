@@ -101,7 +101,7 @@ export class PortfolioPageComponent implements OnInit {
       this.toastrService.warning('Not Allowed on offline wallet', 'Warning');
       return;
     }
-    const data = { address };
+    const data = { address, propId: _propId };
     const TYPE = dialog === 'deposit'
       ? DialogTypes.DEPOSIT
       : dialog === 'withdraw'
