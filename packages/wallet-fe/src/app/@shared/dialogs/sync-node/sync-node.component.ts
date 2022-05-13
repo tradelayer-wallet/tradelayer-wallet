@@ -1,8 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { MatDialogRef } from '@angular/material/dialog';
-import { Router } from '@angular/router';
 import { ApiService } from 'src/app/@core/services/api.service';
-import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
+import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { SocketService } from 'src/app/@core/services/socket.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
