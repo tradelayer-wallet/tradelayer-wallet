@@ -1,7 +1,6 @@
 import { FastifyInstance } from "fastify"
 import SocketScript from "../socket-script";
 import { apiSocketService, orderbookSocketService, walletSocketSevice } from '../sockets';
-import axios from 'axios';
 import { INodeConfig, myWalletNode } from "../services/wallet-node";
 import { RawTx } from "../socket-script/common/rawtx";
 import { fasitfyServer } from '../../src/index';

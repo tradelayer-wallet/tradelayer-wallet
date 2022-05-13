@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify"
 import { SocketScript } from '../socket-script/socket-script';
-import { ApiSocketService } from "./api-socket.-service";
+import { ApiSocketService } from "./api-socket-service";
 import { OrderbookSocketService } from "./orderbook-socket-service";
 import { WalletSocketSevice } from "./wallet-socket-service";
 

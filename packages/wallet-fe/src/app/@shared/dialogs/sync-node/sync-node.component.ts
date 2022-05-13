@@ -134,9 +134,9 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     private async checkNetworkInfo() {
         try {
             if (this.isOffline) return;
-            const newtorkInfo = await this.sochainApi.getNetworkInfo().toPromise();
-            if (newtorkInfo.status !== 'success' || !newtorkInfo.data?.blocks) return
-            this.networkBlocks = newtorkInfo.data.blocks;
+            const networkInfo = await this.sochainApi.getNetworkInfo().toPromise();
+            if (networkInfo.status !== 'success' || !networkInfo.data?.blocks) return
+            this.networkBlocks = networkInfo.data.blocks;
         } catch(err) {
             console.log(err);
         }
