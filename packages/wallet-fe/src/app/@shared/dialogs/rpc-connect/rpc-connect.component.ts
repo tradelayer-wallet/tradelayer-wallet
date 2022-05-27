@@ -1,16 +1,16 @@
 import { Component, NgZone } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { Router } from '@angular/router';
-import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { ElectronService } from 'src/app/@core/services/electron.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
-import { RPCCredentials, RpcService } from 'src/app/@core/services/rpc.service';
+import { ENetwork, RpcService } from 'src/app/@core/services/rpc.service';
 
 @Component({
   selector: 'rpc-connect-dialog',
   templateUrl: './rpc-connect.component.html',
   styleUrls: ['./rpc-connect.component.scss']
 })
+
 export class RPCConnectDialog {
   public loading: boolean = false;
   public message: string = ' ';
@@ -22,13 +22,13 @@ export class RPCConnectDialog {
   public password: string = '';
   public _defaultDirectoryCheckbox: boolean = true;
   public directory: string = '';
-  public isTestNet: boolean = false;
 
   public reindex: boolean = false;
   public startclean: boolean = false;
   public showAdvanced: boolean = false;
 
   public isOnline: boolean = window.navigator.onLine;
+  public network: ENetwork = ENetwork.LTC;
 
   constructor(
     private rpcService: RpcService,
@@ -65,35 +65,34 @@ export class RPCConnectDialog {
     });
   }
 
-  async connect() {
-    this.message = ' ';
-    this.loadingService.isLoading = true;
+  // async connect() {
+  //   this.message = ' ';
+  //   this.loadingService.isLoading = true;
 
-    const { host, port, username, password } = this;
-    const credentials: RPCCredentials = { host, port, username, password };
-    const isTestNet = this.isTestNet;
-    const isConnected = await this.rpcService.connect(credentials, isTestNet);
-    this.loadingService.isLoading = false;
-    if (!isConnected) {
-      this.message = 'Please try again! ';
-    } else {
-      this.dialogRef.close();
-      this.loadingService.isLoading = false;
-    }
-  }
+  //   const { host, port, username, password } = this;
+  //   const credentials: RPCCredentials = { host, port, username, password };
+  //   const isTestNet = this.isTestNet;
+  //   const isConnected = await this.rpcService.connect(credentials, isTestNet);
+  //   this.loadingService.isLoading = false;
+  //   if (!isConnected) {
+  //     this.message = 'Please try again! ';
+  //   } else {
+  //     this.dialogRef.close();
+  //     this.loadingService.isLoading = false;
+  //   }
+  // }
 
   async startWalletNode() {
     this.message2 = ' ';
     this.loadingService.isLoading = true;
-    const isTestNet = this.isTestNet;
+    // const isTestNet = false;
+    const network = this.network;
     const path = this.defaultDirectoryCheckbox ? '' : this.directory;
     const { reindex, startclean } = this;
     const flags = { reindex, startclean };
-    const res = await this.rpcService.startWalletNode(path, isTestNet, flags, !this.isOnline);
+    const res = await this.rpcService.startWalletNode(path, network, flags, !this.isOnline);
     if (res.error || !res.data) {
-      if (!res.error?.includes("Config file doesn't exist in")) {
-        this.message2 = res.error || 'Please Try Again!';
-      }
+      this.message2 = res.error || 'Please Try Again!';
       this.loadingService.isLoading = false;
       return;
     }

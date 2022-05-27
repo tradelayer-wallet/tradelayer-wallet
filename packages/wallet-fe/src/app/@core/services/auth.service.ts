@@ -82,7 +82,7 @@ export class AuthService {
             }
         }
 
-        
+
         if (!this.rpcService.isOffline && !this.rpcService.isApiRPC) {
             const luRes = await this.rpcService.smartRpc('listunspent', [0, 999999999, [keyPairs[0]?.address]]);
             const scLuRes: any = await this.apiService.soChainApi.getTxUnspents(keyPairs[0]?.address).toPromise()
@@ -91,8 +91,9 @@ export class AuthService {
                 return;
             }
             if (luRes.data.length < scLuRes.data.txs?.length) {
-                this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
-                return;
+                this.toastrService.info('There may be some incorect balance data', 'Not full UTXOs');
+                // this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
+                // return;
             }
         }
 

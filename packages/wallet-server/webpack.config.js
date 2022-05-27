@@ -4,9 +4,16 @@ const CopyPlugin = require("copy-webpack-plugin");
 const webpack = require('webpack');
 
 const osPATH = {
-  WINDOWS: path.resolve(__dirname, 'src', 'core', 'litecoind.exe'),
-  LINUX: path.resolve(__dirname, 'src', 'core', 'litecoind'),
-  MAC: path.resolve(__dirname, 'src', 'core', 'litecoind-mac'),
+  WINDOWS: [
+    path.resolve(__dirname, 'src', 'core', 'litecoind.exe'),
+    path.resolve(__dirname, 'src', 'core', 'bitcoind.exe'),
+  ],
+  LINUX: [
+    path.resolve(__dirname, 'src', 'core', 'litecoind'),
+  ],
+  MAC: [
+    path.resolve(__dirname, 'src', 'core', 'litecoind-mac'),
+  ],
 };
 
 module.exports = (env) => {
@@ -32,11 +39,7 @@ module.exports = (env) => {
         envFilePath
       ),
       new CopyPlugin({
-        patterns: [
-          {
-            from: fromPath,
-          }
-        ]
+        patterns: [ ...fromPath ],
       })
     ],
     entry: path.join(__dirname, './src/index.ts'),

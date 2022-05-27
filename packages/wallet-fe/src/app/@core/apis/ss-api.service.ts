@@ -2,7 +2,7 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { environment } from "src/environments/environment";
-import { RPCCredentials } from "../services/rpc.service";
+import { ENetwork, RPCCredentials } from "../services/rpc.service";
 
 @Injectable({
     providedIn: 'root',
@@ -38,7 +38,7 @@ export class SocketScriptApiService {
 
     startWalletNode(
             directory: string,
-            isTestNet: boolean,
+            network: ENetwork,
             flags: { reindex: boolean; startclean: boolean },
             startWithOffline: boolean,
         ): Observable<{
@@ -48,13 +48,13 @@ export class SocketScriptApiService {
     }> {
         const { reindex, startclean } = flags;
         const params: { 
-            isTestNet: boolean; 
+            network: ENetwork; 
             directory?: string;
             reindex: boolean;
             startclean: boolean;
             startWithOffline: boolean,
         } = {
-            isTestNet,
+            network,
             startclean,
             reindex,
             startWithOffline,

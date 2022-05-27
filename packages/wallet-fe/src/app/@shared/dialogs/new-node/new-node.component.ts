@@ -46,25 +46,25 @@ export class NewNodeDialog {
   }
 
   async create() {
-    this.message = ' ';
-    this.loadingService.isLoading = true;
-    const validCreds = this.validCreds();
-    if (!validCreds) return;
-    const { port, username, password } = this;
-    const path = this.directory;
-    const creds = { port, username, password, path };
-    const res = await this.rpcService.createNewNode(creds);
+    // this.message = ' ';
+    // this.loadingService.isLoading = true;
+    // const validCreds = this.validCreds();
+    // if (!validCreds) return;
+    // const { port, username, password } = this;
+    // const path = this.directory;
+    // const creds = { port, username, password, path };
+    // const res = await this.rpcService.createNewNode(creds);
 
-    if (res.error || !res.data) {
-      this.message = res.error || 'Please check the inputs and try again!';
-      this.loadingService.isLoading = false;
-      return;
-    } else {
-      await this.rpcService.startWalletNode(this.directory, this.isTestNet, this.flags);
-      this.loadingService.isLoading = false;
-      this.dialogRef.close();
-      return;
-    }
+    // if (res.error || !res.data) {
+    //   this.message = res.error || 'Please check the inputs and try again!';
+    //   this.loadingService.isLoading = false;
+    //   return;
+    // } else {
+    //   await this.rpcService.startWalletNode(this.directory, this.isTestNet, this.flags);
+    //   this.loadingService.isLoading = false;
+    //   this.dialogRef.close();
+    //   return;
+    // }
   }
 
   validCreds() {

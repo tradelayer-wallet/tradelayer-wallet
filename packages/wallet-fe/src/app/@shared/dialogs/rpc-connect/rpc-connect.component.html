@@ -16,7 +16,15 @@
                 >Select Directory</button>
             </div>
             <span style="text-align: center; width: 100%;">{{ directory.length > 30 ? "..." + directory.slice(-30) : directory }}</span>
-            <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='isTestNet'>-testnet</mat-checkbox>
+            <mat-form-field appearance="fill" >
+                <mat-label>Network</mat-label>
+                <mat-select [(ngModel)]="network">
+                    <mat-option value="BTC">Bitcoin</mat-option>
+                    <mat-option value="LTC">Litecoin</mat-option>
+                    <mat-option value="BTCTEST">Bitcoin Testnet</mat-option>
+                    <mat-option value="LTCTEST">Litecoin Testnet</mat-option>
+                </mat-select>
+            </mat-form-field>
             <div class="advanced">
                 <mat-icon (click)="toggleAdvanced()">
                     {{ showAdvanced ? "arrow_drop_up" : "arrow_drop_down" }}

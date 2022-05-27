@@ -38,17 +38,16 @@ export const socketRoutes = (socketScript: SocketScript) => {
 
         fastify.get('/startWalletNode', async (request, reply) => {
             try {
-                const { directory, isTestNet, reindex, startclean, startWithOffline } = request.query as { 
+                const { directory, network, reindex, startclean, startWithOffline } = request.query as { 
                     directory: string, 
-                    isTestNet: string, 
+                    network: string, 
                     reindex: string,
                     startclean: string, 
                     startWithOffline: string,
                 };
-                const _isTestNetBool = isTestNet === 'true';
+                const _isTestNetBool = network.endsWith('TEST');
                 const isReindex = reindex === 'true';
                 const isStartclean = startclean === 'true';
-
                 const isStartWithOffline = startWithOffline === 'true';
 
                 const walletNodeOptions = {
@@ -58,7 +57,7 @@ export const socketRoutes = (socketScript: SocketScript) => {
                     startclean: isStartclean,
                 };
 
-                const res = await myWalletNode.startWalletNode(walletNodeOptions, isStartWithOffline);
+                const res = await myWalletNode.startWalletNode(walletNodeOptions, isStartWithOffline, network);
                 reply.send(res);
             } catch (error) {
                 reply.send({ error: error.message });
