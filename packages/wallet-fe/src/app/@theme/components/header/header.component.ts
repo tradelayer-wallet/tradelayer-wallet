@@ -32,13 +32,13 @@ export class HeaderComponent implements OnInit {
       needAuthToShow: true,
       needFullSync: true,
     },
-    {
-      id: 3,
-      name: 'Futures',
-      link: 'futures',
-      needAuthToShow: true,
-      needFullSync: true,
-    },
+    // {
+    //   id: 3,
+    //   name: 'Futures',
+    //   link: 'futures',
+    //   needAuthToShow: true,
+    //   needFullSync: true,
+    // },
     {
       id: 4,
       name: 'Portfolio',
@@ -51,20 +51,20 @@ export class HeaderComponent implements OnInit {
       link: 'settings',
       needAuthToShow: true,
     },
-    {
-      id: 6,
-      name: 'Node Reward',
-      link: 'reward',
-      needAuthToShow: true,
-      needFullSync: true,
-    },
-    {
-      id: 7,
-      name: 'Liquidity Provider',
-      link: 'liquidity-provider',
-      needAuthToShow: true,
-      needFullSync: true,
-    },
+    // {
+    //   id: 6,
+    //   name: 'Node Reward',
+    //   link: 'reward',
+    //   needAuthToShow: true,
+    //   needFullSync: true,
+    // },
+    // {
+    //   id: 7,
+    //   name: 'Liquidity Provider',
+    //   link: 'liquidity-provider',
+    //   needAuthToShow: true,
+    //   needFullSync: true,
+    // },
     {
       id: 8,
       name: 'Multisig',
@@ -134,8 +134,6 @@ export class HeaderComponent implements OnInit {
   getAvailableBalance() {
     if (!this.publicAddress) return`${(0).toFixed(5)} LTC`;
     const balanceObj = this.balanceService.getFiatBalancesByAddress(this.publicAddress);
-    // const { confirmed, locked } = balanceObj;
-    // const available = confirmed - locked;
     return `${balanceObj.confirmed.toFixed(5)} LTC`;
   }
 
@@ -145,7 +143,6 @@ export class HeaderComponent implements OnInit {
   }
 
   navigateTo(route: any) {
-    // route id 2 = Spot trading
     if (route.id === 2 || route.id === 3) {
       if (!this.socketService.orderbookServerConnected) {
         this.toastrService.warning('Please first connect to orderbook Server');

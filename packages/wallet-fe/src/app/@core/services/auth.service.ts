@@ -47,21 +47,7 @@ export class AuthService {
 
         this.encKey = ltcUtils.encryptKeyPair(this.addressService.keyPairs, pass);
         this.dialogService.openEncKeyDialog(this.encKey);
-        // if (this.rpcService.NETWORK === "LTCTEST") this.fundAddress(pair.address);
     }
-
-    // private fundAddress(address: string) {
-    //     this.apiService.fundingApi.fundAddress(address)
-    //         .subscribe((res: any) => {
-    //             res.error || !res.data
-    //                 ? this.toastrService.error(res.error || 'Error with funding the address!')
-    //                 : this.toastrService.success(res.data || `Address Funded!`);
-    //         });
-    // }
-
-    // async loginFromPrivKey(privKey: string, pass: string) {
-    //     const res = await this.apiService.socketScriptApi.extractKeyPairFromPrivKey(privKey).toPromise();
-    // }
 
     async loginFromKeyFile(key: string, pass: string) {
         const res = ltcUtils.decryptKeyPair(key, pass) as (IKeyPair | IMultisigPair)[];
@@ -96,7 +82,7 @@ export class AuthService {
             }
         }
 
-        
+
         if (!this.rpcService.isOffline && !this.rpcService.isApiRPC) {
             const luRes = await this.rpcService.smartRpc('listunspent', [0, 999999999, [keyPairs[0]?.address]]);
             const scLuRes: any = await this.apiService.soChainApi.getTxUnspents(keyPairs[0]?.address).toPromise()
@@ -105,8 +91,9 @@ export class AuthService {
                 return;
             }
             if (luRes.data.length < scLuRes.data.txs?.length) {
-                this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
-                return;
+                this.toastrService.info('There may be some incorect balance data', 'Not full UTXOs');
+                // this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
+                // return;
             }
         }
 

@@ -21,9 +21,6 @@ export class NewNodeDialog {
   public password: string = '';
   public repassword: string = '';
 
-  // public defaultDirectoryCheckbox: boolean = true;
-  // public directory: string = defaultPath;
-
   constructor(
     private loadingService: LoadingService,
     private rpcService: RpcService,
@@ -49,35 +46,31 @@ export class NewNodeDialog {
   }
 
   async create() {
-    this.message = ' ';
-    this.loadingService.isLoading = true;
-    const validCreds = this.validCreds();
-    if (!validCreds) return;
-    const { port, username, password } = this;
-    // const path = this.defaultDirectoryCheckbox ? defaultPath : this.directory;
-    const path = this.directory;
-    // const isTestNet = this.isTestNet;
-    const creds = { port, username, password, path };
-    const res = await this.rpcService.createNewNode(creds);
+    // this.message = ' ';
+    // this.loadingService.isLoading = true;
+    // const validCreds = this.validCreds();
+    // if (!validCreds) return;
+    // const { port, username, password } = this;
+    // const path = this.directory;
+    // const creds = { port, username, password, path };
+    // const res = await this.rpcService.createNewNode(creds);
 
-    if (res.error || !res.data) {
-      this.message = res.error || 'Please check the inputs and try again!';
-      this.loadingService.isLoading = false;
-      return;
-    } else {
-      await this.rpcService.startWalletNode(this.directory, this.isTestNet, this.flags);
-      // this.toastrService.success('Configuration file is created', 'Success');
-      this.loadingService.isLoading = false;
-      this.dialogRef.close();
-      return;
-    }
+    // if (res.error || !res.data) {
+    //   this.message = res.error || 'Please check the inputs and try again!';
+    //   this.loadingService.isLoading = false;
+    //   return;
+    // } else {
+    //   await this.rpcService.startWalletNode(this.directory, this.isTestNet, this.flags);
+    //   this.loadingService.isLoading = false;
+    //   this.dialogRef.close();
+    //   return;
+    // }
   }
 
   validCreds() {
       if (this.port > 65535) return false;
       if (this.username.length < 3) return false;
       if (this.password.length < 3 || this.password !== this.repassword) return false;
-      // if (!this.directory.length) return false;
       return true;
   }
 }

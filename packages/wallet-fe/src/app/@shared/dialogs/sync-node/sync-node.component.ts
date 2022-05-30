@@ -1,8 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { MatDialogRef } from '@angular/material/dialog';
-import { Router } from '@angular/router';
-import { ApiService } from 'src/app/@core/services/api.service';
-import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
+// import { ApiService } from 'src/app/@core/services/api.service';
+import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { SocketService } from 'src/app/@core/services/socket.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
@@ -37,16 +35,16 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     constructor(
         private rpcService: RpcService,
-        private apiService: ApiService,
+        // private apiService: ApiService,
         private socketService: SocketService,
         private authService: AuthService,
         private dialogService: DialogService,
         private windowsService: WindowsService,
     ) {}
 
-    get sochainApi() {
-        return this.apiService.soChainApi;
-    }
+    // get sochainApi() {
+    //     return this.apiService.soChainApi;
+    // }
 
     get isSynced() {
         return this.rpcService.isSynced;
@@ -88,7 +86,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     private async startCheckingSync() {
         this.subscribeToNewBlocks();
-        await this.checkNetworkInfo();
+        // await this.checkNetworkInfo();
         this.checkSync();
         this.checkIntervalFunc = setInterval(() => {
             if (!this.stopChecking) this.checkSync();
@@ -96,7 +94,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     private async checkSync() {
-        const giRes = await this.rpcService.rpc('tl_getinfo');
+        const giRes = await this.rpcService.rpc('getblockchaininfo');
         if (giRes.error || !giRes.data) {
             this.terminateDisabled = true;
             this.message = giRes.error || 'Undefined Error!';
@@ -112,36 +110,36 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             this.rpcService.saveConfigFile();
         }
         this.stopChecking = false;
-        this.nodeBlock = giRes.data.block;
+        this.nodeBlock = giRes.data.blocks;
         if (this.isOffline) {
             clearInterval(this.checkIntervalFunc);
             clearTimeout(this.checkTimeOutFunc);
             this.message = ' ';
             return;
         } else {
-            await this.checkNetworkInfo();
+            // await this.checkNetworkInfo();
+            this.networkBlocks = giRes.data.headers;
             this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
             this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
             if (this.nodeBlock + 1 >= this.networkBlocks) {
                 if (!this.rpcService.isSynced) this.rpcService.isSynced = true;
                 this.message = 'FULL SYNCED';
-                // if (this.syncTab) this.syncTab.minimized = true;
             }
             this.message = ' ';
             return;
         }
     }
 
-    private async checkNetworkInfo() {
-        try {
-            if (this.isOffline) return;
-            const newtorkInfo = await this.sochainApi.getNetworkInfo().toPromise();
-            if (newtorkInfo.status !== 'success' || !newtorkInfo.data?.blocks) return
-            this.networkBlocks = newtorkInfo.data.blocks;
-        } catch(err) {
-            console.log(err);
-        }
-    }
+    // private async checkNetworkInfo() {
+    //     try {
+    //         if (this.isOffline) return;
+    //         const networkInfo = await this.sochainApi.getNetworkInfo().toPromise();
+    //         if (networkInfo.status !== 'success' || !networkInfo.data?.blocks) return
+    //         this.networkBlocks = networkInfo.data.blocks;
+    //     } catch(err) {
+    //         console.log(err);
+    //     }
+    // }
 
     private subscribeToNewBlocks() {
         this.socketService.socket.on('newBlock', (b) => (b > 0) ? this.nodeBlock = b : null);
@@ -171,5 +169,6 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     ngOnDestroy() {
         clearInterval(this.checkIntervalFunc);
         clearTimeout(this.checkTimeOutFunc);
+        this.socketService.socket.off('newBlock');
     }
 }

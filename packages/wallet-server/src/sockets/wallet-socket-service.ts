@@ -3,11 +3,6 @@ import { SocketScript } from '../socket-script/socket-script';
 import { FastifyInstance } from "fastify"
 import { disconnectFromOrderbook, initApiService, initOrderbookConnection, orderbookSocketService } from ".";
 
-interface IContractInfo {
-    contractName: string;
-    contractId: number;
-}
-
 export class WalletSocketSevice {
     public io: Server;
     public currentSocket: Socket;

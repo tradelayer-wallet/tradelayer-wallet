@@ -31,7 +31,7 @@ export class InfoLineComponent implements OnInit {
   }
 
   get network() {
-    return this.rpcService.NETWORK === 'LTCTEST' ? 'TESTNET' : 'MAINNET';
+    return this.rpcService.NETWORK;
   }
 
   get windows() {

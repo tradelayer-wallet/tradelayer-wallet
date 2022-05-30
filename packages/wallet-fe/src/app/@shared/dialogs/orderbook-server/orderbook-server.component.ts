@@ -26,7 +26,7 @@ export class OrderbookServerDialog implements OnInit, OnDestroy {
     }
 
     get isTestnet() {
-      return this.rpcService.NETWORK === 'LTCTEST';
+      return this.rpcService.NETWORK.endsWith('TEST');
     }
 
     ngOnInit() {

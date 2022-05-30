@@ -7,13 +7,20 @@ import { ToastrService } from "ngx-toastr";
 // import { WindowsService } from "./windows.service";
 import { LoadingService } from "./loading.service";
 
-export type TNETWORK = 'LTC' | 'LTCTEST';
+export type TNETWORK = 'LTC' | 'LTCTEST' | 'BTC' | 'BTCTEST';
 
 export interface RPCCredentials {
   host: string,
   port: number,
   username: string,
   password: string,
+};
+
+export enum ENetwork {
+  BTC = 'BTC',
+  LTC = 'LTC',
+  BTCTEST = 'BTCTEST',
+  LTCTEST = 'LTCTEST',
 };
 
 @Injectable({
@@ -83,7 +90,6 @@ export class RpcService {
     }
 
     set isSynced(value: boolean) {
-      // if (value === true) this.saveConfigFile();
       this._isApiRPC = !value;
       this._isSynced = value;
     }
@@ -101,19 +107,17 @@ export class RpcService {
     }
 
     async saveConfigFile() {
-      const isTestNet = this.NETWORK === "LTCTEST";
+      const isTestNet = this.NETWORK.endsWith('TEST');
       const res = await this.socketScriptApi.saveConfigFile(isTestNet).toPromise();
     }
 
-    connect(credentials: RPCCredentials, isTestNet: boolean) {
+    connect(credentials: RPCCredentials, network: TNETWORK) {
       return new Promise(async (res, rej) => {
         try {
           const isReady = await this._sendCredsToHomeApi(credentials);
           if (isReady) {
             this._saveCreds(credentials);
-            isTestNet
-              ? this.NETWORK = "LTCTEST"
-              : this.NETWORK = "LTC";
+            this.NETWORK = network;
           }
           res(isReady);
         } catch (error) {
@@ -128,43 +132,37 @@ export class RpcService {
 
     async startWalletNode(
         directory: string,
-        isTestNet: boolean,
+        network: ENetwork,
         flags: { reindex: boolean, startclean: boolean },
         startWithOffline: boolean = false,
       ) {
-      const res = await this.socketScriptApi.startWalletNode(directory, isTestNet, flags, startWithOffline).toPromise();
-      this.socketService.mainApiServerWaiting = true;
-      if (res.error?.includes("Config file doesn't exist in")) {
-        const dialogOptions = { disableClose: false, hasBackdrop: true, data: { directory, isTestNet, flags }};
-        this.dialogService.openDialog(DialogTypes.NEW_NODE, dialogOptions);
-        return { error: res.error };
-      }
+      const res = await this.socketScriptApi.startWalletNode(directory, network, flags, startWithOffline).toPromise();
 
-      // if (res.data?.isOffline && !startWithOffline) {
-      //   const data = { directory, isTestNet, flags };
-      //   const dialogOptions = { disableClose: false, hasBackdrop: true, data };
-      //   this.dialogService.openDialog(DialogTypes.OFFLINE_WALLET, dialogOptions);
-      //   return { error: 'Unable to connect to web server!' };
+      const isTestNet = network.endsWith('TEST');
+      // if (res.error?.includes("Config file doesn't exist in")) {
+      //   const dialogOptions = { disableClose: false, hasBackdrop: true, data: { directory, isTestNet, flags }};
+      //   this.dialogService.openDialog(DialogTypes.NEW_NODE, dialogOptions);
+      //   return { error: res.error };
       // }
 
       if (res.error || !res.data?.configObj) return { error: res.error };
+      this.socketService.mainApiServerWaiting = true;
 
       this.isOffline = res.data.isOffline;
       this.myVersion = res.data.myVersion
       const host = 'localhost';
       const { rpcuser, rpcpassword, rpcport } = res.data.configObj;
       const connectCreds = { host, username: rpcuser, password: rpcpassword, port: rpcport };
-      const connectRes = await this.connect(connectCreds, isTestNet);
+      const connectRes = await this.connect(connectCreds, network);
       if (!connectRes) return { error: 'Unable to start local node. Probably already running' };
       this.dialogService.closeAllDialogs();
-      // this.dialogService.openDialog(DialogTypes.SYNC_NODE);
       return { data: connectRes };
     }
 
-    async createNewNode(creds: { username: string, password: string, port: number, path: string }) {
-      const res = await this.socketScriptApi.createNewNode(creds).toPromise();
-      return res;
-    }
+    // async createNewNode(creds: { username: string, password: string, port: number, path: string }) {
+    //   const res = await this.socketScriptApi.createNewNode(creds).toPromise();
+    //   return res;
+    // }
 
     async smartRpc(method: string, params: any[] = []) {
       return this.isApiRPC
@@ -217,7 +215,6 @@ export class RpcService {
     }
 
     private _saveCreds(credentials: RPCCredentials) {
-      // window.localStorage.setItem('nodeConnection', JSON.stringify(credentials));
       this.isConnected = true;
       const url = `http://${credentials.host}:${credentials.port}`;
       this.rpcHost = url;
@@ -228,23 +225,23 @@ export class RpcService {
       return new HttpHeaders().set('Authorization', `Basic ${token}`);
     }
 
-    async setEstimateFee() {
-      if (this.isApiRPC) return;
-      const estimateRes = await this.rpc('estimatesmartfee', [1]);
-      if (estimateRes.error || !estimateRes.data?.feerate) {
-        this.toasterService.warning('Error getting Estimate Fee');
-      }
+    // async setEstimateFee() {
+    //   if (this.isApiRPC) return;
+    //   const estimateRes = await this.rpc('estimatesmartfee', [1]);
+    //   if (estimateRes.error || !estimateRes.data?.feerate) {
+    //     this.toasterService.warning('Error getting Estimate Fee');
+    //   }
 
-      const _feeRate = estimateRes.error || !estimateRes.data?.feerate
-        ? '0.001'
-        : estimateRes?.data?.feerate;
+    //   const _feeRate = estimateRes.error || !estimateRes.data?.feerate
+    //     ? '0.001'
+    //     : estimateRes?.data?.feerate;
 
-      const feeRate = parseFloat((parseFloat(_feeRate) * 1000).toFixed(8));
-      const setFeeRes = await this.rpc('settxfee', [feeRate]);
-      if (!setFeeRes.data || setFeeRes.error) {
-        this.toasterService.error('Error with Setting Estimate Fee');
-        return { error: true, data: null };
-      }
-      return setFeeRes;
-    }
+    //   const feeRate = parseFloat((parseFloat(_feeRate) * 1000).toFixed(8));
+    //   const setFeeRes = await this.rpc('settxfee', [feeRate]);
+    //   if (!setFeeRes.data || setFeeRes.error) {
+    //     this.toasterService.error('Error with Setting Estimate Fee');
+    //     return { error: true, data: null };
+    //   }
+    //   return setFeeRes;
+    // }
   }

@@ -167,8 +167,7 @@ export class AddressService {
     async kycAddress(address: string) {
         await this.checkKycStatusForAddress(address);
         if (this.allAttestations[address] !== EKYCStatus.DISABLED) return;
-        const setFeeRes = await this.rpcService.setEstimateFee();
-        // if (!setFeeRes.data || setFeeRes.error) return;
+        // const setFeeRes = await this.rpcService.setEstimateFee();
         const attRes = this.isApiRPC
             ? await this.rpcService.localRpcCall('tl_attestation', [address, address]).toPromise()
             : await this.rpcService.rpc('tl_attestation', [address, address]);

@@ -4,7 +4,7 @@ import { ChildProcess, exec } from 'child_process';
 import { fasitfyServer } from '../index';
 import { coreFilePathObj, defaultDirObj } from '../conf/windows.conf';
 import { addTESTNETNodeServer } from '../conf/conf';
-import { initApiService, initOrderbookConnection, myVersions, walletSocketSevice } from '../sockets';
+import { initApiService, myVersions, walletSocketSevice } from '../sockets';
 import { customLogger } from '../socket-script/common/logger';
 import { Client } from 'litecoin'
 import { asyncClient } from '../socket-script/common/async-client';
@@ -77,9 +77,9 @@ class WalletNodeInstance {
         return str || '';
     }
 
-    async startWalletNode(options: any, startWithOffline: boolean = false) {
+    async startWalletNode(options: any, startWithOffline: boolean = false, network: string) {
         const flagsObject = new FlagsObject(options);
-
+        const coreString = network.replace('TEST', '');
         const isTestNet = !!flagsObject.testnet;
         const path = flagsObject.datadir || defaultDir;
         this.defaultPath = path;
@@ -99,12 +99,18 @@ class WalletNodeInstance {
         // }
 
         const upToDate = this._chechVersions(path, isTestNet);
-        if (!upToDate) flagsObject.startclean = 1;
-        if (upToDate === 0) flagsObject.startclean = 1;
+        if (!upToDate && coreString === 'LTC') flagsObject.startclean = 1;
+        if (upToDate === 0 && coreString === 'LTC') flagsObject.startclean = 1;
 
         //check config file
-        const configFilePath = join(path, 'litecoin.conf');
-        if (!existsSync(configFilePath)) return { error: `Config file doesn't exist in: ${path}` };
+        const coreConfFileName = coreString === 'LTC'
+            ? 'litecoin'
+            : coreString === 'BTC'
+                ? 'bitcoin'
+                : null;
+        if (!coreConfFileName) return 'Wrong Core Name';
+        const configFilePath = join(path, `${coreConfFileName}.conf`);
+        if (!existsSync(configFilePath)) return { error: `Config file (${coreConfFileName}.conf) doesn't exist in: ${path}` };
         const confFile = readFileSync(configFilePath, { encoding: 'utf8' });
         const configObj: any = structureConfFile(confFile);
         const { rpcuser, rpcport, rpcpassword } = configObj;
@@ -112,7 +118,10 @@ class WalletNodeInstance {
         // --------
 
         const flagsString = this.convertFlagsObjectToString(flagsObject);
-        const file = `"${coreFilePathObj}"`;
+        const file = `"${coreFilePathObj[coreString]}"`;
+
+        if (!file) return { error: `Cant find ${coreString} core file` };
+
         const command = `${file}${flagsString}`;
         const execFileResult = await this.execFileByCommandPromise(command, configObj) as { data: any; error: any };
         customLogger(`exec_${command}: ${JSON.stringify(execFileResult)}`);
@@ -122,11 +131,11 @@ class WalletNodeInstance {
             const reIndexMessage = "Please restart with -reindex";
             const startCleanMessage = "Please restart with -startclean flag";
             if (errorMessage.includes(reIndexMessage) && !command.includes('-reindex')) {
-                return await this.startWalletNode({...options, reindex: true });
+                return await this.startWalletNode({...options, reindex: true }, startWithOffline, network);
             }
 
             if (errorMessage.includes(startCleanMessage) && !command.includes('-startclean')) {
-                return await this.startWalletNode({...options, startclean: true });
+                return await this.startWalletNode({...options, startclean: true }, startWithOffline, network);
             }
 
             return { error: errorMessage || "Undefined Error (code 53)!" };
