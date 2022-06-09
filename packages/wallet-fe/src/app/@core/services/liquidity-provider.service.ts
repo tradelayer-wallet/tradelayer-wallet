@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core";
-import { AddressService, IKeyPair } from "./address.service";
+// import { AddressService, IKeyPair } from "./address.service";
 import { ApiService } from "./api.service";
+import { IKeyPair } from "./auth.service";
 
 
 @Injectable({
@@ -11,7 +12,7 @@ export class LiquidityProviderService {
     private _isLiquidityStarted: boolean = false;
 
     constructor(
-        private addressService: AddressService,
+        // private addressService: AddressService,
         private apiService: ApiService,
     ) {}
 
@@ -28,7 +29,7 @@ export class LiquidityProviderService {
     }
 
     get liquidityAddresses(): IKeyPair[] {
-        return this.addressService.liquidityAddresses;
+        return []
     }
 
     async startLiquidityProviding(options: any) {

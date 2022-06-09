@@ -1,7 +1,8 @@
 import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
-import { AddressService } from "./address.service";
+// import { AddressService } from "./address.service";
 import { ApiService } from "./api.service";
+import { AuthService } from "./auth.service";
 import { BalanceService } from "./balance.service";
 import { LiquidityProviderService } from "./liquidity-provider.service";
 import { LoadingService } from "./loading.service";
@@ -42,18 +43,19 @@ export interface IFuturesTradeConf extends ITradeConf {
 export class TradeService {
     constructor(
         private socketService: SocketService,
-        private addressService: AddressService,
+        // private addressService: AddressService,
         private loadingService: LoadingService,
         private toastrService: ToastrService,
         private txsService: TxsService,
         private balanceService: BalanceService,
-        private liquidityProviderService: LiquidityProviderService
+        private liquidityProviderService: LiquidityProviderService,
+        private authService: AuthService,
     ) {
         this.handleTradeSocketEvents();
     }
 
     get keyPair() {
-        return this.addressService.activeKeyPair;
+        return this.authService.activeMainKey;
     }
 
     get socket() {

@@ -29,6 +29,7 @@ export class LoginContainerComponent implements OnInit {
     this.loadingService.isLoading = true;
     const password = this.password;
     const key = this.jsonFile;
+    console.log({key, password});
     await this.authService.loginFromKeyFile(key, password);
     this.loadingService.isLoading = false;
   }

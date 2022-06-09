@@ -5,6 +5,7 @@ import { handleRoutes } from './routes';
 import * as SocketsService from './sockets';
 import * as killPort from 'kill-port';
 import { EventEmitter } from 'stream';
+import { generateNewWallet } from './utils/crypto.util';
 
 export class FastifyServer {
     private _server: FastifyInstance;
@@ -32,6 +33,7 @@ export class FastifyServer {
     }
 
     start() {
+        generateNewWallet("LTCTEST");
         this.initSocketScript();
         this.handleSockets();
         this.handleRoutes();

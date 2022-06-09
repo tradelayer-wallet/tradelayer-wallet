@@ -1,10 +1,11 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ReplaySubject } from 'rxjs';
-import { AddressService } from 'src/app/@core/services/address.service';
+// import { AddressService } from 'src/app/@core/services/address.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { FuturesMarketsService, IContract } from 'src/app/@core/services/futures-services/futures-markets.service';
 import { IFuturesTradeConf, TradeService } from 'src/app/@core/services/trade.service';
+import { AuthService } from 'src/app/@core/services/auth.service';
 
 @Component({
   selector: 'tl-futures-buy-sell-card',
@@ -18,9 +19,10 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     constructor(
       private futuresMarketsService: FuturesMarketsService,
       private fb: FormBuilder,
-      private addressService: AddressService,
+      // private addressService: AddressService,
       private loadingService: LoadingService,
       private tradeService: TradeService,
+      private authService: AuthService,
     ) {}
 
     get isLoading(): boolean {
@@ -32,11 +34,11 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     get activeKeyPair() {
-      return this.addressService.activeKeyPair;
+      return this.authService.activeMainKey;
     }
 
     get currentAddress() {
-      return this.addressService.activeKeyPair?.address;
+      return this.activeKeyPair?.address;
     }
 
     ngOnInit() {
@@ -94,7 +96,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       const order: IFuturesTradeConf = {
         keypair: {
           address: this.activeKeyPair?.address,
-          pubkey: this.activeKeyPair?.pubKey,
+          pubkey: this.activeKeyPair?.pubkey,
         },
         action: isBuy ? "BUY" : "SELL",
         type: "FUTURES",

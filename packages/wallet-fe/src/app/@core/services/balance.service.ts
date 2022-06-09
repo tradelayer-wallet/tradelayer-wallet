@@ -1,9 +1,10 @@
 import { Injectable } from "@angular/core";
-import { AddressService } from "./address.service";
+// import { AddressService } from "./address.service";
 import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 import { ToastrService } from "ngx-toastr";
 import { ApiService } from "./api.service";
+import { AuthService } from "./auth.service";
 
 const minBlocksForBalanceConf: number = 1;
 const emptyBalanceObj = {
@@ -37,16 +38,17 @@ export class BalanceService {
 
     constructor(
         private rpcService: RpcService,
-        private addressService: AddressService,
+        // private addressService: AddressService,
         private socketService: SocketService,
         private toastrService: ToastrService,
         private apiService: ApiService,
+        private authService: AuthService,
     ) {
         this.handleSocketEvents()
     }
 
     get selectedAddress() {
-        return this.addressService.activeKeyPair?.address;
+        return this.authService.activeMainKey?.address;
     }
 
     get ssApi() {
@@ -87,9 +89,9 @@ export class BalanceService {
     }
 
     async updateBalances() {
-        const addressesArray = this.addressService.allAddresses;
-        for (let i = 0; i < addressesArray.length; i++) {
-            const address = addressesArray[i].address;
+        const addressesArray: any = [];
+        for (let i = 0; i < addressesArray?.length; i++) {
+            const address = addressesArray?.[i]?.address;
             await this.updateFiatBalanceForAddressFromUnspents(address);
             await this.updateTokensBalanceForAddress(address);
         }

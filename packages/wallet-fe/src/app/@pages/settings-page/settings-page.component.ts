@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
-import { AddressService, EKYCStatus } from 'src/app/@core/services/address.service';
+import { AuthService } from 'src/app/@core/services/auth.service';
+// import { AddressService, EKYCStatus } from 'src/app/@core/services/address.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 
@@ -11,33 +12,34 @@ import { RpcService } from 'src/app/@core/services/rpc.service';
 })
 export class SettingsPageComponent {
     constructor(
-      private addressesService: AddressService,
+      // private addressesService: AddressService,
       private balanceSerivce: BalanceService,
       private toasterService: ToastrService,
+      private authService: AuthService,
     ) {}
 
     get address() {
-      return this.addressesService.activeKeyPair?.address;
+      return this.authService.activeMainKey;
     }
 
     get liquitiyAddress() {
-      return this.addressesService.liquidityAddresses?.[0]?.address;
+      return null;
     }
   
     get status() {
-      return this.addressesService.activeAddressKYCStatus;
+      return null;
     }
 
     get liquidityStatus() {
-      return this.addressesService.liquidityAddressesKYCStatus;
+      return null;
     }
 
     get buttonDisabled() {
-      return this.status !== EKYCStatus.DISABLED || !this.address;
+      return true;
     }
 
     get liquidityButtonDisabled() {
-      return this.liquidityStatus !== EKYCStatus.DISABLED || !this.liquitiyAddress;
+      return true;
     }
   
     kyc(address: string) {
@@ -48,6 +50,6 @@ export class SettingsPageComponent {
         this.toasterService.error('You need at least 0.0002 ltc for Self-Attestation,');
         return;
       }
-      this.addressesService.kycAddress(address);
+      // this.addressesService.kycAddress(address);
     }
 }

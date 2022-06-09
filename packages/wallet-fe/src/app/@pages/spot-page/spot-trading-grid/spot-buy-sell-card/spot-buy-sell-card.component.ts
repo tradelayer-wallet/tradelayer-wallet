@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ReplaySubject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { AddressService } from 'src/app/@core/services/address.service';
+import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { IMarket, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
@@ -22,10 +22,10 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       private spotMarketsService: SpotMarketsService,
       private balanceService: BalanceService,
       private fb: FormBuilder,
-      private addressService: AddressService,
       private tradeService: TradeService,
       private spotOrderbookService: SpotOrderbookService,
       private loadingService: LoadingService,
+      private authService: AuthService,
     ) {}
 
     get isLoading(): boolean {
@@ -37,11 +37,11 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     get currentAddress() {
-      return this.addressService.activeKeyPair?.address;
+      return this.activeKeyPair?.address;
     }
 
     get activeKeyPair() {
-      return this.addressService.activeKeyPair;
+      return this.authService.activeMainKey
     }
 
     ngOnInit() {
@@ -90,7 +90,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
           return parseFloat(_available);
         } else {
           const balanceObj = this.balanceService.getTokensBalancesByAddress();
-          const tokenBalance = balanceObj?.find(t => t.propertyid === propId);
+          const tokenBalance = balanceObj?.find((t: any) => t.propertyid === propId);
           if (!tokenBalance) return 0;
           // const { balance, locked } = tokenBalance;
           const _available = (tokenBalance.balance).toFixed(6);
@@ -119,7 +119,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const order: ISpotTradeConf = { 
         keypair: {
           address: this.activeKeyPair?.address,
-          pubkey: this.activeKeyPair?.pubKey,
+          pubkey: this.activeKeyPair?.pubkey,
         },
         action: isBuy ? "BUY" : "SELL",
         type: "SPOT",

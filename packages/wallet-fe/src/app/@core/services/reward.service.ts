@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
-import { AddressService } from "./address.service";
+import { AuthService } from "./auth.service";
+// import { AddressService } from "./address.service";
 import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 
@@ -14,20 +15,21 @@ export class RewardService {
     waitingList: string[] = [];
 
     constructor (
-        private addressService: AddressService,
+        // private addressService: AddressService,
         private socketService: SocketService,
         private rpcService: RpcService,
         private toastrService: ToastrService,
+        private authService: AuthService,
     ) {
         this.startBlockChecking();
     }
 
     get rewardAddresses() {
-        return this.addressService.rewardAddresses;
+        return []
     }
 
     get activeKeyPair() {
-        return this.addressService.activeKeyPair;
+        return this.authService.activeMainKey;
     }
 
     get isApiRPC() {
@@ -53,16 +55,16 @@ export class RewardService {
     }
 
     private async checkRegisteredAddresses() {
-        const lnraRes = await this.rpcService.smartRpc('tl_listnodereward_addresses');
-        if (lnraRes.error || !lnraRes.data) {
-            this.toastrService.error(lnraRes.error || 'Error With getting registered Addresses', "Error")
-            return;
-        } else {
-            const registeredAddresses = lnraRes.data.map((e: any) => e?.['address:']);
-            this.registeredList = this.rewardAddresses
-                .map(e => e.address)
-                .filter(e => registeredAddresses.includes(e));
-        }
+        // const lnraRes = await this.rpcService.smartRpc('tl_listnodereward_addresses');
+        // if (lnraRes.error || !lnraRes.data) {
+        //     this.toastrService.error(lnraRes.error || 'Error With getting registered Addresses', "Error")
+        //     return;
+        // } else {
+        //     const registeredAddresses = lnraRes.data.map((e: any) => e?.['address:']);
+        //     this.registeredList = this.rewardAddresses
+        //         .map(e => e.address)
+        //         .filter(e => registeredAddresses.includes(e));
+        // }
     }
     async setAutoClaim(address: string) {
         const lnraRes = await this.rpcService.smartRpc('tl_listnodereward_addresses');

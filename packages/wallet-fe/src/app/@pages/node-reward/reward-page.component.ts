@@ -2,15 +2,15 @@ import { Component, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { first } from 'rxjs/operators';
-import { AddressService, IKeyPair } from 'src/app/@core/services/address.service';
+// import { AddressService, IKeyPair } from 'src/app/@core/services/address.service';
 import { ApiService } from 'src/app/@core/services/api.service';
-import { AuthService } from 'src/app/@core/services/auth.service';
+import { AuthService, IKeyPair } from 'src/app/@core/services/auth.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RewardService } from 'src/app/@core/services/reward.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
-import { decryptKeyPair, encryptKeyPair } from 'src/app/utils/litecore.util';
+import { decrypt, encrypt } from 'src/app/utils/crypto.util';
 
 @Component({
   selector: 'tl-reward-page',
@@ -26,7 +26,7 @@ export class NodeRewardPageComponent implements OnInit {
       private rewardService: RewardService,
       private rpcService: RpcService,
       private apiService: ApiService,
-      private addressService: AddressService,
+      // private addressService: AddressService,
       private matDialog: MatDialog,
       private authService: AuthService,
       private dialogService: DialogService,
@@ -34,7 +34,7 @@ export class NodeRewardPageComponent implements OnInit {
     ) {}
 
     get maxRewardAddresses() {
-      return this.addressService.maxNRewardAddresses;
+      return []
     }
 
     get rewardAddresses() {
@@ -62,7 +62,7 @@ export class NodeRewardPageComponent implements OnInit {
     }
   
     ngOnInit() {
-      if (!this.rpcService.isOffline) this.rewardAddresses.forEach(e => this.getBalanceForAddress(e));
+      // if (!this.rpcService.isOffline) this.rewardAddresses.forEach(e => this.getBalanceForAddress(e));
     }
 
     isAddressAutoClaiming(address: string) {
@@ -94,31 +94,31 @@ export class NodeRewardPageComponent implements OnInit {
     }
 
     async generateRewardAddresses() {
-      if (this.rewardAddresses.length >= this.maxRewardAddresses) {
-        this.toastrService.warning(`Max Reward Addresses: ${this.maxRewardAddresses}`, 'Warning');
-        return;
-      }
+      // if (this.rewardAddresses.length >= this.maxRewardAddresses) {
+      //   this.toastrService.warning(`Max Reward Addresses: ${this.maxRewardAddresses}`, 'Warning');
+      //   return;
+      // }
 
-      const passDialog = this.matDialog.open(PasswordDialog);
-      const password = await passDialog.afterClosed()
-          .pipe(first())
-          .toPromise();
-      if (!password) return;
-      const encKey = this.authService.encKey;
-      const decryptResult = decryptKeyPair(encKey, password);
-      if (!decryptResult) {
-          this.toastrService.error('Wrong Password', 'Error');
-      } else {
-        await this.addressService.generateRewardAddresses();
-        const allKeyParis = [
-            ...this.addressService.keyPairs, 
-            ...this.addressService.multisigPairs, 
-            ...this.addressService.rewardAddresses,
-            ...this.addressService.liquidityAddresses,
-        ];
-        this.authService.encKey = encryptKeyPair(allKeyParis, password);
-        this.dialogService.openEncKeyDialog(this.authService.encKey);
-      }
+      // const passDialog = this.matDialog.open(PasswordDialog);
+      // const password = await passDialog.afterClosed()
+      //     .pipe(first())
+      //     .toPromise();
+      // if (!password) return;
+      // const encKey = this.authService.encKey;
+      // const decryptResult = decryptKeyPair(encKey, password);
+      // if (!decryptResult) {
+      //     this.toastrService.error('Wrong Password', 'Error');
+      // } else {
+      //   await this.addressService.generateRewardAddresses();
+      //   const allKeyParis = [
+      //       ...this.addressService.keyPairs, 
+      //       ...this.addressService.multisigPairs, 
+      //       ...this.addressService.rewardAddresses,
+      //       ...this.addressService.liquidityAddresses,
+      //   ];
+      //   this.authService.encKey = encryptKeyPair(allKeyParis, password);
+      //   this.dialogService.openEncKeyDialog(this.authService.encKey);
+      // }
 
     }
   
@@ -128,14 +128,14 @@ export class NodeRewardPageComponent implements OnInit {
     }
 
     async fund(toAddress: string) {
-      if (!this.addressService.activeKeyPair?.address ) return;
-      this.loadingService.isLoading = true;
-      const fromAddress = this.addressService.activeKeyPair.address;
-      const res = await this.ssApi.withdraw(fromAddress, toAddress, 0.005).toPromise();
-      res.error || !res.data
-        ?  this.toastrService.error(res.error || 'Undefined Error', 'Error')
-        : this.toastrService.success(`${toAddress} was successfully funded`, 'Successful Fund');
-      this.loadingService.isLoading = false;
+      // if (!this.addressService.activeKeyPair?.address ) return;
+      // this.loadingService.isLoading = true;
+      // const fromAddress = this.addressService.activeKeyPair.address;
+      // const res = await this.ssApi.withdraw(fromAddress, toAddress, 0.005).toPromise();
+      // res.error || !res.data
+      //   ?  this.toastrService.error(res.error || 'Undefined Error', 'Error')
+      //   : this.toastrService.success(`${toAddress} was successfully funded`, 'Successful Fund');
+      // this.loadingService.isLoading = false;
     }
 
     register(address: string) {

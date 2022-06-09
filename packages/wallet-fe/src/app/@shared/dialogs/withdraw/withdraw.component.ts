@@ -46,7 +46,7 @@ export class WithdrawDialog {
             return max < 0 ? 0 : max;
         } else {
             const balanceObj = this.balanceService.getTokensBalancesByAddress(this.fromAddress)
-                .find(o => o.propertyid === this.propId);
+                .find((o: any) => o.propertyid === this.propId);
             if (!balanceObj) return 0;
             const available = parseFloat((balanceObj.balance).toFixed(6))
             return available < 0 ? 0 : available;
@@ -74,7 +74,7 @@ export class WithdrawDialog {
         return this.propId === -1
             ? 'LTC'
             : this.balanceService.getTokensBalancesByAddress()
-                .find(e => e.propertyid === this.propId)?.name;
+                .find((e: any) => e.propertyid === this.propId)?.name;
     }
 
     fillAmountInput() {

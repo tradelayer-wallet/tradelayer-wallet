@@ -28,16 +28,16 @@ export const routes: Routes = [
         path: 'login',
         component: LoginPageComponent,
       },
-      {
-        path: 'spot',
-        component: SpotPageComponent,
-        canActivate: [AuthGuard, SyncedGuard]
-      },
-      {
-        path: 'futures',
-        component: FuturesPageComponent,
-        canActivate: [AuthGuard, SyncedGuard]
-      },
+      // {
+      //   path: 'spot',
+      //   component: SpotPageComponent,
+      //   canActivate: [AuthGuard, SyncedGuard]
+      // },
+      // {
+      //   path: 'futures',
+      //   component: FuturesPageComponent,
+      //   canActivate: [AuthGuard, SyncedGuard]
+      // },
       {
         path: 'portfolio',
         component: PortfolioPageComponent,
@@ -52,16 +52,16 @@ export const routes: Routes = [
         path: 'multisig',
         component: MultisigPageComponent,
       },
-      {
-        path: 'reward',
-        component: NodeRewardPageComponent,
-        canActivate: [AuthGuard, SyncedGuard],
-      },
-      {
-        path: 'liquidity-provider',
-        component: LiquidityProviderPageComponent,
-        canActivate: [AuthGuard, SyncedGuard],
-      },
+      // {
+      //   path: 'reward',
+      //   component: NodeRewardPageComponent,
+      //   canActivate: [AuthGuard, SyncedGuard],
+      // },
+      // {
+      //   path: 'liquidity-provider',
+      //   component: LiquidityProviderPageComponent,
+      //   canActivate: [AuthGuard, SyncedGuard],
+      // },
       {
         path: '**',
         component: HomePageComponent,

@@ -1,14 +1,10 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
-import { first } from 'rxjs/operators';
-import { AddressService, IKeyPair } from 'src/app/@core/services/address.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
-import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
-import { decryptKeyPair, encryptKeyPair } from 'src/app/utils/litecore.util';
 
 @Component({
   selector: 'tl-portoflio-page',
@@ -22,18 +18,16 @@ export class PortfolioPageComponent implements OnInit {
 
   constructor(
     private balanceService: BalanceService,
-    private addressService: AddressService,
     private dialogService: DialogService,
     private toastrService: ToastrService,
     private rpcService: RpcService,
     private authService: AuthService,
-    private matDialog: MatDialog,
     private elRef: ElementRef,
   ) {}
 
-  get allAddresses() {
-    return this.addressService.allAddresses;
-  }
+  // get allAddresses() {
+  //   return this.addressService.allAddresses;
+  // }
 
   get fiatBalance() {
     return Object.keys(this.allBalances)
@@ -112,28 +106,28 @@ export class PortfolioPageComponent implements OnInit {
   }
 
   async newAddress() {
-    const passDialog = this.matDialog.open(PasswordDialog);
-    const password = await passDialog.afterClosed()
-        .pipe(first())
-        .toPromise();
-    if (!password) return;
-    const encKey = this.authService.encKey;
-    const decryptResult = decryptKeyPair(encKey, password);
-    if (!decryptResult) {
-        this.toastrService.error('Wrong Password', 'Error');
-    } else {
-      const pair = await this.addressService.generateNewKeyPair() as IKeyPair;
-      this.addressService.addDecryptedKeyPair(pair);
-      const allKeyParis = [
-          ...this.addressService.keyPairs, 
-          ...this.addressService.multisigPairs, 
-          ...this.addressService.rewardAddresses,
-          ...this.addressService.liquidityAddresses,
-      ];
-      this.balanceService.updateBalances();
-      this.authService.encKey = encryptKeyPair(allKeyParis, password);
-      this.dialogService.openEncKeyDialog(this.authService.encKey);
-    }
+    // const passDialog = this.matDialog.open(PasswordDialog);
+    // const password = await passDialog.afterClosed()
+    //     .pipe(first())
+    //     .toPromise();
+    // if (!password) return;
+    // const encKey = this.authService.encKey;
+    // const decryptResult = decryptKeyPair(encKey, password);
+    // if (!decryptResult) {
+    //     this.toastrService.error('Wrong Password', 'Error');
+    // } else {
+    //   const pair = await this.addressService.generateNewKeyPair() as IKeyPair;
+    //   this.addressService.addDecryptedKeyPair(pair);
+    //   const allKeyParis = [
+    //       ...this.addressService.keyPairs, 
+    //       ...this.addressService.multisigPairs, 
+    //       ...this.addressService.rewardAddresses,
+    //       ...this.addressService.liquidityAddresses,
+    //   ];
+    //   this.balanceService.updateBalances();
+    //   this.authService.encKey = encryptKeyPair(allKeyParis, password);
+    //   this.dialogService.openEncKeyDialog(this.authService.encKey);
+    // }
   }
 
   showTokens(address: string) {

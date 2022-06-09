@@ -2,14 +2,14 @@ import { Component, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { first } from 'rxjs/operators';
-import { AddressService, IMultisigPair } from 'src/app/@core/services/address.service';
+// import { AddressService, IMultisigPair } from 'src/app/@core/services/address.service';
 import { ApiService } from 'src/app/@core/services/api.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { WindowsService } from 'src/app/@core/services/windows.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
-import { decryptKeyPair, encryptKeyPair } from 'src/app/utils/litecore.util';
+import { decrypt, encrypt } from 'src/app/utils/crypto.util';
 
 @Component({
   selector: 'tl-multisig-page',
@@ -23,7 +23,7 @@ export class MultisigPageComponent implements OnInit{
   constructor(
     private toastrService: ToastrService,
     private customDialogs: DialogService,
-    private addressService: AddressService,
+    // private addressService: AddressService,
     private authService: AuthService,
     private windowsService: WindowsService,
     private dialogService: DialogService,
@@ -33,7 +33,7 @@ export class MultisigPageComponent implements OnInit{
   ) {}
 
   get multisigs() {
-    return this.addressService.multisigPairs;
+    return []
   }
 
   get isLoggedIn() {
@@ -48,7 +48,7 @@ export class MultisigPageComponent implements OnInit{
     if (!this.rpcService.isOffline) this.multisigs.forEach(e => this.getBalanceForMultisig(e));
   }
 
-  async getBalanceForMultisig(pair: IMultisigPair) {
+  async getBalanceForMultisig(pair: any) {
     this.rawBalanceObj[pair.address] = '-';
     if (this.rpcService.isOffline)  {
       this.toastrService.warning('Cant get multisig balance in Offline mode');
@@ -79,25 +79,25 @@ export class MultisigPageComponent implements OnInit{
   }
 
   async remove(el: any) {
-    const passDialog = this.matDialog.open(PasswordDialog);
-    const password = await passDialog.afterClosed()
-        .pipe(first())
-        .toPromise();
-    if (!password) return;
-    const encKey = this.authService.encKey;
-    const decryptResult = decryptKeyPair(encKey, password);
-    if (!decryptResult) {
-        this.toastrService.error('Wrong Password', 'Error');
-    } else {
-      this.addressService.removeMultisigAddress(el);
-      const allKeyParis = [
-        ...this.addressService.keyPairs,
-        ...this.addressService.multisigPairs,
-        ...this.addressService.rewardAddresses,
-        ...this.addressService.liquidityAddresses,
-      ];
-      this.authService.encKey = encryptKeyPair(allKeyParis, password);
-      this.dialogService.openEncKeyDialog(this.authService.encKey);
-    }
+    // const passDialog = this.matDialog.open(PasswordDialog);
+    // const password = await passDialog.afterClosed()
+    //     .pipe(first())
+    //     .toPromise();
+    // if (!password) return;
+    // const encKey = this.authService.encKey;
+    // const decryptResult = decryptKeyPair(encKey, password);
+    // if (!decryptResult) {
+    //     this.toastrService.error('Wrong Password', 'Error');
+    // } else {
+    //   this.addressService.removeMultisigAddress(el);
+    //   const allKeyParis = [
+    //     ...this.addressService.keyPairs,
+    //     ...this.addressService.multisigPairs,
+    //     ...this.addressService.rewardAddresses,
+    //     ...this.addressService.liquidityAddresses,
+    //   ];
+    //   this.authService.encKey = encryptKeyPair(allKeyParis, password);
+    //   this.dialogService.openEncKeyDialog(this.authService.encKey);
+    // }
   }
 }

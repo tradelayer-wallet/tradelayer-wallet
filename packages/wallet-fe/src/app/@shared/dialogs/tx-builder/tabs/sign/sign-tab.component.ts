@@ -1,6 +1,6 @@
 import { Component, Output, EventEmitter } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
-import { AddressService } from 'src/app/@core/services/address.service';
+import { AuthService } from 'src/app/@core/services/auth.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 
 @Component({
@@ -27,7 +27,7 @@ export class TxBuilderSignTabComponent {
   constructor(
     private rpcService: RpcService,
     private toastrService: ToastrService,
-    private addressService: AddressService,
+    private authService: AuthService,
   ) { }
 
   get loading() {
@@ -75,7 +75,7 @@ export class TxBuilderSignTabComponent {
   }
 
   get activeKeyPair() {
-    return this.addressService.activeKeyPair;
+    return this.authService.activeMainKey;
   }
 
   changePubKey(event: any, index: number) {
@@ -145,7 +145,7 @@ export class TxBuilderSignTabComponent {
       : await this.rpcService.rpc('signrawtransaction',
         [
           this.rawTx, this.vins, 
-          this.vins.map((e, i: number) => this.privKeys[i] || this.activeKeyPair?.privKey || '')
+          this.vins.map((e, i: number) => this.privKeys[i] || this.activeKeyPair?.privkey || '')
         ]
       );
     if (res.error || !res.data) {

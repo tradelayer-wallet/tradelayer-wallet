@@ -1,8 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { AddressService, IKeyPair } from 'src/app/@core/services/address.service';
-import { AuthService } from 'src/app/@core/services/auth.service';
+import { AuthService, IKeyPair } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { MenuService } from 'src/app/@core/services/menu.service';
@@ -25,13 +24,13 @@ export class HeaderComponent implements OnInit {
       link: '/',
       needAuthToShow: false,
     },
-    {
-      id: 2,
-      name: 'Spot',
-      link: 'spot',
-      needAuthToShow: true,
-      needFullSync: true,
-    },
+    // {
+    //   id: 2,
+    //   name: 'Spot',
+    //   link: 'spot',
+    //   needAuthToShow: true,
+    //   needFullSync: true,
+    // },
     // {
     //   id: 3,
     //   name: 'Futures',
@@ -80,7 +79,6 @@ export class HeaderComponent implements OnInit {
     private menuService: MenuService,
     private authService: AuthService,
     private dialogService: DialogService,
-    private addressService: AddressService,
     private balanceService: BalanceService,
     private toastrService: ToastrService,
     private rpcService: RpcService,
@@ -112,13 +110,13 @@ export class HeaderComponent implements OnInit {
 
   get allMainAddresses() {
     return this.isLoggedIn
-      ? this.addressService.keyPairs
+      ? this.authService.activeMainKey
       : null;
   }
 
   get publicAddress() {
     return this.isLoggedIn
-      ? this.addressService.activeKeyPair?.address
+      ? this.authService.activeMainKey?.address
       : null;
   }
 
@@ -167,7 +165,7 @@ export class HeaderComponent implements OnInit {
   }
 
   toggleSideBar() {
-    this.menuService.toggleSideBar();
+    // this.menuService.toggleSideBar();
   }
 
   updateBalance() {
@@ -175,8 +173,8 @@ export class HeaderComponent implements OnInit {
   }
 
   setMainAddress(kp: IKeyPair) {
-    if (this.addressService.activeKeyPair === kp) return;
-    this.addressService.activeKeyPair = kp;
-    this.toastrService.success('Main Address is changed', 'Success');
+    // if (this.addressService.activeKeyPair === kp) return;
+    // this.addressService.activeKeyPair = kp;
+    // this.toastrService.success('Main Address is changed', 'Success');
   }
 }

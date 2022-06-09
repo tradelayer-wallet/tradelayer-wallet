@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core";
-import { AddressService } from "../address.service";
+// import { AddressService } from "../address.service";
 import { ApiService } from "../api.service";
+import { AuthService } from "../auth.service";
 import { SocketService } from "../socket.service";
 
 
@@ -13,8 +14,9 @@ export class DealerService {
 
     constructor(
         private socketService: SocketService,
-        private addressService: AddressService,
+        // private addressService: AddressService,
         private apiService: ApiService,
+        private authService: AuthService,
     ) {}
 
     get socket() {
@@ -53,8 +55,8 @@ export class DealerService {
     }
 
     private emitDealerData() {
-        const address = this.addressService.activeKeyPair?.address;
-        const pubkey = this.addressService.activeKeyPair?.pubKey;
+        const address = this.authService.activeMainKey?.address;
+        const pubkey = this.authService.activeMainKey?.pubkey;
         const data = { tradesData: this.myDealerTrades, addressPair: { address, pubkey } };
         if (!address || !pubkey || !this.myDealerTrades) return;
         // this.socket.emit('dealer-data', data);
