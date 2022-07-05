@@ -6,33 +6,10 @@
                 <img src='./assets/tl-logo.svg'>
             </button>
         </div>
-
         <span class="spacer"></span>
-
         <div class="right-side">
-            <div class='address' *ngIf='publicAddress && isLoggedIn'>
-                <span class='main-address' (click)='copyToClipboard(publicAddress)'> {{ publicAddress }}  </span>
-                <div class="all-addresses" *ngIf="allMainAddresses?.length > 1">
-                    <div
-                        class="sub-address"
-                        *ngFor="let kp of allMainAddresses"
-                        (click)="setMainAddress(kp)"
-                    >
-                        {{ kp.address }}
-                    </div>
-                </div>
-                <span 
-                    class='balance'
-                    (click)='updateBalance()'
-                >
-                    ({{ getAvailableBalance() }})
-                </span>
-            </div>
-            <button mat-icon-button (click)='isLoggedIn ? logOut() : navigateToLoginRoute()'>
-                <mat-icon>{{ isLoggedIn ? 'logout' : 'login' }}</mat-icon>
-            </button>
+            
         </div>
-
     </mat-toolbar-row>
 </mat-toolbar>
 

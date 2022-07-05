@@ -47,16 +47,16 @@ export class RpcService {
       private toasterService: ToastrService,
       private loadingService: LoadingService,
     ) {
-      this.socket.on("rpc-connection-error", (error: string) => {
-        if (!this.isConnected) return;
-        this.toasterService.error(error || `Undefined Error!`, `RPC Connection Error!.`);
-        this.clearRPC();
-      });
+      // this.socket.on("rpc-connection-error", (error: string) => {
+      //   if (!this.isConnected) return;
+      //   this.toasterService.error(error || `Undefined Error!`, `RPC Connection Error!.`);
+      //   this.clearRPC();
+      // });
             
-      this.socket.on("local-node-stopped", (error: string) => {
-        this.toasterService.error(error || `Undefined Error!`, `Local Node stopped working.`);
-        if (this.isConnected) this.clearRPC();
-      });
+      // this.socket.on("local-node-stopped", (error: string) => {
+      //   this.toasterService.error(error || `Undefined Error!`, `Local Node stopped working.`);
+      //   if (this.isConnected) this.clearRPC();
+      // });
     }
 
     get isApiRPC() {

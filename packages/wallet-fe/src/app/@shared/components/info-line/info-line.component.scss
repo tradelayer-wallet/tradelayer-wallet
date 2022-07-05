@@ -25,4 +25,10 @@
             background-color: var(--darkBlue);
         }
     }
+    .info-line {
+        .info {
+            border-left: 1px solid white;
+            padding: 0 1rem
+        }
+    }
 }

@@ -42,7 +42,7 @@ export class BalanceService {
         private apiService: ApiService,
         private authService: AuthService,
     ) {
-        this.handleEvents();
+        // this.handleEvents();
     }
 
     get selectedAddress() {

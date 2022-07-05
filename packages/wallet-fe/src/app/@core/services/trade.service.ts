@@ -51,7 +51,7 @@ export class TradeService {
         private liquidityProviderService: LiquidityProviderService,
         private authService: AuthService,
     ) {
-        this.handleTradeSocketEvents();
+        // this.handleTradeSocketEvents();
     }
 
     get keyPair() {

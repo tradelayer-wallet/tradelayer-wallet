@@ -21,7 +21,7 @@ export class RewardService {
         private toastrService: ToastrService,
         private authService: AuthService,
     ) {
-        this.startBlockChecking();
+        // this.startBlockChecking();
     }
 
     get rewardAddresses() {
