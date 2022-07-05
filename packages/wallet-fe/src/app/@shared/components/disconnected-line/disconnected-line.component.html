@@ -1,3 +1,7 @@
-<div class="disconnected-line">
-    Disconnected from the {{ serverType }} server. Please <span (click)='reconnect()'>CLICK</span> to reconnect!
+<div class="disconnected-line" *ngIf="!isOnlineConnected">
+    No Internet Connection! Please Check your Network Connection
+</div>
+
+<div class="disconnected-line" *ngIf="isOnlineConnected">
+    Undefined Connection Error
 </div>

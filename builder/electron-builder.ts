@@ -1,19 +1,20 @@
-import { App, app, BrowserWindow, globalShortcut, ipcMain, dialog, ipcRenderer } from 'electron';
-import { AppImageUpdater, NsisUpdater, MacUpdater } from 'electron-updater';
+import { App, app, BrowserWindow, globalShortcut, ipcMain, dialog } from 'electron';
 import { ChildProcess, fork, StdioOptions } from 'child_process';
+import { AutoUpdater } from './auto-updater';
+
 import * as url from 'url';
 import * as path from 'path';
 
-class ElectronApp {
+export class ElectronApp {
     private app: App;
     private serverProcess: ChildProcess;
-    // private autoUpdater: AutoUpdater;
+    private autoUpdater: AutoUpdater;
     public mainWindow: BrowserWindow | null = null;
 
     constructor(app: App) {
         this.app = app;
         this.handleOnEvents();
-        // this.handleAngularSignals()
+        this.handleAngularSignals()
         this.disableSecurityWarnings();
 
         const PATH = path.join(__dirname, './server/index.js');
@@ -24,35 +25,35 @@ class ElectronApp {
         this.serverProcess.send('init');
     }
 
-    // private handleAngularSignals() {
-    //     ipcMain.on('angular-electron-message', (_, message) => {
-    //         const { event, data } = message;
-    //         switch (event) {
-    //             case 'open-dir-dialog':
-    //                 this.openSelectDirDialog();
-    //                 break;
+    private handleAngularSignals() {
+        ipcMain.on('angular-electron-message', (_, message) => {
+            const { event, data } = message;
+            switch (event) {
+                case 'open-dir-dialog':
+                    this.openSelectDirDialog();
+                    break;
             
-    //             case 'check-version':
-    //                 this.autoUpdater = new AutoUpdater(this);
-    //                 break;
+                case 'check-version':
+                    this.autoUpdater = new AutoUpdater(this);
+                    break;
 
-    //             case 'download-new-version':
-    //                 this.autoUpdater.download();
-    //                 break;
+                case 'download-new-version':
+                    this.autoUpdater.download();
+                    break;
 
-    //             default:
-    //                 break;
-    //         }
-    //     });
-    // }
+                default:
+                    break;
+            }
+        });
+    }
 
-    // private async openSelectDirDialog() {
-    //     const result = await dialog.showOpenDialog(this.mainWindow, {
-    //         properties: ['openDirectory'],
-    //       });
-    //     const path = result.filePaths[0];
-    //     this.sendMessageToAngular('selected-dir', path);
-    // }
+    private async openSelectDirDialog() {
+        const result = await dialog.showOpenDialog(this.mainWindow, {
+            properties: ['openDirectory'],
+          });
+        const path = result.filePaths[0];
+        this.sendMessageToAngular('selected-dir', path);
+    }
 
     sendMessageToAngular(event: string, data: any) {
         if (!this.mainWindow) return;
@@ -132,58 +133,5 @@ class ElectronApp {
         process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
     }
 }
-
-// class AutoUpdater {
-//     private autoUpdater: NsisUpdater | MacUpdater | AppImageUpdater;
-//     private electronApp: ElectronApp;
-
-//     constructor(app: ElectronApp) {
-//         this.electronApp = app;
-//         this.initAutoUpdater();
-//         this.handleEvents();
-//         this.check();
-//     }
-
-//     initAutoUpdater() {
-//         this.autoUpdater = process.platform === "win32"
-//         ? new NsisUpdater()
-//         : process.platform === "darwin"
-//             ? new MacUpdater()
-//             : process.platform === "linux"
-//                 ? new AppImageUpdater()
-//                 : null;
-
-//         if (!this.autoUpdater) return;
-//         this.autoUpdater.autoDownload = false;
-//         this.autoUpdater.setFeedURL({
-//             owner: "valiopld",
-//             repo: 'tradelayer-wallet',
-//             provider: 'github',
-//             user: 'valiopld',
-//         });
-//     }
-
-//     handleEvents() {
-//         if (!this.autoUpdater) return;
-//         const e = 'update-app';
-//         this.autoUpdater.on("error", (error) => this.electronApp.sendMessageToAngular(e, { state: 1, data: error }));
-//         this.autoUpdater.on("checking-for-update", (data) => this.electronApp.sendMessageToAngular(e, { state: 2, data }));
-//         this.autoUpdater.on("update-not-available", () => this.electronApp.sendMessageToAngular(e, { state: 3, data: null }));
-//         this.autoUpdater.on("update-available", () => this.electronApp.sendMessageToAngular(e, { state: 4, data: null }));
-//         this.autoUpdater.on("download-progress", () => this.electronApp.sendMessageToAngular(e, { state: 5, data: null }));
-//         this.autoUpdater.on("update-downloaded", () => {
-//             this.electronApp.sendMessageToAngular(e, { state: 6, data: null });
-//             this.autoUpdater.quitAndInstall(true, true);
-//         });
-//     }
-
-//     async download() {
-//         this.autoUpdater.downloadUpdate();
-//     }
-
-//     async check() {
-//         this.autoUpdater.checkForUpdates();
-//     }
-// }
 
 new ElectronApp(app);

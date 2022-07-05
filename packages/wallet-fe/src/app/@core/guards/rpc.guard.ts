@@ -12,31 +12,13 @@ export class RPCGuard implements CanActivate {
     constructor(
         private rpcService: RpcService,
         private dialogService: DialogService,
-        private socketService: SocketService,
+        // private socketService: SocketService,
     ) {}
 
     async canActivate(): Promise<boolean> {
-        this.dialogService.closeAllDialogs();
-        if (!this.socketService.socket?.connected) return false;
-        const isConnected = this.rpcService.isConnected;
-        if (isConnected) return true;
-        if (!isConnected) {
-            this.dialogService.openDialog(DialogTypes.NEW_VERSION);
-            return false;
-        }
-        return false;
+        const isConnected = this.rpcService.isCoreStarted;
+        // newVersion Dialog switch to rpc Connect dialog after closing
+        if (!isConnected) this.dialogService.openDialog(DialogTypes.NEW_VERSION);
+        return isConnected;
    }
-   
-    // private async _checkLocalStorage() {
-    //     const cred = window.localStorage.getItem('nodeConnection');
-    //     if (!cred) return false;
-
-    //     try {
-    //         const credentials = JSON.parse(cred)
-    //         const isConnected = await this.rpcService.connect(credentials);
-    //         return !!isConnected;
-    //     } catch (error) {
-    //         return false
-    //     }
-    // }
 }

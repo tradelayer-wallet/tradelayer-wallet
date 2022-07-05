@@ -1,5 +1,5 @@
 <tl-side-nav>
-    <tl-layout>
+    <tl-layout *ngIf="isCoreStarted">
         <router-outlet></router-outlet>
     </tl-layout>
     <ng-container>
@@ -7,3 +7,5 @@
         <tl-info-line></tl-info-line>
     </ng-container>
 </tl-side-nav>
+
+<tl-disconnected-line *ngIf="!allConnected"></tl-disconnected-line>

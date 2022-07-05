@@ -1,4 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, NgZone } from '@angular/core';
+import { ConnectionService } from './@core/services/connections.service';
+import { RpcService } from './@core/services/rpc.service';
 
 @Component({
   selector: 'tl-root',
@@ -6,5 +8,28 @@ import { Component } from '@angular/core';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
-  constructor() { }
+  private isOnline: boolean = this.connectionService.isOnline;
+  constructor(
+    private rpcService: RpcService,
+    private connectionService: ConnectionService,
+    private ngZone: NgZone,
+  ) {
+    this.handleConnections();
+  }
+
+
+  get isCoreStarted() {
+    return this.rpcService.isCoreStarted;
+  }
+
+  handleConnections() {
+    this.connectionService.isOnline$
+      .subscribe((isOnline) => {
+        this.ngZone.run(() => this.isOnline = isOnline);
+      })
+  }
+
+  get allConnected() {
+    return this.isOnline;
+  }
 }

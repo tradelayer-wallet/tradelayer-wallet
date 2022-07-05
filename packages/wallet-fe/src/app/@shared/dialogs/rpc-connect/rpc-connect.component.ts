@@ -83,21 +83,23 @@ export class RPCConnectDialog {
   // }
 
   async startWalletNode() {
-    this.message2 = ' ';
-    this.loadingService.isLoading = true;
-    // const isTestNet = false;
+    // this.message2 = ' ';
+    // this.loadingService.isLoading = true;
+    // // const isTestNet = false;
     const network = this.network;
     const path = this.defaultDirectoryCheckbox ? '' : this.directory;
     const { reindex, startclean } = this;
     const flags = { reindex, startclean };
-    const res = await this.rpcService.startWalletNode(path, network, flags, !this.isOnline);
-    if (res.error || !res.data) {
-      this.message2 = res.error || 'Please Try Again!';
-      this.loadingService.isLoading = false;
-      return;
-    }
-    this.dialogRef.close();
-    this.router.navigateByUrl('/');
-    this.loadingService.isLoading = false;
+
+    console.log({ path, network, flags });
+    // const res = await this.rpcService.startWalletNode(path, network, flags, !this.isOnline);
+    // if (res.error || !res.data) {
+    //   this.message2 = res.error || 'Please Try Again!';
+    //   this.loadingService.isLoading = false;
+    //   return;
+    // }
+    // this.dialogRef.close();
+    // this.router.navigateByUrl('/');
+    // this.loadingService.isLoading = false;
   }
 }

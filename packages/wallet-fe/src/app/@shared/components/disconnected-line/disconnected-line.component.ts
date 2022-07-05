@@ -1,7 +1,5 @@
 import { Component, Input, ViewChild } from '@angular/core';
-import { DealerService } from 'src/app/@core/services/spot-services/dealer.service';
-import { SocketService } from 'src/app/@core/services/socket.service';
-import { RpcService } from 'src/app/@core/services/rpc.service';
+import { ConnectionService } from 'src/app/@core/services/connections.service';
 
 @Component({
   selector: 'tl-disconnected-line',
@@ -9,23 +7,11 @@ import { RpcService } from 'src/app/@core/services/rpc.service';
   styleUrls: ['./disconnected-line.component.scss']
 })
 export class DisconnectedLineComponent {
-  @Input('serverType') serverType: string = '';
-
   constructor(
-      private socketService: SocketService,
-      private dealersService: DealerService,
-      private rpcService: RpcService,
+      private connectionService: ConnectionService,
   ) { }
 
-  reconnect() {
-    if (this.serverType === 'LOCAL') {
-      this.socketService.socketConnect();
-    }
-
-    if (this.serverType === 'API') {
-      const isTesNet = this.rpcService.NETWORK === 'LTCTEST';
-      this.socketService.apiServerReconnect(isTesNet);
-    }    
-    this.dealersService.resetDealerTrades();
+  get isOnlineConnected() {
+    return this.connectionService.isOnline;
   }
 }

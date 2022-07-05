@@ -1,5 +1,6 @@
 import { AfterViewInit, Component, NgZone, OnInit } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
+import { ConnectionService } from 'src/app/@core/services/connections.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { ElectronService } from 'src/app/@core/services/electron.service';
 
@@ -17,12 +18,13 @@ export class NewVersionDialog implements OnInit {
     public dialogRef: MatDialogRef<NewVersionDialog>,
     private electronService: ElectronService,
     private dialogService: DialogService,
+    private connectionService: ConnectionService,
     private ngZone: NgZone,
   ) {}
 
   ngOnInit() {
     this.handleUpdateEvents();
-    window.navigator.onLine
+    this.connectionService.isOnline
       ? this.electronService.emitEvent('check-version')
       : this.handleOffline();
     
@@ -30,12 +32,11 @@ export class NewVersionDialog implements OnInit {
 
   private handleOffline() {
     this.message = 'No internet Connection';
-    const interval = setInterval(() => {
-      const isOnline = window.navigator.onLine;
+    const sub = this.connectionService.isOnline$.subscribe(isOnline => {
       if (!isOnline) return;
       this.electronService.emitEvent('check-version');
-      clearInterval(interval);
-    }, 1000);
+      sub.unsubscribe();
+    });
   }
 
   private handleUpdateEvents() {
@@ -43,19 +44,17 @@ export class NewVersionDialog implements OnInit {
           if (_data.event !== 'update-app') return;
           this.loading = true;
           this.downloadButton = false;
-          const state = _data.data.state;
-          const message = _data.data.data;
-
+          const { state } = _data.data;
           this.ngZone.run(() => {
             switch (state) {
               case 1:
-                this.message = 'Error with updating the app';
-                this.close();
+                this.message = 'Error with updating the app. Please exit and try again';
                 break;
               case 2:
                 this.message = 'Checking for updates...';
                 break;
               case 3:
+                this.message = 'Tradelayer wallet is Up To Date';
                 this.close();
                 break;
               case 4:
