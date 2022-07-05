@@ -34,7 +34,8 @@ export const getKeyPair = (
     const { address } = p2sh({ redeem });
     const privkey = child.privateKey.toString('hex');
     const pubkey = child.publicKey.toString('hex');
-    return { address, privkey, pubkey };
+    const wif = child.toWIF();
+    return { address, privkey, pubkey, wif };
 };
 
 export const getManyKeyPair = (networkString: TNetwork, mnemonic: string, walletObjRaw: any) => {
@@ -45,7 +46,6 @@ export const getManyKeyPair = (networkString: TNetwork, mnemonic: string, wallet
     const finalObj: any = {};
     allKeys.forEach(k => {
         finalObj[k] = [];
-        process.send({k});
         const keys: string[] = walletObjRaw[k];
         keys.forEach(path => {
             const keyPair = getKeyPair(networkString, mnemonic, path, true);

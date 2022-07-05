@@ -16,9 +16,7 @@ export class MarketApiService {
     ) {}
 
     private get apiUrl() {
-        return this.NETWORK === "LTC"
-            ? environment.orderbook_service_url + '/markets/'
-            : environment.orderbook_service_url_testnet + '/markets/';
+        return environment.ENDPOINTS[this.NETWORK].orderbookApiUrl + '/markets/';
     }
 
     _setNETWORK(value: TNETWORK) {

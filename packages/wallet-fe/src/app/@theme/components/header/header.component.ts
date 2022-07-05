@@ -110,18 +110,18 @@ export class HeaderComponent implements OnInit {
 
   get allMainAddresses() {
     return this.isLoggedIn
-      ? this.authService.activeMainKey
+      ? this.authService.walletKeys.main
       : null;
   }
 
   get publicAddress() {
     return this.isLoggedIn
-      ? this.authService.activeMainKey?.address
+      ? this.authService.activeMainKey.address
       : null;
   }
 
   get addressBalance() {
-    return 
+    return 0;
   }
 
   ngOnInit(): void {
@@ -159,8 +159,6 @@ export class HeaderComponent implements OnInit {
   }
 
   logOut() {
-    const encKey = this.authService.encKey;
-    this.dialogService.openEncKeyDialog(encKey);
     this.authService.logout();
   }
 
@@ -173,8 +171,7 @@ export class HeaderComponent implements OnInit {
   }
 
   setMainAddress(kp: IKeyPair) {
-    // if (this.addressService.activeKeyPair === kp) return;
-    // this.addressService.activeKeyPair = kp;
-    // this.toastrService.success('Main Address is changed', 'Success');
+    this.authService.activeMainKey = kp;
+    this.balanceService.updateBalances();
   }
 }

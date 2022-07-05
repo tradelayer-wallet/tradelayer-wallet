@@ -52,7 +52,7 @@ export class DialogService {
 
     openEncKeyDialog(encKey: string) {
         const dialogOpts: MatDialogConfig = {
-            disableClose: false,
+            disableClose: true,
             data: encKey,
         };
         return this.openDialog(DialogTypes.ENC_KEY, dialogOpts)

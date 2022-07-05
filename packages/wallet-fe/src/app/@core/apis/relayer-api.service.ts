@@ -17,9 +17,7 @@ export class TradeLayerApiService {
     ) {}
 
     private get apiURL() {
-        return this.NETWORK === 'LTCTEST'
-            ? environment.relayerUrlTestnet
-            : environment.relayerUrl;
+        return environment.ENDPOINTS[this.NETWORK].relayerUrl;
     }
 
     _setNETWORK(value: TNETWORK) {

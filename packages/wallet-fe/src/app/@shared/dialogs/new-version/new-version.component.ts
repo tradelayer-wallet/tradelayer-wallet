@@ -24,8 +24,18 @@ export class NewVersionDialog implements OnInit {
     this.handleUpdateEvents();
     window.navigator.onLine
       ? this.electronService.emitEvent('check-version')
-      : this.close();
+      : this.handleOffline();
     
+  }
+
+  private handleOffline() {
+    this.message = 'No internet Connection';
+    const interval = setInterval(() => {
+      const isOnline = window.navigator.onLine;
+      if (!isOnline) return;
+      this.electronService.emitEvent('check-version');
+      clearInterval(interval);
+    }, 1000);
   }
 
   private handleUpdateEvents() {

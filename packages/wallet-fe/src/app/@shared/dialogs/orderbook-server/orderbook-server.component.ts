@@ -1,3 +1,4 @@
+import { THIS_EXPR } from '@angular/compiler/src/output/output_ast';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { SocketService } from 'src/app/@core/services/socket.service';
@@ -10,9 +11,7 @@ import { environment } from 'src/environments/environment';
 })
 export class OrderbookServerDialog implements OnInit, OnDestroy {
     loading: boolean = true;
-    public servers: string[] = this.isTestnet
-      ? [environment.orderbook_service_url_testnet, 'http://testnet-testurl.com']
-      : [environment.orderbook_service_url, 'http://mainet-testUrl.com'];
+    public servers: string[] = [environment.ENDPOINTS?.[this.network]?.orderbookApiUrl];
 
     selectedServer: string = this.servers[0];
 
@@ -25,8 +24,8 @@ export class OrderbookServerDialog implements OnInit, OnDestroy {
       return this.socketService.orderbookServerConnected;
     }
 
-    get isTestnet() {
-      return this.rpcService.NETWORK.endsWith('TEST');
+    get network() {
+      return this.rpcService.NETWORK as string
     }
 
     ngOnInit() {

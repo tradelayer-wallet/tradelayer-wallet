@@ -30,9 +30,7 @@ export const keysRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         try {
             const { network, mnemonic, walletObjRaw } = request.body as
                 { network: TNetwork, mnemonic: string, walletObjRaw: any };
-            process.send({network, mnemonic, walletObjRaw});
             const result = getManyKeyPair(network, mnemonic, walletObjRaw);
-            process.send({result});
             if (result.error) throw new Error(result.error);
             reply.status(200).send(result);
         } catch (error) {

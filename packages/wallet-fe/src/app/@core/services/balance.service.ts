@@ -1,10 +1,9 @@
 import { Injectable } from "@angular/core";
-// import { AddressService } from "./address.service";
 import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 import { ToastrService } from "ngx-toastr";
 import { ApiService } from "./api.service";
-import { AuthService } from "./auth.service";
+import { AuthService, IKeyPair } from "./auth.service";
 
 const minBlocksForBalanceConf: number = 1;
 const emptyBalanceObj = {
@@ -38,13 +37,12 @@ export class BalanceService {
 
     constructor(
         private rpcService: RpcService,
-        // private addressService: AddressService,
         private socketService: SocketService,
         private toastrService: ToastrService,
         private apiService: ApiService,
         private authService: AuthService,
     ) {
-        this.handleSocketEvents()
+        this.handleEvents();
     }
 
     get selectedAddress() {
@@ -76,22 +74,27 @@ export class BalanceService {
         return this._allBalancesObj?.[address]?.fiatBalance || emptyBalanceObj.fiatBalance;
     }
 
-    private handleSocketEvents() {
-        this.socketService.socket.on('API::newBlock', () => {
-            if (!this.rpcService.isApiRPC) return;
-            this.updateBalances();
-        });
+    private handleEvents() {
+        this.authService.updateBalanceSubs$
+            .subscribe(update => this.updateBalances());
+        this.authService.updateBalanceSubs$
+            .subscribe(update => this.restartBalance());
 
         this.socketService.socket.on('newBlock', (blockHeight) => {
             if (this.rpcService.isApiRPC) return;
             this.updateBalances();
         });
+        
+        // this.socketService.socket.on('API::newBlock', () => {
+        //     if (!this.rpcService.isApiRPC) return;
+        //     this.updateBalances();
+        // });
     }
 
     async updateBalances() {
-        const addressesArray: any = [];
+        const addressesArray = this.authService.listOfallAddresses;
         for (let i = 0; i < addressesArray?.length; i++) {
-            const address = addressesArray?.[i]?.address;
+            const address = addressesArray[i]?.address;
             await this.updateFiatBalanceForAddressFromUnspents(address);
             await this.updateTokensBalanceForAddress(address);
         }
@@ -175,7 +178,6 @@ export class BalanceService {
                 : await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
             return res;
         } else {
-            // const setFeeRes = await this.rpcService.setEstimateFee();
             const res = this.isApiRPC
                 ?  await this.rpcService.localRpcCall('tl_send', [fromAddress, toAddress, propId, amount.toString()]).toPromise()
                 :  await this.rpcService.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);

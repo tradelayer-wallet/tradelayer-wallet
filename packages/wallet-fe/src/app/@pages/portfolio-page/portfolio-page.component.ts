@@ -1,10 +1,12 @@
 import { Component, ElementRef, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
-import { AuthService } from 'src/app/@core/services/auth.service';
+import { first } from 'rxjs/operators';
+import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
+import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 
 @Component({
   selector: 'tl-portoflio-page',
@@ -23,11 +25,18 @@ export class PortfolioPageComponent implements OnInit {
     private rpcService: RpcService,
     private authService: AuthService,
     private elRef: ElementRef,
+    public matDialog: MatDialog
   ) {}
 
-  // get allAddresses() {
-  //   return this.addressService.allAddresses;
-  // }
+  get walletKeys() {
+    return this.authService.walletKeys;
+  }
+
+  get allAddresses() {
+    return [
+      ...this.walletKeys.main
+    ]
+  }
 
   get fiatBalance() {
     return Object.keys(this.allBalances)
@@ -52,43 +61,43 @@ export class PortfolioPageComponent implements OnInit {
 
   ngOnInit() {}
 
-  // getAvailableFiatBalance(element: any) {
-  //   const confirmed = element?.confirmed || 0;
-  //   const locked = element?.locked || 0;
-  //   const _available = confirmed - locked;
-  //   const available = _available <= 0 ? 0 : _available;
-  //   return available.toFixed(5);
-  // }
+  getAvailableFiatBalance(element: any) {
+    const confirmed = element?.confirmed || 0;
+    const locked = element?.locked || 0;
+    const _available = confirmed - locked;
+    const available = _available <= 0 ? 0 : _available;
+    return available.toFixed(5);
+  }
 
-  // getReservedFiatBalance(element: any) {
-  //   const locked = element?.locked || 0;
-  //   return locked.toFixed(5);
-  // }
+  getReservedFiatBalance(element: any) {
+    const locked = element?.locked || 0;
+    return locked.toFixed(5);
+  }
 
-  // getTotalFiatBalnace(element: any) {
-  //   const confirmed = element?.confirmed || 0;
-  //   const unconfirmed = element?.unconfirmed || 0;
+  getTotalFiatBalnace(element: any) {
+    const confirmed = element?.confirmed || 0;
+    const unconfirmed = element?.unconfirmed || 0;
 
-  //   return `${confirmed.toFixed(3)}/${unconfirmed.toFixed(3)}`
-  // }
+    return `${confirmed.toFixed(3)}/${unconfirmed.toFixed(3)}`
+  }
 
-  // getAvailableTokensBalance(element: any) {
-  //   const balance = element?.balance || 0;
-  //   const locked = element?.locked || 0;
-  //   const _available = balance - locked;
-  //   const available = _available <= 0 ? 0 : _available;
-  //   return available.toFixed(5);
-  // }
+  getAvailableTokensBalance(element: any) {
+    const balance = element?.balance || 0;
+    const locked = element?.locked || 0;
+    const _available = balance - locked;
+    const available = _available <= 0 ? 0 : _available;
+    return available.toFixed(5);
+  }
 
-  // getLockedTokensBalance(element: any) {
-  //   const locked = element?.locked || 0;
-  //   return locked.toFixed(5);
-  // }
+  getLockedTokensBalance(element: any) {
+    const locked = element?.locked || 0;
+    return locked.toFixed(5);
+  }
 
-  // getReservedTokensBalance(element: any) {
-  //   const locked = element?.reserved || 0;
-  //   return locked.toFixed(5);
-  // }
+  getReservedTokensBalance(element: any) {
+    const locked = element?.reserved || 0;
+    return locked.toFixed(5);
+  }
 
   openDialog(dialog: string, address?: any, _propId?: number) {
     if (this.nonSynced && !this.isApiRPC) {
@@ -106,28 +115,13 @@ export class PortfolioPageComponent implements OnInit {
   }
 
   async newAddress() {
-    // const passDialog = this.matDialog.open(PasswordDialog);
-    // const password = await passDialog.afterClosed()
-    //     .pipe(first())
-    //     .toPromise();
-    // if (!password) return;
-    // const encKey = this.authService.encKey;
-    // const decryptResult = decryptKeyPair(encKey, password);
-    // if (!decryptResult) {
-    //     this.toastrService.error('Wrong Password', 'Error');
-    // } else {
-    //   const pair = await this.addressService.generateNewKeyPair() as IKeyPair;
-    //   this.addressService.addDecryptedKeyPair(pair);
-    //   const allKeyParis = [
-    //       ...this.addressService.keyPairs, 
-    //       ...this.addressService.multisigPairs, 
-    //       ...this.addressService.rewardAddresses,
-    //       ...this.addressService.liquidityAddresses,
-    //   ];
-    //   this.balanceService.updateBalances();
-    //   this.authService.encKey = encryptKeyPair(allKeyParis, password);
-    //   this.dialogService.openEncKeyDialog(this.authService.encKey);
-    // }
+    const passDialog = this.matDialog.open(PasswordDialog);
+    const password = await passDialog.afterClosed()
+        .pipe(first())
+        .toPromise();
+
+    if (!password) return;
+    this.authService.addKeyPair(EAddress.MAIN, password);
   }
 
   showTokens(address: string) {

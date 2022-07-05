@@ -18,38 +18,12 @@ export class SettingsPageComponent {
       private authService: AuthService,
     ) {}
 
-    get address() {
-      return this.authService.activeMainKey;
+    get allAddresses() {
+      return this.authService.listOfallAddresses
+        .map(kp => kp.address);
     }
 
-    get liquitiyAddress() {
-      return null;
-    }
-  
-    get status() {
-      return null;
-    }
-
-    get liquidityStatus() {
-      return null;
-    }
-
-    get buttonDisabled() {
-      return true;
-    }
-
-    get liquidityButtonDisabled() {
-      return true;
-    }
-  
     kyc(address: string) {
-      const balance = this.balanceSerivce.getFiatBalancesByAddress(address);
-      // const { confirmed, locked } = balance;
-      const available = parseFloat((balance.confirmed).toFixed(6));
-      if (available < 0.0002) {
-        this.toasterService.error('You need at least 0.0002 ltc for Self-Attestation,');
-        return;
-      }
-      // this.addressesService.kycAddress(address);
+      return;
     }
 }
