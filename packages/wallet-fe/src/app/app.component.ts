@@ -30,6 +30,6 @@ export class AppComponent {
   }
 
   get allConnected() {
-    return this.isOnline;
+    return this.isOnline && this.connectionService.isMainSocketConnected;
   }
 }

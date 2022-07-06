@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core";
 import { Subject } from "rxjs";
+import { SocketService } from "./socket.service";
 
 interface IConnectionsTypes {
     isOnline: boolean;
@@ -13,12 +14,18 @@ export class ConnectionService {
     private _isOnline: boolean = window.navigator.onLine;
     public isOnline$: Subject<boolean> = new Subject();
 
-    constructor() {
+    constructor(
+        private socketService: SocketService,
+    ) {
         this.runHandlers();
     }
 
     get isOnline() {
         return this._isOnline;
+    }
+
+    get isMainSocketConnected() {
+        return this.socketService.socket.connected;
     }
 
     set isOnline(isOnline: boolean) {
