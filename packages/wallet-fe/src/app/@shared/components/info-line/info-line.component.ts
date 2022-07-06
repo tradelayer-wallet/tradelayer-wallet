@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 // import { SocketService } from 'src/app/@core/services/socket.service';
-// import { IWindow, WindowsService } from 'src/app/@core/services/windows.service';
+import { IWindow, WindowsService } from 'src/app/@core/services/windows.service';
 const mainPackageJson = require('../../../../../../../package.json');
 
 @Component({
@@ -16,7 +16,7 @@ export class InfoLineComponent implements OnInit {
   constructor(
     // private socketService: SocketService,
     private rpcService: RpcService,
-    // private windowsService: WindowsService,
+    private windowsService: WindowsService,
   ) { }
 
   // get isAbleToRpc() {
@@ -31,13 +31,17 @@ export class InfoLineComponent implements OnInit {
   //   return this.socketService.socket;
   // }
 
-  // get network() {
-  //   return this.rpcService.NETWORK;
-  // }
+  get network() {
+    return this.rpcService.NETWORK;
+  }
 
-  // get windows() {
-  //   return this.windowsService.tabs;
-  // }
+  get windows() {
+    return this.windowsService.tabs;
+  }
+
+  get lastBlock() {
+    return this.rpcService.lastBlock;
+  }
 
   // get isOffline() {
   //   return this.rpcService.isOffline;
@@ -65,8 +69,8 @@ export class InfoLineComponent implements OnInit {
   //   });
   // }
 
-  // maximize(event: Event, tab: IWindow) {
-  //   event.stopImmediatePropagation();
-  //   tab.minimized = !tab.minimized;
-  // }
+  maximize(event: Event, tab: IWindow) {
+    event.stopImmediatePropagation();
+    tab.minimized = !tab.minimized;
+  }
 }

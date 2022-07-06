@@ -22,7 +22,13 @@ export class ElectronApp {
         this.serverProcess = fork(PATH, ['args'], { stdio });
 
         this.serverProcess.on("message", (message: any) => console.log({message}));
+
+        this.serverProcess.on("exit", () => this.safeExist());
         this.serverProcess.send('init');
+    }
+
+    private safeExist() {
+        if (this.mainWindow) this.mainWindow.destroy()
     }
 
     private handleAngularSignals() {
@@ -97,7 +103,9 @@ export class ElectronApp {
             this.mainWindow = null;
         });
 
-        this.mainWindow.on('close', async () => {
+        this.mainWindow.on('close', async (e) => {
+            e.preventDefault();
+            this.sendMessageToAngular('close-app', true);
             if (this.serverProcess?.connected) this.serverProcess.send('stop');
         });
     }

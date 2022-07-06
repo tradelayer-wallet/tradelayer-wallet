@@ -1,9 +1,10 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ApiService } from 'src/app/@core/services/api.service';
 // import { ApiService } from 'src/app/@core/services/api.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { SocketService } from 'src/app/@core/services/socket.service';
-import { AuthService } from 'src/app/@core/services/auth.service';
+// import { AuthService } from 'src/app/@core/services/auth.service';
 import { WindowsService } from 'src/app/@core/services/windows.service';
 
 @Component({
@@ -12,13 +13,9 @@ import { WindowsService } from 'src/app/@core/services/windows.service';
   styleUrls: ['./sync-node.component.scss']
 })
 export class SyncNodeDialog implements OnInit, OnDestroy {
-    loading: boolean = true;
     readyPercent: number = 0;
-    nodeBlock: number = 0;
     networkBlocks: number = 0;
-    message: string = ' ';
-    terminateDisabled: boolean = true;
-
+    message: string = '';
     eta: string = 'Calculating Remaining Time ...';
 
     prevEtaData: {
@@ -35,27 +32,43 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     constructor(
         private rpcService: RpcService,
-        // private apiService: ApiService,
+        private apiService: ApiService,
         private socketService: SocketService,
-        private authService: AuthService,
-        private dialogService: DialogService,
+        // private authService: AuthService,
+        // private dialogService: DialogService,
         private windowsService: WindowsService,
     ) {}
+
+    get nodeBlock() {
+        return this.rpcService.lastBlock;
+    }
 
     // get sochainApi() {
     //     return this.apiService.soChainApi;
     // }
 
+    get coreStarted() {
+        return this.rpcService.isCoreStarted;
+    }
+
+    get mainApi() {
+        return this.apiService.mainApi;
+    }
+
     get isSynced() {
         return this.rpcService.isSynced;
     }
 
-    get isOffline() {
-        return this.rpcService.isOffline;
-    }
+    // get isOffline() {
+    //     return this.rpcService.isOffline;
+    // }
 
     get syncTab() {
         return this.windowsService.tabs.find(e => e.title === 'Synchronization');
+    }
+
+    get socket() {
+        return this.socketService.socket;
     }
 
     ngOnInit() {
@@ -85,90 +98,39 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     private async startCheckingSync() {
-        this.subscribeToNewBlocks();
-        // await this.checkNetworkInfo();
-        this.checkSync();
-        this.checkIntervalFunc = setInterval(() => {
-            if (!this.stopChecking) this.checkSync();
-        }, 10000);
+        await this.checkNetworkInfo();
+        this.checkIntervalFunc = setInterval(async () => {
+            if (!this.coreStarted) return;
+            this.checkSync();
+        }, 5000);
     }
 
     private async checkSync() {
-        const giRes = await this.rpcService.rpc('getblockchaininfo');
-        if (giRes.error || !giRes.data) {
-            this.terminateDisabled = true;
-            this.message = giRes.error || 'Undefined Error!';
-            this.stopChecking = true;
-            this.checkTimeOutFunc = setTimeout(() => {
-                this.checkSync();
-            }, 1000);
-            return;
-        }
-        this.terminateDisabled = false;
-        if (!this.rpcService.isAbleToRpc) {
-            this.rpcService.isAbleToRpc = true;
-            this.rpcService.saveConfigFile();
-        }
-        this.stopChecking = false;
-        this.nodeBlock = giRes.data.blocks;
-        if (this.isOffline) {
-            clearInterval(this.checkIntervalFunc);
-            clearTimeout(this.checkTimeOutFunc);
-            this.message = ' ';
-            return;
-        } else {
-            // await this.checkNetworkInfo();
-            this.networkBlocks = giRes.data.headers;
-            this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
-            this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
-            if (this.nodeBlock + 1 >= this.networkBlocks) {
-                if (!this.rpcService.isSynced) this.rpcService.isSynced = true;
-                this.message = 'FULL SYNCED';
-            }
-            this.message = ' ';
-            return;
+        await this.checkNetworkInfo();
+        this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
+        this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
+         if (this.nodeBlock + 2 >= this.networkBlocks) {
+            if (!this.rpcService.isSynced) this.rpcService.isSynced = true;
         }
     }
 
-    // private async checkNetworkInfo() {
-    //     try {
-    //         if (this.isOffline) return;
-    //         const networkInfo = await this.sochainApi.getNetworkInfo().toPromise();
-    //         if (networkInfo.status !== 'success' || !networkInfo.data?.blocks) return
-    //         this.networkBlocks = networkInfo.data.blocks;
-    //     } catch(err) {
-    //         console.log(err);
-    //     }
-    // }
-
-    private subscribeToNewBlocks() {
-        this.socketService.socket.on('newBlock', (b) => (b > 0) ? this.nodeBlock = b : null);
+    private async checkNetworkInfo() {
+        try {
+            // const networkInfo = await this.sochainApi.getNetworkInfo().toPromise();
+            // if (networkInfo.status !== 'success' || !networkInfo.data?.blocks) return
+            // this.networkBlocks = networkInfo.data.blocks;
+            this.networkBlocks = 660000;
+        } catch(err) {
+            console.log(err);
+        }
     }
 
     async terminate() {
-        if (this.authService.isLoggedIn) {
-            const encKey = this.authService.encKey;
-            const dialog = this.dialogService.openEncKeyDialog(encKey);
-            await dialog?.afterClosed().toPromise();
-            this.authService.logout();
-        }
-        this.loading = true;
-        this.message = " ";
-        const stopRes = await this.rpcService.rpc('stop');
-        if (stopRes.error || !stopRes.data) {
-            this.message = "Error! Please restart the app!";
-            return;
-        }
-        await this.rpcService.clearRPC();
-        this.windowsService.tabs
-            .filter(e => e.title !== "Synchronization")
-            .forEach(r => this.windowsService.closeTab(r.title));
-        this.loading = false;
+        const stopRes = await this.mainApi.rpcCall('stop').toPromise();
+        console.log({ stopRes });
     }
 
     ngOnDestroy() {
         clearInterval(this.checkIntervalFunc);
-        clearTimeout(this.checkTimeOutFunc);
-        this.socketService.socket.off('newBlock');
     }
 }

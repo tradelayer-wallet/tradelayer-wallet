@@ -1,9 +1,11 @@
-import { Component, NgZone } from '@angular/core';
+import { Component, NgZone, OnInit } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { Router } from '@angular/router';
+import { ToastrService } from 'ngx-toastr';
 import { ElectronService } from 'src/app/@core/services/electron.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { ENetwork, RpcService } from 'src/app/@core/services/rpc.service';
+import { SocketService } from 'src/app/@core/services/socket.service';
 
 @Component({
   selector: 'rpc-connect-dialog',
@@ -11,33 +13,34 @@ import { ENetwork, RpcService } from 'src/app/@core/services/rpc.service';
   styleUrls: ['./rpc-connect.component.scss']
 })
 
-export class RPCConnectDialog {
-  public loading: boolean = false;
-  public message: string = ' ';
-  public message2: string = ' ';
-
-  public host: string = 'localhost';
-  public port: number = 9332;
-  public username: string = '';
-  public password: string = '';
+export class RPCConnectDialog implements OnInit {
   public _defaultDirectoryCheckbox: boolean = true;
   public directory: string = '';
 
   public reindex: boolean = false;
   public startclean: boolean = false;
   public showAdvanced: boolean = false;
-
-  public isOnline: boolean = window.navigator.onLine;
   public network: ENetwork = ENetwork.LTC;
-
+  public message: string = "";
+  public startOnProcess: boolean = false;
   constructor(
     private rpcService: RpcService,
     public dialogRef: MatDialogRef<RPCConnectDialog>,
-    private loadingService: LoadingService,
     private electronService: ElectronService,
     private zone: NgZone,
     private router: Router,
+    private toastrService: ToastrService,
+    private socketService: SocketService,
+    private loadingService: LoadingService,
   ) {}
+
+  get loading() {
+    return this.loadingService.isLoading;
+  }
+
+  set loading(value: boolean) {
+    this.loadingService.isLoading = value
+  }
 
   get defaultDirectoryCheckbox() {
     return this._defaultDirectoryCheckbox;
@@ -46,6 +49,16 @@ export class RPCConnectDialog {
   set defaultDirectoryCheckbox(value: boolean) {
     this.directory = '';
     this._defaultDirectoryCheckbox = value;
+  }
+
+  get socket() {
+    return this.socketService.socket;
+  }
+
+  ngOnInit(): void {
+    this.socket.on('core-starting-error', (data) => {
+      if (data.error) this.message = data.error;
+    });
   }
 
   toggleAdvanced() {
@@ -65,41 +78,27 @@ export class RPCConnectDialog {
     });
   }
 
-  // async connect() {
-  //   this.message = ' ';
-  //   this.loadingService.isLoading = true;
-
-  //   const { host, port, username, password } = this;
-  //   const credentials: RPCCredentials = { host, port, username, password };
-  //   const isTestNet = this.isTestNet;
-  //   const isConnected = await this.rpcService.connect(credentials, isTestNet);
-  //   this.loadingService.isLoading = false;
-  //   if (!isConnected) {
-  //     this.message = 'Please try again! ';
-  //   } else {
-  //     this.dialogRef.close();
-  //     this.loadingService.isLoading = false;
-  //   }
-  // }
-
   async startWalletNode() {
-    // this.message2 = ' ';
-    // this.loadingService.isLoading = true;
-    // // const isTestNet = false;
+    this.startOnProcess = true;
     const network = this.network;
     const path = this.defaultDirectoryCheckbox ? '' : this.directory;
     const { reindex, startclean } = this;
     const flags = { reindex, startclean };
 
-    console.log({ path, network, flags });
-    // const res = await this.rpcService.startWalletNode(path, network, flags, !this.isOnline);
-    // if (res.error || !res.data) {
-    //   this.message2 = res.error || 'Please Try Again!';
-    //   this.loadingService.isLoading = false;
-    //   return;
-    // }
-    // this.dialogRef.close();
-    // this.router.navigateByUrl('/');
-    // this.loadingService.isLoading = false;
+    await this.rpcService.startWalletNode(path, network, flags)
+      .then(res => {
+        if (res.error || !res.data) {
+          this.toastrService.error(res.error || 'Undefined Error', 'Starting Node Error');
+        } else {
+          this.router.navigateByUrl('/');
+        }
+      })
+      .catch(error => {
+        this.toastrService.error(error.message || 'Undefined Error', 'Error request');
+      })
+      .finally(() => {
+        this.message = "";
+        this.startOnProcess = false;
+      });
   }
 }

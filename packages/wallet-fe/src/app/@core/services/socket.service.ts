@@ -25,9 +25,9 @@ export class SocketService {
     // localServerWaiting: boolean = false;
 
     constructor(
-        // private toasterService: ToastrService,
+        private toasterService: ToastrService,
         // private router: Router,
-        private dialogService: DialogService,
+        // private dialogService: DialogService,
     ) {}
 
     private get socketServerUrl(): string {

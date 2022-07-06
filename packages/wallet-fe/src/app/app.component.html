@@ -1,11 +1,12 @@
-<tl-side-nav>
-    <tl-layout *ngIf="isCoreStarted">
+<tl-side-nav *ngIf="isCoreStarted">
+    <tl-layout >
         <router-outlet></router-outlet>
     </tl-layout>
     <ng-container>
-        <!-- <ng-template *ngFor='let w of windows' [ngComponentOutlet]="w.component"></ng-template> -->
+        <ng-template *ngFor='let w of windows' [ngComponentOutlet]="w.component"></ng-template>
         <tl-info-line></tl-info-line>
     </ng-container>
 </tl-side-nav>
 
 <tl-disconnected-line *ngIf="!allConnected"></tl-disconnected-line>
+<overlay-loading *ngIf='isLoading'></overlay-loading>

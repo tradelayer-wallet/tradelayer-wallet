@@ -1,11 +1,7 @@
 <div class="dialog-container">
     <h1>Connect to the Local NODE</h1>
     <mat-dialog-content class="mat-typography">
-        <div *ngIf="!isOnline" class="offline">
-            <p>No internet Connection!</p>
-            <p>Wallet will be started in offline mode</p>
-        </div>
-        <div class="content-container">
+        <div class="content-container" *ngIf="!startOnProcess">
             <div style='display: flex; align-items: center; justify-content: space-between;'>
                 <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='defaultDirectoryCheckbox'> Default Directory </mat-checkbox>
                 <button
@@ -33,8 +29,6 @@
                 <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='reindex'>-reindex</mat-checkbox>
                 <mat-checkbox color='primary' style='margin: 0.25rem 1rem' [(ngModel)]='startclean'>-startclean</mat-checkbox>
             </div>
-
-            <p class='message'> {{ message2 }}</p>
             <button
                 style='margin: 0.5rem 0;'
                 class='greenButton'
@@ -42,6 +36,10 @@
                 (click)='startWalletNode()'
                 [disabled]='!defaultDirectoryCheckbox && !directory?.length'
             >Start Node</button>
+        </div>
+        <div class="connecting" *ngIf="startOnProcess">
+                <div class="message"> {{ message }} </div>
+                <mat-spinner></mat-spinner>
         </div>
     </mat-dialog-content>
 </div>

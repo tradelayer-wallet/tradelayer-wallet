@@ -1,7 +1,13 @@
 <div class="tabs">
-    <!-- <div class="tab" *ngFor='let t of windows' (click)='maximize($event, t)'>{{ t.title }}</div> -->
+    <div class="tab" *ngFor='let t of windows' (click)='maximize($event, t)'>{{ t.title }}</div>
 </div>
 <div class="info-line">
+    <div class="info" *ngIf="lastBlock">
+        Block: {{ lastBlock }}
+    </div>
+    <div class="info">
+        {{ network }}
+    </div>
     <div class="info">
         {{ walletVersion }}
     </div>

@@ -2,16 +2,14 @@
     <div class="dialog-container">
         <mat-dialog-content class="mat-typography">
             <div class="content-container">
-                <p class='synced' *ngIf="isSynced || isOffline">{{ isOffline ? "Offline Wallet" : "Full Synchronized" }} </p>
-                <span class='information' *ngIf="!isSynced && !isOffline">{{ eta }}</span>
-                <mat-progress-bar *ngIf="!isOffline" mode="determinate" [value]="readyPercent"></mat-progress-bar>
-                <span class='blocks-span' *ngIf="!isOffline"> {{ nodeBlock }} / {{ networkBlocks }} </span>
-                <p class='message'> {{ message }}</p>
+                <p class='synced' *ngIf="isSynced">{{ "Full Synchronized" }} </p>
+                <span class='information' *ngIf="!isSynced">{{ eta }}</span>
+                <mat-progress-bar mode="determinate" [value]="readyPercent"></mat-progress-bar>
+                <span class='blocks-span'> {{ nodeBlock }} / {{ networkBlocks }} </span>
                 <button
                     color="warn"
                     mat-button
                     (click)='terminate()'
-                    [disabled]='terminateDisabled'
                 >Terminate</button>
             </div>
         </mat-dialog-content>

@@ -1,13 +1,18 @@
 import { Injectable } from "@angular/core";
+import { ToastrService } from "ngx-toastr";
+import { ApiService } from "./api.service";
+import { DialogService, DialogTypes } from "./dialogs.service";
+import { SocketService } from "./socket.service";
+import { WindowsService } from "./windows.service";
+
 // import { HttpClient, HttpHeaders } from "@angular/common/http";
 // import { ApiService } from "./api.service";
 // import { SocketService } from "./socket.service";
-// import { DialogService, DialogTypes } from "./dialogs.service";
 // import { ToastrService } from "ngx-toastr";
 // import { WindowsService } from "./windows.service";
 // import { LoadingService } from "./loading.service";
 
-// export type TNETWORK = 'LTC' | 'LTCTEST' | 'BTC' | 'BTCTEST';
+export type TNETWORK = 'LTC' | 'LTCTEST' | 'BTC' | 'BTCTEST';
 
 // export interface RPCCredentials {
 //   host: string,
@@ -28,7 +33,9 @@ export enum ENetwork {
 })
 
 export class RpcService {
-    private _isCoreStarted: boolean = false;
+  private _isCoreStarted: boolean = false;
+  lastBlock: number = 0;
+  isSynced: boolean = false;
 
     // private _isConnected: boolean = false;
     // private _isSynced: boolean = false;
@@ -36,36 +43,36 @@ export class RpcService {
 
     // private rpcHost: string = '';
     // private authToken: string = '';
-    // private _NETWORK: TNETWORK = "LTC";
+    private _NETWORK: TNETWORK = "LTC";
     // public isAbleToRpc: boolean = false;
     // public isOffline: boolean = false;
     // public myVersion: string = 'Unknown';
   
     constructor(
       // private http: HttpClient,
-      // private apiService: ApiService,
-      // private socketService: SocketService,
-      // private dialogService: DialogService,
-      // private toasterService: ToastrService,
+      private apiService: ApiService,
+      private socketService: SocketService,
+      private dialogService: DialogService,
+      private toasterService: ToastrService,
       // private loadingService: LoadingService,
+      private windowsService: WindowsService,
     ) {
-      // this.socket.on("rpc-connection-error", (error: string) => {
-      //   if (!this.isConnected) return;
-      //   this.toasterService.error(error || `Undefined Error!`, `RPC Connection Error!.`);
-      //   this.clearRPC();
-      // });
-            
-      // this.socket.on("local-node-stopped", (error: string) => {
-      //   this.toasterService.error(error || `Undefined Error!`, `Local Node stopped working.`);
-      //   if (this.isConnected) this.clearRPC();
-      // });
+      this.socket.on('core-error', error => {
+        this._isCoreStarted = false;
+        this.toasterService.error(error || 'Undefiend Reason', 'Core Stopped Working');
+      });
+
+      this.socket.on('new-block', lastBlock => {
+        console.log(`New Block: ${lastBlock}`)
+        this.lastBlock = lastBlock;
+      });
     }
 
     get isCoreStarted() {
       return this._isCoreStarted;
     }
 
-    private set isCoreStarted(value: boolean) {
+    set isCoreStarted(value: boolean) {
       this._isCoreStarted = value;
     }
   
@@ -78,14 +85,13 @@ export class RpcService {
     //   this._isApiRPC = value;
     // }
 
-    // get NETWORK() {
-    //   return this._NETWORK;
-    // }
+    get NETWORK() {
+      return this._NETWORK;
+    }
 
-    // set NETWORK(value: TNETWORK) {
-    //   this.apiService._setNETOWRK(value);
-    //   this._NETWORK = value;
-    // }
+    set NETWORK(value: TNETWORK) {
+      this._NETWORK = value;
+    }
 
     // get isConnected() {
     //     return this._isConnected;
@@ -104,13 +110,13 @@ export class RpcService {
     //   this._isSynced = value;
     // }
 
-    // get socket() {
-    //   return this.socketService.socket;
-    // }
+    get socket() {
+      return this.socketService.socket;
+    }
 
-    // get socketScriptApi() {
-    //   return this.apiService.socketScriptApi;
-    // }
+    get mainApi() {
+      return this.apiService.mainApi;
+    }
 
     // get tlApi() {
     //   return this.apiService.tlApi;
@@ -140,6 +146,37 @@ export class RpcService {
     //   return this.socketScriptApi.connect(credentials).toPromise();
     // }
 
+    async startWalletNode(
+      path: string,
+      network: ENetwork,
+      flags: { reindex: boolean, startclean: boolean },
+    ) {
+      return await this.mainApi
+      .startWalletNode(path, network, flags)
+      .toPromise()
+      .then(async res => {
+        if (!res.error && res.data) {
+          const infoRes = await this.mainApi.rpcCall('getblockchaininfo').toPromise()
+            .then(res => {
+              if (res.data.chain) {
+                if (res.data.chain === 'main') this.NETWORK = ENetwork.LTC;
+                if (res.data.chain === 'test') this.NETWORK = ENetwork.LTCTEST;
+                if (res.data.chain !== 'main' && res.data.chain !== 'test') {
+                  throw new Error(`Undefined chain: ${res.data.chain}`);
+                }
+                this.isCoreStarted = true;
+                this.dialogService.closeAllDialogs();
+                const syncTab = this.windowsService.tabs[0];
+                syncTab.minimized = false;
+              } else {
+                throw new Error("Error with getting getblockchaininfo");
+              }
+            })
+          console.log({infoRes});
+        }
+        return res;
+      });
+    }
     // async startWalletNode(
     //     directory: string,
     //     network: ENetwork,

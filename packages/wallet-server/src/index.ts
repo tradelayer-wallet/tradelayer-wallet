@@ -13,8 +13,7 @@ process.on('message', async (message) => {
             fasitfyServer.start();
             break;
         case 'stop':
-            await fasitfyServer.stop('App closed');
-            process.exit(1);
+            await fasitfyServer.stop();
         default:
             break;
     }

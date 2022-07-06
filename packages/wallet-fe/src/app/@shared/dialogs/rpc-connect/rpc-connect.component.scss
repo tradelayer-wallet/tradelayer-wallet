@@ -37,10 +37,14 @@
                 padding: 0 2rem;
             }
         }
-    }
-    .message {
-        text-align: center;
-        color: red;
-        min-height: 1.25rem;
+        .connecting {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            .message {
+                margin-bottom: 2rem;
+            }
+        }
     }
 }

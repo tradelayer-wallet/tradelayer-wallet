@@ -1,5 +1,6 @@
 
 import { Injectable } from "@angular/core";
+import { LoadingService } from "./loading.service";
 const electron = (<any>window).require('electron');
 
 @Injectable({
@@ -9,9 +10,11 @@ const electron = (<any>window).require('electron');
 export class ElectronService {
     private _ipcRenderer: any;
 
-    constructor() {
+    constructor(
+        private loadingService: LoadingService,
+    ) {
         this._ipcRenderer = electron.ipcRenderer;
-        this.handleEvents();
+        // this.handleEvents();
     }
 
     get ipcRenderer() {
@@ -19,9 +22,9 @@ export class ElectronService {
     };
 
     private handleEvents() {
-        // this.ipcRenderer.on('angular-electron-message', (_: any, message: any) => {
-        //     const { event, data } = message;
-        // });
+        this.ipcRenderer.on('angular-electron-message', (_: any, message: any) => {
+            const { event, data } = message;
+        });
     }
 
     emitEvent(event: string, data?: any) {

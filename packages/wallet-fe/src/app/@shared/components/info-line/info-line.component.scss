@@ -26,9 +26,14 @@
         }
     }
     .info-line {
+        display: flex;
         .info {
             border-left: 1px solid white;
-            padding: 0 1rem
+            padding: 0 1rem;
+            &:first-child {
+                border-left: unset;
+            }
+            
         }
     }
 }

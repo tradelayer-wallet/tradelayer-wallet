@@ -1,10 +1,10 @@
 import { Injectable } from "@angular/core";
 // import { OrderbookServerDialog } from "src/app/@shared/dialogs/orderbook-server/orderbook-server.component";
-// import { SyncNodeDialog } from "src/app/@shared/dialogs/sync-node/sync-node.component";
+import { SyncNodeDialog } from "src/app/@shared/dialogs/sync-node/sync-node.component";
 // import { TxBuilderDialog } from "src/app/@shared/dialogs/tx-builder/tx-builder.component";
 
 export const windowComponents = {
-    // SYNC_WINDOW: SyncNodeDialog,
+    SYNC_WINDOW: SyncNodeDialog,
     // TX_BUILDER: TxBuilderDialog,
     // ORDERBOOK_SERVER: OrderbookServerDialog,
 };
@@ -21,11 +21,11 @@ export interface IWindow {
 
 export class WindowsService {
     private _tabs: IWindow[] = [
-        // {
-        //     component: windowComponents.SYNC_WINDOW,
-        //     minimized: false,
-        //     title: 'Synchronization'
-        // },
+        {
+            component: windowComponents.SYNC_WINDOW,
+            minimized: true,
+            title: 'Synchronization'
+        },
         // {
         //     component: windowComponents.ORDERBOOK_SERVER,
         //     minimized: true,
@@ -58,5 +58,9 @@ export class WindowsService {
 
     closeTab(title: string) {
         this.tabs = this.tabs.filter(e => e.title !== title);
+    }
+    
+    toggleTab(tab: IWindow, value?: boolean) {
+        tab.minimized = value || !tab.minimized;
     }
 }

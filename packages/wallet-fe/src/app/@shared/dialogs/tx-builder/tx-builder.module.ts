@@ -8,7 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTabsModule } from '@angular/material/tabs';
-import { WindowComponent } from '../../components/window/window.component';
+// import { WindowComponent } from '../../components/window/window.component';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { TxBuilderBuildTabComponent } from './tabs/build/build-tab.component';
 import { TxBuilderDecodeTabComponent } from './tabs/decode/decode-tab.component';
@@ -63,13 +63,13 @@ const declarations = [
     ...TX_TYPES,
     ...DIRECTIVES,
     TxBuilderDialog,
-    WindowComponent,
+    // WindowComponent,
 ];
 
 const exports = [
     ...DIRECTIVES,
     TxBuilderDialog,
-    WindowComponent,
+    // WindowComponent,
 ];
 
 @NgModule({ imports, declarations, exports })
