@@ -60,6 +60,7 @@ export class RpcService {
       this.socket.on('core-error', error => {
         this._isCoreStarted = false;
         this.toasterService.error(error || 'Undefiend Reason', 'Core Stopped Working');
+        this.dialogService.openDialog(DialogTypes.RPC_CONNECT);
       });
 
       this.socket.on('new-block', lastBlock => {
@@ -90,6 +91,7 @@ export class RpcService {
     }
 
     set NETWORK(value: TNETWORK) {
+      this.apiService._setNETOWRK(value);
       this._NETWORK = value;
     }
 
@@ -172,7 +174,6 @@ export class RpcService {
                 throw new Error("Error with getting getblockchaininfo");
               }
             })
-          console.log({infoRes});
         }
         return res;
       });

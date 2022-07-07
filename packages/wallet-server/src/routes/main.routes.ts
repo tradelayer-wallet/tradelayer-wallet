@@ -9,8 +9,6 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             if (!fasitfyServer.rpcClient) throw new Error("No RPC Client initialized");
             const _params = params?.length ? params : [];
             const res = await fasitfyServer.rpcClient.call(method, ..._params);
-            process.send({res});
-
             reply.status(200).send(res);
         } catch (error) {
             reply.status(500).send({ error: error || 'Undefined Error' })

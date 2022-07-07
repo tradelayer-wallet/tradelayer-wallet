@@ -4,7 +4,8 @@ import { MainApiService } from "../apis/main-api.service";
 // import { MarketApiService } from "../apis/market-api.service";
 // import { SoChainApiService } from "../apis/sochain-api.service";
 // import { SocketScriptApiService } from "../apis/ss-api.service";
-// import { TradeLayerApiService } from "../apis/relayer-api.service";
+import { TradeLayerApiService } from "../apis/relayer-api.service";
+import { TNETWORK } from "./rpc.service";
 // import { TNETWORK } from "./rpc.service";
 
 
@@ -18,16 +19,16 @@ export class ApiService {
         // private marketApiService: MarketApiService,
         // private soChainApiService: SoChainApiService,
         private mainApiService: MainApiService,
-        // private tradeLayerApiService: TradeLayerApiService,
+        private tradeLayerApiService: TradeLayerApiService,
         // private keysApiService: KeysApiService,
     ) {}
 
-    // _setNETOWRK(value: TNETWORK) {
-    //     this.marketApi._setNETWORK(value);
-    //     this.soChainApi._setNETWORK(value);
-    //     this.tradeLayerApiService._setNETWORK(value);
-    //     this.keysApiService._setNETWORK(value);
-    // }
+    _setNETOWRK(value: TNETWORK) {
+        // this.marketApi._setNETWORK(value);
+        // this.soChainApi._setNETWORK(value);
+        this.tradeLayerApiService._setNETWORK(value);
+        // this.keysApiService._setNETWORK(value);
+    }
 
     // get marketApi(){ 
     //     return this.marketApiService;
@@ -41,9 +42,9 @@ export class ApiService {
         return this.mainApiService;
     }
 
-    // get tlApi() {
-    //     return this.tradeLayerApiService;
-    // }
+    get tlApi() {
+        return this.tradeLayerApiService;
+    }
 
     // get keysApi() {
     //     return this.keysApiService;

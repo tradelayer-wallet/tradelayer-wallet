@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ToastrService } from 'ngx-toastr';
 import { ApiService } from 'src/app/@core/services/api.service';
 // import { ApiService } from 'src/app/@core/services/api.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
@@ -26,17 +27,14 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         blocks: 0,
     };
 
-    private stopChecking: boolean = false;
     private checkIntervalFunc: any;
-    private checkTimeOutFunc: any;
 
     constructor(
         private rpcService: RpcService,
         private apiService: ApiService,
         private socketService: SocketService,
-        // private authService: AuthService,
-        // private dialogService: DialogService,
         private windowsService: WindowsService,
+        private toastrService: ToastrService,
     ) {}
 
     get nodeBlock() {
@@ -106,7 +104,8 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     private async checkSync() {
-        await this.checkNetworkInfo();
+        const networkInfoRes = await this.checkNetworkInfo();
+        if (!networkInfoRes) return;
         this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
         this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
          if (this.nodeBlock + 2 >= this.networkBlocks) {
@@ -116,12 +115,13 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     private async checkNetworkInfo() {
         try {
-            // const networkInfo = await this.sochainApi.getNetworkInfo().toPromise();
-            // if (networkInfo.status !== 'success' || !networkInfo.data?.blocks) return
-            // this.networkBlocks = networkInfo.data.blocks;
-            this.networkBlocks = 660000;
-        } catch(err) {
-            console.log(err);
+            const infoRes = await this.apiService.tlApi.rpc('tl_getinfo').toPromise();
+            if (infoRes.error || !infoRes.data) throw new Error(infoRes.error);
+            this.networkBlocks = infoRes.data.block;
+            return true;
+        } catch(err: any) {
+            this.toastrService.error(err.message || err || 'Undefined Error', 'Gettinf Network Block Error');
+            throw(err);
         }
     }
 
