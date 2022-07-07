@@ -120,6 +120,10 @@ export class RpcService {
       return this.apiService.mainApi;
     }
 
+    get tlApi() {
+      return this.apiService.tlApi;
+    }
+
     // get tlApi() {
     //   return this.apiService.tlApi;
     // }
@@ -153,30 +157,38 @@ export class RpcService {
       network: ENetwork,
       flags: { reindex: boolean, startclean: boolean },
     ) {
+      this.NETWORK = network;
+      await this.tlApi.rpc('tl_getinfo').toPromise()
+        .then(res2 => {
+          if (res2.error || !res2.data) throw new Error(`${ res2.error || 'Undefined Error' }`);
+        })
+        .catch(error => {
+          throw new Error(`Error with Tradelayer API Server: ${error.message || error || 'Undefined Error'}`);
+        });
       return await this.mainApi
-      .startWalletNode(path, network, flags)
-      .toPromise()
-      .then(async res => {
-        if (!res.error && res.data) {
-          const infoRes = await this.mainApi.rpcCall('getblockchaininfo').toPromise()
-            .then(res => {
-              if (res.data.chain) {
-                if (res.data.chain === 'main') this.NETWORK = ENetwork.LTC;
-                if (res.data.chain === 'test') this.NETWORK = ENetwork.LTCTEST;
-                if (res.data.chain !== 'main' && res.data.chain !== 'test') {
-                  throw new Error(`Undefined chain: ${res.data.chain}`);
+        .startWalletNode(path, network, flags)
+        .toPromise()
+        .then(async res => {
+          if (!res.error && res.data) {
+            await this.mainApi.rpcCall('getblockchaininfo').toPromise()
+              .then(res3 => {
+                if (res3.data.chain) {
+                  if (res3.data.chain === 'main') this.NETWORK = ENetwork.LTC;
+                  if (res3.data.chain === 'test') this.NETWORK = ENetwork.LTCTEST;
+                  if (res3.data.chain !== 'main' && res3.data.chain !== 'test') {
+                    throw new Error(`Undefined chain: ${res3.data.chain}`);
+                  }
+                  this.isCoreStarted = true;
+                  this.dialogService.closeAllDialogs();
+                  const syncTab = this.windowsService.tabs[0];
+                  syncTab.minimized = false;
+                } else {
+                  throw new Error("Error with getting getblockchaininfo");
                 }
-                this.isCoreStarted = true;
-                this.dialogService.closeAllDialogs();
-                const syncTab = this.windowsService.tabs[0];
-                syncTab.minimized = false;
-              } else {
-                throw new Error("Error with getting getblockchaininfo");
-              }
-            })
-        }
-        return res;
-      });
+              })
+          }
+          return res;
+        });
     }
     // async startWalletNode(
     //     directory: string,
@@ -207,10 +219,9 @@ export class RpcService {
     //   return { data: connectRes };
     // }
 
-    // // async createNewNode(creds: { username: string, password: string, port: number, path: string }) {
-    // //   const res = await this.socketScriptApi.createNewNode(creds).toPromise();
-    // //   return res;
-    // // }
+    async createNewNode(params: { username: string, password: string, port: number, path: string }) {
+      return await this.mainApi.createNewConfFile(params).toPromise();
+    }
 
     // async smartRpc(method: string, params: any[] = []) {
     //   return this.isApiRPC

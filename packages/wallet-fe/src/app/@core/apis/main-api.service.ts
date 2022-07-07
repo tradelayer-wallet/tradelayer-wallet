@@ -34,6 +34,17 @@ export class MainApiService {
         return this.http.post(this.apiUrl + 'start-wallet-node', body);
     }
 
+    createNewConfFile(
+        body: {
+            username: string;
+            password: string;
+            port: number;
+            path: string;
+        }
+    ): Observable<any> {
+        return this.http.post(this.apiUrl + 'new-config', body);
+    };
+
     rpcCall(method: string, params?: any[]): Observable<any> {
         const body = { method, params };
         return this.http.post(this.apiUrl + 'rpc-call', body)

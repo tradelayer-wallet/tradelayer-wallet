@@ -4,18 +4,17 @@
             display: flex;
             flex-direction: column;
             padding-top: 1rem;
+            .directory {
+                margin-bottom: 2rem;
+            }
+            .create-button {
+                margin: 0.5rem 0;
+                background: mediumseagreen;
+                &:disabled {
+                    background-color: gray;
+                }
+            }
         }
     }
-    .message {
-        text-align: center;
-        color: red;
-        min-height: 1.25rem;
-    }
-    .create-button {
-        margin: 0.5rem 0;
-        background: mediumseagreen;
-        &:disabled {
-            background-color: gray;
-        }
-    }
+
 }

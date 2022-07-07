@@ -13,9 +13,6 @@ const defaultPath = ``;
   styleUrls: ['./new-node.component.scss']
 })
 export class NewNodeDialog {
-  public loading: boolean = false;
-  public message: string = ' ';
-
   public port: number = 9332;
   public username: string = '';
   public password: string = '';
@@ -26,45 +23,38 @@ export class NewNodeDialog {
     private rpcService: RpcService,
     private toastrService: ToastrService,
     public dialogRef: MatDialogRef<NewNodeDialog>,
-    @Inject(MAT_DIALOG_DATA) private data: { directory: string; isTestNet: boolean; flags: any },
+    @Inject(MAT_DIALOG_DATA) private data: { path: string },
   ) { }
 
   get buttonDisabled() {
       return !this.validCreds();
   }
 
-  get directory() {
-    return this.data.directory;
-  }
-
-  get isTestNet() {
-    return this.data.isTestNet;
-  }
-
-  get flags() {
-    return this.data.flags;
+  get path() {
+    return this.data.path;
   }
 
   async create() {
-    // this.message = ' ';
-    // this.loadingService.isLoading = true;
-    // const validCreds = this.validCreds();
-    // if (!validCreds) return;
-    // const { port, username, password } = this;
-    // const path = this.directory;
-    // const creds = { port, username, password, path };
-    // const res = await this.rpcService.createNewNode(creds);
+    this.loadingService.isLoading = true;
+    const { port, username, password, path } = this;
+    const params = { port, username, password, path };
+    await this.rpcService.createNewNode(params)
+      .then(res => {
+        if (res.error || !res.data) {
+          const message = res.error || 'Undefined Error. Try again!';
+          this.toastrService.error(message, 'Error with Creating Conf File');
+        } else {
+          this.toastrService.success(res.data, 'Config File Created');
+          this.dialogRef.close();
+        }
+      })
+      .catch(err => {
+        this.toastrService.error(err.message || 'Undefined Error', 'Error with Creating Conf File');
+      })
+      .finally(() => {
+        this.loadingService.isLoading = false;
+      });
 
-    // if (res.error || !res.data) {
-    //   this.message = res.error || 'Please check the inputs and try again!';
-    //   this.loadingService.isLoading = false;
-    //   return;
-    // } else {
-    //   await this.rpcService.startWalletNode(this.directory, this.isTestNet, this.flags);
-    //   this.loadingService.isLoading = false;
-    //   this.dialogRef.close();
-    //   return;
-    // }
   }
 
   validCreds() {

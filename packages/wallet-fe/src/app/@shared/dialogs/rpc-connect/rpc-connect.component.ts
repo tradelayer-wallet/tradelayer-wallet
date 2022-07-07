@@ -2,6 +2,7 @@ import { Component, NgZone, OnInit } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
+import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { ElectronService } from 'src/app/@core/services/electron.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { ENetwork, RpcService } from 'src/app/@core/services/rpc.service';
@@ -32,6 +33,7 @@ export class RPCConnectDialog implements OnInit {
     private toastrService: ToastrService,
     private socketService: SocketService,
     private loadingService: LoadingService,
+    private dialogService: DialogService,
   ) {}
 
   get loading() {
@@ -56,6 +58,7 @@ export class RPCConnectDialog implements OnInit {
   }
 
   ngOnInit(): void {
+    this.loadingService.isLoading = false;
     this.socket.on('core-starting-error', (data) => {
       if (data.error) this.message = data.error;
     });
@@ -88,7 +91,12 @@ export class RPCConnectDialog implements OnInit {
     await this.rpcService.startWalletNode(path, network, flags)
       .then(res => {
         if (res.error || !res.data) {
-          this.toastrService.error(res.error || 'Undefined Error', 'Starting Node Error');
+          const configError = res.error.includes("Config file") && res.error.includes("doesn't exist in");
+          if (configError) {
+            this.dialogService.openDialog(DialogTypes.NEW_NODE, { data: { path }});
+          } else {
+            this.toastrService.error(res.error || 'Undefined Error', 'Starting Node Error');
+          }
         } else {
           this.router.navigateByUrl('/');
         }

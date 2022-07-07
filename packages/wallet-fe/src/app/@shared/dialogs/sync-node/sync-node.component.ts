@@ -3,6 +3,7 @@ import { ToastrService } from 'ngx-toastr';
 import { ApiService } from 'src/app/@core/services/api.service';
 // import { ApiService } from 'src/app/@core/services/api.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
+import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { SocketService } from 'src/app/@core/services/socket.service';
 // import { AuthService } from 'src/app/@core/services/auth.service';
@@ -35,6 +36,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         private socketService: SocketService,
         private windowsService: WindowsService,
         private toastrService: ToastrService,
+        private loadingService: LoadingService,
     ) {}
 
     get nodeBlock() {
@@ -126,8 +128,8 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     async terminate() {
+        this.loadingService.isLoading = true;
         const stopRes = await this.mainApi.rpcCall('stop').toPromise();
-        console.log({ stopRes });
     }
 
     ngOnDestroy() {

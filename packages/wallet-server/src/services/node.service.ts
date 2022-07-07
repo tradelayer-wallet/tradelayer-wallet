@@ -1,5 +1,5 @@
-import { exec, execSync } from "child_process";
-import { existsSync, readFileSync } from "fs";
+import { exec } from "child_process";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { coreFilePathObj, defaultDirObj } from "../conf/windows.conf";
 import { RpcClient } from 'tl-rpc';
@@ -33,6 +33,28 @@ class FlagsObject implements IFlagsObject {
         this.datadir = options.datadir;
     }
 }
+
+export const createConfigFile = async (options: {
+    username: string;
+    password: string;
+    port: number;
+    path: string;
+}) => {
+    try {
+        const { username, password, port, path } = options;
+        const directory = join(path);
+        const directoryExist = existsSync(directory);
+        if (!directoryExist) throw('Provided Directory Dont exist');
+        const filePath = join(directory, 'litecoin.conf');
+        const fileExist = existsSync(filePath);
+        if (fileExist) throw('litecoin.conf file Already exist in provided directory!');
+        const fileData = `rpcuser=${username}\nrpcpassword=${password}\nrpcport=${port}\ntxindex=1`;
+        writeFileSync(filePath, fileData);
+        return { data: `litecoin.conf file was created` };
+    } catch (error) {
+        return { error: error || 'Creating Config File Undefined Error' };
+    }
+};
 
 export const startWalletNode = async (walletNodeOptions: any) => {
     try {
@@ -121,6 +143,8 @@ const checkIsCoreStarted = async (filePathWithFlags: string, configObj: any) => 
             } else {
                 fasitfyServer.mainSocketService.currentSocket
                     .emit("core-starting-error", check);
+                fasitfyServer.rpcClient = client;
+                fasitfyServer.rpcPort = rpcport;
             }
         }, 500);
     });

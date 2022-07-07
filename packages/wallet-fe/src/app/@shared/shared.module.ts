@@ -25,11 +25,12 @@ import { OverlayLoadingComponent } from './components/overlay-loading/overlay-lo
 import { RPCConnectDialog } from './dialogs/rpc-connect/rpc-connect.component';
 import { NewVersionDialog } from './dialogs/new-version/new-version.component';
 import { SyncNodeDialog } from './dialogs/sync-node/sync-node.component';
+import { NewNodeDialog } from './dialogs/new-node/new-node.component';
+
 import { WindowComponent } from './components/window/window.component';
 
 // import { EncKeyDialog } from './dialogs/enc-key/enc-key.component';
 // import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
-// import { NewNodeDialog } from './dialogs/new-node/new-node.component';
 // import { RescanDialog } from './dialogs/rescan/rescan.component';
 // import { WithdrawDialog } from './dialogs/withdraw/withdraw.component';
 // import { DepositDialog } from './dialogs/deposit/deposit.component';
@@ -66,10 +67,10 @@ const DIALOGS = [
     RPCConnectDialog,
     NewVersionDialog,
     SyncNodeDialog,
+    NewNodeDialog,
 
 //     EncKeyDialog,
 //     CommingSoonDialog,
-//     NewNodeDialog,
 //     RescanDialog,
 //     WithdrawDialog,
 //     DepositDialog,
