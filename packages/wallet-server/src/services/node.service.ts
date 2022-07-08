@@ -61,7 +61,7 @@ export const startWalletNode = async (walletNodeOptions: any) => {
         const flagsObject = new FlagsObject(walletNodeOptions);
 
         // Read config File
-        const path = flagsObject.datadir || defaultDirObj;
+        const path = join(flagsObject.datadir || defaultDirObj);
         const configFilePath = join(path, `litecoin.conf`);
         const isConfFileExist = existsSync(configFilePath);
         if (!isConfFileExist) throw(`Config file (litecoin.conf) doesn't exist in: ${path}`);
@@ -72,8 +72,9 @@ export const startWalletNode = async (walletNodeOptions: any) => {
 
         // Run The core
         const flagsString = convertFlagsObjectToString(flagsObject);
-        const filePathWithFlags = coreFilePathObj.LTC + flagsString;
-        if (!filePathWithFlags) throw(`Error with Starting Node. Code 1`)
+        const filePath = `"${coreFilePathObj.LTC}"`;
+        const filePathWithFlags = `${filePath}${flagsString}`;
+        if (!filePathWithFlags) throw(`Error with Starting Node. Code 1`);
         return await checkIsCoreStarted(filePathWithFlags, configObj);;
     } catch(error) {
         return { error: error.message || error || 'Undefined Error' };
@@ -85,6 +86,7 @@ const convertFlagsObjectToString = (flagsObject: any) => {
     let str = ' -txindex=1';
     Object.keys(flagsObject)
         .forEach((flag: string) => {
+            if (flag === 'datadir' && flagsObject[flag]) return str += _toStr(flag, `"${flagsObject[flag]}"`);
             if (flagsObject[flag]) return str += _toStr(flag, flagsObject[flag]);
         });
     return str || '';

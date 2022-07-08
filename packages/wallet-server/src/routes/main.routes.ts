@@ -48,7 +48,6 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const options = { username, password, port, path };
             const result = await createConfigFile(options);
             reply.status(200).send(result);
-            return { data: 'heheheh' };
         } catch (error) {
             reply.status(500).send({ error: error.message || 'Undefined Error' })
         }
