@@ -14,7 +14,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip'; 
 
-// import { LoginPageComponent } from './login-page/login-page.component';
+import { LoginPageComponent } from './login-page/login-page.component';
 // import { SpotPageComponent } from './spot-page/spot-page.component';
 // import { FuturesPageComponent } from './futures-page/futures-page.component';
 // import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
@@ -40,7 +40,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 // import { NodeRewardPageComponent } from './node-reward/reward-page.component';
 // import { LiquidityProviderPageComponent } from './liquidity-provider/liquidity-provider.component';
 import { ShortAddressPipe } from '../@shared/pipes/short-address.pipe';
-// import { LoginContainerComponent } from './login-page/login-container/login-container.component';
+import { LoginContainerComponent } from './login-page/login-container/login-container.component';
 import { HomePageComponent } from './home-page/home-page.component';
 
 const NG_MODULES = [
@@ -64,7 +64,7 @@ const MAT_MODULES = [
 
 const PAGE_COMPONENTS = [
     HomePageComponent,
-    // LoginPageComponent,
+    LoginPageComponent,
     // SpotPageComponent,
     // FuturesPageComponent,
     // PortfolioPageComponent,
@@ -72,7 +72,7 @@ const PAGE_COMPONENTS = [
     // MultisigPageComponent,
     // NodeRewardPageComponent,
     // LiquidityProviderPageComponent,
-    // LoginContainerComponent,
+    LoginContainerComponent,
 ];
 
 // const SPOT_COMPONENTS = [

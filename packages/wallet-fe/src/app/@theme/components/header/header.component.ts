@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
+import { AuthService } from 'src/app/@core/services/auth.service';
 
 @Component({
   selector: 'tl-header',
@@ -23,6 +24,7 @@ export class HeaderComponent implements OnInit {
   constructor(
     private router: Router,
     private toastrService: ToastrService,
+    private authService: AuthService,
   ) { }
 
   get selectedRoute(){
@@ -61,12 +63,12 @@ export class HeaderComponent implements OnInit {
   }
 
   navigateToLoginRoute() {
-    // this.router.navigateByUrl('login');
-    // this.selectedRoute = null;
+    this.router.navigateByUrl('login');
+    this.selectedRoute = null;
   }
 
   logOut() {
-    // this.authService.logout();
+    this.authService.logout();
   }
 
   toggleSideBar() {

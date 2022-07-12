@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
 import { MainApiService } from "../apis/main-api.service";
-// import { KeysApiService } from "../apis/keys-api.service";
+import { KeysApiService } from "../apis/keys-api.service";
 // import { MarketApiService } from "../apis/market-api.service";
 // import { SoChainApiService } from "../apis/sochain-api.service";
 // import { SocketScriptApiService } from "../apis/ss-api.service";
@@ -20,14 +20,14 @@ export class ApiService {
         // private soChainApiService: SoChainApiService,
         private mainApiService: MainApiService,
         private tradeLayerApiService: TradeLayerApiService,
-        // private keysApiService: KeysApiService,
+        private keysApiService: KeysApiService,
     ) {}
 
     _setNETOWRK(value: TNETWORK) {
         // this.marketApi._setNETWORK(value);
         // this.soChainApi._setNETWORK(value);
         this.tradeLayerApiService._setNETWORK(value);
-        // this.keysApiService._setNETWORK(value);
+        this.keysApiService._setNETWORK(value);
     }
 
     // get marketApi(){ 
@@ -46,7 +46,7 @@ export class ApiService {
         return this.tradeLayerApiService;
     }
 
-    // get keysApi() {
-    //     return this.keysApiService;
-    // }
+    get keysApi() {
+        return this.keysApiService;
+    }
 }

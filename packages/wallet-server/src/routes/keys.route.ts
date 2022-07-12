@@ -2,7 +2,7 @@ import { FastifyInstance } from "fastify";
 import { generateNewWallet, getKeyPair, getManyKeyPair, TNetwork } from "../utils/crypto.util";
 
 export const keysRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
-    fastify.post('/new-wallet', (request, reply) => {
+    fastify.post('new-wallet', (request, reply) => {
         try {
             const { network } = request.body as { network: TNetwork };
             const result = generateNewWallet(network);
@@ -13,7 +13,7 @@ export const keysRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
 
-    fastify.post('/get-address', (request, reply) => {
+    fastify.post('get-address', (request, reply) => {
         try {
             const { network, mnemonic, derivatePath } = request.body as 
                 { network: TNetwork, mnemonic: string, derivatePath: string };
@@ -26,7 +26,7 @@ export const keysRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
 
-    fastify.post('/get-address-file', (request, reply) => {
+    fastify.post('get-address-file', (request, reply) => {
         try {
             const { network, mnemonic, walletObjRaw } = request.body as
                 { network: TNetwork, mnemonic: string, walletObjRaw: any };
