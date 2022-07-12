@@ -22,13 +22,14 @@
             button {
                 margin-top: 1rem
             }
+            .message {
+                text-align: center;
+                color: red;
+                min-height: 1.25rem;
+            }
         }
     }
-    .message {
-        text-align: center;
-        color: red;
-        min-height: 1.25rem;
-    }
+
 }
 
 ::ng-deep mat-progress-bar {

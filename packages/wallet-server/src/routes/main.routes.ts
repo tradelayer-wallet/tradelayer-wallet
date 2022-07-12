@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { fasitfyServer } from "../index";
-import { startWalletNode, createConfigFile } from "../services/node.service";
+import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
 
 export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
     fastify.post('rpc-call', async (request, reply) => {
@@ -31,6 +31,15 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
                 startclean,
             };
             const result = await startWalletNode(walletNodeOptions);
+            reply.status(200).send(result);
+        } catch (error) {
+            reply.status(500).send({ error: error.message || 'Undefined Error' })
+        }
+    });
+
+    fastify.post('stop-wallet-node', async (request, reply) => {
+        try {
+            const result = await stopWalletNode();
             reply.status(200).send(result);
         } catch (error) {
             reply.status(500).send({ error: error.message || 'Undefined Error' })

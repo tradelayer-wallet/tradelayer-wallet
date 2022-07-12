@@ -27,17 +27,17 @@ export class SocketService {
     }
 
     startBlockCounting(ms: number) {
-        if (this.blockCountingInterval) return;
+        if (this.blockCountingInterval) this.stopBlockCounting();
         const client = fasitfyServer.rpcClient;
         if (!client) return;
-
         this.blockCountingInterval = setInterval(async () => {
             const infoRes = await client.call('tl_getinfo');
             if (infoRes.error || !infoRes.data) {
                 if (infoRes.error && infoRes.error.includes('ECONNREFUSED')) {
                     const check = await client.call('tl_getinfo');
                     if (check.error || !check.data) {
-                        clearInterval(this.blockCountingInterval);
+                        this.currentSocket.emit("core-error", check.error || 'Undefined Error. code 3')
+                        this.stopBlockCounting();
                     }
                 }
             }
@@ -47,5 +47,10 @@ export class SocketService {
                 this.currentSocket.emit('new-block', height);
             }
         }, ms);
+    }
+
+    stopBlockCounting() {
+        if (this.lastBlock) this.lastBlock = 0;
+        if (this.blockCountingInterval) clearInterval(this.blockCountingInterval);
     }
 }

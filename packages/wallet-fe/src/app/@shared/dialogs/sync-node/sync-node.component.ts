@@ -1,3 +1,4 @@
+import { TOUCH_BUFFER_MS } from '@angular/cdk/a11y/input-modality/input-modality-detector';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import { ApiService } from 'src/app/@core/services/api.service';
@@ -16,7 +17,6 @@ import { WindowsService } from 'src/app/@core/services/windows.service';
 })
 export class SyncNodeDialog implements OnInit, OnDestroy {
     readyPercent: number = 0;
-    networkBlocks: number = 0;
     message: string = '';
     eta: string = 'Calculating Remaining Time ...';
 
@@ -35,17 +35,12 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         private apiService: ApiService,
         private socketService: SocketService,
         private windowsService: WindowsService,
-        private toastrService: ToastrService,
         private loadingService: LoadingService,
     ) {}
 
     get nodeBlock() {
         return this.rpcService.lastBlock;
     }
-
-    // get sochainApi() {
-    //     return this.apiService.soChainApi;
-    // }
 
     get coreStarted() {
         return this.rpcService.isCoreStarted;
@@ -59,10 +54,6 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         return this.rpcService.isSynced;
     }
 
-    // get isOffline() {
-    //     return this.rpcService.isOffline;
-    // }
-
     get syncTab() {
         return this.windowsService.tabs.find(e => e.title === 'Synchronization');
     }
@@ -71,8 +62,20 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         return this.socketService.socket;
     }
 
+    get networkBlocks() {
+        return this.rpcService.networkBlocks;
+    }
+
+    get isAbleToRpc() {
+        return this.rpcService.isAbleToRpc;
+    }
+
+    set isAbleToRpc(value: boolean) {
+        this.rpcService.isAbleToRpc = value;
+    }
+
     ngOnInit() {
-        this.startCheckingSync();
+        this.checkIntervalFunc = setInterval(() => this.checkSync(), 2000);
     }
 
     private countETA(etaData: { stamp: number; blocks: number; }) {
@@ -97,39 +100,31 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         }
     }
 
-    private async startCheckingSync() {
-        await this.checkNetworkInfo();
-        this.checkIntervalFunc = setInterval(async () => {
-            if (!this.coreStarted) return;
-            this.checkSync();
-        }, 5000);
-    }
-
     private async checkSync() {
-        const networkInfoRes = await this.checkNetworkInfo();
-        if (!networkInfoRes) return;
+        this.checkIsAbleToRpc();
         this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
         this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
-         if (this.nodeBlock + 2 >= this.networkBlocks) {
-            if (!this.rpcService.isSynced) this.rpcService.isSynced = true;
-        }
     }
 
-    private async checkNetworkInfo() {
-        try {
-            const infoRes = await this.apiService.tlApi.rpc('tl_getinfo').toPromise();
-            if (infoRes.error || !infoRes.data) throw new Error(infoRes.error);
-            this.networkBlocks = infoRes.data.block;
-            return true;
-        } catch(err: any) {
-            this.toastrService.error(err.message || err || 'Undefined Error', 'Gettinf Network Block Error');
-            throw(err);
-        }
+    private checkIsAbleToRpc() {
+        if (this.rpcService.isAbleToRpc || !this.rpcService.isCoreStarted) return;
+        this.mainApi.rpcCall('tl_getinfo').toPromise()
+            .then(res => {
+                if (res.error) this.message = res.error;
+                if (!res.error && res.data) {
+                    this.isAbleToRpc = true;
+                    this.message = '';
+                }
+            })
+            .catch(error => {
+                const errrorMessage = error?.message || error || "Undefined Error";
+                this.message = errrorMessage;
+            });
     }
 
     async terminate() {
         this.loadingService.isLoading = true;
-        const stopRes = await this.mainApi.rpcCall('stop').toPromise();
+        await this.rpcService.terminateNode();
     }
 
     ngOnDestroy() {

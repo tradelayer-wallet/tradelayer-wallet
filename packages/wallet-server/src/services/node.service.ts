@@ -81,6 +81,14 @@ export const startWalletNode = async (walletNodeOptions: any) => {
     }
 };
 
+export const stopWalletNode = async () => {
+    fasitfyServer.mainSocketService.stopBlockCounting();
+    if (fasitfyServer.rpcClient) await fasitfyServer.rpcClient.call('stop');
+    fasitfyServer.rpcClient = null;
+    fasitfyServer.rpcPort = null;
+    return { data: true };
+}
+
 const convertFlagsObjectToString = (flagsObject: any) => {
     const _toStr = (flag: string, value: string | boolean) => ` -${flag}=${value}`;
     let str = ' -txindex=1';
@@ -126,28 +134,15 @@ const checkIsCoreStarted = async (filePathWithFlags: string, configObj: any) => 
         if (firstCheck !== 0) return resolve({ error: 'The core is probably Already Running'});
 
         exec(filePathWithFlags, (error, stdout, stderr) => {
-            resolve({ error: stderr || error || stdout || 'Error with Starting Node. Code 2'});
             fasitfyServer.mainSocketService.currentSocket
                 .emit("core-error", stderr || error?.message || error || stdout);
             fasitfyServer.rpcClient = null;
             fasitfyServer.rpcPort = null;
         });
 
-        const interval = setInterval(async () => {
-            const check: any = await isActiveCheck();
-            if (check === 0) return;
-            if (check === 2) {
-                fasitfyServer.rpcClient = client;
-                fasitfyServer.rpcPort = rpcport;
-                clearInterval(interval);
-                fasitfyServer.mainSocketService.startBlockCounting(2000);
-                resolve({ data: true });
-            } else {
-                fasitfyServer.mainSocketService.currentSocket
-                    .emit("core-starting-error", check);
-                fasitfyServer.rpcClient = client;
-                fasitfyServer.rpcPort = rpcport;
-            }
-        }, 500);
+        fasitfyServer.rpcClient = client;
+        fasitfyServer.rpcPort = rpcport;
+        fasitfyServer.mainSocketService.startBlockCounting(2000);
+        resolve({ data: true });
     });
 };

@@ -6,7 +6,6 @@ import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.servi
 import { ElectronService } from 'src/app/@core/services/electron.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { ENetwork, RpcService } from 'src/app/@core/services/rpc.service';
-import { SocketService } from 'src/app/@core/services/socket.service';
 
 @Component({
   selector: 'rpc-connect-dialog',
@@ -23,7 +22,7 @@ export class RPCConnectDialog implements OnInit {
   public showAdvanced: boolean = false;
   public network: ENetwork = ENetwork.LTC;
   public message: string = "";
-  public startOnProcess: boolean = false;
+
   constructor(
     private rpcService: RpcService,
     public dialogRef: MatDialogRef<RPCConnectDialog>,
@@ -31,7 +30,6 @@ export class RPCConnectDialog implements OnInit {
     private zone: NgZone,
     private router: Router,
     private toastrService: ToastrService,
-    private socketService: SocketService,
     private loadingService: LoadingService,
     private dialogService: DialogService,
   ) {}
@@ -53,15 +51,8 @@ export class RPCConnectDialog implements OnInit {
     this._defaultDirectoryCheckbox = value;
   }
 
-  get socket() {
-    return this.socketService.socket;
-  }
-
   ngOnInit(): void {
     this.loadingService.isLoading = false;
-    this.socket.on('core-starting-error', (data) => {
-      if (data.error) this.message = data.error;
-    });
   }
 
   toggleAdvanced() {
@@ -82,12 +73,11 @@ export class RPCConnectDialog implements OnInit {
   }
 
   async startWalletNode() {
-    this.startOnProcess = true;
     const network = this.network;
     const path = this.defaultDirectoryCheckbox ? '' : this.directory;
     const { reindex, startclean } = this;
     const flags = { reindex, startclean };
-
+    this.loading = true;
     await this.rpcService.startWalletNode(path, network, flags)
       .then(res => {
         if (res.error || !res.data) {
@@ -105,8 +95,7 @@ export class RPCConnectDialog implements OnInit {
         this.toastrService.error(error.message || 'Undefined Error', 'Error request');
       })
       .finally(() => {
-        this.message = "";
-        this.startOnProcess = false;
+        this.loading = false;
       });
   }
 }

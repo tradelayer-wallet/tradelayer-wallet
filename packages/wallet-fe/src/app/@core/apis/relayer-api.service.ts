@@ -10,14 +10,14 @@ import { RpcService, TNETWORK } from "../services/rpc.service";
 })
 
 export class TradeLayerApiService {
-    private NETWORK: TNETWORK = "LTC";
+    private NETWORK: TNETWORK = null;
 
     constructor(
         private http: HttpClient,
-        private rpcService: RpcService,
     ) {}
 
     private get apiURL() {
+        if (!this.NETWORK) return null;
         return environment.ENDPOINTS[this.NETWORK].relayerUrl;
     }
 
@@ -29,6 +29,7 @@ export class TradeLayerApiService {
         data?: any;
         error?: any;
     }> {
+        if (!this.apiURL) throw new Error("Api Url not found");
         const body = { params };
         return this.http.post<{
             data?: any;
