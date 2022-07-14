@@ -1,5 +1,5 @@
 import { exec } from "child_process";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { coreFilePathObj, defaultDirObj } from "../conf/windows.conf";
 import { RpcClient } from 'tl-rpc';
@@ -42,9 +42,15 @@ export const createConfigFile = async (options: {
 }) => {
     try {
         const { username, password, port, path } = options;
-        const directory = join(path);
+        const directory = join(path || defaultDirObj);
         const directoryExist = existsSync(directory);
-        if (!directoryExist) throw('Provided Directory Dont exist');
+        if (!directoryExist) {
+            if (path) {
+                throw('Provided Directory Dont exist');
+            } else {
+                mkdirSync(defaultDirObj)
+            }
+        }
         const filePath = join(directory, 'litecoin.conf');
         const fileExist = existsSync(filePath);
         if (fileExist) throw('litecoin.conf file Already exist in provided directory!');
