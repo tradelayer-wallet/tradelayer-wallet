@@ -1,10 +1,12 @@
 import { Injectable } from "@angular/core";
 // import { OrderbookServerDialog } from "src/app/@shared/dialogs/orderbook-server/orderbook-server.component";
 import { SyncNodeDialog } from "src/app/@shared/dialogs/sync-node/sync-node.component";
+import { TerminalDialog } from "src/app/@shared/dialogs/terminal/terminal.component";
 // import { TxBuilderDialog } from "src/app/@shared/dialogs/tx-builder/tx-builder.component";
 
 export const windowComponents = {
     SYNC_WINDOW: SyncNodeDialog,
+    TERMINAL: TerminalDialog,
     // TX_BUILDER: TxBuilderDialog,
     // ORDERBOOK_SERVER: OrderbookServerDialog,
 };
@@ -54,6 +56,20 @@ export class WindowsService {
         //     };
         //     this.tabs = [...this.tabs, newTab];
         // }
+    }
+
+    openTerminal() {
+        const terminal = this.tabs.find(e => e.title === 'RPC Terminal');
+        if (terminal) {
+            terminal.minimized = false;
+        } else {
+            const newTab: IWindow = {
+                component: windowComponents.TERMINAL, 
+                minimized: false, 
+                title: 'RPC Terminal',
+            };
+            this.tabs = [...this.tabs, newTab];
+        }
     }
 
     closeTab(title: string) {

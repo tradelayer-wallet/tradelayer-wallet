@@ -60,4 +60,8 @@ export class AppComponent {
   get allConnected() {
     return this.isOnline && this.connectionService.isMainSocketConnected;
   }
+
+  openHiddenTerminal() {
+    this.windowsService.openTerminal();
+  }
 }

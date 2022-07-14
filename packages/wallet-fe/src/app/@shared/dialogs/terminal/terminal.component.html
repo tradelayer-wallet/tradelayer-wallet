@@ -1,0 +1,25 @@
+<custom-window title='RPC Terminal'>
+    <div class="dialog-container">
+        <mat-dialog-content class="mat-typography">
+            <div class="content-container">
+                <textarea
+                    [(ngModel)]="textArea"
+                    readonly
+                    #textarea
+                    [scrollTop]="textarea.scrollHeight"
+                ></textarea>
+                <div class="bottom">
+                    <input
+                        type="text"
+                        [(ngModel)]="input"
+                        (keydown.enter)="sendRPC()"
+                    />
+                    <select [(ngModel)]="typeRpc">
+                        <option value="LOCAL">Local</option>
+                        <option value="API">API</option>
+                    </select>
+                </div>
+            </div>
+        </mat-dialog-content>
+    </div>
+</custom-window>

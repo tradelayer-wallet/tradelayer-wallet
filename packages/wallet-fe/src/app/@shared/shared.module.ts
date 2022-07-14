@@ -26,6 +26,7 @@ import { RPCConnectDialog } from './dialogs/rpc-connect/rpc-connect.component';
 import { NewVersionDialog } from './dialogs/new-version/new-version.component';
 import { SyncNodeDialog } from './dialogs/sync-node/sync-node.component';
 import { NewNodeDialog } from './dialogs/new-node/new-node.component';
+import { TerminalDialog } from './dialogs/terminal/terminal.component';
 
 import { WindowComponent } from './components/window/window.component';
 
@@ -68,7 +69,7 @@ const DIALOGS = [
     NewVersionDialog,
     SyncNodeDialog,
     NewNodeDialog,
-
+    TerminalDialog,
 //     EncKeyDialog,
 //     CommingSoonDialog,
 //     RescanDialog,

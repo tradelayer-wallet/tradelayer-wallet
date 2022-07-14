@@ -107,7 +107,7 @@ export class RpcService {
     private async checkNetworkInfo() {
       if (!this.NETWORK) return;
       try {
-          const infoRes = await this.apiService.tlApi.rpc('tl_getinfo').toPromise();
+          const infoRes = await this.tlApi.rpc('tl_getinfo').toPromise();
           if (infoRes.error || !infoRes.data) throw new Error(infoRes.error);
           if (infoRes.data.block > this.networkBlocks) {
             this.networkBlocks = infoRes.data.block;

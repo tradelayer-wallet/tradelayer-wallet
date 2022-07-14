@@ -1,5 +1,5 @@
-<tl-side-nav *ngIf="isCoreStarted">
-    <tl-layout >
+<tl-side-nav *ngIf="isCoreStarted" (keydown.shift.t)="openHiddenTerminal()">
+    <tl-layout>
         <router-outlet></router-outlet>
     </tl-layout>
     <ng-container>
