@@ -28,13 +28,13 @@ export class SoChainApiService {
         return this.http.get(url + address);
     }
 
-    // getNetworkInfo(): Observable<{
-    //     status: string;
-    //     data: any;
-    // }> {
-    //     return this.http.get<{
-    //         status: string;
-    //         data: any;
-    //     }>(this.apiUrl + 'get_info/' + this.NETWORK);
-    // }
+    getNetworkInfo(): Observable<{
+        status: string;
+        data: any;
+    }> {
+        return this.http.get<{
+            status: string;
+            data: any;
+        }>(this.apiUrl + 'get_info/' + this.NETWORK);
+    }
 }

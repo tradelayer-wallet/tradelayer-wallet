@@ -129,28 +129,38 @@ mat-card {
             padding: 16px;
             align-items: center;
             justify-content: space-between;
-            button {
-                border-radius: 4px;
-                width: 45%;
-                color: var(--white);
-                height: 2rem;
-                border: none;
-                cursor: pointer;
-                transition: background-color 0.25s;
-                &:disabled {
-                    opacity: 0.25;
+            .button-container {
+                display: flex;
+                flex-direction: column;
+                width: 50%;
+                align-items: center;
+                span {
+                    color: white;
+                    cursor: pointer;
                 }
-            }
-            .buy-button {
-                background-color: var(--greenSuccess);
-                &:hover {
-                    background-color: var(--mossGreen);
+                button {
+                    border-radius: 4px;
+                    width: 90%;
+                    color: var(--white);
+                    height: 2rem;
+                    border: none;
+                    cursor: pointer;
+                    transition: background-color 0.25s;
+                    &:disabled {
+                        opacity: 0.25;
+                    }
                 }
-            }
-            .sell-button {
-                background-color: var(--redError);
-                &:hover {
-                    background-color: var(--red2);
+                .buy-button {
+                    background-color: var(--greenSuccess);
+                    &:hover {
+                        background-color: var(--mossGreen);
+                    }
+                }
+                .sell-button {
+                    background-color: var(--redError);
+                    &:hover {
+                        background-color: var(--red2);
+                    }
                 }
             }
         }

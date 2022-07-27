@@ -5,10 +5,10 @@
         <span>Order Form</span>
         <span class='contract'>wETH / LTC</span>
       </div>
-      <div class="icons">
+      <!-- <div class="icons">
         <mat-icon svgIcon="resize"></mat-icon>
         <mat-icon svgIcon="close"></mat-icon>
-      </div>
+      </div> -->
     </div>
   </mat-card-title>
   <mat-card-content>
@@ -31,16 +31,22 @@
       </div>
     </div>
     <div class="buttons">
-      <button
-        class='buy-button'
-        (click)='handleBuySell(true)'
-        [disabled]='getButtonDisabled(true)'
-      >Buy</button>
-      <button
-        class='sell-button'
-        (click)='handleBuySell(false)'
-        [disabled]='getButtonDisabled(false)'
-      >Sell</button>
+      <div class="button-container">
+        <button
+          class='buy-button'
+          (click)='handleBuySell(true)'
+          [disabled]='getButtonDisabled(true)'
+        >Buy</button>
+        <span (click)="fillMax(true)">Max: {{ getMaxAmount(true) }}</span>
+      </div>
+      <div class="button-container">
+        <button
+          class='sell-button'
+          (click)='handleBuySell(false)'
+          [disabled]='getButtonDisabled(false)'
+        >Sell</button>
+        <span (click)="fillMax(false)">Max: {{ getMaxAmount(false) }}</span>
+      </div>
     </div>
   </mat-card-content>
     <!-- <mat-card-content [formGroup]='buySellGroup'>

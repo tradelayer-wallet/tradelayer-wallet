@@ -9,7 +9,7 @@ export const buildAndSend = async (socketScript: SocketScript, method: string, p
     const isTestnet = false;
     const url = isTestnet
         ? 'http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com:9191/rpc/'
-        : 'http://170.187.147.182:9191/rpc/';
+        : 'http://170.75.174.87:9191/rpc/';
 
     const address = params[0];
     const utxosRes = await axios({

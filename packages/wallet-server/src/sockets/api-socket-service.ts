@@ -8,9 +8,9 @@ export class ApiSocketService {
     constructor(isTestnet: boolean) {
         this.isTestnet = isTestnet;
         const url = isTestnet
-            ? "http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com"
-            : "http://170.187.147.182";
-        const host = `${url}:77`;
+            ? "http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com:77"
+            : "http://170.75.174.87:9192";
+        const host = `${url}`;
         this.socket = io(host, { reconnection: false });
         this.handleEvents();
     }

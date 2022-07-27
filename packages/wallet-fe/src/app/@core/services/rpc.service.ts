@@ -139,15 +139,14 @@ export class RpcService {
       const res = await this.socketScriptApi.startWalletNode(directory, network, flags, startWithOffline).toPromise();
 
       const isTestNet = network.endsWith('TEST');
-      // if (res.error?.includes("Config file doesn't exist in")) {
-      //   const dialogOptions = { disableClose: false, hasBackdrop: true, data: { directory, isTestNet, flags }};
-      //   this.dialogService.openDialog(DialogTypes.NEW_NODE, dialogOptions);
-      //   return { error: res.error };
-      // }
+      if (res.error?.includes("Config file doesn't exist in")) {
+        const dialogOptions = { disableClose: false, hasBackdrop: true, data: { directory, isTestNet, flags }};
+        this.dialogService.openDialog(DialogTypes.NEW_NODE, dialogOptions);
+        return { error: res.error };
+      }
 
       if (res.error || !res.data?.configObj) return { error: res.error };
       this.socketService.mainApiServerWaiting = true;
-
       this.isOffline = res.data.isOffline;
       this.myVersion = res.data.myVersion
       const host = 'localhost';
