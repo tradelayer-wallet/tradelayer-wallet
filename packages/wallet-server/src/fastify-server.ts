@@ -3,7 +3,6 @@ import { handleRoutes } from './routes';
 import { SocketService } from './services/socket.service';
 import { RpcClient } from 'tl-rpc';
 import * as killPort from 'kill-port';
-import { ChildProcess } from 'child_process';
 
 export class FastifyServer {
     private _server: FastifyInstance;

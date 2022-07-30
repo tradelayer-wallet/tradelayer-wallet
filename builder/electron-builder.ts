@@ -16,7 +16,10 @@ export class ElectronApp {
         this.handleOnEvents();
         this.handleAngularSignals()
         this.disableSecurityWarnings();
+        this.startChildProcess();
+    }
 
+    private startChildProcess() {
         const PATH = path.join(__dirname, './server/index.js');
         const stdio: StdioOptions = ['pipe', 'pipe', 'pipe', 'ipc']
         this.serverProcess = fork(PATH, ['args'], { stdio });
@@ -28,7 +31,7 @@ export class ElectronApp {
     }
 
     private safeExist() {
-        if (this.mainWindow) this.mainWindow.destroy()
+        if (this.mainWindow) this.mainWindow.destroy();
     }
 
     private handleAngularSignals() {
@@ -106,7 +109,9 @@ export class ElectronApp {
         this.mainWindow.on('close', async (e) => {
             e.preventDefault();
             this.sendMessageToAngular('close-app', true);
-            if (this.serverProcess?.connected) this.serverProcess.send('stop');
+            this.serverProcess?.connected
+                ? this.serverProcess.send('stop')
+                : this.safeExist();
         });
     }
 

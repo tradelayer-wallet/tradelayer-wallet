@@ -60,6 +60,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         } catch (error) {
             reply.status(500).send({ error: error.message || 'Undefined Error' })
         }
-    })
+    });
+
     done();
 }
