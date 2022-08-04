@@ -43,12 +43,24 @@ export class InfoLineComponent implements OnInit {
     return this.rpcService.lastBlock;
   }
 
+  get networkBlock() {
+    return this.rpcService.networkBlocks;
+  }
+
+  get isSynced() {
+    return this.rpcService.isSynced;
+  }
+
   // get isOffline() {
   //   return this.rpcService.isOffline;
   // }
 
   get walletVersion() {
     return `v${mainPackageJson.version}`;
+  }
+
+  get isCoreStarted() {
+    return this.rpcService.isCoreStarted;
   }
 
   ngOnInit() {
