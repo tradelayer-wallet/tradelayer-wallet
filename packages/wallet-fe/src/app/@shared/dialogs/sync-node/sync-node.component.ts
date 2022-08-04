@@ -1,14 +1,11 @@
-import { TOUCH_BUFFER_MS } from '@angular/cdk/a11y/input-modality/input-modality-detector';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { ApiService } from 'src/app/@core/services/api.service';
-// import { ApiService } from 'src/app/@core/services/api.service';
-import { DialogService } from 'src/app/@core/services/dialogs.service';
+import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
+import { ElectronService } from 'src/app/@core/services/electron.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
-import { RpcService } from 'src/app/@core/services/rpc.service';
-import { SocketService } from 'src/app/@core/services/socket.service';
-// import { AuthService } from 'src/app/@core/services/auth.service';
-import { WindowsService } from 'src/app/@core/services/windows.service';
+import { ENetwork, RpcService } from 'src/app/@core/services/rpc.service';
 
 @Component({
   selector: 'sync-node-dialog',
@@ -33,33 +30,24 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     constructor(
         private rpcService: RpcService,
         private apiService: ApiService,
-        private socketService: SocketService,
-        private windowsService: WindowsService,
         private loadingService: LoadingService,
+        private electronService: ElectronService,
+        private zone: NgZone,
+        private dialogService: DialogService,
+        private router: Router,
+        private toastrService: ToastrService,
     ) {}
-
-    get nodeBlock() {
-        return this.rpcService.lastBlock;
-    }
 
     get coreStarted() {
         return this.rpcService.isCoreStarted;
-    }
-
-    get mainApi() {
-        return this.apiService.mainApi;
     }
 
     get isSynced() {
         return this.rpcService.isSynced;
     }
 
-    get syncTab() {
-        return this.windowsService.tabs.find(e => e.title === 'Synchronization');
-    }
-
-    get socket() {
-        return this.socketService.socket;
+    get nodeBlock() {
+        return this.rpcService.lastBlock;
     }
 
     get networkBlocks() {
@@ -70,11 +58,10 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         return this.rpcService.isAbleToRpc;
     }
 
-    set isAbleToRpc(value: boolean) {
-        this.rpcService.isAbleToRpc = value;
-    }
+    ngOnInit() { }
 
-    ngOnInit() {
+    private checFunction() {
+        this.checkSync();
         this.checkIntervalFunc = setInterval(() => this.checkSync(), 2000);
     }
 
@@ -101,18 +88,18 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     private async checkSync() {
-        this.checkIsAbleToRpc();
+        await this.checkIsAbleToRpc();
         this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
         this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
     }
 
-    private checkIsAbleToRpc() {
+    private async checkIsAbleToRpc() {
         if (this.rpcService.isAbleToRpc || !this.rpcService.isCoreStarted) return;
-        this.mainApi.rpcCall('tl_getinfo').toPromise()
+        await this.apiService.mainApi.rpcCall('tl_getinfo').toPromise()
             .then(res => {
                 if (res.error) this.message = res.error;
                 if (!res.error && res.data) {
-                    this.isAbleToRpc = true;
+                    this.rpcService.isAbleToRpc = true;
                     this.message = '';
                 }
             })
@@ -123,11 +110,78 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     async terminate() {
+        if (!this.isAbleToRpc) return;
         this.loadingService.isLoading = true;
-        await this.rpcService.terminateNode();
+        const terminateRes = await this.rpcService.terminateNode();
+        clearInterval(this.checkIntervalFunc);
+        this.message = ' ';
     }
 
     ngOnDestroy() {
         clearInterval(this.checkIntervalFunc);
+    }
+
+    // ------
+    public _defaultDirectoryCheckbox: boolean = true;
+    public directory: string = '';
+    public reindex: boolean = false;
+    public startclean: boolean = false;
+    public showAdvanced: boolean = false;
+    public network: ENetwork = this.rpcService.NETWORK as ENetwork;
+
+    get defaultDirectoryCheckbox() {
+        return this._defaultDirectoryCheckbox;
+    }
+
+    set defaultDirectoryCheckbox(value: boolean) {
+        this.directory = '';
+        this._defaultDirectoryCheckbox = value;
+    }
+
+    openDirSelectDialog() {
+        this.electronService.emitEvent('open-dir-dialog');
+        this.electronService.ipcRenderer.once('angular-electron-message', (_: any, message: any) => {
+            const { event, data } = message;
+            if (event !== 'selected-dir' || !data ) return;
+            this.zone.run(() => this.directory = data || '');
+        });
+    }
+
+    toggleAdvanced() {
+        this.showAdvanced = !this.showAdvanced;
+        if (!this.showAdvanced) {
+        this.reindex = false;
+        this.startclean = false;
+        }    
+    }
+
+    async startWalletNode() {
+        const network = this.network;
+        if (!network) return;
+        const path = this.defaultDirectoryCheckbox ? '' : this.directory;
+        const { reindex, startclean } = this;
+        const flags = { reindex, startclean };
+        this.loadingService.isLoading = true;
+        await this.rpcService.startWalletNode(path, ENetwork[network], flags)
+        .then(async res => {
+            if (res.error || !res.data) {
+            const configError = res.error.includes("Config file") && res.error.includes("doesn't exist in");
+            if (configError) {
+                this.dialogService.openDialog(DialogTypes.NEW_NODE, { data: { path }});
+            } else {
+                this.toastrService.error(res.error || 'Undefined Error', 'Starting Node Error');
+            }
+            } else {
+                this.router.navigateByUrl('/');
+                await this.checkIsAbleToRpc();
+            }
+        })
+        .catch(error => {
+            this.toastrService.error(error.message || 'Undefined Error', 'Error request');
+        })
+        .finally(() => {
+            this.checFunction();
+            this.loadingService.isLoading = false;
+        });
     }
 }

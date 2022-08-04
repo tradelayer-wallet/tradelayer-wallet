@@ -81,6 +81,6 @@ export class NewVersionDialog implements OnInit {
 
   close() {
     this.dialogRef.close();
-    this.dialogService.openDialog(DialogTypes.RPC_CONNECT);
+    this.dialogService.openDialog(DialogTypes.SELECT_NETOWRK);
   }
 }

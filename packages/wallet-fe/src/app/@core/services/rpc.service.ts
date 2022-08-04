@@ -2,14 +2,12 @@ import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
 import { ApiService } from "./api.service";
 import { SocketService } from "./socket.service";
-import { WindowsService } from "./windows.service";
-import { DialogService, DialogTypes } from "./dialogs.service";
+import { DialogService } from "./dialogs.service";
+import { LoadingService } from "./loading.service";
 
-export type TNETWORK = 'LTC' | 'LTCTEST' | 'BTC' | 'BTCTEST' | null;
+export type TNETWORK = 'LTC' | 'LTCTEST' | null;
 export enum ENetwork {
-  BTC = 'BTC',
   LTC = 'LTC',
-  BTCTEST = 'BTCTEST',
   LTCTEST = 'LTCTEST',
 };
 
@@ -19,17 +17,20 @@ export enum ENetwork {
 
 export class RpcService {
   private _NETWORK: TNETWORK = null;
+  private _stoppedByTerminated: boolean = false;
 
   isCoreStarted: boolean = false;
   isAbleToRpc: boolean = false;
   lastBlock: number = 0;
   networkBlocks: number = 0;
+  isNetworkSelected: boolean = false;
 
     constructor(
       private apiService: ApiService,
       private socketService: SocketService,
       private dialogService: DialogService,
       private toastrService: ToastrService,
+      private loadingService: LoadingService,
     ) {
       this.subsToEvents();
     }
@@ -37,8 +38,13 @@ export class RpcService {
     private subsToEvents() {
       this.socket.on('core-error', error => {
         this.clearRpcConnection();
-        this.toastrService.error(error || 'Undefiend Reason', 'Core Stopped Working');
-        this.dialogService.openDialog(DialogTypes.RPC_CONNECT);
+        if (!this._stoppedByTerminated) {
+          this.toastrService.error(error || 'Undefiend Reason', 'Core Stopped Working');
+        } else {
+          this.toastrService.success(error || 'Core Stopped Successfull');
+          this._stoppedByTerminated = false;
+          this.loadingService.isLoading = false;
+        }
       });
 
       this.socket.on('new-block', lastBlock => {
@@ -60,6 +66,7 @@ export class RpcService {
     set NETWORK(value: TNETWORK) {
       this.apiService._setNETOWRK(value);
       this._NETWORK = value;
+      this.checkNetworkInfo();
     }
 
     get socket() {
@@ -109,7 +116,7 @@ export class RpcService {
       try {
           const infoRes = await this.tlApi.rpc('tl_getinfo').toPromise();
           if (infoRes.error || !infoRes.data) throw new Error(infoRes.error);
-          if (infoRes.data.block > this.networkBlocks) {
+          if (infoRes.data.block !== this.networkBlocks) {
             this.networkBlocks = infoRes.data.block;
             console.log(`New Network Block: ${this.networkBlocks}`);
           }
@@ -120,15 +127,21 @@ export class RpcService {
     }
 
     async terminateNode() {
-      await this.mainApi.stopWalletNode().toPromise();
-      this.clearRpcConnection();
+      return await this.mainApi.stopWalletNode().toPromise()
+        .then(res => {
+          this.clearRpcConnection();
+          this._stoppedByTerminated = true;
+          return res;
+        })
+        .catch(err => {
+          this.toastrService.error('Error with stopping Node', err?.message || err);
+        });
     }
 
     private clearRpcConnection() {
-      this.NETWORK = null;
       this.isAbleToRpc = false;
       this.isCoreStarted = false;
       this.lastBlock = 0;
-      this.networkBlocks = 0;
+      // this.networkBlocks = 0;
     }
   }

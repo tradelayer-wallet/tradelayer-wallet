@@ -45,7 +45,7 @@ export class FastifyServer {
         }, 500);
     }
 
-    private async safeStop() {
+    private safeStop() {
         if (this.rpcClient || this.rpcPort) return;
         process.emit("exit", 1);
         process.exit(1);

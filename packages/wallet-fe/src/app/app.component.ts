@@ -40,6 +40,10 @@ export class AppComponent {
     return this.rpcService.isCoreStarted;
   }
 
+  get isNetworkSelected() {
+    return this.rpcService.isNetworkSelected;
+  }
+
   handleConnections() {
     this.connectionService.isOnline$
       .subscribe((isOnline) => {

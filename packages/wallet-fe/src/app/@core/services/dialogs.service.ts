@@ -1,8 +1,8 @@
 import { Injectable } from "@angular/core";
 import { MatDialog, MatDialogConfig } from "@angular/material/dialog";
-import { RPCConnectDialog } from "src/app/@shared/dialogs/rpc-connect/rpc-connect.component";
 import { NewVersionDialog } from "src/app/@shared/dialogs/new-version/new-version.component";
 import { NewNodeDialog } from "src/app/@shared/dialogs/new-node/new-node.component";
+import { SelectNetworkDialog } from "src/app/@shared/dialogs/select-network/select-network.component";
 
 // import { CommingSoonDialog } from "src/app/@shared/dialogs/comming-soon/comming-soon.componet";
 // import { DepositDialog } from "src/app/@shared/dialogs/deposit/deposit.component";
@@ -14,7 +14,7 @@ import { NewNodeDialog } from "src/app/@shared/dialogs/new-node/new-node.compone
 // import { WithdrawDialog } from "src/app/@shared/dialogs/withdraw/withdraw.component";
 
 export enum DialogTypes {
-    RPC_CONNECT = "RPC_CONNECT",
+    SELECT_NETOWRK = "SELECT_NETOWRK",
     ENC_KEY = "ENC_KEY",
     COMMING_SOON = 'COMMING_SOON',
     NEW_NODE = 'NEW_NODE',
@@ -28,7 +28,7 @@ export enum DialogTypes {
 };
 
 const dialogs: { [key: string]: any; } = {
-    'RPC_CONNECT': RPCConnectDialog,
+    'SELECT_NETOWRK': SelectNetworkDialog,
     'NEW_VERSION': NewVersionDialog,
     'NEW_NODE': NewNodeDialog,
     // 'ENC_KEY': EncKeyDialog,

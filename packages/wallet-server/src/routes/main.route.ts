@@ -42,7 +42,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const result = await stopWalletNode();
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            reply.status(500).send({ error: error?.message || error || 'Undefined Error' })
         }
     });
 

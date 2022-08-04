@@ -22,7 +22,7 @@ import { InfoLineComponent } from '../@shared/components/info-line/info-line.com
 import { DisconnectedLineComponent } from './components/disconnected-line/disconnected-line.component';
 import { OverlayLoadingComponent } from './components/overlay-loading/overlay-loading.component';
 
-import { RPCConnectDialog } from './dialogs/rpc-connect/rpc-connect.component';
+import { SelectNetworkDialog } from './dialogs/select-network/select-network.component';
 import { NewVersionDialog } from './dialogs/new-version/new-version.component';
 import { SyncNodeDialog } from './dialogs/sync-node/sync-node.component';
 import { NewNodeDialog } from './dialogs/new-node/new-node.component';
@@ -65,7 +65,7 @@ const MAT_MODULES = [
 ];
 
 const DIALOGS = [
-    RPCConnectDialog,
+    SelectNetworkDialog,
     NewVersionDialog,
     SyncNodeDialog,
     NewNodeDialog,

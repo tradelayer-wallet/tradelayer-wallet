@@ -88,11 +88,17 @@ export const startWalletNode = async (walletNodeOptions: any) => {
 };
 
 export const stopWalletNode = async () => {
-    fasitfyServer.mainSocketService.stopBlockCounting();
-    if (fasitfyServer.rpcClient) await fasitfyServer.rpcClient.call('stop');
-    fasitfyServer.rpcClient = null;
-    fasitfyServer.rpcPort = null;
-    return { data: true };
+        const stopRes = await fasitfyServer.rpcClient?.call('stop');
+        const checkPromise = new Promise(async checkResolve => {
+            const checkRes = await fasitfyServer.rpcClient.call('tl_getinfo');
+            checkRes?.error?.includes("ECONNREFUSED")
+                ? checkResolve(true)
+                : await checkPromise;
+        });
+        fasitfyServer.mainSocketService.stopBlockCounting();
+        fasitfyServer.rpcClient = null;
+        fasitfyServer.rpcPort = null;
+        return { data: true };
 }
 
 const convertFlagsObjectToString = (flagsObject: any) => {
@@ -133,7 +139,7 @@ const checkIsCoreStarted = async (filePathWithFlags: string, configObj: any) => 
                 const check = await client.call('tl_getinfo');
                 if (check.data) res(2);
                 if (check.error && !check.error.includes('ECONNREFUSED')) res(check);
-                if (check.error && check.error.includes('ECONNREFUSED')) res(0)
+                if (check.error && check.error.includes('ECONNREFUSED')) res(0);
             });
         };
         const firstCheck = await isActiveCheck();
@@ -145,10 +151,24 @@ const checkIsCoreStarted = async (filePathWithFlags: string, configObj: any) => 
             fasitfyServer.rpcClient = null;
             fasitfyServer.rpcPort = null;
         });
+        setTimeout(() => resolve({error: 'Core Starting TimedOut: 10 secs'}), 10000);
 
-        fasitfyServer.rpcClient = client;
-        fasitfyServer.rpcPort = rpcport;
-        fasitfyServer.mainSocketService.startBlockCounting(2000);
-        resolve({ data: true });
+        const finalCheck = () => new Promise(async checkResolve => {
+            await client.call('tl_getinfo')
+                .then(async checkRes => {
+                    if (!checkRes?.error?.includes("ECONNREFUSED")) {
+                        fasitfyServer.rpcClient = client;
+                        fasitfyServer.rpcPort = rpcport;
+                        fasitfyServer.mainSocketService.startBlockCounting(2000);
+                        checkResolve({ data: true });
+                    } else {
+                        const subCheck = await finalCheck();
+                        checkResolve({ data: subCheck });
+                    }
+                });
+        });
+
+        const finalRes = await finalCheck();
+        resolve({ data: finalRes });
     });
 };
