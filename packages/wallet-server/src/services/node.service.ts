@@ -21,7 +21,7 @@ class FlagsObject implements IFlagsObject {
     public reindex: number = 0;
     public addnode: string = null;
     public datadir: string = null;
-
+    public connect: string = null;
     constructor(options: any) {
         const toBool = (param: boolean) => param ? 1 : 0;
 
@@ -31,6 +31,7 @@ class FlagsObject implements IFlagsObject {
         this.reindex = toBool(!!options.reindex);
         this.addnode = options.addnode;
         this.datadir = options.datadir;
+        this.connect = options.connect;
     }
 }
 
@@ -64,8 +65,8 @@ export const createConfigFile = async (options: {
 
 export const startWalletNode = async (walletNodeOptions: any) => {
     try {
+        if (walletNodeOptions.testnet) walletNodeOptions.connect = "178.62.46.195:19333";
         const flagsObject = new FlagsObject(walletNodeOptions);
-
         // Read config File
         const path = join(flagsObject.datadir || defaultDirObj);
         const configFilePath = join(path, `litecoin.conf`);

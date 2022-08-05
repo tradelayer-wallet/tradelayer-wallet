@@ -182,6 +182,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         .finally(() => {
             this.checFunction();
             this.loadingService.isLoading = false;
+            this.eta = 'Calculating Remaining Time ...';
         });
     }
 }
