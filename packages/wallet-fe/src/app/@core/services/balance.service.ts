@@ -166,21 +166,6 @@ export class BalanceService {
         return gpRes.data.name;
     }
 
-    async withdraw(optionsObj: { fromAddress: string, toAddress: string, amount: number, propId: number }) {
-        // const { fromAddress, toAddress, amount, propId } = optionsObj;
-        // if (propId === -1) {
-        //     const res = this.isApiRPC
-        //         ? await this.rpcService.localRpcCall('sendtoaddress', [fromAddress, toAddress, amount]).toPromise()
-        //         : await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
-        //     return res;
-        // } else {
-        //     const res = this.isApiRPC
-        //         ?  await this.rpcService.localRpcCall('tl_send', [fromAddress, toAddress, propId, amount.toString()]).toPromise()
-        //         :  await this.rpcService.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);
-        //     return res;
-        // }
-    }
-
     restartBalance() {
         this._allBalancesObj = {};
     }

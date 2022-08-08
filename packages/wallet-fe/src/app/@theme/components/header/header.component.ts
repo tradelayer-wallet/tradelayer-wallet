@@ -75,6 +75,6 @@ export class HeaderComponent implements OnInit {
   }
   
   updateBalance() {
-
+    this.balanceService.updateBalances();
   }
 }

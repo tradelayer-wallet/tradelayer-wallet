@@ -31,14 +31,13 @@ import { TerminalDialog } from './dialogs/terminal/terminal.component';
 import { WindowComponent } from './components/window/window.component';
 import { EncKeyDialog } from './dialogs/enc-key/enc-key.component';
 import { PasswordDialog } from './dialogs/password/password.component';
+import { WithdrawDialog } from './dialogs/withdraw/withdraw.component';
+import { DepositDialog } from './dialogs/deposit/deposit.component';
+import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
 
-// import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
 // import { RescanDialog } from './dialogs/rescan/rescan.component';
-// import { WithdrawDialog } from './dialogs/withdraw/withdraw.component';
-// import { DepositDialog } from './dialogs/deposit/deposit.component';
 // import { NewMultisigDialog } from './dialogs/new-multisig/new-multisig.component';
 // import { ClickOutsideDirective } from './directives/click-outside.directive';
-
 // import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
 // import { OfflineWalletDialog } from './dialogs/offline-wallet/offline-wallet.component';
 // import { OrderbookServerDialog } from './dialogs/orderbook-server/orderbook-server.component';
@@ -72,11 +71,10 @@ const DIALOGS = [
     TerminalDialog,
     EncKeyDialog,
     PasswordDialog,
-
-//     CommingSoonDialog,
+    WithdrawDialog,
+    DepositDialog,
+    CommingSoonDialog,
 //     RescanDialog,
-//     WithdrawDialog,
-//     DepositDialog,
 //     NewMultisigDialog,
 //     OfflineWalletDialog,
 //     OrderbookServerDialog,

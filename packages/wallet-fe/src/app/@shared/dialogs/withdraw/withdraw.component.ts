@@ -1,6 +1,7 @@
 import { Component, Inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
+import { ApiService } from 'src/app/@core/services/api.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 
@@ -20,6 +21,7 @@ export class WithdrawDialog {
         private balanceService: BalanceService,
         private rpcService: RpcService,
         private toastrService: ToastrService,
+        private apiService: ApiService,
     ) { }
 
     get propId() {
@@ -42,14 +44,12 @@ export class WithdrawDialog {
     get maxWithdrawAmount() {
         if (this.propId === -1) {
             const balanceObj = this.balanceService.getCoinBalancesByAddress(this.fromAddress);
-            const max = parseFloat((balanceObj.confirmed - 0.001).toFixed(6))
-            return max < 0 ? 0 : max;
+            return balanceObj.confirmed;
         } else {
             const balanceObj = this.balanceService.getTokensBalancesByAddress(this.fromAddress)
                 .find((o: any) => o.propertyid === this.propId);
             if (!balanceObj) return 0;
-            const available = parseFloat((balanceObj.balance).toFixed(6))
-            return available < 0 ? 0 : available;
+            return balanceObj.balance;
         }
     }
 
@@ -66,50 +66,52 @@ export class WithdrawDialog {
         );
     }
 
-    close() {
-        this.dialogRef.close();
-    }
-
     get tokenName() {
         return this.propId === -1
             ? 'LTC'
-            : this.balanceService.getTokensBalancesByAddress()
+            : this.balanceService.getTokensBalancesByAddress(this.fromAddress)
                 .find((e: any) => e.propertyid === this.propId)?.name;
+    }
+
+    get tlApi() {
+        return this.apiService.tlApi;
     }
 
     fillAmountInput() {
         this.amount = this.maxWithdrawAmount;
     }
 
+    close() {
+        this.dialogRef.close();
+    }
+
     async validateAddress(address: string | null) {
-        this.isAddressValid = 'PENDING';
-        const vaRes = await this.rpcService.rpc('validateaddress', [address]);
-        const { error, data } = vaRes;
-        if (error || !data) {
-            this.toastrService.error(error.message || 'Error with validateing the address', 'Validation Error');
+        try {
+            this.isAddressValid = 'PENDING';
+            if (!address) throw new Error("Address not defined");
+            const vaRes = await this.tlApi.validateAddress(address).toPromise();
+            const { error, data } = vaRes;
+            if (error || !data) throw new Error(error || 'Error with validateing the address');
+            await new Promise((res) => setTimeout(() => res(true), 500));
+            const { isvalid } = data;
+            this.isAddressValid = isvalid;
+        } catch (error: any) {
+            this.toastrService.error(error.message, 'Validation Error');
             this.isAddressValid = null;
-            return
         }
-        await new Promise((res) => setTimeout(() => res(true), 3000));
-        const { isvalid } = data;
-        this.isAddressValid = isvalid;
     }
 
     async withdraw() {
-        if (!this.amount || !this.fromAddress || !this.toAddress || !this.propId) return;
-        const withdrawOptions = {
-            fromAddress: this.fromAddress,
-            toAddress: this.toAddress,
-            amount: this.amount,
-            propId: this.propId,
-        };
-        this.clearForm();
-        const res = await this.balanceService.withdraw(withdrawOptions);
-        if (res.error || !res.data) {
-            this.toastrService.error(res.error || `Error with Withdraw`, 'Error');
-        } else {
-            this.toastrService.success(res.data, 'Successfull Withdraw');
-            this.balanceService.updateBalances();
+        try {
+            if (this.fromAddress === this.toAddress) throw new Error('Both addresses are the same');
+            if (!this.amount || !this.fromAddress || !this.toAddress || !this.propId) throw new Error('Fill all required data');
+            this.clearForm();
+            throw new Error('Withdraw will be ready soon');
+            // if (res.error || !res.data) throw new Error(res.error || `Error with Withdraw`);
+            // this.toastrService.success(res.data, 'Successfull Withdraw');
+            // await this.balanceService.updateBalances();
+        } catch (error: any) {
+            this.toastrService.error(error.message || `Error with Withdraw`, 'Error');
         }
     }
 

@@ -4,27 +4,27 @@ import { NewVersionDialog } from "src/app/@shared/dialogs/new-version/new-versio
 import { NewNodeDialog } from "src/app/@shared/dialogs/new-node/new-node.component";
 import { SelectNetworkDialog } from "src/app/@shared/dialogs/select-network/select-network.component";
 import { EncKeyDialog } from "src/app/@shared/dialogs/enc-key/enc-key.component";
+import { DepositDialog } from "src/app/@shared/dialogs/deposit/deposit.component";
+import { WithdrawDialog } from "src/app/@shared/dialogs/withdraw/withdraw.component";
+import { CommingSoonDialog } from "src/app/@shared/dialogs/comming-soon/comming-soon.componet";
 
-// import { CommingSoonDialog } from "src/app/@shared/dialogs/comming-soon/comming-soon.componet";
-// import { DepositDialog } from "src/app/@shared/dialogs/deposit/deposit.component";
 // import { NewMultisigDialog } from "src/app/@shared/dialogs/new-multisig/new-multisig.component";
 // import { OfflineWalletDialog } from "src/app/@shared/dialogs/offline-wallet/offline-wallet.component";
 // import { RescanDialog } from "src/app/@shared/dialogs/rescan/rescan.component";
 // import { TxBuilderDialog } from "src/app/@shared/dialogs/tx-builder/tx-builder.component";
-// import { WithdrawDialog } from "src/app/@shared/dialogs/withdraw/withdraw.component";
 
 export enum DialogTypes {
     SELECT_NETOWRK = "SELECT_NETOWRK",
+    NEW_VERSION = 'NEW_VERSION',
     ENC_KEY = "ENC_KEY",
     COMMING_SOON = 'COMMING_SOON',
     NEW_NODE = 'NEW_NODE',
-    RESCAN = 'RESCAN',
     WITHDRAW = 'WITHDRAW',
     DEPOSIT = 'DEPOSIT',
-    NEW_MULTISIG = 'NEW_MULTISIG',
-    TX_BUILDER = 'TX_BUILDER',
-    NEW_VERSION = 'NEW_VERSION',
-    OFFLINE_WALLET = 'OFFLINE_WALLET',
+    // NEW_MULTISIG = 'NEW_MULTISIG',
+    // TX_BUILDER = 'TX_BUILDER',
+    // OFFLINE_WALLET = 'OFFLINE_WALLET',
+    // RESCAN = 'RESCAN',
 };
 
 const dialogs: { [key: string]: any; } = {
@@ -32,13 +32,13 @@ const dialogs: { [key: string]: any; } = {
     'NEW_VERSION': NewVersionDialog,
     'NEW_NODE': NewNodeDialog,
     'ENC_KEY': EncKeyDialog,
-    // 'COMMING_SOON': CommingSoonDialog,
-    // 'RESCAN': RescanDialog,
-    // 'WITHDRAW': WithdrawDialog,
-    // 'DEPOSIT': DepositDialog,
+    'COMMING_SOON': CommingSoonDialog,
+    'WITHDRAW': WithdrawDialog,
+    'DEPOSIT': DepositDialog,
     // 'NEW_MULTISIG': NewMultisigDialog,
     // 'TX_BUILDER': TxBuilderDialog,
     // 'OFFLINE_WALLET': OfflineWalletDialog,
+    // 'RESCAN': RescanDialog,
 };
 
 @Injectable({
