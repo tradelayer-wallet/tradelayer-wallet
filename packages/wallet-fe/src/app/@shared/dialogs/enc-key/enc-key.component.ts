@@ -39,7 +39,7 @@ export class EncKeyDialog {
         if (!decryptResult) {
             this.toastrService.error('Wrong Password', 'Error');
         } else {
-            this.decodedJson = JSON.stringify(decryptResult,  null, 4);
+            this.decodedJson = JSON.stringify(JSON.parse(decryptResult), null, 4);
         }
     }
 

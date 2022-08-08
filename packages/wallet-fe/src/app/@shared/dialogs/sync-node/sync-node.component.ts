@@ -2,6 +2,7 @@ import { Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { ApiService } from 'src/app/@core/services/api.service';
+import { AuthService } from 'src/app/@core/services/auth.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { ElectronService } from 'src/app/@core/services/electron.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
@@ -36,6 +37,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         private dialogService: DialogService,
         private router: Router,
         private toastrService: ToastrService,
+        private authService: AuthService,
     ) {}
 
     get coreStarted() {
@@ -110,6 +112,10 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     async terminate() {
+        if (this.authService.isLoggedIn) {
+            this.toastrService.warning('Please first logout');
+            return;
+        }
         if (!this.isAbleToRpc) return;
         this.loadingService.isLoading = true;
         const terminateRes = await this.rpcService.terminateNode();

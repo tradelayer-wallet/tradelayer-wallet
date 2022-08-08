@@ -6,7 +6,7 @@ import { encrypt, decrypt } from '../../utils/crypto.util'
 
 import { ApiService } from "./api.service";
 import { DialogService } from "./dialogs.service";
-import { RpcService } from "./rpc.service";
+import { RpcService, TNETWORK } from "./rpc.service";
 
 const defaultWalletObj: IWalletObj = {
     main: [],
@@ -14,17 +14,6 @@ const defaultWalletObj: IWalletObj = {
     futures: [],
     reward: [],
     liquidity: [],
-};
-
-const defaultWalletObjRaw: IRawWalletObj = {
-    mnemonic: '',
-    derivatePaths: {
-        main: [],
-        spot: [],
-        futures: [],
-        reward: [],
-        liquidity: [],
-    }
 };
 
 export interface IKeyPair {
@@ -42,6 +31,7 @@ export enum EAddress {
 
 export interface IRawWalletObj {
     mnemonic: string;
+    network: TNETWORK;
     derivatePaths: {
         main: string[];
         spot: string[];
@@ -64,10 +54,21 @@ export interface IWalletObj {
 })
 
 export class AuthService {
+    private defaultWalletObjRaw: IRawWalletObj = {
+        mnemonic: '',
+        network: this.rpcService.NETWORK,
+        derivatePaths: {
+            main: [],
+            spot: [],
+            futures: [],
+            reward: [],
+            liquidity: [],
+        }
+    };
     updateBalanceSubs$ = new BehaviorSubject(true);
     logoutSubs$ = new BehaviorSubject(true);
 
-    private walletObjRaw: IRawWalletObj = JSON.parse(JSON.stringify(defaultWalletObjRaw));
+    private walletObjRaw: IRawWalletObj = JSON.parse(JSON.stringify(this.defaultWalletObjRaw));
     private _walletKeys: IWalletObj = JSON.parse(JSON.stringify(defaultWalletObj));
     private _activeMainKey: IKeyPair = this.walletKeys.main?.[0] || null;
     public encKey: string = '';
@@ -106,7 +107,6 @@ export class AuthService {
         return this._walletKeys;
     }
 
-    
     get listOfallAddresses() {
         return (Object.values(this.walletKeys) as any)
             .flat() as IKeyPair[];
@@ -118,6 +118,7 @@ export class AuthService {
         const { mnemonic } = rawWalletObj;
         if (!mnemonic) return;
         this.walletObjRaw.mnemonic = mnemonic;
+        this.walletObjRaw.network = this.rpcService.NETWORK;
         await this.addKeyPair(EAddress.MAIN, pass);
         this.router.navigateByUrl(this.savedFromUrl);
     }
@@ -133,11 +134,10 @@ export class AuthService {
                 const mnemonic = this.walletObjRaw.mnemonic;
                 if (!mnemonic) throw new Error("Not found mnemonic");
                 const keyPair = await this.keysApi.getKeyPair(derivatePath, mnemonic).toPromise() as IKeyPair;
-                // const importValid = await this.importWIF(keyPair);
-                // if (!importValid) throw('Error with importing The Address');
                 this.walletKeys.main.push(keyPair);
                 this.walletObjRaw.derivatePaths.main.push(derivatePath);
             }
+            // add more types
             this.updateBalanceSubs$.next(true);
             this.saveEncKey(password);
             return true;
@@ -153,11 +153,10 @@ export class AuthService {
             if (!stringKeyPairObj) throw new Error("Error with file decrypt. Code 1");
             const walletObjRaw = JSON.parse(stringKeyPairObj);
             this.walletObjRaw = walletObjRaw;
-            const { derivatePaths, mnemonic } = walletObjRaw;
+            const { derivatePaths, mnemonic, network } = walletObjRaw;
             if (!mnemonic || !derivatePaths) throw new Error("Error with file decrypt. Code 2");
+            if (network !== this.rpcService.NETWORK) throw new Error(`This login only availble in network: ${network}`);
             const keyPairs = await this.keysApi.getKeyPairsFromLoginFile(derivatePaths, mnemonic).toPromise() as IWalletObj;
-            // const importValid = await this.importWIFfromWalletObj(keyPairs)
-            // if (!importValid) throw('Error with importing The Address');
             Object.entries(keyPairs)
                 .forEach(entry => {
                     const [key, value] = entry as [string, IKeyPair[]];
@@ -175,42 +174,10 @@ export class AuthService {
         }
     }
 
-    // async importWIF(keyPair: IKeyPair) {
-    //     console.log(`IMPORT: ${keyPair.wif}`);
-    //     const utxosApi = await this.reLayerApi.rpc('listunspent', [0, 999999999, [keyPair.address]])
-    //         .toPromise()
-    //         .then(res => res.data);
-
-    //     const utxosLocal = await this.rpcService.rpc('listunspent', [0, 999999999, [keyPair.address]])
-    //         .then(res => res.data);
-    //     if (utxosApi.length > utxosLocal.length) {
-    //         console.log('Need Sync');
-    //         return false;
-    //     }
-
-    //     if (utxosApi.length < utxosLocal.length) {
-    //         console.log('Something Goes Wrong');
-    //         return false;
-    //     }
-
-    //     if (utxosApi.length === utxosLocal.length) return true;
-    //     return false;
-    // }
-
-    // async importWIFfromWalletObj(waleltObj: IWalletObj) {
-    //     const keyPairLists = (Object.values(this.walletKeys) as any)
-    //     .flat() as IKeyPair[];
-    //     for (let i = 0; i < keyPairLists.length; i++) {
-    //         const keyPair = keyPairLists[i];
-    //         console.log(`IMPORT WIF: ${keyPair.wif}`);
-    //     }
-    //     return true;
-    // }
-
     logout() {
         this.dialogService.openEncKeyDialog(this.encKey);
         this._walletKeys = JSON.parse(JSON.stringify(defaultWalletObj));
-        this.walletObjRaw = JSON.parse(JSON.stringify(defaultWalletObjRaw));
+        this.walletObjRaw = JSON.parse(JSON.stringify(this.defaultWalletObjRaw));
         this.encKey = '';
         this.router.navigateByUrl('login');
         this.logoutSubs$.next(true);

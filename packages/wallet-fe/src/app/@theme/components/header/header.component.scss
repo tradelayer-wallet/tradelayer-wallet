@@ -11,41 +11,13 @@ mat-toolbar {
       }
       .right-side {
         display: flex;
-        .address {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.7rem;
-          position: relative;
-          span {
-            cursor: pointer;
-          }
-          .balance {
-            margin-left: 0.25rem;
-            transition: color 0.25s;
-            font-size: 0.8rem;
-            &:hover {
-              color: orange;
-            }
-          }
-
-          .all-addresses {
-            display: none;
-            flex-direction: column;
-            position: absolute;
-            border: 1px solid black;
-            background-color: var(--darkBlue2);
-            top: 2rem;
-            left: -0.5rem;
-            border-top: none;
-            padding: 0.25rem 0.5rem;
-            .sub-address {
-              cursor: pointer;
-            }
-          }
-
-          &:hover > .all-addresses {
-            display: flex;
+        .balance {
+          cursor: pointer;
+          margin: 0 0.25rem;
+          transition: color 0.25s;
+          font-size: 0.8rem;
+          &:hover {
+            color: orange;
           }
         }
       }

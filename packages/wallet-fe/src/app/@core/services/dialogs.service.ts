@@ -3,10 +3,10 @@ import { MatDialog, MatDialogConfig } from "@angular/material/dialog";
 import { NewVersionDialog } from "src/app/@shared/dialogs/new-version/new-version.component";
 import { NewNodeDialog } from "src/app/@shared/dialogs/new-node/new-node.component";
 import { SelectNetworkDialog } from "src/app/@shared/dialogs/select-network/select-network.component";
+import { EncKeyDialog } from "src/app/@shared/dialogs/enc-key/enc-key.component";
 
 // import { CommingSoonDialog } from "src/app/@shared/dialogs/comming-soon/comming-soon.componet";
 // import { DepositDialog } from "src/app/@shared/dialogs/deposit/deposit.component";
-// import { EncKeyDialog } from "src/app/@shared/dialogs/enc-key/enc-key.component";
 // import { NewMultisigDialog } from "src/app/@shared/dialogs/new-multisig/new-multisig.component";
 // import { OfflineWalletDialog } from "src/app/@shared/dialogs/offline-wallet/offline-wallet.component";
 // import { RescanDialog } from "src/app/@shared/dialogs/rescan/rescan.component";
@@ -31,7 +31,7 @@ const dialogs: { [key: string]: any; } = {
     'SELECT_NETOWRK': SelectNetworkDialog,
     'NEW_VERSION': NewVersionDialog,
     'NEW_NODE': NewNodeDialog,
-    // 'ENC_KEY': EncKeyDialog,
+    'ENC_KEY': EncKeyDialog,
     // 'COMMING_SOON': CommingSoonDialog,
     // 'RESCAN': RescanDialog,
     // 'WITHDRAW': WithdrawDialog,
@@ -52,11 +52,8 @@ export class DialogService {
     ) {}
 
     openEncKeyDialog(encKey: string) {
-        // const dialogOpts: MatDialogConfig = {
-        //     disableClose: true,
-        //     data: encKey,
-        // };
-        // return this.openDialog(DialogTypes.ENC_KEY, dialogOpts)
+        const dialogOpts: MatDialogConfig = { disableClose: true, data: encKey };
+        return this.openDialog(DialogTypes.ENC_KEY, dialogOpts)
     }
 
     openDialog(dialogType: DialogTypes, opts: MatDialogConfig = { disableClose: true }) {

@@ -23,7 +23,6 @@ export class HeaderComponent implements OnInit {
 
   constructor(
     private router: Router,
-    private toastrService: ToastrService,
     private authService: AuthService,
   ) { }
 
@@ -39,25 +38,17 @@ export class HeaderComponent implements OnInit {
     return this._mainRoutes;
   }
 
-  ngOnInit(): void {
-      // const tab = this.windowsService.tabs.find(e => e.title === 'Synchronization');
-      // if (tab) tab.minimized = true;
+  get availableBalance() {
+    return 0;
   }
 
-  copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text);
-    this.toastrService.info('Address Copied to clipboard', 'Copied')
+  get isLoggedIn() {
+    return this.authService.isLoggedIn;
   }
+
+  ngOnInit(): void { }
 
   navigateTo(route: any) {
-    // if (route.id === 2 || route.id === 3) {
-    //   if (!this.socketService.orderbookServerConnected) {
-    //     this.toastrService.warning('Please first connect to orderbook Server');
-    //     const window = this.windowsService.tabs.find(tab => tab.title === 'Orderbook Server');
-    //     if (window) window.minimized = false;
-    //     return;
-    //   }
-    // }
     this.selectedRoute = route;
     this.router.navigateByUrl(route.link);
   }
@@ -73,5 +64,9 @@ export class HeaderComponent implements OnInit {
 
   toggleSideBar() {
     // this.menuService.toggleSideBar();
+  }
+  
+  updateBalance() {
+
   }
 }

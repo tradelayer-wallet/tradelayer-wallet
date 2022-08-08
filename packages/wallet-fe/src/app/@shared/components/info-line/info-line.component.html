@@ -7,8 +7,8 @@
         <span class='blinking' *ngIf="isCoreStarted && !isSynced" [ngStyle]="{color: 'var(--mossGreen'}">SYNCING</span>
         <span *ngIf="isCoreStarted && isSynced" [ngStyle]="{color: 'var(--blue'}">SYNCED</span>
     </div>
-    <div class="info" *ngIf="!isSynced || !isCoreStarted">
-        <span *ngIf="isCoreStarted && isSynced && lastBlock">NODE-MODE</span>
+    <div class="info">
+        <span *ngIf="isCoreStarted && isSynced && lastBlock">RPC-MODE</span>
         <span *ngIf="!isCoreStarted || !isSynced || !lastBlock">API-MODE</span>
     </div>
     <div class="info">

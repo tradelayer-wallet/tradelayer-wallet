@@ -29,14 +29,14 @@ import { NewNodeDialog } from './dialogs/new-node/new-node.component';
 import { TerminalDialog } from './dialogs/terminal/terminal.component';
 
 import { WindowComponent } from './components/window/window.component';
+import { EncKeyDialog } from './dialogs/enc-key/enc-key.component';
+import { PasswordDialog } from './dialogs/password/password.component';
 
-// import { EncKeyDialog } from './dialogs/enc-key/enc-key.component';
 // import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
 // import { RescanDialog } from './dialogs/rescan/rescan.component';
 // import { WithdrawDialog } from './dialogs/withdraw/withdraw.component';
 // import { DepositDialog } from './dialogs/deposit/deposit.component';
 // import { NewMultisigDialog } from './dialogs/new-multisig/new-multisig.component';
-// import { PasswordDialog } from './dialogs/password/password.component';
 // import { ClickOutsideDirective } from './directives/click-outside.directive';
 
 // import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
@@ -70,13 +70,14 @@ const DIALOGS = [
     SyncNodeDialog,
     NewNodeDialog,
     TerminalDialog,
-//     EncKeyDialog,
+    EncKeyDialog,
+    PasswordDialog,
+
 //     CommingSoonDialog,
 //     RescanDialog,
 //     WithdrawDialog,
 //     DepositDialog,
 //     NewMultisigDialog,
-//     PasswordDialog,
 //     OfflineWalletDialog,
 //     OrderbookServerDialog,
 ];
