@@ -1,10 +1,9 @@
 <div class="portfolio-page-container">
-  <h3 *ngIf='nonSynced && !isApiRPC'>Because of offline/non-synced wallet You may not see correct balances.</h3>
     <mat-card>
         <mat-card-header>LTC Balance</mat-card-header>
         <button mat-raised-button (click)='newAddress()' class='new-address-buttton'>New Address</button>
         <mat-card-content>
-            <mat-table [dataSource]="fiatBalance" *ngIf='fiatBalance'>
+            <mat-table [dataSource]="coinBalance" *ngIf='coinBalance'>
                 <ng-container matColumnDef="address">
                   <mat-header-cell *matHeaderCellDef>Address</mat-header-cell>
                   <mat-cell *matCellDef="let element" [title]="element.address">

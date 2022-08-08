@@ -5,15 +5,15 @@
     <div class="info">
         <span *ngIf="!isCoreStarted" [ngStyle]="{color: 'var(--redError'}">NODE NOT STARTED</span>
         <span class='blinking' *ngIf="isCoreStarted && !isSynced" [ngStyle]="{color: 'var(--mossGreen'}">SYNCING</span>
-        <span *ngIf="isCoreStarted && isSynced" [ngStyle]="{color: 'var(--blue'}">SYNCED</span>
+        <span *ngIf="!isApiMode" [ngStyle]="{color: 'var(--blue'}">SYNCED</span>
     </div>
     <div class="info">
-        <span *ngIf="isCoreStarted && isSynced && lastBlock">RPC-MODE</span>
-        <span *ngIf="!isCoreStarted || !isSynced || !lastBlock">API-MODE</span>
+        <span *ngIf="!isApiMode">RPC-MODE</span>
+        <span *ngIf="isApiMode">API-MODE</span>
     </div>
     <div class="info">
-        <span *ngIf="isCoreStarted && isSynced && lastBlock">Block: {{ lastBlock }}</span>
-        <span *ngIf="!isCoreStarted || !isSynced || !lastBlock">Block: {{ networkBlock }}</span>
+        <span *ngIf="!isApiMode">Block: {{ lastBlock }}</span>
+        <span *ngIf="isApiMode">Block: {{ networkBlock }}</span>
     </div>
     <div class="info" *ngIf="network">
         {{ network }}

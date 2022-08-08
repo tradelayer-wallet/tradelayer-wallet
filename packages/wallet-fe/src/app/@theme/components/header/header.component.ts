@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { AuthService } from 'src/app/@core/services/auth.service';
+import { BalanceService } from 'src/app/@core/services/balance.service';
 
 @Component({
   selector: 'tl-header',
@@ -16,6 +17,12 @@ export class HeaderComponent implements OnInit {
       name: 'Home',
       link: '/',
       needAuthToShow: false,
+    },
+    {
+      id: 2,
+      name: 'Portfolio',
+      link: '/portfolio',
+      needAuthToShow: true,
     }
   ];
 
@@ -24,6 +31,7 @@ export class HeaderComponent implements OnInit {
   constructor(
     private router: Router,
     private authService: AuthService,
+    private balanceService: BalanceService,
   ) { }
 
   get selectedRoute(){
@@ -39,7 +47,7 @@ export class HeaderComponent implements OnInit {
   }
 
   get availableBalance() {
-    return 0;
+    return this.balanceService.sumAvailableCoins;
   }
 
   get isLoggedIn() {
@@ -54,7 +62,7 @@ export class HeaderComponent implements OnInit {
   }
 
   navigateToLoginRoute() {
-    this.router.navigateByUrl('login');
+    this.router.navigateByUrl('login', { replaceUrl: true });
     this.selectedRoute = null;
   }
 

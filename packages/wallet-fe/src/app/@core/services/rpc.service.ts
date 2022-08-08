@@ -81,6 +81,10 @@ export class RpcService {
       return this.apiService.tlApi;
     }
   
+    get isApiMode() {
+      return !this.isCoreStarted || !this.isSynced || !this.lastBlock;
+    }
+
     async startWalletNode(
       path: string,
       network: ENetwork,
@@ -143,5 +147,11 @@ export class RpcService {
       this.isCoreStarted = false;
       this.lastBlock = 0;
       // this.networkBlocks = 0;
+    }
+
+    rpc(method: string, params?: any[]) {
+      return this.isApiMode
+        ? this.tlApi.rpc(method, params).toPromise()
+        : this.mainApi.rpcCall(method, params).toPromise();
     }
   }

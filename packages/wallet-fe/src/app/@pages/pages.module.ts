@@ -15,9 +15,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip'; 
 
 import { LoginPageComponent } from './login-page/login-page.component';
+import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
+
 // import { SpotPageComponent } from './spot-page/spot-page.component';
 // import { FuturesPageComponent } from './futures-page/futures-page.component';
-// import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
 
 // import { SpotMarketsToolbarComponent } from './spot-page/spot-markets-toolbar/spot-markets-toolbar.component'; 
 // import { SpotTradingGridComponent } from './spot-page/spot-trading-grid/spot-trading-grid.component';
@@ -65,9 +66,9 @@ const MAT_MODULES = [
 const PAGE_COMPONENTS = [
     HomePageComponent,
     LoginPageComponent,
+    PortfolioPageComponent,
     // SpotPageComponent,
     // FuturesPageComponent,
-    // PortfolioPageComponent,
     // SettingsPageComponent,
     // MultisigPageComponent,
     // NodeRewardPageComponent,

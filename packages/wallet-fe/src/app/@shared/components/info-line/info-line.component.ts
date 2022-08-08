@@ -51,9 +51,9 @@ export class InfoLineComponent implements OnInit {
     return this.rpcService.isSynced;
   }
 
-  // get isOffline() {
-  //   return this.rpcService.isOffline;
-  // }
+  get isApiMode() {
+    return this.rpcService.isApiMode;
+  }
 
   get walletVersion() {
     return `v${mainPackageJson.version}`;
@@ -64,22 +64,7 @@ export class InfoLineComponent implements OnInit {
   }
 
   ngOnInit() {
-    // this._trackBlockHigh();
   }
-
-  // private async _trackBlockHigh() {
-  //   const giRes = await this.rpcService.rpc('tl_getinfo');
-  //   if (!giRes.error || giRes.data?.block) this.blockHigh = giRes.data.block;
-  //   this.socket.on('API::newBlock', (block: number) => {
-  //     console.log(`New Block (Api): ${block}`);
-  //     // this.blockHigh = block;
-  //   });
-
-  //   this.socket.on('newBlock', (block: number) => {
-  //     console.log(`New Block (Local): ${block}`);
-  //     this.blockHigh = block;
-  //   });
-  // }
 
   maximize(event: Event, tab: IWindow) {
     event.stopImmediatePropagation();

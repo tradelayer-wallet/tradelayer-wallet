@@ -41,7 +41,7 @@ export class WithdrawDialog {
 
     get maxWithdrawAmount() {
         if (this.propId === -1) {
-            const balanceObj = this.balanceService.getFiatBalancesByAddress(this.fromAddress);
+            const balanceObj = this.balanceService.getCoinBalancesByAddress(this.fromAddress);
             const max = parseFloat((balanceObj.confirmed - 0.001).toFixed(6))
             return max < 0 ? 0 : max;
         } else {

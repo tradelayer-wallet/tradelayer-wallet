@@ -13,9 +13,9 @@ export class AuthGuard implements CanActivate {
     ) {}
 
     async canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Promise<boolean> {
-        this.authService.savedFromUrl = state.url
+        this.authService.savedFromUrl = state.url;
         const canActive = this.authService.isLoggedIn;
         if (!canActive) this.router.navigateByUrl('login');
-        return canActive
+        return canActive;
    }
 }
