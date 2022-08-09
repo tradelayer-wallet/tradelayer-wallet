@@ -41,8 +41,8 @@ export class SocketService {
                     }
                 }
             }
-            const height = infoRes.data.block;
-            if (this.lastBlock < height) {
+            const height = infoRes?.data?.block;
+            if (height && this.lastBlock < height) {
                 this.lastBlock = height;
                 this.currentSocket.emit('new-block', height);
             }

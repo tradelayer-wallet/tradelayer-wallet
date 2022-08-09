@@ -13,6 +13,7 @@ export class FastifyServer {
     constructor(
         private port: number, 
         options: FastifyServerOptions,
+        private safeClose: () => void,
     ) {
         this._server = Fastify(options);
         this.mainSocketService = new SocketService();
@@ -47,7 +48,6 @@ export class FastifyServer {
 
     private safeStop() {
         if (this.rpcClient || this.rpcPort) return;
-        process.emit("exit", 1);
-        process.exit(1);
+        this.safeClose();
     }
 }

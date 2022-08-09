@@ -73,8 +73,10 @@ export class BalanceService {
 
     private handleEvents() {
         this.authService.updateBalanceSubs$
-            .subscribe(update => this.updateBalances());
+            .subscribe(() => this.updateBalances());
 
+        this.authService.logoutSubs$
+            .subscribe(() => this.restartBalance());
         // this.socketService.socket.on('newBlock', (blockHeight) => {
         //     // if (this.rpcService.isApiRPC) return;
         //     this.updateBalances();

@@ -24,5 +24,6 @@ module.exports = {
   },
   externals: [
     nodeExternals(),
+    '../dist/server',
   ],
 };

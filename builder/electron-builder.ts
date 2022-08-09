@@ -1,14 +1,14 @@
 import { App, app, BrowserWindow, globalShortcut, ipcMain, dialog } from 'electron';
-import { ChildProcess, fork, StdioOptions } from 'child_process';
 import { AutoUpdater } from './auto-updater';
+import { FastifyServer } from '../packages/wallet-server/src/fastify-server';
 
 import * as url from 'url';
 import * as path from 'path';
 
 export class ElectronApp {
     private app: App;
-    private serverProcess: ChildProcess;
     private autoUpdater: AutoUpdater;
+    private localServer: FastifyServer;
     public mainWindow: BrowserWindow | null = null;
 
     constructor(app: App) {
@@ -20,14 +20,8 @@ export class ElectronApp {
     }
 
     private startChildProcess() {
-        const PATH = path.join(__dirname, './server/index.js');
-        const stdio: StdioOptions = ['pipe', 'pipe', 'pipe', 'ipc']
-        this.serverProcess = fork(PATH, ['args'], { stdio });
-
-        this.serverProcess.on("message", (message: any) => console.log({message}));
-
-        this.serverProcess.on("exit", () => this.safeExist());
-        this.serverProcess.send('init');
+        const { initLoclaServer } = require('../dist/server');
+        this.localServer = initLoclaServer(this.safeExist.bind(this));
     }
 
     private safeExist() {
@@ -74,11 +68,6 @@ export class ElectronApp {
 
         this.app.on('window-all-closed', async () => {
             if (process.platform !== 'darwin') app.quit();
-            // await new Promise(res => {
-            //     this.serverProcess.on("exit", () => res(true));
-            //     setTimeout(() => res(true), 10000);
-            // });
-            // app.quit();
         });
 
         this.app.on('activate', () => {
@@ -109,15 +98,15 @@ export class ElectronApp {
         this.mainWindow.on('close', async (e) => {
             e.preventDefault();
             this.sendMessageToAngular('close-app', true);
-            this.serverProcess?.connected
-                ? this.serverProcess.send('stop')
+            this.localServer?.mainSocketService?.currentSocket?.connected
+                ? this.localServer.stop()
                 : this.safeExist();
         });
     }
 
 
     createMainWindow() {
-        this.serverProcess.send('start');
+        this.localServer.start();
         const windowOptions = {
             width: 1280,
             height: 800,

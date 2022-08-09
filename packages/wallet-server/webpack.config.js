@@ -69,7 +69,8 @@ module.exports = (env) => {
       'long',
       'pino-pretty',
       'bufferutil',
-      'utf-8-validate'
+      'utf-8-validate',
+      'tiny-secp256k1',
     ],
     optimization: {
       minimizer: [
