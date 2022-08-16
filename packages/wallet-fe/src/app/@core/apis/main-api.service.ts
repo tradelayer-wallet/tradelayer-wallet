@@ -2,7 +2,8 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { environment } from "src/environments/environment";
-import { ENetwork } from "../services/rpc.service";
+import { ENetwork, TNETWORK } from "../services/rpc.service";
+import { IBuildTxConfig, ISignTxConfig } from "../services/txs.service";
 // import { ENetwork, RPCCredentials } from "../services/rpc.service";
 
 @Injectable({
@@ -19,6 +20,15 @@ export class MainApiService {
         return environment.homeApiUrl + '/api/'
     }
 
+    setNETWORK(value: TNETWORK) {
+        const apiUrl = value === "LTC"
+            ? environment.ENDPOINTS.LTC.relayerUrl
+            : value === "LTCTEST"
+                ? environment.ENDPOINTS.LTCTEST.relayerUrl
+                : null;
+        return this.http.post(this.apiUrl + 'set-api-url', { apiUrl });
+    }
+    
     startWalletNode(
             path: string,
             network: ENetwork,
@@ -61,5 +71,25 @@ export class MainApiService {
             error?: string;
             statusCode: number;
         }>(this.apiUrl + 'rpc-call', body)
+    }
+
+    buildTx(buildTxConfig: IBuildTxConfig, isApiMode: boolean): Observable<{
+        data?: { rawtx: string; inputs: any[]};
+        error?: string;
+    }>{
+        return this.http.post<{
+            data?: { rawtx: string; inputs: any[]};
+            error?: string;  
+        }>(this.apiUrl + 'build-tx', { ...buildTxConfig, isApiMode })
+    }
+
+    signTx(buildTxConfig: ISignTxConfig, network: TNETWORK): Observable<{
+        data?: string;
+        error?: string;
+    }>{
+        return this.http.post<{
+            data?: string;
+            error?: string;  
+        }>(this.apiUrl + 'sign-tx', { ...buildTxConfig, network })
     }
 }

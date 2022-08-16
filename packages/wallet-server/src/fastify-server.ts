@@ -9,6 +9,7 @@ export class FastifyServer {
     public rpcClient: RpcClient;
     public rpcPort: number;
     public mainSocketService: SocketService;
+    public relayerApiUrl: "LTC" | "LTCTEST" | null = null;
 
     constructor(
         private port: number, 

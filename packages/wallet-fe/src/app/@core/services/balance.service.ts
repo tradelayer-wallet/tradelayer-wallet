@@ -3,6 +3,7 @@ import { RpcService } from "./rpc.service";
 import { SocketService } from "./socket.service";
 import { ToastrService } from "ngx-toastr";
 import { AuthService } from "./auth.service";
+import { IUTXO } from "./txs.service";
 
 const minBlocksForBalanceConf: number = 1;
 const emptyBalanceObj = {
@@ -11,14 +12,6 @@ const emptyBalanceObj = {
         unconfirmed: 0,
     },
     tokensBalance: [],
-};
-
-export interface IUTXO {
-    amount: number;
-    confirmations: number;
-    scriptPubKey: string;
-    txid: string;
-    vout: number;
 };
 
 @Injectable({
@@ -77,15 +70,12 @@ export class BalanceService {
 
         this.authService.logoutSubs$
             .subscribe(() => this.restartBalance());
-        // this.socketService.socket.on('newBlock', (blockHeight) => {
-        //     // if (this.rpcService.isApiRPC) return;
-        //     this.updateBalances();
-        // });
+
+        this.rpcService.networkBlocks$
+            .subscribe(() => this.rpcService.isApiMode ? this.updateBalances() : null);
         
-        // this.socketService.socket.on('API::newBlock', () => {
-        //     if (!this.rpcService.isApiRPC) return;
-        //     this.updateBalances();
-        // });
+        this.rpcService.networkBlocks$
+            .subscribe(() => this.rpcService.isApiMode ? null : this.updateBalances());
     }
 
     async updateBalances() {

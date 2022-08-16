@@ -1,12 +1,14 @@
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import { BIP32Factory } from 'bip32';
-import * as ecc from 'tiny-secp256k1';
-import { payments } from 'bitcoinjs-lib';
+import { payments, Psbt, Transaction } from 'bitcoinjs-lib';
 import { dPaths, networks } from './networks';
+import { ECPairFactory } from 'ecpair';
+import { IInput } from '../services/tx-builder.service';
+import * as ecc from 'tiny-secp256k1';
 
+const ECPair = ECPairFactory(ecc);
 const bip32 = BIP32Factory(ecc);
 const { p2wpkh, p2sh } = payments;
-
 
 export type TNetwork = 'LTC' | 'BTC'| 'LTCTEST'| 'BTCTEST';
 
@@ -53,4 +55,42 @@ export const getManyKeyPair = (networkString: TNetwork, mnemonic: string, wallet
         });
     });
     return finalObj;
-}
+};
+
+const validator = (pubkey: Buffer, msghash: Buffer, signature: Buffer) =>
+    ECPair.fromPublicKey(pubkey).verify(msghash, signature);
+
+export const signRawTransction = (signOptions: { 
+    rawtx: string;
+    wif: string;
+    network: string;
+    inputs: IInput[];
+}) => {
+    try {
+        const { rawtx, wif, inputs, network } = signOptions;
+        const _network = networks[network];
+
+        const keyPair = ECPair.fromWIF(wif, _network);
+        const redeemObj = p2wpkh({ pubkey: keyPair.publicKey, network: _network });
+        const redeemScript = Buffer.from(redeemObj.output.toString('hex'), 'hex');
+
+        const psbt = new Psbt({ network: _network });
+        const tx = Transaction.fromHex(rawtx);
+
+        inputs.forEach((e) => {
+            const hash = e.txid;
+            const index = e.vout;
+            const value = e.amount * (10**8);
+            const witnessUtxo = { script: redeemScript, value };
+            psbt.addInput({ hash, index, redeemScript, witnessUtxo });
+        });
+        psbt.addOutputs(tx.outs);
+        psbt.signAllInputs(keyPair);
+        const isValid = psbt.validateSignaturesOfAllInputs(validator);
+        psbt.finalizeAllInputs();
+        const signedHex = psbt.extractTransaction().toHex();
+        return { data: { signedHex, isValid } };
+    } catch (error) {
+        return { error: error.message };
+    }
+};

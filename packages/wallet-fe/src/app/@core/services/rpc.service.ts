@@ -4,6 +4,7 @@ import { ApiService } from "./api.service";
 import { SocketService } from "./socket.service";
 import { DialogService } from "./dialogs.service";
 import { LoadingService } from "./loading.service";
+import { BehaviorSubject } from "rxjs";
 
 export type TNETWORK = 'LTC' | 'LTCTEST' | null;
 export enum ENetwork {
@@ -24,6 +25,8 @@ export class RpcService {
   lastBlock: number = 0;
   networkBlocks: number = 0;
   isNetworkSelected: boolean = false;
+  networkBlocks$: BehaviorSubject<number> = new BehaviorSubject(this.networkBlocks);
+  nodeBlocks$: BehaviorSubject<number> = new BehaviorSubject(this.lastBlock);
 
     constructor(
       private apiService: ApiService,
@@ -48,8 +51,9 @@ export class RpcService {
       });
 
       this.socket.on('new-block', lastBlock => {
-        console.log(`New Node Block: ${lastBlock}`)
+        console.log(`New Node Block: ${lastBlock}`);
         this.lastBlock = lastBlock;
+        this.nodeBlocks$.next(lastBlock);
       });
 
       setInterval(() => this.checkNetworkInfo(), 5000);
@@ -122,6 +126,7 @@ export class RpcService {
           if (infoRes.error || !infoRes.data) throw new Error(infoRes.error);
           if (infoRes.data.block !== this.networkBlocks) {
             this.networkBlocks = infoRes.data.block;
+            this.networkBlocks$.next(infoRes.data.block);
             console.log(`New Network Block: ${this.networkBlocks}`);
           }
       } catch(err: any) {
@@ -146,7 +151,6 @@ export class RpcService {
       this.isAbleToRpc = false;
       this.isCoreStarted = false;
       this.lastBlock = 0;
-      // this.networkBlocks = 0;
     }
 
     rpc(method: string, params?: any[]) {

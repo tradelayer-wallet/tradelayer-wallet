@@ -28,6 +28,7 @@ export class ApiService {
         // this.soChainApi._setNETWORK(value);
         this.tradeLayerApiService._setNETWORK(value);
         this.keysApiService._setNETWORK(value);
+        this.mainApi.setNETWORK(value).toPromise();
     }
 
     // get marketApi(){ 

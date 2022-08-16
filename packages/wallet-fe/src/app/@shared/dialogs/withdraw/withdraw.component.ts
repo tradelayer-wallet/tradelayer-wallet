@@ -2,8 +2,9 @@ import { Component, Inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { ApiService } from 'src/app/@core/services/api.service';
+import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
-import { RpcService } from 'src/app/@core/services/rpc.service';
+import { TxsService } from 'src/app/@core/services/txs.service';
 
 @Component({
   selector: 'withdraw-dialog',
@@ -19,9 +20,10 @@ export class WithdrawDialog {
         @Inject(MAT_DIALOG_DATA) private data: any,
         public dialogRef: MatDialogRef<WithdrawDialog>,
         private balanceService: BalanceService,
-        private rpcService: RpcService,
         private toastrService: ToastrService,
         private apiService: ApiService,
+        private txsService: TxsService,
+        private authService: AuthService,
     ) { }
 
     get propId() {
@@ -105,11 +107,23 @@ export class WithdrawDialog {
         try {
             if (this.fromAddress === this.toAddress) throw new Error('Both addresses are the same');
             if (!this.amount || !this.fromAddress || !this.toAddress || !this.propId) throw new Error('Fill all required data');
+            const txRes = await this.txsService.buildTx({
+                fromAddress: this.fromAddress,
+                toAddress: this.toAddress,
+                amount: this.amount,
+            });
+            if (txRes.error || !txRes.data) {
+                this.toastrService.error(txRes.error, 'TX Builder');
+            } else {
+                const { inputs, rawtx } = txRes.data;
+                console.log(inputs, rawtx);
+                const wif = this.authService.listOfallAddresses
+                    .find(kp => kp.address === this.fromAddress)?.wif;
+                if (!wif) throw new Error("Private Key Not found");
+                const signResult = await this.txsService.signTx({ rawtx, wif, inputs });
+                console.log({signResult});
+            }
             this.clearForm();
-            throw new Error('Withdraw will be ready soon');
-            // if (res.error || !res.data) throw new Error(res.error || `Error with Withdraw`);
-            // this.toastrService.success(res.data, 'Successfull Withdraw');
-            // await this.balanceService.updateBalances();
         } catch (error: any) {
             this.toastrService.error(error.message || `Error with Withdraw`, 'Error');
         }

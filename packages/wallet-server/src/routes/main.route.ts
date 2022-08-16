@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { fasitfyServer } from "../index";
 import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
+import { buildTx, IBuildTxConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
 
 export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
     fastify.post('rpc-call', async (request, reply) => {
@@ -62,5 +63,39 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
 
+    fastify.post('build-tx', async (request, reply) => {
+        try {
+            const { fromAddress, toAddress, payload, amount } = request.body as IBuildTxConfig;
+            const { isApiMode } = request.body as { isApiMode: boolean };
+            const txConfig = { fromAddress, toAddress, payload, amount };
+            const hexResult = await buildTx(txConfig, isApiMode);
+            const result = { data: hexResult };
+            reply.status(200).send(result);
+        } catch (error) {
+            reply.status(500).send({ error: error.message || 'Undefined Error' })
+        }
+    });
+
+    fastify.post('sign-tx', async (request, reply) => {
+        try {
+            const { rawtx, wif, network, inputs } = request.body as ISignTxConfig;
+            const result = await signTx({ rawtx, wif, network, inputs });
+            reply.status(200).send(result);
+        } catch (error) {
+            reply.status(500).send({ error: error.message || 'Undefined Error' })
+        }
+    });
+
+    fastify.post('set-api-url', async (request, reply) => {
+        try {
+            const { apiUrl } = request.body as { apiUrl: "LTC" | "LTCTEST" | null };
+            fasitfyServer.relayerApiUrl = apiUrl;
+            const result = { data: true };
+            reply.status(200).send(result);
+        } catch (error) {
+            reply.status(500).send({ error: error.message || 'Undefined Error' })
+        }
+    });
+    
     done();
 }
