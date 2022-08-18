@@ -43,7 +43,6 @@ export class TxsService {
 
     async buildTx(
             buildTxConfig: IBuildTxConfig, 
-            autoSignSend: boolean = false,
         ): Promise<{ data?: { rawtx: string; inputs: any[] }, error?: string }> {
         try {
             const isApiMode = this.rpcService.isApiMode;
@@ -54,17 +53,24 @@ export class TxsService {
         }
     }
 
-    async signTx(signTxConfig: ISignTxConfig): Promise<{ data?: string, error?: string }>  {
+    async signTx(signTxConfig: ISignTxConfig): Promise<{
+        data?: {
+            isValid: boolean, 
+            signedHex: string,
+        },
+        error?: string,
+    }>  {
         try {
             const network = this.rpcService.NETWORK;
-            let result = await this.mainApi.signTx(signTxConfig, network).toPromise();
+            const result = await this.mainApi.signTx(signTxConfig, network).toPromise();
             return result;
         } catch(error: any) {
             return { error: error.message }
         }
     }
 
-    sendTx(rawTx: string) {
-
+    async sendTx(rawTx: string) {
+        const result = await this.rpcService.rpc('sendrawtransaction', [rawTx]);
+        return result;
     }
 }

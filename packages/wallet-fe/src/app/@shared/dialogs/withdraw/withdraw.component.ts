@@ -4,7 +4,9 @@ import { ToastrService } from 'ngx-toastr';
 import { ApiService } from 'src/app/@core/services/api.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
-import { TxsService } from 'src/app/@core/services/txs.service';
+import { LoadingService } from 'src/app/@core/services/loading.service';
+import { RpcService } from 'src/app/@core/services/rpc.service';
+import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service';
 
 @Component({
   selector: 'withdraw-dialog',
@@ -24,6 +26,8 @@ export class WithdrawDialog {
         private apiService: ApiService,
         private txsService: TxsService,
         private authService: AuthService,
+        private loadingService: LoadingService,
+        private rpcService: RpcService,
     ) { }
 
     get propId() {
@@ -103,29 +107,56 @@ export class WithdrawDialog {
         }
     }
 
+    private async getTxOptions(
+            fromAddress: string,
+            toAddress: string,
+            _amount: number,
+            propId: number,
+        ): Promise<{ data?: IBuildTxConfig, error?: any}> {
+            try {
+                const amount = propId === -1 ? _amount : 0;
+                const txOptions: IBuildTxConfig = { fromAddress, toAddress, amount };
+                if (propId !== -1) {
+                    const payloadParams = [this.propId, amount];
+                    const payloadRes = await this.rpcService.rpc('tl_createpayload_simplesend', payloadParams);
+                    if (payloadRes.error || !payloadRes.data) throw new Error(`tl_createpayload_simplesend: ${payloadRes.error}`);
+                    txOptions.payload = payloadRes.data;
+                }
+                return { data: txOptions };
+            } catch (error: any) {
+                return { error: error.message}
+            }
+    }
+
     async withdraw() {
         try {
+            this.loadingService.isLoading = true;
             if (this.fromAddress === this.toAddress) throw new Error('Both addresses are the same');
             if (!this.amount || !this.fromAddress || !this.toAddress || !this.propId) throw new Error('Fill all required data');
-            const txRes = await this.txsService.buildTx({
-                fromAddress: this.fromAddress,
-                toAddress: this.toAddress,
-                amount: this.amount,
-            });
-            if (txRes.error || !txRes.data) {
-                this.toastrService.error(txRes.error, 'TX Builder');
-            } else {
-                const { inputs, rawtx } = txRes.data;
-                console.log(inputs, rawtx);
-                const wif = this.authService.listOfallAddresses
-                    .find(kp => kp.address === this.fromAddress)?.wif;
-                if (!wif) throw new Error("Private Key Not found");
-                const signResult = await this.txsService.signTx({ rawtx, wif, inputs });
-                console.log({signResult});
-            }
+
+            const txOptionsRes = await this.getTxOptions(this.fromAddress, this.toAddress, this.amount, this.propId);
+            if (txOptionsRes.error || !txOptionsRes.data) throw new Error(txOptionsRes.error);
+
+            const txRes = await this.txsService.buildTx(txOptionsRes.data);
+            if (txRes.error || !txRes.data) throw new Error(txRes.error) 
+            const { inputs, rawtx } = txRes.data;
+
+            const wif = this.authService.listOfallAddresses
+                .find(kp => kp.address === this.fromAddress)?.wif;
+            if (!wif) throw new Error("Private Key Not found");
+
+            const signResult = await this.txsService.signTx({ rawtx, wif, inputs });
+            if (signResult.error || !signResult.data) throw new Error(signResult.error);
+            if (!signResult.data.isValid) throw new Error("Error with Transaction Signing");
+
+            const sendRes = await this.txsService.sendTx(signResult.data.signedHex);
+            if (sendRes.error || !sendRes.data) throw new Error(sendRes.error);
+            this.toastrService.success(sendRes.data, 'Successful send');
             this.clearForm();
         } catch (error: any) {
             this.toastrService.error(error.message || `Error with Withdraw`, 'Error');
+        } finally {
+            this.loadingService.isLoading = false;
         }
     }
 

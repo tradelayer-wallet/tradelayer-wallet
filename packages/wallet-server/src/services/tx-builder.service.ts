@@ -51,22 +51,26 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
 
         const luRes = await smartRpc('listunspent', [0, 999999999, [fromAddress]], true);
         if (luRes.error || !luRes.data) throw new Error(`listunspent: ${luRes.error}`);
-
         const utxos = (luRes.data as IInput[]).sort((a, b) => b.amount - a.amount);
-        const inputsRes = getEnoughInputs(utxos, amount);
-        const { inputs, fee } = inputsRes;
-        const inputsSum = inputs.map(({amount}) => amount).reduce((a, b) => a + b, 0);
 
         const minAmountRes = await getMinVoutAmount(toAddress, isApiMode);
         if (minAmountRes.error || !minAmountRes.data) throw new Error(`getMinVoutAmount: ${minAmountRes.error}`);
         const minAmount = minAmountRes.data;
+        if (minAmount > amount && !payload) throw new Error(`Minimum amount is: ${minAmount}`);
 
-        const _toAmount = safeNumber(amount - fee);
-        const toAmount = _toAmount > minAmount ? _toAmount : minAmount;
-        const change = safeNumber(inputsSum - amount);
+        const _amount = Math.max(amount, minAmount)
+        const inputsRes = getEnoughInputs(utxos, _amount);
+        const { inputs, fee } = inputsRes;
+        const inputsSum = inputs.map(({amount}) => amount).reduce((a, b) => a + b, 0);
 
-        if (inputsSum < (fee + toAmount + change)) throw new Error("Not Enaugh coins for paying fees. Code 1");
-        if (inputsSum < amount) throw new Error("Not Enaugh coins for paying fees. Code 2");
+        const _toAmount = safeNumber(_amount - fee);
+        const toAmount = Math.max(minAmount, _toAmount)
+        const change = !payload 
+            ? safeNumber(inputsSum - _amount)
+            : safeNumber(inputsSum - _amount - fee);
+
+        if (inputsSum < safeNumber(fee + toAmount + change)) throw new Error("Not Enaugh coins for paying fees. Code 1");
+        if (inputsSum < _amount) throw new Error("Not Enaugh coins for paying fees. Code 2");
         if (!inputs.length) throw new Error("Not Enaugh coins for paying fees. Code 3");
 
         const _insForRawTx = inputs.map(({txid, vout }) => ({ txid, vout }));
@@ -80,7 +84,7 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
             if (crtxoprRes.error || !crtxoprRes.data) throw new Error(`tl_createrawtx_opreturn: ${crtxoprRes.error}`);
             finalTx = crtxoprRes.data;
         }
-        return { rawtx: finalTx, inputs };
+        return { data: { rawtx: finalTx, inputs } };
     } catch (error) {
         return { error: error.message || 'Undefined build Tx Error' };
     }
@@ -114,7 +118,7 @@ export const signTx = async (signOptions: ISignTxConfig) => {
     try {
         const { rawtx, wif, network, inputs } = signOptions;
         const lastResult = signRawTransction({ rawtx, wif, network, inputs });
-        return { data: lastResult };
+        return lastResult;
     } catch (error) {
         return { error: error.message };
     }

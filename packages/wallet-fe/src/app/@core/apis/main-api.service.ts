@@ -84,11 +84,17 @@ export class MainApiService {
     }
 
     signTx(buildTxConfig: ISignTxConfig, network: TNETWORK): Observable<{
-        data?: string;
+        data?: {
+            isValid: boolean;
+            signedHex: string;
+        };
         error?: string;
     }>{
         return this.http.post<{
-            data?: string;
+            data?: {
+                isValid: boolean;
+                signedHex: string;
+            };
             error?: string;  
         }>(this.apiUrl + 'sign-tx', { ...buildTxConfig, network })
     }

@@ -69,8 +69,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const { isApiMode } = request.body as { isApiMode: boolean };
             const txConfig = { fromAddress, toAddress, payload, amount };
             const hexResult = await buildTx(txConfig, isApiMode);
-            const result = { data: hexResult };
-            reply.status(200).send(result);
+            reply.status(200).send(hexResult);
         } catch (error) {
             reply.status(500).send({ error: error.message || 'Undefined Error' })
         }
