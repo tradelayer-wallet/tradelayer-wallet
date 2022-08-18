@@ -6,6 +6,7 @@ import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
+import { TxsService } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 
 @Component({
@@ -14,7 +15,7 @@ import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.compon
   styleUrls: ['./portfolio-page.component.scss']
 })
 export class PortfolioPageComponent {
-  cryptoBalanceColumns: string[] = ['address', 'confirmed', 'unconfirmed', 'actions'];
+  cryptoBalanceColumns: string[] = ['attestation', 'address', 'confirmed', 'unconfirmed', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'balance', 'actions'];
   selectedAddress: string = '';
 
@@ -24,7 +25,9 @@ export class PortfolioPageComponent {
     private toastrService: ToastrService,
     private authService: AuthService,
     private elRef: ElementRef,
-    public matDialog: MatDialog
+    public matDialog: MatDialog,
+    private rpcService: RpcService,
+    private txsService: TxsService,
   ) {}
 
   get coinBalance() {
@@ -68,5 +71,23 @@ export class PortfolioPageComponent {
   copy(text: string) {
     navigator.clipboard.writeText(text);
     this.toastrService.info('Address Copied to clipboard', 'Copied');
+  }
+
+  getAddressAttestationStatus(address: string) {
+    return this.balanceService.getAttestationByAdderss(address);
+  }
+
+  async selfAttestate(address: string) {
+    const isAttestated = await this.balanceService.checkAttestationsByAddress(address);
+    if (isAttestated) return;
+    const payload = '007600'; // Attestation Payload;
+    const res = await this.txsService.buildSingSendTx({
+      fromAddress: address,
+      toAddress: address,
+      payload: payload,
+    });
+    if (res.data) {
+      this.balanceService.setAddresAttestationPending(address);
+    }
   }
 }

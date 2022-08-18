@@ -82,10 +82,18 @@
   .mat-column-name,
   .mat-column-confirmed,
   .mat-column-unconfirmed,
-  .mat-column-balance {
+  .mat-column-balance,
+  .mat-column-attestation {
     min-width: 6rem;
   }
 
+  .mat-column-attestation {
+    max-width: 3rem;
+    mat-icon {
+        cursor: pointer;
+        margin-left: 1rem;
+    }
+  }
   .mat-column-actions {
     min-width: 16rem;
   }

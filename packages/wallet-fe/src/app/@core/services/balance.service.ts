@@ -7,6 +7,7 @@ import { IUTXO } from "./txs.service";
 
 const minBlocksForBalanceConf: number = 1;
 const emptyBalanceObj = {
+    attestation: false,
     coinBalance: {
         confirmed: 0,
         unconfirmed: 0,
@@ -21,6 +22,7 @@ const emptyBalanceObj = {
 export class BalanceService {
     private _allBalancesObj: {
         [key: string]: {
+            attestation: boolean | "PENDING";
             coinBalance: {
                 confirmed: number;
                 unconfirmed: number;
@@ -64,26 +66,61 @@ export class BalanceService {
         return this._allBalancesObj?.[address]?.coinBalance || emptyBalanceObj.coinBalance;
     }
 
+    getAttestationByAdderss(address: string) {
+        return this._allBalancesObj?.[address]?.attestation;
+    }
+
+    async checkAttestationsByAddress(address: string) {
+        try {
+            const aRes = await this.rpcService.rpc('tl_check_kyc', [address]);
+            if (aRes.error || !aRes.data) throw new Error(aRes.error);
+            if (this._allBalancesObj?.[address]) {
+                const isAttestated = aRes.data['result: '] === 'enabled(kyc_0)';
+                this._allBalancesObj[address].attestation = isAttestated;
+                return isAttestated;
+            }
+            return false;
+        } catch (error: any) {
+            this.toastrService.error(error.message, 'Checking Attestations Error');
+            return false;
+        }
+    }
+
+    setAddresAttestationPending(address: string) {
+        if (this._allBalancesObj?.[address]) {
+            this._allBalancesObj[address].attestation = "PENDING";
+        }
+    }
+
     private handleEvents() {
         this.authService.updateBalanceSubs$
-            .subscribe(() => this.updateBalances());
+            .subscribe(() => this.updateBalances(true));
 
         this.authService.logoutSubs$
             .subscribe(() => this.restartBalance());
 
         this.rpcService.networkBlocks$
-            .subscribe(() => this.rpcService.isApiMode ? this.updateBalances() : null);
+            .subscribe(() => {
+                if(this.rpcService.isApiMode) {
+                    this.updateBalances(true);
+                }
+            });
         
-        this.rpcService.networkBlocks$
-            .subscribe(() => this.rpcService.isApiMode ? null : this.updateBalances());
+        this.rpcService.nodeBlocks$
+            .subscribe(() => {
+                if(!this.rpcService.isApiMode) {
+                    this.updateBalances(true);
+                }
+            })
     }
 
-    async updateBalances() {
+    async updateBalances(isPure: boolean = false) {
         const addressesArray = this.authService.listOfallAddresses;
         for (let i = 0; i < addressesArray?.length; i++) {
             const address = addressesArray[i]?.address;
             await this.updateCoinBalanceForAddressFromUnspents(address);
             await this.updateTokensBalanceForAddress(address);
+            if (isPure) await this.checkAttestationsByAddress(address);
         }
     }
 
@@ -126,8 +163,8 @@ export class BalanceService {
         const _unconfirmed = (luRes.data as IUTXO[])
             .filter(utxo => utxo.confirmations < minBlocksForBalanceConf)
             .reduce((a, b) => a + b.amount, 0);
-        const confirmed = parseFloat(_confirmed.toFixed(5));
-        const unconfirmed = parseFloat(_unconfirmed.toFixed(5));
+        const confirmed = parseFloat(_confirmed.toFixed(6));
+        const unconfirmed = parseFloat(_unconfirmed.toFixed(6));
         return {data: { confirmed, unconfirmed } };
     }
 
@@ -160,5 +197,15 @@ export class BalanceService {
 
     restartBalance() {
         this._allBalancesObj = {};
+    }
+
+    private checkPendingAttestations() {
+        Object.values(this._allBalancesObj)
+            .forEach((bo, index) => {
+                if (bo.attestation === 'PENDING') {
+                    const address = Object.keys(this._allBalancesObj)[index];
+                    this.checkAttestationsByAddress(address);
+                }
+            })
     }
 }

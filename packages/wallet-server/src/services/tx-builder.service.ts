@@ -58,7 +58,7 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
         const minAmount = minAmountRes.data;
         if (minAmount > amount && !payload) throw new Error(`Minimum amount is: ${minAmount}`);
 
-        const _amount = Math.max(amount, minAmount)
+        const _amount = Math.max(amount || 0, minAmount)
         const inputsRes = getEnoughInputs(utxos, _amount);
         const { inputs, fee } = inputsRes;
         const inputsSum = inputs.map(({amount}) => amount).reduce((a, b) => a + b, 0);
@@ -80,7 +80,7 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
         if (crtRes.error || !crtRes.data) throw new Error(`createrawtransaction: ${crtRes.error}`);
         let finalTx = crtRes.data;
         if (payload) {
-            const crtxoprRes = await smartRpc('tl_createrawtx_opreturn', [payload], isApiMode);
+            const crtxoprRes = await smartRpc('tl_createrawtx_opreturn', [finalTx, payload], isApiMode);
             if (crtxoprRes.error || !crtxoprRes.data) throw new Error(`tl_createrawtx_opreturn: ${crtxoprRes.error}`);
             finalTx = crtxoprRes.data;
         }

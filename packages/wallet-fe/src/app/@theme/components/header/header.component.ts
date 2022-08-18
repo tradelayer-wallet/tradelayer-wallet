@@ -47,7 +47,7 @@ export class HeaderComponent implements OnInit {
   }
 
   get availableBalance() {
-    return this.balanceService.sumAvailableCoins;
+    return (this.balanceService.sumAvailableCoins).toFixed(6);
   }
 
   get isLoggedIn() {

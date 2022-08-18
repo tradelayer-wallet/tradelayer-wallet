@@ -110,17 +110,18 @@ export class WithdrawDialog {
     private async getTxOptions(
             fromAddress: string,
             toAddress: string,
-            _amount: number,
+            amount: number,
             propId: number,
         ): Promise<{ data?: IBuildTxConfig, error?: any}> {
             try {
-                const amount = propId === -1 ? _amount : 0;
-                const txOptions: IBuildTxConfig = { fromAddress, toAddress, amount };
+                const txOptions: IBuildTxConfig = { fromAddress, toAddress };
                 if (propId !== -1) {
-                    const payloadParams = [this.propId, amount];
+                    const payloadParams = [this.propId, (amount).toString()];
                     const payloadRes = await this.rpcService.rpc('tl_createpayload_simplesend', payloadParams);
                     if (payloadRes.error || !payloadRes.data) throw new Error(`tl_createpayload_simplesend: ${payloadRes.error}`);
                     txOptions.payload = payloadRes.data;
+                } else {
+                    txOptions.amount = amount
                 }
                 return { data: txOptions };
             } catch (error: any) {
@@ -133,25 +134,9 @@ export class WithdrawDialog {
             this.loadingService.isLoading = true;
             if (this.fromAddress === this.toAddress) throw new Error('Both addresses are the same');
             if (!this.amount || !this.fromAddress || !this.toAddress || !this.propId) throw new Error('Fill all required data');
-
             const txOptionsRes = await this.getTxOptions(this.fromAddress, this.toAddress, this.amount, this.propId);
             if (txOptionsRes.error || !txOptionsRes.data) throw new Error(txOptionsRes.error);
-
-            const txRes = await this.txsService.buildTx(txOptionsRes.data);
-            if (txRes.error || !txRes.data) throw new Error(txRes.error) 
-            const { inputs, rawtx } = txRes.data;
-
-            const wif = this.authService.listOfallAddresses
-                .find(kp => kp.address === this.fromAddress)?.wif;
-            if (!wif) throw new Error("Private Key Not found");
-
-            const signResult = await this.txsService.signTx({ rawtx, wif, inputs });
-            if (signResult.error || !signResult.data) throw new Error(signResult.error);
-            if (!signResult.data.isValid) throw new Error("Error with Transaction Signing");
-
-            const sendRes = await this.txsService.sendTx(signResult.data.signedHex);
-            if (sendRes.error || !sendRes.data) throw new Error(sendRes.error);
-            this.toastrService.success(sendRes.data, 'Successful send');
+            await this.txsService.buildSingSendTx(txOptionsRes.data);
             this.clearForm();
         } catch (error: any) {
             this.toastrService.error(error.message || `Error with Withdraw`, 'Error');

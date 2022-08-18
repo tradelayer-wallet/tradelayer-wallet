@@ -4,6 +4,21 @@
         <button mat-raised-button (click)='newAddress()' class='new-address-buttton'>New Address</button>
         <mat-card-content>
             <mat-table [dataSource]="coinBalance" *ngIf='coinBalance'>
+              <ng-container matColumnDef="attestation">
+                <mat-header-cell *matHeaderCellDef>Attestation</mat-header-cell>
+                <mat-cell *matCellDef="let element">
+                  <mat-icon
+                    (click)="selfAttestate(element.address)"
+                    *ngIf="getAddressAttestationStatus(element.address) === false"
+                  >fingerprint</mat-icon>
+                  <mat-icon
+                    *ngIf="getAddressAttestationStatus(element.address) === true"
+                  >check</mat-icon>
+                  <mat-icon
+                    *ngIf="getAddressAttestationStatus(element.address) === 'PENDING'"
+                  >timelapse</mat-icon>
+                </mat-cell>
+              </ng-container>
                 <ng-container matColumnDef="address">
                   <mat-header-cell *matHeaderCellDef>Address</mat-header-cell>
                   <mat-cell *matCellDef="let element" [title]="element.address">
@@ -18,12 +33,12 @@
             
                 <ng-container matColumnDef="confirmed">
                     <mat-header-cell *matHeaderCellDef>Confirmed</mat-header-cell>
-                    <mat-cell *matCellDef="let element"> {{ element.confirmed }} </mat-cell>
+                    <mat-cell *matCellDef="let element"> {{ (element.confirmed).toFixed(6) }} </mat-cell>
                 </ng-container>
         
                 <ng-container matColumnDef="unconfirmed">
                   <mat-header-cell *matHeaderCellDef>Unconfirmed</mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ element.unconfirmed }} </mat-cell>
+                  <mat-cell *matCellDef="let element"> {{ (element.unconfirmed).toFixed(6) }} </mat-cell>
                 </ng-container>
 
                 <ng-container matColumnDef="actions">
