@@ -1,6 +1,8 @@
 import { fasitfyServer } from "..";
 import axios from 'axios';
 import { signRawTransction } from "../utils/crypto.util";
+import { safeNumber } from "../utils/common.util";
+
 export interface IBuildTxConfig {
     fromAddress: string;
     toAddress: string;
@@ -25,7 +27,6 @@ export interface IInput {
 
 const minFeeLtcPerKb = 0.002;
 
-const safeNumber = (a: number, d: number = 8) => parseFloat((a).toFixed(d));
 
 export const smartRpc = async (method: string, params: any[] = [], api: boolean = false) => {
     if (fasitfyServer.rpcClient && !api) {
@@ -52,7 +53,6 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
         const luRes = await smartRpc('listunspent', [0, 999999999, [fromAddress]], true);
         if (luRes.error || !luRes.data) throw new Error(`listunspent: ${luRes.error}`);
         const utxos = (luRes.data as IInput[]).sort((a, b) => b.amount - a.amount);
-
         const minAmountRes = await getMinVoutAmount(toAddress, isApiMode);
         if (minAmountRes.error || !minAmountRes.data) throw new Error(`getMinVoutAmount: ${minAmountRes.error}`);
         const minAmount = minAmountRes.data;
@@ -61,7 +61,8 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
         const _amount = Math.max(amount || 0, minAmount)
         const inputsRes = getEnoughInputs(utxos, _amount);
         const { inputs, fee } = inputsRes;
-        const inputsSum = inputs.map(({amount}) => amount).reduce((a, b) => a + b, 0);
+        const _inputsSum = inputs.map(({amount}) => amount).reduce((a, b) => a + b, 0);
+        const inputsSum = safeNumber(_inputsSum);
 
         const _toAmount = safeNumber(_amount - fee);
         const toAmount = Math.max(minAmount, _toAmount)

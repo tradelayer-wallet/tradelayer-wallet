@@ -53,6 +53,10 @@ export class PortfolioPageComponent {
   }
 
   async newAddress() {
+    if (this.authService.walletKeys.main.length > 2) {
+      this.toastrService.error('The Limit of Main Addresses is Reached');
+      return;
+    }
     const passDialog = this.matDialog.open(PasswordDialog);
     const password = await passDialog.afterClosed()
         .pipe(first())

@@ -72,7 +72,7 @@ export class BalanceService {
         this.rpcService.blockSubs$
             .subscribe(() => this.updateBalances());
 
-        setInterval(() => this.updateBalances(), 15000);
+        setInterval(() => this.updateBalances(), 20000);
     }
 
     async updateBalances() {

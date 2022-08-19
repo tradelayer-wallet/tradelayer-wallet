@@ -74,6 +74,7 @@ export class HeaderComponent implements OnInit {
   }
   
   async updateBalance() {
+    if (this.balanceLoading) return;
     this.balanceLoading = true;
     await this.balanceService.updateBalances();
     this.balanceLoading = false;

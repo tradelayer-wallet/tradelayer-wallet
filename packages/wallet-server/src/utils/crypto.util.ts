@@ -5,6 +5,7 @@ import { dPaths, networks } from './networks';
 import { ECPairFactory } from 'ecpair';
 import { IInput } from '../services/tx-builder.service';
 import * as ecc from 'tiny-secp256k1';
+import { safeNumber } from './common.util';
 
 const ECPair = ECPairFactory(ecc);
 const bip32 = BIP32Factory(ecc);
@@ -80,7 +81,7 @@ export const signRawTransction = (signOptions: {
         inputs.forEach((e) => {
             const hash = e.txid;
             const index = e.vout;
-            const value = e.amount * (10**8);
+            const value = safeNumber(e.amount * (10**8));
             const witnessUtxo = { script: redeemScript, value };
             psbt.addInput({ hash, index, redeemScript, witnessUtxo });
         });
