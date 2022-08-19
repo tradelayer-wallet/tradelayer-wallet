@@ -12,6 +12,11 @@ export enum ENetwork {
   LTCTEST = 'LTCTEST',
 };
 
+export interface IBlockSubsObj {
+  type: "API" | "LOCAL";
+  block: number;
+}
+
 @Injectable({
     providedIn: 'root',
 })
@@ -25,8 +30,13 @@ export class RpcService {
   lastBlock: number = 0;
   networkBlocks: number = 0;
   isNetworkSelected: boolean = false;
-  networkBlocks$: BehaviorSubject<number> = new BehaviorSubject(this.networkBlocks);
-  nodeBlocks$: BehaviorSubject<number> = new BehaviorSubject(this.lastBlock);
+  // networkBlocks$: BehaviorSubject<number> = new BehaviorSubject(this.networkBlocks);
+  // nodeBlocks$: BehaviorSubject<number> = new BehaviorSubject(this.lastBlock);
+
+  blockSubs$: BehaviorSubject<IBlockSubsObj> = new BehaviorSubject({
+    type: this.isApiMode ? "API" : "LOCAL",
+    block: this.isApiMode ? this.networkBlocks : this.lastBlock,
+  });
 
     constructor(
       private apiService: ApiService,
@@ -34,11 +44,9 @@ export class RpcService {
       private dialogService: DialogService,
       private toastrService: ToastrService,
       private loadingService: LoadingService,
-    ) {
-      this.subsToEvents();
-    }
+    ) {}
 
-    private subsToEvents() {
+    onInit() {
       this.socket.on('core-error', error => {
         this.clearRpcConnection();
         if (!this._stoppedByTerminated) {
@@ -53,7 +61,8 @@ export class RpcService {
       this.socket.on('new-block', lastBlock => {
         console.log(`New Node Block: ${lastBlock}`);
         this.lastBlock = lastBlock;
-        this.nodeBlocks$.next(lastBlock);
+        const blockSubsObj: IBlockSubsObj = { type: "LOCAL", block: lastBlock };
+        this.blockSubs$.next(blockSubsObj);
       });
 
       setInterval(() => this.checkNetworkInfo(), 5000);
@@ -124,9 +133,10 @@ export class RpcService {
       try {
           const infoRes = await this.tlApi.rpc('tl_getinfo').toPromise();
           if (infoRes.error || !infoRes.data) throw new Error(infoRes.error);
-          if (infoRes.data.block !== this.networkBlocks) {
+          if (infoRes.data.block && infoRes.data.block !== this.networkBlocks) {
             this.networkBlocks = infoRes.data.block;
-            this.networkBlocks$.next(infoRes.data.block);
+            const blockSubsObj: IBlockSubsObj = { type: "API", block: infoRes.data.block };
+            this.blockSubs$.next(blockSubsObj);
             console.log(`New Network Block: ${this.networkBlocks}`);
           }
       } catch(err: any) {
@@ -154,6 +164,7 @@ export class RpcService {
     }
 
     rpc(method: string, params?: any[]) {
+      console.log({ method, params });
       return this.isApiMode
         ? this.tlApi.rpc(method, params).toPromise()
         : this.mainApi.rpcCall(method, params).toPromise();

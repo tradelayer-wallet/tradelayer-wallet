@@ -22,6 +22,7 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 
 body {
   background-color: var(--background);
+  min-width: 45rem;
 }
 
 * {

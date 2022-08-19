@@ -2,6 +2,7 @@ import { AfterViewInit, Component, ElementRef, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { first } from 'rxjs/operators';
+import { AttestationService } from 'src/app/@core/services/attestation.service';
 import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
@@ -28,6 +29,7 @@ export class PortfolioPageComponent {
     public matDialog: MatDialog,
     private rpcService: RpcService,
     private txsService: TxsService,
+    private attestationService: AttestationService,
   ) {}
 
   get coinBalance() {
@@ -74,20 +76,18 @@ export class PortfolioPageComponent {
   }
 
   getAddressAttestationStatus(address: string) {
-    return this.balanceService.getAttestationByAdderss(address);
+    return this.attestationService.getAttByAddress(address);
   }
 
   async selfAttestate(address: string) {
-    const isAttestated = await this.balanceService.checkAttestationsByAddress(address);
+    const isAttestated = await this.attestationService.checkAttAddress(address);
     if (isAttestated) return;
-    const payload = '007600'; // Attestation Payload;
+    const payload = '007600';
     const res = await this.txsService.buildSingSendTx({
       fromAddress: address,
       toAddress: address,
       payload: payload,
     });
-    if (res.data) {
-      this.balanceService.setAddresAttestationPending(address);
-    }
+    if (res.data) this.attestationService.setPendingAtt(address);
   }
 }

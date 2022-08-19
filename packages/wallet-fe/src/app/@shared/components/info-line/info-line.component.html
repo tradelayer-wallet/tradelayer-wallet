@@ -12,8 +12,16 @@
         <span *ngIf="isApiMode">API-MODE</span>
     </div>
     <div class="info">
-        <span *ngIf="!isApiMode">Block: {{ lastBlock }}</span>
-        <span *ngIf="isApiMode">Block: {{ networkBlock }}</span>
+        <span class='block-container' *ngIf="!isApiMode">
+            <span>Block: </span>
+            <span class="block">{{ lastBlock }}</span>
+            <div class="newBlock">+1</div>
+        </span>
+        <span class='block-container' *ngIf="isApiMode">
+            <span>Block: </span>
+            <span class="block">{{ networkBlock }}</span>
+            <div #newBlock class="newBlock">+1</div>
+        </span>
     </div>
     <div class="info" *ngIf="network">
         {{ network }}

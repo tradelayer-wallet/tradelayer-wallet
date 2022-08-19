@@ -65,7 +65,8 @@ export const createConfigFile = async (options: {
 
 export const startWalletNode = async (walletNodeOptions: any) => {
     try {
-        if (walletNodeOptions.testnet) walletNodeOptions.connect = "178.62.46.195:19333";
+        const isTestnet = walletNodeOptions.testnet;
+        if (isTestnet) walletNodeOptions.connect = "178.62.46.195:19333";
         const flagsObject = new FlagsObject(walletNodeOptions);
         // Read config File
         const path = join(flagsObject.datadir || defaultDirObj);
@@ -74,15 +75,14 @@ export const startWalletNode = async (walletNodeOptions: any) => {
         if (!isConfFileExist) throw(`Config file (litecoin.conf) doesn't exist in: ${path}`);
         const confFile = readFileSync(configFilePath, { encoding: 'utf8' });
         const configObj: any = structureConfFile(confFile);
-        const { rpcuser, rpcport, rpcpassword } = configObj;
-        if (!rpcuser || !rpcport || !rpcpassword) throw(`Incorrect Config File ${path}`);
+        if (!configObj.rpcuser || !configObj.rpcpassword) throw(`Incorrect Config File ${path}`);
 
         // Run The core
         const flagsString = convertFlagsObjectToString(flagsObject);
         const filePath = `"${coreFilePathObj.LTC}"`;
         const filePathWithFlags = `${filePath}${flagsString}`;
         if (!filePathWithFlags) throw(`Error with Starting Node. Code 1`);
-        return await checkIsCoreStarted(filePathWithFlags, configObj);;
+        return await checkIsCoreStarted(filePathWithFlags, configObj, isTestnet);;
     } catch(error) {
         return { error: error.message || error || 'Undefined Error' };
     }
@@ -123,15 +123,19 @@ const structureConfFile = (conf: string) => {
     return confObj;
 };
 
-const checkIsCoreStarted = async (filePathWithFlags: string, configObj: any) => {
+const checkIsCoreStarted = async (
+        filePathWithFlags: string,
+        configObj: any,
+        isTestnet: boolean,
+    ) => {
     return new Promise(async (resolve) => {
         const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
-
+        const port = rpcport ? rpcport : isTestnet ? 19332 : 9332;
         const client = new RpcClient({
             username: rpcuser,
             password: rpcpassword,
             host: rpchost || 'localhost',
-            port: rpcport || 9332,
+            port: port,
             timeout: 2000,
         });
 
@@ -159,7 +163,7 @@ const checkIsCoreStarted = async (filePathWithFlags: string, configObj: any) => 
                 .then(async checkRes => {
                     if (!checkRes?.error?.includes("ECONNREFUSED")) {
                         fasitfyServer.rpcClient = client;
-                        fasitfyServer.rpcPort = rpcport;
+                        fasitfyServer.rpcPort = port;
                         fasitfyServer.mainSocketService.startBlockCounting(2000);
                         checkResolve({ data: true });
                     } else {

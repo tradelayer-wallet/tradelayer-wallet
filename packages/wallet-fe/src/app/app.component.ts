@@ -1,4 +1,6 @@
 import { Component, NgZone } from '@angular/core';
+import { AttestationService } from './@core/services/attestation.service';
+import { BalanceService } from './@core/services/balance.service';
 import { ConnectionService } from './@core/services/connections.service';
 import { ElectronService } from './@core/services/electron.service';
 import { LoadingService } from './@core/services/loading.service';
@@ -19,7 +21,10 @@ export class AppComponent {
     private loadingService: LoadingService,
     private electronService: ElectronService,
     private windowsService: WindowsService,
+    private attestationService: AttestationService,
+    private balanceService: BalanceService,
   ) {
+    this.handleInits();
     this.handleConnections();
     this.handleElectronEvents();
   }
@@ -42,6 +47,13 @@ export class AppComponent {
 
   get isNetworkSelected() {
     return this.rpcService.isNetworkSelected;
+  }
+
+  handleInits() {
+    this.connectionService.onInit();
+    this.rpcService.onInit();
+    this.balanceService.onInit();
+    this.attestationService.onInit();
   }
 
   handleConnections() {

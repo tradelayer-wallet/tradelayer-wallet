@@ -9,7 +9,13 @@
         <span class="spacer"></span>
         <div class="right-side" *ngIf="isLoggedIn">
             <div class="balance" (click)='updateBalance()'>
-                Balance: {{ availableBalance }} LTC
+                <span>Balance: </span>
+                <span class="balance-span" *ngIf="!balanceLoading">
+                    {{ availableBalance }} LTC
+                </span>
+                <span class="balance-span" *ngIf="balanceLoading">
+                    <mat-spinner diameter="25"></mat-spinner>
+                </span>
             </div>
         </div>
 

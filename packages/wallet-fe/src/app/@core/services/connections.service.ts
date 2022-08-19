@@ -16,9 +16,7 @@ export class ConnectionService {
 
     constructor(
         private socketService: SocketService,
-    ) {
-        this.runHandlers();
-    }
+    ) { }
 
     get isOnline() {
         return this._isOnline;
@@ -33,7 +31,7 @@ export class ConnectionService {
         this.isOnline$.next(isOnline);
     }
 
-    private runHandlers() {
+    onInit() {
         window.onoffline = () => this.isOnline = false;
         window.ononline = () => this.isOnline = true;
     }

@@ -21,7 +21,11 @@
               </ng-container>
                 <ng-container matColumnDef="address">
                   <mat-header-cell *matHeaderCellDef>Address</mat-header-cell>
-                  <mat-cell *matCellDef="let element" [title]="element.address">
+                  <mat-cell
+                    *matCellDef="let element"
+                    [title]="element.address"
+                    (dblclick)='copy(element.address)'
+                  >
                     {{ element.address | shortAddress }}
                     <mat-icon
                       class='copy-icon'

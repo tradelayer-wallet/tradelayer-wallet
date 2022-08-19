@@ -1,6 +1,5 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { ToastrService } from 'ngx-toastr';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 
@@ -27,7 +26,7 @@ export class HeaderComponent implements OnInit {
   ];
 
   private _selectedRoute: any = this._mainRoutes[0];
-
+  public balanceLoading: boolean = false;
   constructor(
     private router: Router,
     private authService: AuthService,
@@ -74,7 +73,9 @@ export class HeaderComponent implements OnInit {
     // this.menuService.toggleSideBar();
   }
   
-  updateBalance() {
-    this.balanceService.updateBalances();
+  async updateBalance() {
+    this.balanceLoading = true;
+    await this.balanceService.updateBalances();
+    this.balanceLoading = false;
   }
 }
