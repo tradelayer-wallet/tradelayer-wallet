@@ -11,7 +11,7 @@ export const ENDPOINTS: TEnpoint = {
         relayerUrl: "http://170.75.174.87:9191",
     },
     LTCTEST: {
-        orderbookApiUrl: "not-working",
+        orderbookApiUrl: "http://170.75.174.87:8190",
         relayerUrl: "http://170.75.174.87:8191",
     },
 };

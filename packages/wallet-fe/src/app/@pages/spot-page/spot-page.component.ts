@@ -8,7 +8,7 @@ import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-ma
 })
 export class SpotPageComponent implements OnInit {
     constructor(
-      private spotMarketsService: SpotMarketsService
+      private spotMarketsService: SpotMarketsService,
     ) {}
 
     get isAvailableMarkets() {

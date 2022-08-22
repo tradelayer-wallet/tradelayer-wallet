@@ -16,20 +16,19 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { LoginPageComponent } from './login-page/login-page.component';
 import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
+import { SpotPageComponent } from './spot-page/spot-page.component';
 
-// import { SpotPageComponent } from './spot-page/spot-page.component';
-// import { FuturesPageComponent } from './futures-page/futures-page.component';
-
-// import { SpotMarketsToolbarComponent } from './spot-page/spot-markets-toolbar/spot-markets-toolbar.component'; 
-// import { SpotTradingGridComponent } from './spot-page/spot-trading-grid/spot-trading-grid.component';
-// import { SpotBuySellCardComponent } from './spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component';
-// import { SpotOrderbookCardComponent } from './spot-page/spot-trading-grid/spot-orderbook-card/spot-orderbook-card.component';
-// import { SpotBottomCardComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-bottom-card.component';
+import { SpotMarketsToolbarComponent } from './spot-page/spot-markets-toolbar/spot-markets-toolbar.component'; 
+import { SpotTradingGridComponent } from './spot-page/spot-trading-grid/spot-trading-grid.component';
+import { SpotBuySellCardComponent } from './spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component';
+import { SpotOrderbookCardComponent } from './spot-page/spot-trading-grid/spot-orderbook-card/spot-orderbook-card.component';
+import { SpotBottomCardComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-bottom-card.component';
+import { SportHistoryCardComponent } from './spot-page/spot-trading-grid/spot-history-card/spot-history-card.component';
+import { SportChartCardComponent } from './spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component';
 // import { SpotPendingTxsComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-pending-txs/spot-pending-txs.component';
 // import { SpotPositionsComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-positions/spot-positions.component';
-// import { SportHistoryCardComponent } from './spot-page/spot-trading-grid/spot-history-card/spot-history-card.component';
-// import { SportChartCardComponent } from './spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component';
 
+// import { FuturesPageComponent } from './futures-page/futures-page.component';
 // import { FuturesMarketsToolbarComponent } from './futures-page/futures-markets-toolbar/futurues-markets-toolbar.component';
 // import { FuturesTradingGridComponent } from './futures-page/futures-trading-grid/futures-trading-grid.component';
 // import { FuturesOrderbookCardComponent } from './futures-page/futures-trading-grid/futures-orderbook-card/futures-orderbook-card.component';
@@ -67,7 +66,7 @@ const PAGE_COMPONENTS = [
     HomePageComponent,
     LoginPageComponent,
     PortfolioPageComponent,
-    // SpotPageComponent,
+    SpotPageComponent,
     // FuturesPageComponent,
     // SettingsPageComponent,
     // MultisigPageComponent,
@@ -76,17 +75,17 @@ const PAGE_COMPONENTS = [
     LoginContainerComponent,
 ];
 
-// const SPOT_COMPONENTS = [
-//     SpotMarketsToolbarComponent,
-//     SpotTradingGridComponent,
-//     SpotBuySellCardComponent,
-//     SpotOrderbookCardComponent,
-//     SpotBottomCardComponent,
-//     SpotPendingTxsComponent,
-//     SpotPositionsComponent,
-//     SportHistoryCardComponent,
-//     SportChartCardComponent,
-// ];
+const SPOT_COMPONENTS = [
+    SpotMarketsToolbarComponent,
+    SpotTradingGridComponent,
+    SpotBuySellCardComponent,
+    SpotOrderbookCardComponent,
+    SpotBottomCardComponent,
+    SportHistoryCardComponent,
+    SportChartCardComponent,
+    // SpotPendingTxsComponent,
+    // SpotPositionsComponent,
+];
 
 // const FUTURES_COMPONENTS = [
 //     FuturesMarketsToolbarComponent,
@@ -107,7 +106,7 @@ const imports = [
 
 const declarations = [
     ...PAGE_COMPONENTS,
-    // ...SPOT_COMPONENTS,
+    ...SPOT_COMPONENTS,
     // ...FUTURES_COMPONENTS,
     ...PIPES,
 ];

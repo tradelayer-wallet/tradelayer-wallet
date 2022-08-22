@@ -11,8 +11,8 @@ export interface PeriodicElement {
 
 @Component({
   selector: 'tl-spot-orderbook-card',
-  templateUrl: '../../../shared/trading-grid/orderbook/orderbook-card.component.html',
-  styleUrls: ['../../../shared/trading-grid/orderbook/orderbook-card.component.scss']
+  templateUrl: './orderbook-card.component.html',
+  styleUrls: ['./orderbook-card.component.scss']
 })
 
 export class SpotOrderbookCardComponent implements OnInit, OnDestroy {

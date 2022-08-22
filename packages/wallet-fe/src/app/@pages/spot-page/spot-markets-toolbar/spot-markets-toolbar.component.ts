@@ -3,8 +3,8 @@ import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-ma
 
 @Component({
   selector: 'tl-spot-markets-toolbar',
-  templateUrl: '../../shared/markets-toolbar/markets-toolbar.component.html',
-  styleUrls: ['../../shared/markets-toolbar/markets-toolbar.component.scss']
+  templateUrl: './markets-toolbar.component.html',
+  styleUrls: ['./markets-toolbar.component.scss']
 })
 export class SpotMarketsToolbarComponent {
     @ViewChildren('marketsTabGroup') marketsTabGroup: any;

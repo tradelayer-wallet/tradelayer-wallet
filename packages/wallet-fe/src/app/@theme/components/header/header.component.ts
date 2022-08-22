@@ -10,7 +10,12 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
 })
 
 export class HeaderComponent implements OnInit {
-  private _mainRoutes: any[] = [
+  private _mainRoutes: {
+    id: number;
+    name: string;
+    link: string;
+    needAuthToShow: boolean;
+  }[] = [
     {
       id: 1,
       name: 'Home',
@@ -21,6 +26,12 @@ export class HeaderComponent implements OnInit {
       id: 2,
       name: 'Portfolio',
       link: '/portfolio',
+      needAuthToShow: true,
+    },
+    {
+      id: 3,
+      name: 'Spot Trading',
+      link: '/spot',
       needAuthToShow: true,
     }
   ];
@@ -42,7 +53,8 @@ export class HeaderComponent implements OnInit {
   }
 
   get mainRoutes(){
-    return this._mainRoutes;
+    return this._mainRoutes
+      .filter(e => e.needAuthToShow ? this.isLoggedIn : true);
   }
 
   get availableBalance() {

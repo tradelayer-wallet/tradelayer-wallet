@@ -6,6 +6,7 @@ import { RPCGuard } from './@core/guards/rpc.guard';
 import { HomePageComponent } from './@pages/home-page/home-page.component';
 import { LoginPageComponent } from './@pages/login-page/login-page.component';
 import { PortfolioPageComponent } from './@pages/portfolio-page/portfolio-page.component';
+import { SpotPageComponent } from './@pages/spot-page/spot-page.component';
 
 export const routes: Routes = [
   {
@@ -23,6 +24,11 @@ export const routes: Routes = [
       {
         path: 'portfolio',
         component: PortfolioPageComponent,
+        canActivate: [AuthGuard],
+      },
+      {
+        path: 'spot',
+        component: SpotPageComponent,
         canActivate: [AuthGuard],
       },
       {

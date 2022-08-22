@@ -139,6 +139,7 @@ mat-card {
                 transition: background-color 0.25s;
                 &:disabled {
                     opacity: 0.25;
+                    pointer-events: none;
                 }
             }
             .buy-button {
@@ -152,6 +153,20 @@ mat-card {
                 &:hover {
                     background-color: var(--red2);
                 }
+            }
+        }
+        .max {
+            display: flex;
+            padding: 0 16px;
+            align-items: center;
+            justify-content: space-between;
+            .buy-max,
+            .sell-max {
+                cursor: pointer;
+                font-size: 0.8rem;
+                width: 45%;
+                text-align: center;
+                color: var(--white);
             }
         }
     }

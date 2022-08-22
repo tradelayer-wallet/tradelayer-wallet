@@ -1,0 +1,64 @@
+<mat-card>
+  <mat-card-title>
+    <div class="header-wrapper">
+      <div class="title-text">
+        <span>Order Form</span>
+        <span class='contract'>wETH / LTC</span>
+      </div>
+      <div class="icons">
+        <!-- <mat-icon svgIcon="resize"></mat-icon>
+        <mat-icon svgIcon="close"></mat-icon> -->
+      </div>
+    </div>
+  </mat-card-title>
+  <mat-card-content>
+    <div class="order-type">
+      <div class="order-type-buttons">
+        <p
+          [ngClass]="{ selected: isLimitSelected }"
+          (click)="isLimitSelected = true"
+        >Limit</p>
+        <p
+          [ngClass]="{ selected: !isLimitSelected }"
+          (click)="isLimitSelected = false"
+        >Market</p>
+      </div>
+    </div>
+    <div class="buy-sell-form" [formGroup]='buySellGroup'>
+      <div class="custom-form-field" *ngIf='isLimitSelected'>
+        <div class="prefix">Price</div>
+        <input type='number' formControlName="price">
+        <div class="suffix">{{ selectedMarket.second_token.shortName }}</div>
+      </div>
+      <div class="custom-form-field">
+        <div class="prefix">Amount</div>
+        <input type='number' formControlName="amount">
+        <div class="suffix">{{ selectedMarket.first_token.shortName }}</div>
+      </div>
+    </div>
+    <div class="buttons">
+      <button
+        class='buy-button'
+        (click)='handleBuySell(true)'
+        [disabled]='getButtonDisabled(true)'
+      >Buy</button>
+      <button
+        class='sell-button'
+        (click)='handleBuySell(false)'
+        [disabled]='getButtonDisabled(false)'
+      >Sell</button>
+    </div>
+    <div class="max">
+      <div class="buy-max" (click)="fillMax(true)">
+        Max: {{ getMaxAmount(true).toFixed(6).slice(0, 6) }}
+      </div>
+      <div class="sell-max" (click)="fillMax(false)">
+        Max: {{ getMaxAmount(false).toFixed(6).slice(0, 6) }}
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<div class="overlay-loading" *ngIf='isLoading'>
+  <mat-spinner></mat-spinner>
+</div>

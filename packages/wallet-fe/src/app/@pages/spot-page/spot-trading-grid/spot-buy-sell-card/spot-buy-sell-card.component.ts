@@ -4,19 +4,22 @@ import { ReplaySubject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
-import { LoadingService } from 'src/app/@core/services/loading.service';
 import { IMarket, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
-import { TradeService, ISpotTradeConf } from 'src/app/@core/services/trade.service';
+import { ISpotTradeConf, TradeService } from 'src/app/@core/services/trade.service';
+import { safeNumber } from 'src/app/utils/common.util';
+// import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
+// import { TradeService, ISpotTradeConf } from 'src/app/@core/services/trade.service';
 
 @Component({
   selector: 'tl-spot-buy-sell-card',
-  templateUrl: '../../../shared/trading-grid/buy-sell/shared-buy-sell-card.component.html',
-  styleUrls: ['../../../shared/trading-grid/buy-sell/shared-buy-sell-card.component.scss'],
+  templateUrl: './shared-buy-sell-card.component.html',
+  styleUrls: ['./shared-buy-sell-card.component.scss'],
 })
 export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
     buySellGroup: FormGroup = new FormGroup({});
+    private _isLimitSelected: boolean = true;
 
     constructor(
       private spotMarketsService: SpotMarketsService,
@@ -24,12 +27,11 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       private fb: FormBuilder,
       private tradeService: TradeService,
       private spotOrderbookService: SpotOrderbookService,
-      private loadingService: LoadingService,
       private authService: AuthService,
     ) {}
 
     get isLoading(): boolean {
-      return this.loadingService.tradesLoading;
+      return false;
     }
 
     get selectedMarket(): IMarket {
@@ -42,6 +44,19 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
     get activeKeyPair() {
       return this.authService.activeMainKey
+    }
+
+    get currentPrice() {
+      return this.spotOrderbookService.currentPrice;
+    }
+
+    get isLimitSelected() {
+      return this._isLimitSelected;
+    }
+
+    set isLimitSelected(value: boolean) {
+      this._isLimitSelected = value;
+      this.buySellGroup.controls.price.setValue(this.currentPrice);
     }
 
     ngOnInit() {
@@ -57,7 +72,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     fillMax(isBuy: boolean) {
-      const value = parseFloat(this.getMaxAmount(isBuy));
+      const value = this.getMaxAmount(isBuy);
       this.buySellGroup?.controls?.['amount'].setValue(value);
     }
 
@@ -73,47 +88,39 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     getMaxAmount(isBuy: boolean) {
-      if (!this.currentAddress) return '0';
-      if (!this.buySellGroup?.controls?.['price']?.value) return '0';
-      const _price = this.buySellGroup.value['price'];
-      const price = parseFloat((_price).toFixed(5));
+      if (!this.currentAddress) return 0;
+      if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
+      const _price = this.isLimitSelected 
+        ? this.buySellGroup.value['price'] 
+        : this.currentPrice;
+      const price = safeNumber(_price);
 
       const propId = isBuy
         ? this.selectedMarket.second_token.propertyId
         : this.selectedMarket.first_token.propertyId;
 
-      const getAvailable = (propId: number) => {
-        if (propId === -1) {
-          const balanceObj = this.balanceService.getFiatBalancesByAddress(this.currentAddress);
-          // const { confirmed, locked } = balanceObj;
-          const _available = (balanceObj.confirmed).toFixed(6);
-          return parseFloat(_available);
-        } else {
-          const balanceObj = this.balanceService.getTokensBalancesByAddress();
-          const tokenBalance = balanceObj?.find((t: any) => t.propertyid === propId);
-          if (!tokenBalance) return 0;
-          // const { balance, locked } = tokenBalance;
-          const _available = (tokenBalance.balance).toFixed(6);
-          return parseFloat(_available);
-        }
-      };
-
-      const fee = 0.01; // 0.01;
-      const _available = getAvailable(propId) - fee;
-      const available = parseFloat((_available).toFixed(6));
-      if (!available || ((available / price) <= 0)) return '0';
-      const max = isBuy ? (available / price).toFixed(4) : available.toFixed(4);
+      const _available = propId === -1
+        ? this.balanceService.getCoinBalancesByAddress(this.currentAddress)?.confirmed
+        : this.balanceService.getTokensBalancesByAddress(this.currentAddress)
+          ?.find((t: any) => t.propertyid === propId)
+          ?.balance;
+      const available = safeNumber(_available || 0);
+      if (!available || ((available / price) <= 0)) return 0;
+      const _max = isBuy ? (available / price) : available;
+      const max = safeNumber(_max);
       return max;
     }
 
 
     handleBuySell(isBuy: boolean) {
-      const { price, amount } = this.buySellGroup.value;
+      const amount = this.buySellGroup.value.amount;
+      const _price = this.buySellGroup.value.price;
+      const price = this.isLimitSelected ? _price : this.currentPrice;
+
       const market = this.selectedMarket;
       const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
-      const marketName = market.pairString;
-      if (!propIdForSale || !propIdDesired || !price || !amount) return;
+      if (!propIdForSale || !propIdDesired || (!price && this.isLimitSelected) || !amount) return;
       if (!this.activeKeyPair) return;
   
       const order: ISpotTradeConf = { 
@@ -128,30 +135,16 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
           id_for_sale: propIdForSale,
           amount: amount,
           price: price,
-        }
+        },
+        isLimitOrder: this.isLimitSelected,
       };
       this.tradeService.newOrder(order);
       this.buySellGroup.reset();
     }
 
     getButtonDisabled(isBuy: boolean) {
-      const propId = isBuy
-        ? this.selectedMarket.second_token.propertyId
-        : this.selectedMarket.first_token.propertyId;
-      
-      if (propId === -1) {
-        const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
-        return !this.buySellGroup.valid || !v ;
-      } else {
-        const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
-
-        const balanceObj = this.balanceService.getFiatBalancesByAddress(this.currentAddress);
-        // const { confirmed, locked } = confirmed;
-        const _available = (balanceObj.confirmed).toFixed(6);
-        const available =  parseFloat(_available);
-        const v2 = available > 0.01; 
-        return !this.buySellGroup.valid || !v || !v2;
-      }
+      const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
+      return !this.buySellGroup.valid || !v;
     }
 
     private trackPriceHandler() {

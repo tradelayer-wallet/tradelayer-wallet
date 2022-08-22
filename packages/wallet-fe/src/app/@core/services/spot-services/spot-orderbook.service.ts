@@ -32,6 +32,7 @@ export class SpotOrderbookService {
     buyOrderbooks: { amount: number, price: number }[] = [];
     sellOrderbooks: { amount: number, price: number }[] = [];
     tradeHistory: any[] = [];
+    currentPrice: number = 1;
 
     constructor(
         private socketService: SocketService,
@@ -62,19 +63,19 @@ export class SpotOrderbookService {
     subscribeForOrderbook() {
         this.endOrderbookSbuscription();
         
-        this.socket.on('OBSERVER::update-orders-request', () => {
-            this.socket.emit('update-orderbook', this.marketFilter)
-        });
+        // this.socket.on('OBSERVER::update-orders-request', () => {
+        //     this.socket.emit('update-orderbook', this.marketFilter)
+        // });
 
-        this.socket.on('OBSERVER::orderbook-data', (orderbookData: ISpotOrder[]) => {
-            this.rawOrderbookData = orderbookData;
-        });
+        // this.socket.on('OBSERVER::orderbook-data', (orderbookData: ISpotOrder[]) => {
+        //     this.rawOrderbookData = orderbookData;
+        // });
 
-        this.socket.on('OBSERVER::trade-history', (tradesHistory: any) => {
-            this.tradeHistory = tradesHistory;
-        });
+        // this.socket.on('OBSERVER::trade-history', (tradesHistory: any) => {
+        //     this.tradeHistory = tradesHistory;
+        // });
 
-        this.socket.emit('update-orderbook', this.marketFilter);
+        // this.socket.emit('update-orderbook', this.marketFilter);
     }
 
     endOrderbookSbuscription() {

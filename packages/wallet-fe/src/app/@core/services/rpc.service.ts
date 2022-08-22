@@ -164,7 +164,7 @@ export class RpcService {
     }
 
     rpc(method: string, params?: any[]) {
-      console.log({ method, params });
+      // console.log({ method, params });
       return this.isApiMode
         ? this.tlApi.rpc(method, params).toPromise()
         : this.mainApi.rpcCall(method, params).toPromise();
