@@ -48,12 +48,38 @@
         [disabled]='getButtonDisabled(false)'
       >Sell</button>
     </div>
-    <div class="max">
+    <div class="max" *ngIf="spotAddress">
       <div class="buy-max" (click)="fillMax(true)">
         Max: {{ getMaxAmount(true).toFixed(6).slice(0, 6) }}
       </div>
       <div class="sell-max" (click)="fillMax(false)">
         Max: {{ getMaxAmount(false).toFixed(6).slice(0, 6) }}
+      </div>
+    </div>
+    <div class="address">
+      <button
+        *ngIf="!spotAddress"
+        class="blueButton"
+        (click)='newSpotAddress()'
+      >Create Spot Address</button>
+      <div class="address-info" *ngIf="spotAddress">
+        <div class="key-value-pair">
+          <div class="key">Address:</div>
+          <div class="value">{{ spotAddress | shortAddress }}</div>
+        </div>
+        <div class="key-value-pair">
+          <div class="key">{{ getNameBalanceInfo(selectedMarket.first_token)[0] }}:</div>
+          <div class="value">{{ getNameBalanceInfo(selectedMarket.first_token)[1] }}</div>
+        </div>
+        <div class="key-value-pair">
+          <div class="key">{{ getNameBalanceInfo(selectedMarket.second_token)[0] }}:</div>
+          <div class="value">{{ getNameBalanceInfo(selectedMarket.second_token)[1] }}</div>
+        </div>
+        <div class="key-value-pair">
+          <div class="key">KYC:</div>
+          <div class="value">{{ isSpotAddressSelfAtt() }}</div>
+        </div>
+        <div class="key-value-pair"></div>
       </div>
     </div>
   </mat-card-content>

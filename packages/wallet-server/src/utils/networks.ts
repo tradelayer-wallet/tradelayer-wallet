@@ -46,11 +46,5 @@ const LTCTEST = {
     wif: 0xef,
 };
 
-export const dPaths = {
-    BTC: "m/49/0/",
-    LTC: "m/49/60/",
-    BTCTEST: "m/49/0/",
-    LTCTEST: "m/49/60/",
-};
 
 export const networks = { BTC, LTC, LTCTEST, BTCTEST };

@@ -1,7 +1,9 @@
 import { Injectable } from "@angular/core";
 import { Subject } from "rxjs";
 import { SpotMarketsService } from "./spot-markets.service";
-import { SocketService } from "../socket.service";
+import { obEventPrefix, SocketService } from "../socket.service";
+import { ToastrService } from "ngx-toastr";
+import { LoadingService } from "../loading.service";
 
 export interface ISpotOrder {
     action: "SELL" | "BUY",
@@ -37,6 +39,8 @@ export class SpotOrderbookService {
     constructor(
         private socketService: SocketService,
         private spotMarkertService: SpotMarketsService,
+        private toastrService: ToastrService,
+        private loadingService: LoadingService,
     ) {}
 
     get selectedMarket() {
@@ -62,25 +66,34 @@ export class SpotOrderbookService {
 
     subscribeForOrderbook() {
         this.endOrderbookSbuscription();
-        
-        // this.socket.on('OBSERVER::update-orders-request', () => {
-        //     this.socket.emit('update-orderbook', this.marketFilter)
-        // });
+        this.socket.on(`${obEventPrefix}::order:error`, (message: string) => {
+            this.toastrService.error(message || `Undefined Error`, 'Error');
+            this.loadingService.tradesLoading = false;
+        });
 
-        // this.socket.on('OBSERVER::orderbook-data', (orderbookData: ISpotOrder[]) => {
-        //     this.rawOrderbookData = orderbookData;
-        // });
+        this.socket.on(`${obEventPrefix}::order:saved`, (data: any) => {
+            this.loadingService.tradesLoading = false;
+            this.toastrService.success(`The Order is Saved in Orderbook`, "Success");
+        });
 
-        // this.socket.on('OBSERVER::trade-history', (tradesHistory: any) => {
-        //     this.tradeHistory = tradesHistory;
-        // });
+        this.socket.on(`${obEventPrefix}::update-orders-request`, () => {
+            this.socket.emit('update-orderbook', this.marketFilter)
+        });
 
-        // this.socket.emit('update-orderbook', this.marketFilter);
+        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: ISpotOrder[]) => {
+            this.rawOrderbookData = orderbookData;
+        });
+
+        this.socket.on(`${obEventPrefix}::trade-history`, (tradesHistory: any) => {
+            this.tradeHistory = tradesHistory;
+        });
+
+        this.socket.emit('update-orderbook', this.marketFilter);
     }
 
     endOrderbookSbuscription() {
-        ['update-orders-request', 'orderbook-data', 'trade-history']
-            .forEach(m => this.socket.off(`OBSERVER::${m}`));
+        ['update-orders-request', 'orderbook-data', 'trade-history', 'order:error', 'order:saved']
+            .forEach(m => this.socket.off(`${obEventPrefix}::${m}`));
     }
 
     private structureOrderBook() {

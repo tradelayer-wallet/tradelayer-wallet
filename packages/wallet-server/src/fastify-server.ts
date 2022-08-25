@@ -1,7 +1,8 @@
 import Fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
 import { handleRoutes } from './routes';
-import { SocketService } from './services/socket.service';
 import { RpcClient } from 'tl-rpc';
+import { SocketService } from './services/socket.service';
+import { IOBSocketServiceOptions, OBSocketService } from './services/ob-sockets.service';
 import * as killPort from 'kill-port';
 
 export class FastifyServer {
@@ -9,6 +10,8 @@ export class FastifyServer {
     public rpcClient: RpcClient;
     public rpcPort: number;
     public mainSocketService: SocketService;
+    public obSocketService: OBSocketService;
+
     public relayerApiUrl: "LTC" | "LTCTEST" | null = null;
 
     constructor(
@@ -49,6 +52,20 @@ export class FastifyServer {
 
     private safeStop() {
         if (this.rpcClient || this.rpcPort) return;
+        this.clearOBSocketConnection();
         this.safeClose();
+    }
+
+    initOBSocketConnection(options: IOBSocketServiceOptions) {
+        this.clearOBSocketConnection();
+        this.obSocketService = new OBSocketService(options);
+    }
+
+    clearOBSocketConnection() {
+        if (this.obSocketService?.socket) {
+            this.obSocketService.socket.offAny();
+            this.obSocketService.socket.disconnect();
+        }
+        this.obSocketService = null;
     }
 }

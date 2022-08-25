@@ -19,6 +19,10 @@ export class WindowComponent {
     return tab ? tab.minimized : true;
   }
 
+  get closable() {
+    return this.title !== 'Synchronization' && this.title !== 'Orderbook Server';
+  }
+
   minimize() {
     const title = this.title;
     const tab = this.windowsService.tabs.find(t => t.title === title);
@@ -26,7 +30,7 @@ export class WindowComponent {
   }
 
   close() {
-    if (this.title === 'Synchronization' || this.title === 'Orderbook Server') {
+    if (!this.closable) {
       this.toastrService.error( 'This Window can not be closed!', 'Error')
     } else {
       this.windowsService.closeTab(this.title);

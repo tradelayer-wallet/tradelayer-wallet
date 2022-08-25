@@ -96,5 +96,26 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
     
+    // fastify.post('ob-socket-connect', async (request, reply) => {
+    //     try {
+    //         const { url } = request.body as { url: string };
+    //         fasitfyServer.initOBSocketConnection({ url });
+    //         const result = { data: true };
+    //         reply.status(200).send(result);
+    //     } catch (error) {
+    //         reply.status(500).send({ error: error.message || 'Undefined Error' })
+    //     }
+    // });
+
+    // fastify.post('ob-socket-disconnect', async (request, reply) => {
+    //     try {
+    //         fasitfyServer.clearOBSocketConnection();
+    //         const result = { data: true };
+    //         reply.status(200).send(result);
+    //     } catch (error) {
+    //         reply.status(500).send({ error: error.message || 'Undefined Error' })
+    //     }
+    // });
+
     done();
 }

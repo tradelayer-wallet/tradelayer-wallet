@@ -34,13 +34,13 @@ import { PasswordDialog } from './dialogs/password/password.component';
 import { WithdrawDialog } from './dialogs/withdraw/withdraw.component';
 import { DepositDialog } from './dialogs/deposit/deposit.component';
 import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
+import { OrderbookServerDialog } from './dialogs/orderbook-server/orderbook-server.component';
 
 // import { RescanDialog } from './dialogs/rescan/rescan.component';
 // import { NewMultisigDialog } from './dialogs/new-multisig/new-multisig.component';
 // import { ClickOutsideDirective } from './directives/click-outside.directive';
 // import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
 // import { OfflineWalletDialog } from './dialogs/offline-wallet/offline-wallet.component';
-// import { OrderbookServerDialog } from './dialogs/orderbook-server/orderbook-server.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -74,10 +74,11 @@ const DIALOGS = [
     WithdrawDialog,
     DepositDialog,
     CommingSoonDialog,
+    OrderbookServerDialog,
+
 //     RescanDialog,
 //     NewMultisigDialog,
 //     OfflineWalletDialog,
-//     OrderbookServerDialog,
 ];
 
 const COMPONENTS = [

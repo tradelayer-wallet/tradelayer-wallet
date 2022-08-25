@@ -5,6 +5,7 @@ import { ConnectionService } from './@core/services/connections.service';
 import { ElectronService } from './@core/services/electron.service';
 import { LoadingService } from './@core/services/loading.service';
 import { RpcService } from './@core/services/rpc.service';
+import { SocketService } from './@core/services/socket.service';
 import { WindowsService } from './@core/services/windows.service';
 
 @Component({
@@ -23,6 +24,7 @@ export class AppComponent {
     private windowsService: WindowsService,
     private attestationService: AttestationService,
     private balanceService: BalanceService,
+    private socketService: SocketService,
   ) {
     this.handleInits();
     this.handleConnections();
@@ -49,6 +51,14 @@ export class AppComponent {
     return this.rpcService.isNetworkSelected;
   }
 
+  get socketsLoading() {
+    return this.socketService.socketsLoading;
+  }
+
+  get allConnected() {
+    return this.isOnline && this.connectionService.isMainSocketConnected;
+  }
+
   handleInits() {
     this.connectionService.onInit();
     this.rpcService.onInit();
@@ -68,13 +78,9 @@ export class AppComponent {
       .on('angular-electron-message', (_: any, message: any) => {
         const { event, data } = message;
         if (event === 'close-app' && data === true) {
-          this.ngZone.run(() =>this.isLoading = true);
+          this.ngZone.run(() => this.isLoading = true);
         }
       });
-  }
-
-  get allConnected() {
-    return this.isOnline && this.connectionService.isMainSocketConnected;
   }
 
   openHiddenTerminal() {

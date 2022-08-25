@@ -26,6 +26,10 @@ export class ConnectionService {
         return this.socketService.socket.connected;
     }
 
+    get isOBSocketConnected() {
+        return this.socketService.obSocketConnected;
+    }
+
     set isOnline(isOnline: boolean) {
         this._isOnline = isOnline;
         this.isOnline$.next(isOnline);

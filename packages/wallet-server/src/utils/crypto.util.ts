@@ -1,7 +1,7 @@
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import { BIP32Factory } from 'bip32';
 import { payments, Psbt, Transaction } from 'bitcoinjs-lib';
-import { dPaths, networks } from './networks';
+import { networks } from './networks';
 import { ECPairFactory } from 'ecpair';
 import { IInput } from '../services/tx-builder.service';
 import * as ecc from 'tiny-secp256k1';
@@ -24,15 +24,12 @@ export const getKeyPair = (
         networkString: TNetwork,
         mnemonic: string,
         derivatePath?: string,
-        isFullPath: boolean = false,
     ) => {
     const network = networks[networkString];
     if (!network) return { error: 'Network not found!'};
     const seed = mnemonicToSeedSync(mnemonic);
     const main = bip32.fromSeed(seed, network);
-    const initPath = dPaths[networkString]
-    const fullPath = isFullPath ? derivatePath : initPath + derivatePath;
-    const child = main.derivePath(fullPath);
+    const child = main.derivePath(derivatePath);
     const redeem = p2wpkh({ pubkey: child.publicKey, network });
     const { address } = p2sh({ redeem });
     const privkey = child.privateKey.toString('hex');
@@ -51,7 +48,7 @@ export const getManyKeyPair = (networkString: TNetwork, mnemonic: string, wallet
         finalObj[k] = [];
         const keys: string[] = walletObjRaw[k];
         keys.forEach(path => {
-            const keyPair = getKeyPair(networkString, mnemonic, path, true);
+            const keyPair = getKeyPair(networkString, mnemonic, path);
             finalObj[k].push(keyPair);
         });
     });

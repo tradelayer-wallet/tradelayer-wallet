@@ -22,6 +22,6 @@ export class DisconnectedLineComponent {
   }
 
   mainSocketReconenct() {
-    this.socketService.socketConnect();
+    this.socketService.mainSocketConnect();
   }
 }

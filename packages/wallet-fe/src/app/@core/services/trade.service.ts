@@ -1,11 +1,6 @@
 import { Injectable } from "@angular/core";
-// import { ToastrService } from "ngx-toastr";
-// import { AuthService } from "./auth.service";
-// import { BalanceService } from "./balance.service";
-// import { LiquidityProviderService } from "./liquidity-provider.service";
-// import { LoadingService } from "./loading.service";
-// import { SocketService } from "./socket.service";
-// import { TxsService } from "./spot-services/txs.service";
+import { LoadingService } from "./loading.service";
+import { SocketService } from "./socket.service";
 
 interface ITradeConf {
     keypair: {
@@ -40,40 +35,18 @@ export interface IFuturesTradeConf extends ITradeConf {
 
 export class TradeService {
     constructor(
-        // private socketService: SocketService,
-        // private loadingService: LoadingService,
-        // private toastrService: ToastrService,
-        // private txsService: TxsService,
-        // private balanceService: BalanceService,
-        // private authService: AuthService,
+        private socketService: SocketService,
+        private loadingService: LoadingService,
     ) { }
-
-    // get keyPair() {
-    //     return this.authService.activeMainKey;
-    // }
-
-    // get socket() {
-    //     return this.socketService.socket;
-    // }
+    get socket() {
+        return this.socketService.socket;
+    }
 
     // private handleTradeSocketEvents() {
-    //     this.socket.on('OBSERVER::order:error', (message: string) => {
-    //         this.toastrService.error(message || `Undefined Error`, 'Error');
-    //         this.loadingService.tradesLoading = false;
-    //     });
-
-    //     this.socket.on('OBSERVER::order:saved', (data: any) => {
-    //         this.loadingService.tradesLoading = false;
-    //         this.balanceService.updateBalances();
-    //         this.toastrService.success(`The Order is Saved in Orderbook`, "Success");
-    //     });
-
     //     this.socket.on('trade:error', (message: string) => {
     //         this.toastrService.error(message || `Unknow Error`, "Error");
     //         this.balanceService.updateBalances();
     //     });
-
-
 
     //     this.socket.on('trade:success', async (_data: any) => {
     //         const { data, trade } = _data;
@@ -94,8 +67,7 @@ export class TradeService {
     // }
     
     newOrder(orderConf: ISpotTradeConf | IFuturesTradeConf) {
-        console.log(orderConf);
-        // this.loadingService.tradesLoading = true;
-        // this.socket.emit('new-order', orderConf);
+        this.loadingService.tradesLoading = true;
+        this.socket.emit('new-order', orderConf);
     }
 }

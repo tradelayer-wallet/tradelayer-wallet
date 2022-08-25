@@ -56,6 +56,45 @@ mat-card {
         display: flex;
         flex-direction: column;
         height: calc(100% - (3rem + 8px));
+        .address {
+            display: flex;
+            width: 100%;
+            justify-content: center;
+            padding: 2rem 0;
+            button {
+                cursor: pointer;
+                font-size: 0.8rem;
+                border: none;
+                text-align: center;
+                padding: 0.5rem;
+                border-radius: 4px;
+                transition: background-color 0.25s;
+            }
+            .address-info{
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                .key-value-pair {
+                    display: flex;
+                    width: 100%;
+                    align-items: center;
+                    height: 1.5rem;
+                    padding: 0 16px;
+                    padding-top: 0.15rem;
+                    &:nth-child(odd) {
+                        background-color: var(--darkBlue);
+                    }
+                    .key {
+                        width: 60%;
+                        overflow: hidden;
+                    }
+                    .value {
+                        width: 40%;
+                        overflow: hidden;
+                    }
+                }
+            }
+        }
         .order-type {
             display: flex;
             padding: 0.5rem 16px;

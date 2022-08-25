@@ -1,7 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
+import { ToastrService } from 'ngx-toastr';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
+import { ConnectionService } from 'src/app/@core/services/connections.service';
+import { WindowsService } from 'src/app/@core/services/windows.service';
 
 @Component({
   selector: 'tl-header',
@@ -42,6 +45,9 @@ export class HeaderComponent implements OnInit {
     private router: Router,
     private authService: AuthService,
     private balanceService: BalanceService,
+    private connectionService: ConnectionService,
+    private windowsService: WindowsService,
+    private toastrService: ToastrService,
   ) { }
 
   get selectedRoute(){
@@ -68,6 +74,14 @@ export class HeaderComponent implements OnInit {
   ngOnInit(): void { }
 
   navigateTo(route: any) {
+    if (route.id === 3) {
+      if (!this.connectionService.isOBSocketConnected) {
+        this.toastrService.warning('Please first connect to orderbook Server');
+        const window = this.windowsService.tabs.find(tab => tab.title === 'Orderbook Server');
+        if (window) window.minimized = false;
+        return;
+      }
+    }
     this.selectedRoute = route;
     this.router.navigateByUrl(route.link);
   }

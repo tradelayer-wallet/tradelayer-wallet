@@ -3,7 +3,7 @@
         <div class="title"> {{ title }}</div>
         <div class="icons">
             <mat-icon (click)='minimize()'>minimize</mat-icon>
-            <mat-icon (click)='close()'>close</mat-icon>
+            <mat-icon *ngIf='closable' (click)='close()'>close</mat-icon>
         </div>
     </div>
     <div class="body">

@@ -48,6 +48,7 @@ export interface IWalletObj {
     reward: IKeyPair[];
     liquidity: IKeyPair[];
 };
+const initDPath = "m/49/60/"; // 49 for bip49; 60 for tradelayer code
 
 @Injectable({
     providedIn: 'root',
@@ -130,12 +131,21 @@ export class AuthService {
                 if (!validPassowrd) throw new Error("Wrong Password");
             }
             if (type === EAddress.MAIN) {
-                const derivatePath = `1/0/${this.walletKeys.main.length}`;
+                const derivatePath = initDPath + `1/0/` + this.walletKeys.main.length;
                 const mnemonic = this.walletObjRaw.mnemonic;
                 if (!mnemonic) throw new Error("Not found mnemonic");
                 const keyPair = await this.keysApi.getKeyPair(derivatePath, mnemonic).toPromise() as IKeyPair;
                 this.walletKeys.main.push(keyPair);
                 this.walletObjRaw.derivatePaths.main.push(derivatePath);
+            }
+
+            if (type === EAddress.SPOT) {
+                const derivatePath = initDPath + `2/0/` + this.walletKeys.spot.length;
+                const mnemonic = this.walletObjRaw.mnemonic;
+                if (!mnemonic) throw new Error("Not found mnemonic");
+                const keyPair = await this.keysApi.getKeyPair(derivatePath, mnemonic).toPromise() as IKeyPair;
+                this.walletKeys.spot.push(keyPair);
+                this.walletObjRaw.derivatePaths.spot.push(derivatePath);
             }
             // add more types
             this.updateBalanceSubs$.next(true);

@@ -24,6 +24,14 @@ export class SocketService {
     private onConnection(socket: Socket) {
         if (this.currentSocket) this.currentSocket.offAny();
         this.currentSocket = socket;
+    
+        this.currentSocket.on('ob-sockets-connect', (url: string) => {
+            fasitfyServer.initOBSocketConnection({ url });
+        });
+
+        this.currentSocket.on('ob-sockets-disconnect', () => {
+            fasitfyServer.clearOBSocketConnection();
+        });
     }
 
     startBlockCounting(ms: number) {

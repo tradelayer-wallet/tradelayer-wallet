@@ -1,5 +1,5 @@
-import { THIS_EXPR } from '@angular/compiler/src/output/output_ast';
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ConnectionService } from 'src/app/@core/services/connections.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { SocketService } from 'src/app/@core/services/socket.service';
 import { environment } from 'src/environments/environment';
@@ -18,19 +18,18 @@ export class OrderbookServerDialog implements OnInit, OnDestroy {
     constructor(
       private socketService: SocketService,
       private rpcService: RpcService,
+      private connectionService: ConnectionService,
     ) {}
 
     get isConnected() {
-      return this.socketService.orderbookServerConnected;
+      return this.connectionService.isOBSocketConnected;
     }
 
     get network() {
       return this.rpcService.NETWORK as string
     }
 
-    ngOnInit() {
-      this.connect();
-    }
+    ngOnInit() { }
 
     ngOnDestroy() { }
 
@@ -40,10 +39,10 @@ export class OrderbookServerDialog implements OnInit, OnDestroy {
     }
 
     connect() {
-      this.socketService.orderbookServerReconnect(this.selectedServer);
+      this.socketService.obSocketConnect(this.selectedServer);
     }
 
     disconnect() {
-      this.socketService.disconenctOrderbook();
+      this.socketService.obSocketDisconnect();
     }
 }
