@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-positions.service';
+import { Component } from '@angular/core';
+import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
 
 @Component({
   selector: 'tl-spot-bottom-card',

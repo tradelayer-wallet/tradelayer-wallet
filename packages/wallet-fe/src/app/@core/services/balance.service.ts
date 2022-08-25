@@ -28,7 +28,6 @@ export class BalanceService {
                 name: string;
                 propertyid: number;
                 balance: number;
-                // reserve: number;
             }[];
         }
     } = {};

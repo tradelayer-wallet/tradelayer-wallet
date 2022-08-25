@@ -3,7 +3,7 @@ import { ToastrService } from "ngx-toastr";
 import { ApiService } from "./api.service";
 import { AuthService } from "./auth.service";
 import { LoadingService } from "./loading.service";
-import { ENetwork, RpcService, TNETWORK } from "./rpc.service";
+import { RpcService } from "./rpc.service";
 
 export interface IUTXO {
     amount: number;
@@ -79,7 +79,6 @@ export class TxsService {
         const result = await this.rpcService.rpc('sendrawtransaction', [rawTx]);
         return result;
     }
-
 
     async buildSingSendTx(
         buildTxConfig: IBuildTxConfig, 

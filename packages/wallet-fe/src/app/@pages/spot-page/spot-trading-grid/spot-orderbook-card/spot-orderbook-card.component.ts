@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
-import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-positions.service';
+import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
 
 
 export interface PeriodicElement {

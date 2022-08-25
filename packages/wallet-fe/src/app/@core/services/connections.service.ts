@@ -2,10 +2,6 @@ import { Injectable } from "@angular/core";
 import { Subject } from "rxjs";
 import { SocketService } from "./socket.service";
 
-interface IConnectionsTypes {
-    isOnline: boolean;
-};
-
 @Injectable({
     providedIn: 'root',
 })

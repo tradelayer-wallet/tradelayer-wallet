@@ -30,8 +30,6 @@ export class RpcService {
   lastBlock: number = 0;
   networkBlocks: number = 0;
   isNetworkSelected: boolean = false;
-  // networkBlocks$: BehaviorSubject<number> = new BehaviorSubject(this.networkBlocks);
-  // nodeBlocks$: BehaviorSubject<number> = new BehaviorSubject(this.lastBlock);
 
   blockSubs$: BehaviorSubject<IBlockSubsObj> = new BehaviorSubject({
     type: this.isApiMode ? "API" : "LOCAL",
@@ -164,7 +162,6 @@ export class RpcService {
     }
 
     rpc(method: string, params?: any[]) {
-      // console.log({ method, params });
       return this.isApiMode
         ? this.tlApi.rpc(method, params).toPromise()
         : this.mainApi.rpcCall(method, params).toPromise();

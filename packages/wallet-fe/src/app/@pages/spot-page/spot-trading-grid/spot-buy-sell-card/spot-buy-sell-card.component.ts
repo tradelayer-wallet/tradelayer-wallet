@@ -10,7 +10,7 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { IMarket, IToken, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
-import { ISpotTradeConf, TradeService } from 'src/app/@core/services/trade.service';
+import { ISpotTradeConf, SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
 
@@ -28,7 +28,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       private spotMarketsService: SpotMarketsService,
       private balanceService: BalanceService,
       private fb: FormBuilder,
-      private tradeService: TradeService,
+      private spotOrdersService: SpotOrdersService,
       private spotOrderbookService: SpotOrderbookService,
       private authService: AuthService,
       private toastrService: ToastrService,
@@ -146,7 +146,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
       };
-      this.tradeService.newOrder(order);
+      this.spotOrdersService.newOrder(order);
       this.buySellGroup.reset();
     }
 

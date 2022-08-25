@@ -26,7 +26,7 @@ export class OBSocketService {
         const orderEvents = ['order:error', 'order:saved', 'placed-orders', 'orderbook-data', 'update-orders-request'];
         [...mainEvents, ...orderEvents].forEach(eventName => {
             this.socket.on(eventName, (data: any) => {
-                console.log({ eventName });
+                console.log(`To Wallet: ${eventName}`);
                 const fullEventName = `${eventPrefix}::${eventName}`;
                 this.walletSocket.emit(fullEventName, data);
             });
@@ -35,7 +35,7 @@ export class OBSocketService {
         //from Wallet ToServer;
         ["update-orderbook", "new-order", "close-order"].forEach(eventName => {
             this.walletSocket.on(eventName, (data: any) => {
-                console.log({ eventName });
+                console.log(`To OB Server: ${eventName}`);
                 this.socket.emit(eventName, data);
             });
         });

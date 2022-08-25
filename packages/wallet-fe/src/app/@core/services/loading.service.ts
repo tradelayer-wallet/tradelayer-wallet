@@ -1,6 +1,5 @@
 import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
-import { ElectronService } from "./electron.service";
 
 type TLoadings = 'tradesLoading';
 

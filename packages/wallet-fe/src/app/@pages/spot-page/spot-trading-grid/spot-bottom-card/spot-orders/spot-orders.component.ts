@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
-import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
-import { ISpotOrder } from 'src/app/@core/services/spot-services/spot-orderbook.service';
-import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-positions.service';
+
+import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
 
 @Component({
   selector: 'tl-spot-orders',
@@ -14,7 +13,6 @@ export class SpotOrdersComponent implements OnInit {
 
     constructor(
       private spotOrdersService: SpotOrdersService,
-      private spotMarketService: SpotMarketsService,
     ) {}
 
     get openedOrders() {
@@ -22,8 +20,6 @@ export class SpotOrdersComponent implements OnInit {
     }
 
     closeOrder(uuid: string) {
-      console.log(this.openedOrders);
-      console.log(this.spotMarketService.selectedMarket);
       this.spotOrdersService.closeOpenedOrder(uuid);
     }
 
