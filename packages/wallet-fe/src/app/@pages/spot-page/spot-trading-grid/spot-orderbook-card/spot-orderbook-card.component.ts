@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
-import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-positions.service';
+import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-positions.service';
 
 
 export interface PeriodicElement {
@@ -22,7 +22,7 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     clickedRows = new Set<PeriodicElement>();
     constructor(
       private spotOrderbookService: SpotOrderbookService,
-      private spotPositionsService: SpotPositionsService,
+      private spotOrdersService: SpotOrdersService,
       private spotMarketsService: SpotMarketsService,
     ) {}
 
@@ -41,12 +41,12 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
       return (amountForSale / amountDesired).toFixed(4)
     }
 
-    get openedPoisiton() {
-      return this.spotPositionsService.openedPositions;
+    get openedOrders() {
+      return this.spotOrdersService.openedOrders;
     }
 
-    get openedBuyPositions() {
-      return this.openedPoisiton.filter(p => {
+    get openedBuyOrders() {
+      return this.openedOrders.filter(p => {
         const isBuy = p.action === "BUY";
         const matchPropDesired = p.props.id_desired === this.selectedMarket.first_token.propertyId;
         const matchPropForSale = p.props.id_for_sale === this.selectedMarket.second_token.propertyId;
@@ -54,8 +54,8 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
       });
     }
 
-    get openedSellPositions() {
-      return this.openedPoisiton.filter(p => {
+    get openedSellOrders() {
+      return this.openedOrders.filter(p => {
         const isSell = p.action === "SELL";
         const matchPropDesired = p.props.id_desired === this.selectedMarket.second_token.propertyId;
         const matchPropForSale = p.props.id_for_sale === this.selectedMarket.first_token.propertyId;
@@ -94,10 +94,10 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
       if (price) this.spotOrderbookService.outsidePriceHandler.next(price);
     }
 
-    haveOpenedPositionOnThisPrice(isBuy: boolean, price: number) {
-      const positions = isBuy
-        ? this.openedBuyPositions
-        : this.openedSellPositions;
-      return positions.map(e => e.props.price).some(e => e >= price && (e < price + 0.01));
-    }
+    // haveOpenedOrdersOnThisPrice(isBuy: boolean, price: number) {
+    //   const positions = isBuy
+    //     ? this.openedBuyOrders
+    //     : this.openedSellOrders;
+    //   return positions.map(e => e.props.price).some(e => e >= price && (e < price + 0.01));
+    // }
 }

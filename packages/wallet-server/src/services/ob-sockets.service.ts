@@ -22,20 +22,20 @@ export class OBSocketService {
 
     private handleEvents() {
         // from Server To wallet;
-        const mainEvents = ['connect', 'disconnect', 'connect_error', 'error_message'];
+        const mainEvents = ['connect', 'disconnect', 'connect_error'];
         const orderEvents = ['order:error', 'order:saved', 'placed-orders', 'orderbook-data', 'update-orders-request'];
         [...mainEvents, ...orderEvents].forEach(eventName => {
             this.socket.on(eventName, (data: any) => {
-                console.log({ eventName, data });
+                console.log({ eventName });
                 const fullEventName = `${eventPrefix}::${eventName}`;
                 this.walletSocket.emit(fullEventName, data);
             });
         });
 
         //from Wallet ToServer;
-        ["update-orderbook", "new-order"].forEach(eventName => {
+        ["update-orderbook", "new-order", "close-order"].forEach(eventName => {
             this.walletSocket.on(eventName, (data: any) => {
-                console.log({ eventName, data });
+                console.log({ eventName });
                 this.socket.emit(eventName, data);
             });
         });

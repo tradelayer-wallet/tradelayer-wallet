@@ -10,6 +10,7 @@ interface ITradeConf {
     action: "BUY" | "SELL";
     type: "SPOT" | "FUTURES";
     isLimitOrder: boolean;
+    marketName: string;
 }
 
 export interface ISpotTradeConf extends ITradeConf {
@@ -41,30 +42,6 @@ export class TradeService {
     get socket() {
         return this.socketService.socket;
     }
-
-    // private handleTradeSocketEvents() {
-    //     this.socket.on('trade:error', (message: string) => {
-    //         this.toastrService.error(message || `Unknow Error`, "Error");
-    //         this.balanceService.updateBalances();
-    //     });
-
-    //     this.socket.on('trade:success', async (_data: any) => {
-    //         const { data, trade } = _data;
-    //         const { txid, seller } = data;
-    //         const tradeData = {
-    //             propId: seller ? trade.propIdForSale : trade.propIdDesired,
-    //             amount: seller ? trade.amountForSale : trade.amountDesired,
-    //         };
-    //         this.txsService.addTxToPending(txid, tradeData);
-    //         this.toastrService.info(`Successful Trade!` || `Unknow Message`, "Success");
-    //         this.balanceService.updateBalances();
-    //     });
-
-    //     this.socket.on('trade:completed', () => {
-    //         this.loadingService.tradesLoading = false;
-    //         this.balanceService.updateBalances();
-    //     });
-    // }
     
     newOrder(orderConf: ISpotTradeConf | IFuturesTradeConf) {
         this.loadingService.tradesLoading = true;

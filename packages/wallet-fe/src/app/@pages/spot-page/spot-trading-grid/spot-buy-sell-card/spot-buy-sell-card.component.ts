@@ -144,6 +144,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
           price: price,
         },
         isLimitOrder: this.isLimitSelected,
+        marketName: this.selectedMarket.pairString,
       };
       this.tradeService.newOrder(order);
       this.buySellGroup.reset();

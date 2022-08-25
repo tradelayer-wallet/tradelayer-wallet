@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-positions.service';
+import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-positions.service';
 
 @Component({
   selector: 'tl-spot-bottom-card',
@@ -9,10 +9,10 @@ import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-
 
 export class SpotBottomCardComponent {
     constructor(
-      private spotPositionsService: SpotPositionsService,
+      private spotOrdersService: SpotOrdersService,
     ) {}
 
     get allOrdersLength() {
-      return this.spotPositionsService.openedPositions?.length || 0;
+      return this.spotOrdersService.openedOrders?.length || 0;
     }
 }

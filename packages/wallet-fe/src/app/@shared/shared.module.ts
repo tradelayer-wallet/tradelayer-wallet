@@ -36,12 +36,6 @@ import { DepositDialog } from './dialogs/deposit/deposit.component';
 import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
 import { OrderbookServerDialog } from './dialogs/orderbook-server/orderbook-server.component';
 
-// import { RescanDialog } from './dialogs/rescan/rescan.component';
-// import { NewMultisigDialog } from './dialogs/new-multisig/new-multisig.component';
-// import { ClickOutsideDirective } from './directives/click-outside.directive';
-// import { TxBuilderModule } from './dialogs/tx-builder/tx-builder.module';
-// import { OfflineWalletDialog } from './dialogs/offline-wallet/offline-wallet.component';
-
 const NG_MODULES = [
     CommonModule,
     FormsModule,
@@ -75,10 +69,6 @@ const DIALOGS = [
     DepositDialog,
     CommingSoonDialog,
     OrderbookServerDialog,
-
-//     RescanDialog,
-//     NewMultisigDialog,
-//     OfflineWalletDialog,
 ];
 
 const COMPONENTS = [
@@ -92,7 +82,6 @@ const COMPONENTS = [
 const imports = [
     ...NG_MODULES,
     ...MAT_MODULES,
-    // TxBuilderModule,
 ];
 
 const declarations = [

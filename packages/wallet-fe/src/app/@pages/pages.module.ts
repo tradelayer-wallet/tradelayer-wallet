@@ -25,20 +25,8 @@ import { SpotOrderbookCardComponent } from './spot-page/spot-trading-grid/spot-o
 import { SpotBottomCardComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-bottom-card.component';
 import { SportHistoryCardComponent } from './spot-page/spot-trading-grid/spot-history-card/spot-history-card.component';
 import { SportChartCardComponent } from './spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component';
-// import { SpotPendingTxsComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-pending-txs/spot-pending-txs.component';
-// import { SpotPositionsComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-positions/spot-positions.component';
+import { SpotOrdersComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-orders/spot-orders.component';
 
-// import { FuturesPageComponent } from './futures-page/futures-page.component';
-// import { FuturesMarketsToolbarComponent } from './futures-page/futures-markets-toolbar/futurues-markets-toolbar.component';
-// import { FuturesTradingGridComponent } from './futures-page/futures-trading-grid/futures-trading-grid.component';
-// import { FuturesOrderbookCardComponent } from './futures-page/futures-trading-grid/futures-orderbook-card/futures-orderbook-card.component';
-// import { FuturesBuySellCardComponent } from './futures-page/futures-trading-grid/futures-buy-sell-card/futures-buy-sell-card.component';
-// import { FuturesHistoryCardComponent } from './futures-page/futures-trading-grid/futures-history-card/futures-history-card.component';
-
-// import { SettingsPageComponent } from './settings-page/settings-page.component';
-// import { MultisigPageComponent } from './multisig-page/multisig-page.component';
-// import { NodeRewardPageComponent } from './node-reward/reward-page.component';
-// import { LiquidityProviderPageComponent } from './liquidity-provider/liquidity-provider.component';
 import { ShortAddressPipe } from '../@shared/pipes/short-address.pipe';
 import { LoginContainerComponent } from './login-page/login-container/login-container.component';
 import { HomePageComponent } from './home-page/home-page.component';
@@ -67,11 +55,6 @@ const PAGE_COMPONENTS = [
     LoginPageComponent,
     PortfolioPageComponent,
     SpotPageComponent,
-    // FuturesPageComponent,
-    // SettingsPageComponent,
-    // MultisigPageComponent,
-    // NodeRewardPageComponent,
-    // LiquidityProviderPageComponent,
     LoginContainerComponent,
 ];
 
@@ -83,17 +66,8 @@ const SPOT_COMPONENTS = [
     SpotBottomCardComponent,
     SportHistoryCardComponent,
     SportChartCardComponent,
-    // SpotPendingTxsComponent,
-    // SpotPositionsComponent,
+    SpotOrdersComponent,
 ];
-
-// const FUTURES_COMPONENTS = [
-//     FuturesMarketsToolbarComponent,
-//     FuturesTradingGridComponent,
-//     FuturesOrderbookCardComponent,
-//     FuturesBuySellCardComponent,
-//     FuturesHistoryCardComponent,
-// ];
 
 const PIPES = [
     ShortAddressPipe,
@@ -107,7 +81,6 @@ const imports = [
 const declarations = [
     ...PAGE_COMPONENTS,
     ...SPOT_COMPONENTS,
-    // ...FUTURES_COMPONENTS,
     ...PIPES,
 ];
 

@@ -8,11 +8,6 @@ import { DepositDialog } from "src/app/@shared/dialogs/deposit/deposit.component
 import { WithdrawDialog } from "src/app/@shared/dialogs/withdraw/withdraw.component";
 import { CommingSoonDialog } from "src/app/@shared/dialogs/comming-soon/comming-soon.componet";
 
-// import { NewMultisigDialog } from "src/app/@shared/dialogs/new-multisig/new-multisig.component";
-// import { OfflineWalletDialog } from "src/app/@shared/dialogs/offline-wallet/offline-wallet.component";
-// import { RescanDialog } from "src/app/@shared/dialogs/rescan/rescan.component";
-// import { TxBuilderDialog } from "src/app/@shared/dialogs/tx-builder/tx-builder.component";
-
 export enum DialogTypes {
     SELECT_NETOWRK = "SELECT_NETOWRK",
     NEW_VERSION = 'NEW_VERSION',
@@ -21,10 +16,6 @@ export enum DialogTypes {
     NEW_NODE = 'NEW_NODE',
     WITHDRAW = 'WITHDRAW',
     DEPOSIT = 'DEPOSIT',
-    // NEW_MULTISIG = 'NEW_MULTISIG',
-    // TX_BUILDER = 'TX_BUILDER',
-    // OFFLINE_WALLET = 'OFFLINE_WALLET',
-    // RESCAN = 'RESCAN',
 };
 
 const dialogs: { [key: string]: any; } = {
@@ -35,10 +26,6 @@ const dialogs: { [key: string]: any; } = {
     'COMMING_SOON': CommingSoonDialog,
     'WITHDRAW': WithdrawDialog,
     'DEPOSIT': DepositDialog,
-    // 'NEW_MULTISIG': NewMultisigDialog,
-    // 'TX_BUILDER': TxBuilderDialog,
-    // 'OFFLINE_WALLET': OfflineWalletDialog,
-    // 'RESCAN': RescanDialog,
 };
 
 @Injectable({
