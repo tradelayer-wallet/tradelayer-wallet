@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
 import { LoadingService } from "../loading.service";
-import { obEventPrefix, SocketService } from "../socket.service";
+import { SocketService } from "../socket.service";
 import { ISpotOrder } from "./spot-orderbook.service";
 
 interface ITradeConf {
@@ -32,9 +32,7 @@ export class SpotOrdersService {
     constructor(
         private socketService: SocketService,
         private loadingService: LoadingService,
-    ) {
-        this._subscribeToSocketEvents()
-    }
+    ) { }
 
     get socket() {
         return this.socketService.socket;
@@ -48,16 +46,6 @@ export class SpotOrdersService {
         this._openedOrders = value;
     }
 
-    private _subscribeToSocketEvents() {
-        this.socket.on(`${obEventPrefix}::placed-orders`, (openedOrders: ISpotOrder[]) => {
-            this.openedOrders = openedOrders
-        });
-
-        this.socket.on(`${obEventPrefix}::disconnect`, () => {
-            this.openedOrders = [];
-        });
-    }
-
     newOrder(orderConf: ISpotTradeConf) {
         this.loadingService.tradesLoading = true;
         this.socket.emit('new-order', orderConf);
@@ -65,5 +53,9 @@ export class SpotOrdersService {
 
     closeOpenedOrder(uuid: string) {
         this.socket.emit('close-order', uuid);
+    }
+
+    closeAllOrders() {
+        this._openedOrders.forEach(o => this.closeOpenedOrder(o.uuid));
     }
 }

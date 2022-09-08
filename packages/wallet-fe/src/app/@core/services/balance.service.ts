@@ -62,11 +62,11 @@ export class BalanceService {
     }
 
     onInit() {
-        this.authService.updateBalanceSubs$
-            .subscribe(() => this.updateBalances());
-
-        this.authService.logoutSubs$
-            .subscribe(() => this.restartBalance());
+        this.authService.updateAddressesSubs$
+            .subscribe(kp => {
+                if (!kp.length || !this.allBalances.mainKeyPair) this.restartBalance();
+                this.updateBalances();
+            });
 
         this.rpcService.blockSubs$
             .subscribe(() => this.updateBalances());
@@ -150,7 +150,7 @@ export class BalanceService {
         }
     }
 
-    private async getTokenNameById(id: number) {
+    async getTokenNameById(id: number) {
         const existingTokenName = Object.values(this._allBalancesObj)
             .reduce((acc: { name: string, propertyid: number }[], val) => acc.concat(val.tokensBalance), [])
             .find(e => e.propertyid === id);

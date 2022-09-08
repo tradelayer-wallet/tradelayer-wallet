@@ -9,7 +9,7 @@ import { safeNumber } from './common.util';
 
 const ECPair = ECPairFactory(ecc);
 const bip32 = BIP32Factory(ecc);
-const { p2wpkh, p2sh } = payments;
+const { p2wpkh, p2sh, p2ms, p2wsh } = payments;
 
 export type TNetwork = 'LTC' | 'BTC'| 'LTCTEST'| 'BTCTEST';
 
@@ -58,36 +58,54 @@ export const getManyKeyPair = (networkString: TNetwork, mnemonic: string, wallet
 const validator = (pubkey: Buffer, msghash: Buffer, signature: Buffer) =>
     ECPair.fromPublicKey(pubkey).verify(msghash, signature);
 
-export const signRawTransction = (signOptions: { 
+export const signRawTransction = (signOptions: {
     rawtx: string;
     wif: string;
     network: string;
     inputs: IInput[];
+    halfSignedHex: string;
 }) => {
     try {
-        const { rawtx, wif, inputs, network } = signOptions;
+        const { rawtx, wif, inputs, network, halfSignedHex } = signOptions;
         const _network = networks[network];
-
         const keyPair = ECPair.fromWIF(wif, _network);
         const redeemObj = p2wpkh({ pubkey: keyPair.publicKey, network: _network });
-        const redeemScript = Buffer.from(redeemObj.output.toString('hex'), 'hex');
-
-        const psbt = new Psbt({ network: _network });
+        const redeemScript = redeemObj.output;
         const tx = Transaction.fromHex(rawtx);
-
-        inputs.forEach((e) => {
-            const hash = e.txid;
-            const index = e.vout;
-            const value = safeNumber(e.amount * (10**8));
-            const witnessUtxo = { script: redeemScript, value };
-            psbt.addInput({ hash, index, redeemScript, witnessUtxo });
-        });
-        psbt.addOutputs(tx.outs);
+        const exatractScript = (redeemScript: string) => {
+            const p2msObj = p2ms({ output: Buffer.from(redeemScript, 'hex'), network: _network});
+            const p2wshObj = p2wsh({ redeem: p2msObj })
+            return p2wshObj.output;
+        };
+        let psbt: Psbt = new Psbt({ network: _network });
+        if (halfSignedHex) {
+            psbt = Psbt.fromHex(halfSignedHex);
+        } else {
+            inputs.forEach((e) => {
+                const hash = e.txid;
+                const index = e.vout;
+                const value = safeNumber(e.amount * (10**8));
+                const script = e.redeemScript ? exatractScript(e.redeemScript) : redeemScript;
+                const witnessUtxo = { script, value };
+                const inputObj: any = { hash, index, witnessUtxo };
+                if (e.redeemScript) inputObj.witnessScript = Buffer.from(e.redeemScript, 'hex');
+                e.redeemScript
+                    ? inputObj.redeemScript = exatractScript(e.redeemScript)
+                    : inputObj.redeemScript = redeemScript;
+                psbt.addInput(inputObj);
+            });
+            psbt.addOutputs(tx.outs);
+        }
         psbt.signAllInputs(keyPair);
         const isValid = psbt.validateSignaturesOfAllInputs(validator);
-        psbt.finalizeAllInputs();
-        const signedHex = psbt.extractTransaction().toHex();
-        return { data: { signedHex, isValid } };
+        try {
+            psbt.finalizeAllInputs();
+            const signedHex = psbt.extractTransaction().toHex();
+            return { data: { signedHex, isValid, isFinished: true } };
+        } catch (err) {
+            const signedHex = psbt.toHex();
+            return { data: { signedHex, isValid, isFinished: false } };
+        }
     } catch (error) {
         return { error: error.message };
     }

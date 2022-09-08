@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { ToastrService } from "ngx-toastr";
-import { BehaviorSubject } from "rxjs";
+import { Subject } from "rxjs";
 import { encrypt, decrypt } from '../../utils/crypto.util'
 
 import { ApiService } from "./api.service";
@@ -66,12 +66,12 @@ export class AuthService {
             liquidity: [],
         }
     };
-    updateBalanceSubs$ = new BehaviorSubject(true);
-    logoutSubs$ = new BehaviorSubject(true);
+    updateAddressesSubs$ = new Subject<IKeyPair[]>();
 
     private walletObjRaw: IRawWalletObj = JSON.parse(JSON.stringify(this.defaultWalletObjRaw));
     private _walletKeys: IWalletObj = JSON.parse(JSON.stringify(defaultWalletObj));
     private _activeMainKey: IKeyPair = this.walletKeys.main?.[0] || null;
+    private _activeSpotKey: IKeyPair  = this.walletKeys.spot?.[0] || null;
     public encKey: string = '';
     savedFromUrl: string = '';
     mnemonic: string = '';
@@ -86,6 +86,10 @@ export class AuthService {
 
     get isLoggedIn() {
         return !!this.walletKeys.main.length;
+    }
+
+    get activeSpotKey() {
+        return this._activeSpotKey || this.walletKeys.spot?.[0];
     }
 
     get activeMainKey() {
@@ -111,6 +115,10 @@ export class AuthService {
     get listOfallAddresses() {
         return (Object.values(this.walletKeys) as any)
             .flat() as IKeyPair[];
+    }
+
+    getWifByAddress(address: string) {
+        return this.listOfallAddresses?.find(e => e.address === address)?.wif || null;
     }
 
     async register(pass: string) {
@@ -148,7 +156,7 @@ export class AuthService {
                 this.walletObjRaw.derivatePaths.spot.push(derivatePath);
             }
             // add more types
-            this.updateBalanceSubs$.next(true);
+            this.updateAddressesSubs$.next(this.listOfallAddresses);
             this.saveEncKey(password);
             return true;
         } catch (error: any) {
@@ -176,7 +184,7 @@ export class AuthService {
                         }
                     });
                 });
-            this.updateBalanceSubs$.next(true);
+            this.updateAddressesSubs$.next(this.listOfallAddresses);
             this.saveEncKey(pass, false);
             this.router.navigateByUrl(this.savedFromUrl);
         } catch (error: any) {
@@ -190,8 +198,7 @@ export class AuthService {
         this.walletObjRaw = JSON.parse(JSON.stringify(this.defaultWalletObjRaw));
         this.encKey = '';
         this.router.navigateByUrl('login');
-        this.logoutSubs$.next(true);
-        this.updateBalanceSubs$.next(true);
+        this.updateAddressesSubs$.next(this.listOfallAddresses);
     }
 
     private saveEncKey(pass: string, openDialog = true) {

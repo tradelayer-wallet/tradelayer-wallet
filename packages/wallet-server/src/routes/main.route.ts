@@ -65,9 +65,9 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('build-tx', async (request, reply) => {
         try {
-            const { fromAddress, toAddress, payload, amount } = request.body as IBuildTxConfig;
+            const { fromAddress, toAddress, payload, amount, inputs } = request.body as IBuildTxConfig;
             const { isApiMode } = request.body as { isApiMode: boolean };
-            const txConfig = { fromAddress, toAddress, payload, amount };
+            const txConfig = { fromAddress, toAddress, payload, amount, inputs };
             const hexResult = await buildTx(txConfig, isApiMode);
             reply.status(200).send(hexResult);
         } catch (error) {
@@ -77,8 +77,8 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('sign-tx', async (request, reply) => {
         try {
-            const { rawtx, wif, network, inputs } = request.body as ISignTxConfig;
-            const result = await signTx({ rawtx, wif, network, inputs });
+            const { rawtx, wif, network, inputs, halfSignedHex } = request.body as ISignTxConfig;
+            const result = await signTx({ rawtx, wif, network, inputs, halfSignedHex });
             reply.status(200).send(result);
         } catch (error) {
             reply.status(500).send({ error: error.message || 'Undefined Error' })

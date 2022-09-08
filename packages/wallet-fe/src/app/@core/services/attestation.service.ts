@@ -16,11 +16,11 @@ export class AttestationService {
     ) { }
 
     onInit() {
-        this.authService.logoutSubs$
-            .subscribe(e => this.removeAll());
-
-        this.authService.updateBalanceSubs$
-            .subscribe(e => this.checkAllAtt());
+        this.authService.updateAddressesSubs$
+            .subscribe(kp => {
+                if (!kp.length) this.removeAll();
+                this.checkAllAtt();
+            });
 
         this.rpcService.blockSubs$
             .subscribe(() => this.checkPending());

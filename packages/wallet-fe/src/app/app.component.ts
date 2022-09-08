@@ -6,6 +6,7 @@ import { ElectronService } from './@core/services/electron.service';
 import { LoadingService } from './@core/services/loading.service';
 import { RpcService } from './@core/services/rpc.service';
 import { SocketService } from './@core/services/socket.service';
+import { SwapService } from './@core/services/swap.service';
 import { WindowsService } from './@core/services/windows.service';
 
 @Component({
@@ -25,6 +26,7 @@ export class AppComponent {
     private attestationService: AttestationService,
     private balanceService: BalanceService,
     private socketService: SocketService,
+    private swapService: SwapService,
   ) {
     this.handleInits();
     this.handleConnections();
@@ -64,6 +66,7 @@ export class AppComponent {
     this.rpcService.onInit();
     this.balanceService.onInit();
     this.attestationService.onInit();
+    this.swapService.onInit();
   }
 
   handleConnections() {

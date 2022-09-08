@@ -9,6 +9,7 @@ export interface IUTXO {
     amount: number;
     confirmations: number;
     scriptPubKey: string;
+    redeemScript?: string;
     txid: string;
     vout: number;
 };
@@ -17,6 +18,7 @@ export interface ISignTxConfig {
     rawtx: string;
     wif: string;
     inputs: IUTXO[];
+    halfSignedHex?: string;
 }
 
 export interface IBuildTxConfig {
@@ -47,9 +49,13 @@ export class TxsService {
         return this.apiService.mainApi;
     }
 
+    getWifByAddress(address: string) {
+        return this.authService.getWifByAddress(address);
+    }
+
     async buildTx(
             buildTxConfig: IBuildTxConfig, 
-        ): Promise<{ data?: { rawtx: string; inputs: any[] }, error?: string }> {
+        ): Promise<{ data?: { rawtx: string; inputs: IUTXO[] }, error?: string }> {
         try {
             const isApiMode = this.rpcService.isApiMode;
             let result = await this.mainApi.buildTx(buildTxConfig, isApiMode).toPromise();

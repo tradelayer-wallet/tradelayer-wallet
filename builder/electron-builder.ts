@@ -118,7 +118,7 @@ export class ElectronApp {
         this.mainWindow = new BrowserWindow(windowOptions);
         this.handleMainWindowEvents();
         this.loadUrl(this.mainWindow);
-        this.mainWindow.webContents.openDevTools();
+        // this.mainWindow.webContents.openDevTools();
     }
 
     private loadUrl(window: BrowserWindow) {
