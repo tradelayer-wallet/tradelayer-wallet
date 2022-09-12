@@ -22,11 +22,10 @@ const NG_MODULES = [
 ];
 
 const toastrOptionsObject = {
+  positionClass: 'custom-toastr',
   maxOpened: 8,
-  newestOnTop: true,
-  positionClass: 'toast-bottom-right',
-  preventDuplicates: false,
   timeOut: 3000,
+  countDuplicates: true,
 };
 
 const TL_MODULES = [
