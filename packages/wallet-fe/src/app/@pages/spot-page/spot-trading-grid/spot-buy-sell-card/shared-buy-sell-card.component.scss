@@ -168,6 +168,7 @@ mat-card {
             padding: 16px;
             align-items: center;
             justify-content: space-between;
+<<<<<<< HEAD:packages/wallet-fe/src/app/@pages/spot-page/spot-trading-grid/spot-buy-sell-card/shared-buy-sell-card.component.scss
             button {
                 border-radius: 4px;
                 width: 45%;
@@ -179,18 +180,40 @@ mat-card {
                 &:disabled {
                     opacity: 0.25;
                     pointer-events: none;
+=======
+            .button-container {
+                display: flex;
+                flex-direction: column;
+                width: 50%;
+                align-items: center;
+                span {
+                    color: white;
+                    cursor: pointer;
+>>>>>>> master:packages/wallet-fe/src/app/@pages/shared/trading-grid/buy-sell/shared-buy-sell-card.component.scss
                 }
-            }
-            .buy-button {
-                background-color: var(--greenSuccess);
-                &:hover {
-                    background-color: var(--mossGreen);
+                button {
+                    border-radius: 4px;
+                    width: 90%;
+                    color: var(--white);
+                    height: 2rem;
+                    border: none;
+                    cursor: pointer;
+                    transition: background-color 0.25s;
+                    &:disabled {
+                        opacity: 0.25;
+                    }
                 }
-            }
-            .sell-button {
-                background-color: var(--redError);
-                &:hover {
-                    background-color: var(--red2);
+                .buy-button {
+                    background-color: var(--greenSuccess);
+                    &:hover {
+                        background-color: var(--mossGreen);
+                    }
+                }
+                .sell-button {
+                    background-color: var(--redError);
+                    &:hover {
+                        background-color: var(--red2);
+                    }
                 }
             }
         }

@@ -1,7 +1,15 @@
+<<<<<<< HEAD
 import { Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { ApiService } from 'src/app/@core/services/api.service';
+=======
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ApiService } from 'src/app/@core/services/api.service';
+import { DialogService } from 'src/app/@core/services/dialogs.service';
+import { RpcService } from 'src/app/@core/services/rpc.service';
+import { SocketService } from 'src/app/@core/services/socket.service';
+>>>>>>> master
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { ElectronService } from 'src/app/@core/services/electron.service';
@@ -31,17 +39,27 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     constructor(
         private rpcService: RpcService,
         private apiService: ApiService,
+<<<<<<< HEAD
         private loadingService: LoadingService,
         private electronService: ElectronService,
         private zone: NgZone,
+=======
+        private socketService: SocketService,
+        private authService: AuthService,
+>>>>>>> master
         private dialogService: DialogService,
         private router: Router,
         private toastrService: ToastrService,
         private authService: AuthService,
     ) {}
 
+<<<<<<< HEAD
     get coreStarted() {
         return this.rpcService.isCoreStarted;
+=======
+    get sochainApi() {
+        return this.apiService.soChainApi;
+>>>>>>> master
     }
 
     get isSynced() {
@@ -90,6 +108,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     private async checkSync() {
+<<<<<<< HEAD
         await this.checkIsAbleToRpc();
         this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
         this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
@@ -109,6 +128,57 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
                 const errrorMessage = error?.message || error || "Undefined Error";
                 this.message = errrorMessage;
             });
+=======
+        const giRes = await this.rpcService.rpc('getblockchaininfo');
+        if (giRes.error || !giRes.data) {
+            this.terminateDisabled = true;
+            this.message = giRes.error || 'Undefined Error!';
+            this.stopChecking = true;
+            this.checkTimeOutFunc = setTimeout(() => {
+                this.checkSync();
+            }, 1000);
+            return;
+        }
+        this.terminateDisabled = false;
+        if (!this.rpcService.isAbleToRpc) {
+            this.rpcService.isAbleToRpc = true;
+            this.rpcService.saveConfigFile();
+        }
+        this.stopChecking = false;
+        this.nodeBlock = giRes.data.blocks;
+        if (this.isOffline) {
+            clearInterval(this.checkIntervalFunc);
+            clearTimeout(this.checkTimeOutFunc);
+            this.message = ' ';
+            return;
+        } else {
+            await this.checkNetworkInfo();
+            // this.networkBlocks = giRes.data.headers;
+            this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
+            this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
+            if (this.nodeBlock + 1 >= this.networkBlocks) {
+                if (!this.rpcService.isSynced) this.rpcService.isSynced = true;
+                this.message = 'FULL SYNCED';
+            }
+            this.message = ' ';
+            return;
+        }
+    }
+
+    private async checkNetworkInfo() {
+        try {
+            if (this.isOffline) return;
+            const networkInfo = await this.sochainApi.getNetworkInfo().toPromise();
+            if (networkInfo.status !== 'success' || !networkInfo.data?.blocks) return
+            this.networkBlocks = networkInfo.data.blocks;
+        } catch(err) {
+            console.log(err);
+        }
+    }
+
+    private subscribeToNewBlocks() {
+        this.socketService.socket.on('newBlock', (b) => (b > 0) ? this.nodeBlock = b : null);
+>>>>>>> master
     }
 
     async terminate() {

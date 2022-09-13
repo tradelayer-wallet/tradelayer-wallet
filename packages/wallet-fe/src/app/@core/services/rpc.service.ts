@@ -110,6 +110,7 @@ export class RpcService {
           throw new Error(`Error with Tradelayer API Server: ${error.message || error || 'Undefined Error'}`);
         });
 
+<<<<<<< HEAD
       return await this.mainApi
         .startWalletNode(path, network, flags)
         .toPromise()
@@ -120,6 +121,26 @@ export class RpcService {
           }
           return res;
         })
+=======
+      const isTestNet = network.endsWith('TEST');
+      if (res.error?.includes("Config file doesn't exist in")) {
+        const dialogOptions = { disableClose: false, hasBackdrop: true, data: { directory, isTestNet, flags }};
+        this.dialogService.openDialog(DialogTypes.NEW_NODE, dialogOptions);
+        return { error: res.error };
+      }
+
+      if (res.error || !res.data?.configObj) return { error: res.error };
+      this.socketService.mainApiServerWaiting = true;
+      this.isOffline = res.data.isOffline;
+      this.myVersion = res.data.myVersion
+      const host = 'localhost';
+      const { rpcuser, rpcpassword, rpcport } = res.data.configObj;
+      const connectCreds = { host, username: rpcuser, password: rpcpassword, port: rpcport };
+      const connectRes = await this.connect(connectCreds, network);
+      if (!connectRes) return { error: 'Unable to start local node. Probably already running' };
+      this.dialogService.closeAllDialogs();
+      return { data: connectRes };
+>>>>>>> master
     }
 
     async createNewNode(params: { username: string, password: string, port: number, path: string }) {

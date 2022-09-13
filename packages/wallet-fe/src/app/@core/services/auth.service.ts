@@ -122,6 +122,7 @@ export class AuthService {
     }
 
     async register(pass: string) {
+<<<<<<< HEAD
         const rawWalletObj = await this.keysApi.getNewWallet().toPromise() as
             { mnemonic: string, mainKeyPair: IKeyPair };
         const { mnemonic } = rawWalletObj;
@@ -129,6 +130,97 @@ export class AuthService {
         this.walletObjRaw.mnemonic = mnemonic;
         this.walletObjRaw.network = this.rpcService.NETWORK;
         await this.addKeyPair(EAddress.MAIN, pass);
+=======
+        const pair = await this.addressService.generateNewKeyPair() as IKeyPair;
+        if (pair.address && pair.privKey, pair.pubKey) {
+            this.login([pair]);
+        };
+
+        this.encKey = ltcUtils.encryptKeyPair(this.addressService.keyPairs, pass);
+        this.dialogService.openEncKeyDialog(this.encKey);
+    }
+
+    async loginFromKeyFile(key: string, pass: string) {
+        const res = ltcUtils.decryptKeyPair(key, pass) as (IKeyPair | IMultisigPair)[];
+        if (!res?.length) {
+            this.toastrService.error('Wrong Password or keyFile', 'Error');
+            return;
+        }
+
+        const keyPairs = res.filter((e) => !('redeemScript' in e)) as IKeyPair[];
+
+        if (!keyPairs?.length) return this.toastrService.error('Wrong keyFile', 'Error');
+        for (const i in keyPairs) {
+            const kp = keyPairs[i];
+            if (!kp?.address || !kp?.pubKey || !kp?.privKey) {
+                this.toastrService.error('Wrong keyFile', 'Error');
+                return;
+            }
+            const vaRes = await this.rpcService.rpc('validateaddress', [kp.address]);
+
+            if (vaRes.error || !vaRes.data) {
+                this.toastrService.error('Error with validating wallet', 'Error');
+                return;
+            }
+
+            if (!vaRes.data?.isvalid) {
+                this.toastrService.error('The Address is not valid', 'Error');
+                return;
+            }
+    
+            if (vaRes.data?.isvalid && !vaRes.data?.ismine) {
+                const ipkRes = await this.rpcService.rpc('importprivkey', [kp.privKey, "tl-wallet", false]);
+            }
+        }
+
+
+        if (!this.rpcService.isOffline && !this.rpcService.isApiRPC) {
+            const luRes = await this.rpcService.smartRpc('listunspent', [0, 999999999, [keyPairs[0]?.address]]);
+            const scLuRes: any = await this.apiService.soChainApi.getTxUnspents(keyPairs[0]?.address).toPromise();
+            if (luRes.error || !luRes.data || scLuRes.status !== "success" || !scLuRes.data) {
+                this.toastrService.error('Unexpecter Error. Please try again!', 'Error');
+                return;
+            }
+            if (luRes.data.length < scLuRes.data.txs?.length) {
+                this.toastrService.info('There may be some incorect balance data', 'Not full UTXOs');
+                this.dialogService.openDialog(DialogTypes.RESCAN, { disableClose: true, data: { key, pass } });
+                return;
+            }
+        }
+
+        if (this.rpcService.isOffline) {
+            this.toastrService.info('There may be some incorect balance data', 'Offline wallet');
+        }
+
+        this.login(res);
+        const allKeyParis = [
+            ...this.addressService.keyPairs, 
+            ...this.addressService.multisigPairs, 
+            ...this.addressService.rewardAddresses,
+            ...this.addressService.liquidityAddresses,
+        ];
+        this.encKey = ltcUtils.encryptKeyPair(allKeyParis, pass);
+        return;
+    }
+
+    login(pairs: (IKeyPair | IMultisigPair)[]) {
+        pairs.forEach((p: any, index: number) => {
+            if (p.redeemScript) {
+                this.addressService.addMultisigAddress(p)
+            } else {
+                if (p.rewardAddress) {
+                    this.addressService.addRewardAddress(p);
+                } else {
+                    if (p.liquidity_provider) {
+                        this.addressService.addLiquidtyAddress(p);
+                    } else {
+                        this.addressService.addDecryptedKeyPair(p, index === 0);
+                    }
+                }
+            }
+            this.balanceService.updateBalances();
+        });
+>>>>>>> master
         this.router.navigateByUrl(this.savedFromUrl);
     }
 
