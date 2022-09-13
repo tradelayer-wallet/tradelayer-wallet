@@ -114,7 +114,9 @@ export class WithdrawDialog {
             propId: number,
         ): Promise<{ data?: IBuildTxConfig, error?: any}> {
             try {
-                const txOptions: IBuildTxConfig = { fromAddress, toAddress };
+                const fromKeyPair = { address: fromAddress };
+                const toKeyPair = { address: toAddress };
+                const txOptions: IBuildTxConfig = { fromKeyPair, toKeyPair };
                 if (propId !== -1) {
                     const payloadParams = [this.propId, (amount).toString()];
                     const payloadRes = await this.rpcService.rpc('tl_createpayload_simplesend', payloadParams);
@@ -136,12 +138,14 @@ export class WithdrawDialog {
             if (!this.amount || !this.fromAddress || !this.toAddress || !this.propId) throw new Error('Fill all required data');
             const txOptionsRes = await this.getTxOptions(this.fromAddress, this.toAddress, this.amount, this.propId);
             if (txOptionsRes.error || !txOptionsRes.data) throw new Error(txOptionsRes.error);
-            await this.txsService.buildSingSendTx(txOptionsRes.data);
-            this.clearForm();
+            const res = await this.txsService.buildSingSendTx(txOptionsRes.data);
+            if (res.error || !res.data) throw new Error(res.error);
+            this.toastrService.success(`Withdraw TX: ${res.data}`, 'Success');
         } catch (error: any) {
             this.toastrService.error(error.message || `Error with Withdraw`, 'Error');
         } finally {
             this.loadingService.isLoading = false;
+            this.clearForm();
         }
     }
 

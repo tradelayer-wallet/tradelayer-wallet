@@ -3,7 +3,7 @@ import { AuthService } from 'src/app/@core/services/auth.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { IChannelCommit, SpotChannelsService } from 'src/app/@core/services/spot-services/spot-channels.service';
 import { Subscription } from 'rxjs';
-import { TxsService } from 'src/app/@core/services/txs.service';
+import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { ToastrService } from 'ngx-toastr';
 
@@ -36,14 +36,18 @@ export class SpotChannelsComponent implements OnInit, OnDestroy {
         const payloadConfig = [commit.propertyId, (commit.amount).toString()];
         const payloadRes = await this.rpcService.rpc('tl_createpayload_withdrawal_fromchannel', payloadConfig);
         if (payloadRes.error || !payloadRes.data) throw new Error(payloadRes.error);
-        const config = {
-          fromAddress: commit.sender,
-          toAddress: commit.channel,
+        const config: IBuildTxConfig = {
+          fromKeyPair: {
+            address: commit.sender,
+          },
+          toKeyPair: {
+            address: commit.channel
+          },
           payload: payloadRes.data,
         };
         const res = await this.txsService.buildSingSendTx(config);
         if (res.error || !res.data) throw new Error(res.error);
-        this.toastrService.success(`Withdraw TX: ${res.data}`, 'success');
+        this.toastrService.success(`Withdraw TX: ${res.data}`, 'Success');
       } catch (err: any) {
         this.toastrService.error(err.message, 'Error');
       } finally {

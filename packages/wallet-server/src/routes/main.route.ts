@@ -1,7 +1,8 @@
 import { FastifyInstance } from "fastify";
 import { fasitfyServer } from "../index";
 import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
-import { buildTx, IBuildTxConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
+import { buildTx, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
+import { signPsbtRawtTx } from "../utils/crypto.util";
 
 export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
     fastify.post('rpc-call', async (request, reply) => {
@@ -65,9 +66,9 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('build-tx', async (request, reply) => {
         try {
-            const { fromAddress, toAddress, payload, amount, inputs } = request.body as IBuildTxConfig;
+            const { fromKeyPair, toKeyPair, payload, amount, inputs, addPsbt, network } = request.body as IBuildTxConfig;
             const { isApiMode } = request.body as { isApiMode: boolean };
-            const txConfig = { fromAddress, toAddress, payload, amount, inputs };
+            const txConfig = { fromKeyPair, toKeyPair, payload, amount, inputs, addPsbt, network };
             const hexResult = await buildTx(txConfig, isApiMode);
             reply.status(200).send(hexResult);
         } catch (error) {
@@ -77,8 +78,18 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('sign-tx', async (request, reply) => {
         try {
-            const { rawtx, wif, network, inputs, halfSignedHex } = request.body as ISignTxConfig;
-            const result = await signTx({ rawtx, wif, network, inputs, halfSignedHex });
+            const { rawtx, wif, network, inputs, psbtHex } = request.body as ISignTxConfig;
+            const result = await signTx({ rawtx, wif, network, inputs, psbtHex });
+            reply.status(200).send(result);
+        } catch (error) {
+            reply.status(500).send({ error: error.message || 'Undefined Error' })
+        }
+    });
+
+    fastify.post('sign-psbt', async (request, reply) => {
+        try {
+            const { wif, network, psbtHex } = request.body as ISignPsbtConfig;
+            const result = signPsbtRawtTx({ wif, network, psbtHex });
             reply.status(200).send(result);
         } catch (error) {
             reply.status(500).send({ error: error.message || 'Undefined Error' })
@@ -95,27 +106,6 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             reply.status(500).send({ error: error.message || 'Undefined Error' })
         }
     });
-    
-    // fastify.post('ob-socket-connect', async (request, reply) => {
-    //     try {
-    //         const { url } = request.body as { url: string };
-    //         fasitfyServer.initOBSocketConnection({ url });
-    //         const result = { data: true };
-    //         reply.status(200).send(result);
-    //     } catch (error) {
-    //         reply.status(500).send({ error: error.message || 'Undefined Error' })
-    //     }
-    // });
-
-    // fastify.post('ob-socket-disconnect', async (request, reply) => {
-    //     try {
-    //         fasitfyServer.clearOBSocketConnection();
-    //         const result = { data: true };
-    //         reply.status(200).send(result);
-    //     } catch (error) {
-    //         reply.status(500).send({ error: error.message || 'Undefined Error' })
-    //     }
-    // });
 
     done();
 }

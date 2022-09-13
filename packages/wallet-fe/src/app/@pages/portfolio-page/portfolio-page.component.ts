@@ -88,10 +88,13 @@ export class PortfolioPageComponent {
     if (isAttestated) return;
     const payload = '007600';
     const res = await this.txsService.buildSingSendTx({
-      fromAddress: address,
-      toAddress: address,
+      fromKeyPair: { address },
+      toKeyPair: { address },
       payload: payload,
     });
-    if (res.data) this.attestationService.setPendingAtt(address);
+    if (res.data) {
+      this.attestationService.setPendingAtt(address);
+      this.toastrService.success(res.data, 'Transaction Sent');
+    }
   }
 }

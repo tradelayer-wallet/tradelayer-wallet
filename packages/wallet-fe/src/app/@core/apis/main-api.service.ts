@@ -3,7 +3,7 @@ import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { environment } from "src/environments/environment";
 import { ENetwork, TNETWORK } from "../services/rpc.service";
-import { IBuildTxConfig, ISignTxConfig } from "../services/txs.service";
+import { IBuildTxConfig, ISignPsbtConfig, ISignTxConfig } from "../services/txs.service";
 // import { ENetwork, RPCCredentials } from "../services/rpc.service";
 
 @Injectable({
@@ -83,19 +83,51 @@ export class MainApiService {
         }>(this.apiUrl + 'build-tx', { ...buildTxConfig, isApiMode })
     }
 
+    // buildPsbt(buildPSBTConfig: IBuildPSBTConfig, isApiMode: boolean): Observable<{
+    //     data?: { rawtx: string; psbtTx: string; inputs: any[] };
+    //     error?: string;
+    // }>{
+    //     return this.http.post<{
+    //         data?: { rawtx: string; psbtTx: string; inputs: any[]};
+    //         error?: string;  
+    //     }>(this.apiUrl + 'build-psbt', { ...buildPSBTConfig, isApiMode })
+    // }
+
     signTx(buildTxConfig: ISignTxConfig, network: TNETWORK): Observable<{
         data?: {
             isValid: boolean;
-            signedHex: string;
+            signedHex?: string;
+            psbtHex?: string,
         };
         error?: string;
     }>{
         return this.http.post<{
             data?: {
                 isValid: boolean;
-                signedHex: string;
+                signedHex?: string;
+                psbtHex?: string,
             };
             error?: string;  
         }>(this.apiUrl + 'sign-tx', { ...buildTxConfig, network })
+    }
+
+    signPsbt(buildPsbtConfig: ISignPsbtConfig, network: TNETWORK): Observable<{
+        data?: {
+            psbtHex: string;
+            isValid: boolean;
+            isFinished: boolean;
+            finalHex?: string;
+        };
+        error?: string;
+    }>{
+        return this.http.post<{
+            data?: {
+            psbtHex: string;
+            isValid: boolean;
+            isFinished: boolean;
+            finalHex?: string;
+        };
+            error?: string;  
+        }>(this.apiUrl + 'sign-psbt', { ...buildPsbtConfig, network })
     }
 }

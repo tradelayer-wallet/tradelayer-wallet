@@ -1,8 +1,10 @@
 import { Injectable } from "@angular/core";
+import { ToastrService } from "ngx-toastr";
 import { BuySwapper, ITradeInfo, SellSwapper } from "src/app/utils/swapper.util";
 import { RpcService } from "./rpc.service";
 import { obEventPrefix, SocketService } from "./socket.service";
 import { TxsService } from "./txs.service";
+import { LoadingService } from "./loading.service";
 
 interface IRawChannelSwap {
     amountDesired: number;
@@ -29,6 +31,8 @@ export class SwapService {
         private socketService: SocketService,
         private rpcService: RpcService,
         private txsService: TxsService,
+        private toastrService: ToastrService,
+        private loadingService: LoadingService,
     ) {}
 
     private get socket() {
@@ -37,13 +41,16 @@ export class SwapService {
 
     onInit() {
         this.socket.on(`${obEventPrefix}::new-channel`, async (swapConfig: IRawChannelSwap) => {
-            console.log({ swapConfig });
                 const res = await this.channelSwap(swapConfig);
-                console.log({ res });
-                // res.error || res.data
-                //     ? this.walletSocket.emit('trade:error', res.error)
-                //     : this.walletSocket.emit('trade:success', { data: res.data, trade });  
-                //     if (trade.filled && (trade?.secondSocketId === this.socket.id)) this.walletSocket.emit('trade:completed', true);
+                if (res.error || !res.data?.txid) {
+                    this.toastrService.error(res.error, 'Trade Error')
+                } else {
+                    this.toastrService.success(res.data.txid, 'Trade Success')
+                }
+                const mySocketId = swapConfig.buyer ? swapConfig.buyerSocketId : swapConfig.sellerSocketId;
+                if (swapConfig.filled && swapConfig?.secondSocketId === mySocketId) {
+                    this.loadingService.tradesLoading = false;
+                }
         });
     }
 

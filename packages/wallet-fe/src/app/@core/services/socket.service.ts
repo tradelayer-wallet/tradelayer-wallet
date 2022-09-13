@@ -83,7 +83,7 @@ export class SocketService {
             this._obSocketConnected = false;
             this.obServerWaiting = false;
             this.router.navigateByUrl('/');
-            this.toasterService.error('Orderbook Conenction Error', 'Error');
+            this.toasterService.error('Orderbook Disconnected', 'Error');
         });
     }
 }

@@ -1,6 +1,6 @@
 import { fasitfyServer } from "..";
 import axios from 'axios';
-import { signRawTransction } from "../utils/crypto.util";
+import { buildPsbt, signRawTransction } from "../utils/crypto.util";
 import { safeNumber } from "../utils/common.util";
 
 interface ApiRes {
@@ -11,11 +11,19 @@ interface ApiRes {
 export type TClient = (method: string, ...args: any[]) => Promise<ApiRes>;
 
 export interface IBuildTxConfig {
-    fromAddress: string;
-    toAddress: string;
+    fromKeyPair: {
+        address: string;
+        pubkey?: string;
+    };
+    toKeyPair: {
+        address: string;
+        pubkey?: string;
+    };
     amount?: number;
     payload?: string;
     inputs?: IInput[];
+    addPsbt?: boolean;
+    network?: string;
 };
 
 export interface ISignTxConfig {
@@ -23,7 +31,13 @@ export interface ISignTxConfig {
     wif: string;
     network: string;
     inputs: IInput[];
-    halfSignedHex: string;
+    psbtHex?: string;
+};
+
+export interface ISignPsbtConfig {
+    wif: string;
+    network: string;
+    psbtHex: string;
 };
 
 export interface IInput {
@@ -33,6 +47,7 @@ export interface IInput {
     scriptPubKey: string;
     vout: number;
     redeemScript?: string;
+    pubkey?: string;
 };
 
 const minFeeLtcPerKb = 0.002;
@@ -54,7 +69,9 @@ export const smartRpc: TClient = async (method: string, params: any[] = [], api:
 
 export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
     try {
-        const { fromAddress, toAddress, amount, payload, inputs } = txConfig;
+        const { fromKeyPair, toKeyPair, amount, payload, inputs, addPsbt, network } = txConfig;
+        const fromAddress = fromKeyPair.address;
+        const toAddress = toKeyPair.address;
         const vaRes1 = await smartRpc('validateaddress', [fromAddress], isApiMode);
         if (vaRes1.error || !vaRes1.data?.isvalid) throw new Error(`validateaddress: ${vaRes1.error}`);
         const vaRes2 = await smartRpc('validateaddress', [toAddress], isApiMode);
@@ -62,7 +79,9 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
 
         const luRes = await smartRpc('listunspent', [0, 999999999, [fromAddress]], true);
         if (luRes.error || !luRes.data) throw new Error(`listunspent: ${luRes.error}`);
-        const _utxos = (luRes.data as IInput[]).sort((a, b) => b.amount - a.amount);
+        const _utxos = (luRes.data as IInput[])
+            .map(i => ({...i, pubkey: fromKeyPair.pubkey}))
+            .sort((a, b) => b.amount - a.amount);
         const _inputs = inputs?.length ? inputs : [];
         const utxos = [..._inputs, ..._utxos];
         const minAmountRes = await getMinVoutAmount(toAddress, isApiMode);
@@ -97,7 +116,18 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
             if (crtxoprRes.error || !crtxoprRes.data) throw new Error(`tl_createrawtx_opreturn: ${crtxoprRes.error}`);
             finalTx = crtxoprRes.data;
         }
-        return { data: { rawtx: finalTx, inputs: finalInputs } };
+        const data: any = { rawtx: finalTx, inputs: finalInputs };
+        if (addPsbt) {
+            const psbtHexConfig = {
+                rawtx: finalTx,
+                inputs: finalInputs,
+                network: network,
+            }
+            const psbtHexRes = buildPsbt(psbtHexConfig);
+            if (psbtHexRes.error || !psbtHexRes.data) throw new Error(`buildPsbt: ${psbtHexRes.error}`);
+            data.psbtHex = psbtHexRes.data;
+        }
+        return { data };
     } catch (error) {
         return { error: error.message || 'Undefined build Tx Error' };
     }
@@ -129,8 +159,8 @@ const getMinVoutAmount = async (toAddress: string, isApiMode: boolean) => {
 
 export const signTx = async (signOptions: ISignTxConfig) => {
     try {
-        const { rawtx, wif, network, inputs, halfSignedHex } = signOptions;
-        const lastResult = signRawTransction({ rawtx, wif, network, inputs, halfSignedHex });
+        const { rawtx, wif, network, inputs, psbtHex } = signOptions;
+        const lastResult = signRawTransction({ rawtx, wif, network, inputs, psbtHex });
         return lastResult;
     } catch (error) {
         return { error: error.message };

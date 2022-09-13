@@ -29,7 +29,9 @@ export class OrderbookServerDialog implements OnInit, OnDestroy {
       return this.rpcService.NETWORK as string
     }
 
-    ngOnInit() { }
+    ngOnInit() {
+      this.connect();
+    }
 
     ngOnDestroy() { }
 

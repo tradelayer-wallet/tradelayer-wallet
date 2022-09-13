@@ -13,10 +13,14 @@ export class OBSocketService {
         private options: IOBSocketServiceOptions,
     ) {
         this.socket = io(this.options.url, { reconnection: false });
-        this.socket.on('connect', () => {
-            this.handleEvents();
-            const fullEventName = `${eventPrefix}::connect`;
-            this.walletSocket.emit(fullEventName);
+        const mainEvents = ['connect', 'disconnect', 'connect_error'];
+
+        mainEvents.forEach(event => {
+            this.socket.on(event, () => {
+                if (event === 'connect') this.handleEvents();
+                const fullEventName = `${eventPrefix}::${event}`;
+                this.walletSocket.emit(fullEventName);
+            });
         });
     }
 
@@ -26,7 +30,6 @@ export class OBSocketService {
 
     private handleEvents() {
         // from Server To wallet;
-        const mainEvents = ['disconnect', 'connect_error'];
         const orderEvents = [
             'order:error',
             'order:saved',
@@ -36,7 +39,7 @@ export class OBSocketService {
             'new-channel',
         ];
 
-        [...mainEvents, ...orderEvents].forEach(eventName => {
+        [...orderEvents].forEach(eventName => {
             this.socket.on(eventName, (data: any) => {
                 const fullEventName = `${eventPrefix}::${eventName}`;
                 this.walletSocket.emit(fullEventName, data);
