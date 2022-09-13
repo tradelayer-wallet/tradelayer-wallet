@@ -2,8 +2,31 @@
     <div class="tab" *ngFor='let t of windows' (click)='maximize($event, t)'>{{ t.title }}</div>
 </div>
 <div class="info-line">
-    {{ isOffline ? "Offline  |" : null}}
-    {{ isAbleToRpc ? isApiRPC ? 'API-RPC |' : 'Block:' + blockHigh + ' | ' : null }}
-    Network: {{ network }} 
-    | Wallet Version: {{ myVersion }}
+    <div class="info">
+        <span *ngIf="!isCoreStarted" [ngStyle]="{color: 'var(--redError'}">NODE NOT STARTED</span>
+        <span class='blinking' *ngIf="isCoreStarted && !isSynced" [ngStyle]="{color: 'var(--mossGreen'}">SYNCING</span>
+        <span *ngIf="!isApiMode" [ngStyle]="{color: 'var(--blue'}">SYNCED</span>
+    </div>
+    <div class="info">
+        <span *ngIf="!isApiMode">RPC-MODE</span>
+        <span *ngIf="isApiMode">API-MODE</span>
+    </div>
+    <div class="info">
+        <span class='block-container' *ngIf="!isApiMode">
+            <span>Block: </span>
+            <span class="block">{{ lastBlock }}</span>
+            <div class="newBlock">+1</div>
+        </span>
+        <span class='block-container' *ngIf="isApiMode">
+            <span>Block: </span>
+            <span class="block">{{ networkBlock }}</span>
+            <div #newBlock class="newBlock">+1</div>
+        </span>
+    </div>
+    <div class="info" *ngIf="network">
+        {{ network }}
+    </div>
+    <div class="info" *ngIf="walletVersion">
+        {{ walletVersion }}
+    </div>
 </div>

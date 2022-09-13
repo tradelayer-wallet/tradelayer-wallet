@@ -1,10 +1,20 @@
+<<<<<<< HEAD
+import { Component, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { ToastrService } from 'ngx-toastr';
+import { ApiService } from 'src/app/@core/services/api.service';
+=======
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ApiService } from 'src/app/@core/services/api.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { SocketService } from 'src/app/@core/services/socket.service';
+>>>>>>> master
 import { AuthService } from 'src/app/@core/services/auth.service';
-import { WindowsService } from 'src/app/@core/services/windows.service';
+import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
+import { ElectronService } from 'src/app/@core/services/electron.service';
+import { LoadingService } from 'src/app/@core/services/loading.service';
+import { ENetwork, RpcService } from 'src/app/@core/services/rpc.service';
 
 @Component({
   selector: 'sync-node-dialog',
@@ -12,13 +22,8 @@ import { WindowsService } from 'src/app/@core/services/windows.service';
   styleUrls: ['./sync-node.component.scss']
 })
 export class SyncNodeDialog implements OnInit, OnDestroy {
-    loading: boolean = true;
     readyPercent: number = 0;
-    nodeBlock: number = 0;
-    networkBlocks: number = 0;
-    message: string = ' ';
-    terminateDisabled: boolean = true;
-
+    message: string = '';
     eta: string = 'Calculating Remaining Time ...';
 
     prevEtaData: {
@@ -29,37 +34,55 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         blocks: 0,
     };
 
-    private stopChecking: boolean = false;
     private checkIntervalFunc: any;
-    private checkTimeOutFunc: any;
 
     constructor(
         private rpcService: RpcService,
         private apiService: ApiService,
+<<<<<<< HEAD
+        private loadingService: LoadingService,
+        private electronService: ElectronService,
+        private zone: NgZone,
+=======
         private socketService: SocketService,
         private authService: AuthService,
+>>>>>>> master
         private dialogService: DialogService,
-        private windowsService: WindowsService,
+        private router: Router,
+        private toastrService: ToastrService,
+        private authService: AuthService,
     ) {}
 
+<<<<<<< HEAD
+    get coreStarted() {
+        return this.rpcService.isCoreStarted;
+=======
     get sochainApi() {
         return this.apiService.soChainApi;
+>>>>>>> master
     }
 
     get isSynced() {
         return this.rpcService.isSynced;
     }
 
-    get isOffline() {
-        return this.rpcService.isOffline;
+    get nodeBlock() {
+        return this.rpcService.lastBlock;
     }
 
-    get syncTab() {
-        return this.windowsService.tabs.find(e => e.title === 'Synchronization');
+    get networkBlocks() {
+        return this.rpcService.networkBlocks;
     }
 
-    ngOnInit() {
-        this.startCheckingSync();
+    get isAbleToRpc() {
+        return this.rpcService.isAbleToRpc;
+    }
+
+    ngOnInit() { }
+
+    private checFunction() {
+        this.checkSync();
+        this.checkIntervalFunc = setInterval(() => this.checkSync(), 2000);
     }
 
     private countETA(etaData: { stamp: number; blocks: number; }) {
@@ -84,16 +107,28 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         }
     }
 
-    private async startCheckingSync() {
-        this.subscribeToNewBlocks();
-        // await this.checkNetworkInfo();
-        this.checkSync();
-        this.checkIntervalFunc = setInterval(() => {
-            if (!this.stopChecking) this.checkSync();
-        }, 10000);
+    private async checkSync() {
+<<<<<<< HEAD
+        await this.checkIsAbleToRpc();
+        this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
+        this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
     }
 
-    private async checkSync() {
+    private async checkIsAbleToRpc() {
+        if (this.rpcService.isAbleToRpc || !this.rpcService.isCoreStarted) return;
+        await this.apiService.mainApi.rpcCall('tl_getinfo').toPromise()
+            .then(res => {
+                if (res.error) this.message = res.error;
+                if (!res.error && res.data) {
+                    this.rpcService.isAbleToRpc = true;
+                    this.message = '';
+                }
+            })
+            .catch(error => {
+                const errrorMessage = error?.message || error || "Undefined Error";
+                this.message = errrorMessage;
+            });
+=======
         const giRes = await this.rpcService.rpc('getblockchaininfo');
         if (giRes.error || !giRes.data) {
             this.terminateDisabled = true;
@@ -143,32 +178,87 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     private subscribeToNewBlocks() {
         this.socketService.socket.on('newBlock', (b) => (b > 0) ? this.nodeBlock = b : null);
+>>>>>>> master
     }
 
     async terminate() {
         if (this.authService.isLoggedIn) {
-            const encKey = this.authService.encKey;
-            const dialog = this.dialogService.openEncKeyDialog(encKey);
-            await dialog?.afterClosed().toPromise();
-            this.authService.logout();
-        }
-        this.loading = true;
-        this.message = " ";
-        const stopRes = await this.rpcService.rpc('stop');
-        if (stopRes.error || !stopRes.data) {
-            this.message = "Error! Please restart the app!";
+            this.toastrService.warning('Please first logout');
             return;
         }
-        await this.rpcService.clearRPC();
-        this.windowsService.tabs
-            .filter(e => e.title !== "Synchronization")
-            .forEach(r => this.windowsService.closeTab(r.title));
-        this.loading = false;
+        if (!this.isAbleToRpc) return;
+        this.loadingService.isLoading = true;
+        const terminateRes = await this.rpcService.terminateNode();
+        clearInterval(this.checkIntervalFunc);
+        this.message = ' ';
     }
 
     ngOnDestroy() {
         clearInterval(this.checkIntervalFunc);
-        clearTimeout(this.checkTimeOutFunc);
-        this.socketService.socket.off('newBlock');
+    }
+
+    // ------
+    public _defaultDirectoryCheckbox: boolean = true;
+    public directory: string = '';
+    public reindex: boolean = false;
+    public startclean: boolean = false;
+    public showAdvanced: boolean = false;
+    public network: ENetwork = this.rpcService.NETWORK as ENetwork;
+
+    get defaultDirectoryCheckbox() {
+        return this._defaultDirectoryCheckbox;
+    }
+
+    set defaultDirectoryCheckbox(value: boolean) {
+        this.directory = '';
+        this._defaultDirectoryCheckbox = value;
+    }
+
+    openDirSelectDialog() {
+        this.electronService.emitEvent('open-dir-dialog');
+        this.electronService.ipcRenderer.once('angular-electron-message', (_: any, message: any) => {
+            const { event, data } = message;
+            if (event !== 'selected-dir' || !data ) return;
+            this.zone.run(() => this.directory = data || '');
+        });
+    }
+
+    toggleAdvanced() {
+        this.showAdvanced = !this.showAdvanced;
+        if (!this.showAdvanced) {
+        this.reindex = false;
+        this.startclean = false;
+        }    
+    }
+
+    async startWalletNode() {
+        const network = this.network;
+        if (!network) return;
+        const path = this.defaultDirectoryCheckbox ? '' : this.directory;
+        const { reindex, startclean } = this;
+        const flags = { reindex, startclean };
+        this.loadingService.isLoading = true;
+        await this.rpcService.startWalletNode(path, ENetwork[network], flags)
+        .then(async res => {
+            if (res.error || !res.data) {
+            const configError = res.error.includes("Config file") && res.error.includes("doesn't exist in");
+            if (configError) {
+                this.dialogService.openDialog(DialogTypes.NEW_NODE, { data: { path }});
+            } else {
+                this.toastrService.error(res.error || 'Undefined Error', 'Starting Node Error');
+            }
+            } else {
+                this.router.navigateByUrl('/');
+                await this.checkIsAbleToRpc();
+            }
+        })
+        .catch(error => {
+            this.toastrService.error(error.message || 'Undefined Error', 'Error request');
+        })
+        .finally(() => {
+            this.checFunction();
+            this.loadingService.isLoading = false;
+            this.eta = 'Calculating Remaining Time ...';
+        });
     }
 }

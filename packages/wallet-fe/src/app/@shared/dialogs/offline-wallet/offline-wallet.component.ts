@@ -21,20 +21,20 @@ export class OfflineWalletDialog {
   ) {}
 
   async startOfflineWallet() {
-    this.message2 = ' ';
-    this.loadingService.isLoading = true;
-    const { directory, isTestNet, flags } = this.data;
-    const res = await this.rpcService.startWalletNode(directory, isTestNet, flags, true);
-    if (res.error || !res.data) {
-      if (!res.error?.includes("Config file doesn't exist in")) {
-        this.message2 = res.error || 'Please Try Again!';
-      }
-      this.loadingService.isLoading = false;
-      return;
-    }
-    this.dialogRef.close();
-    this.router.navigateByUrl('/');
-    this.loadingService.isLoading = false;
+    // this.message2 = ' ';
+    // this.loadingService.isLoading = true;
+    // const { directory, isTestNet, flags } = this.data;
+    // const res = await this.rpcService.startWalletNode(directory, isTestNet, flags, true);
+    // if (res.error || !res.data) {
+    //   if (!res.error?.includes("Config file doesn't exist in")) {
+    //     this.message2 = res.error || 'Please Try Again!';
+    //   }
+    //   this.loadingService.isLoading = false;
+    //   return;
+    // }
+    // this.dialogRef.close();
+    // this.router.navigateByUrl('/');
+    // this.loadingService.isLoading = false;
   }
 
   close() {

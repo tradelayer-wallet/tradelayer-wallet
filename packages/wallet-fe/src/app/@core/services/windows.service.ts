@@ -1,11 +1,11 @@
 import { Injectable } from "@angular/core";
 import { OrderbookServerDialog } from "src/app/@shared/dialogs/orderbook-server/orderbook-server.component";
 import { SyncNodeDialog } from "src/app/@shared/dialogs/sync-node/sync-node.component";
-import { TxBuilderDialog } from "src/app/@shared/dialogs/tx-builder/tx-builder.component";
+import { TerminalDialog } from "src/app/@shared/dialogs/terminal/terminal.component";
 
 export const windowComponents = {
     SYNC_WINDOW: SyncNodeDialog,
-    TX_BUILDER: TxBuilderDialog,
+    TERMINAL: TerminalDialog,
     ORDERBOOK_SERVER: OrderbookServerDialog,
 };
 
@@ -23,7 +23,7 @@ export class WindowsService {
     private _tabs: IWindow[] = [
         {
             component: windowComponents.SYNC_WINDOW,
-            minimized: false,
+            minimized: true,
             title: 'Synchronization'
         },
         {
@@ -42,15 +42,15 @@ export class WindowsService {
         this._tabs = tabs;
     }
 
-    addTxBuilder() {
-        const txBuilder = this.tabs.find(e => e.title === 'TX Builder');
-        if (txBuilder) {
-            txBuilder.minimized = false;
+    openTerminal() {
+        const terminal = this.tabs.find(e => e.title === 'RPC Terminal');
+        if (terminal) {
+            terminal.minimized = false;
         } else {
             const newTab: IWindow = {
-                component: windowComponents.TX_BUILDER, 
+                component: windowComponents.TERMINAL, 
                 minimized: false, 
-                title: 'TX Builder',
+                title: 'RPC Terminal',
             };
             this.tabs = [...this.tabs, newTab];
         }
@@ -58,5 +58,9 @@ export class WindowsService {
 
     closeTab(title: string) {
         this.tabs = this.tabs.filter(e => e.title !== title);
+    }
+    
+    toggleTab(tab: IWindow, value?: boolean) {
+        tab.minimized = value || !tab.minimized;
     }
 }

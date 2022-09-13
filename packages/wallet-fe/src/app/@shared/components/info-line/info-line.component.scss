@@ -25,4 +25,51 @@
             background-color: var(--darkBlue);
         }
     }
+    .info-line {
+        display: flex;
+        .info {
+            border-left: 1px solid white;
+            padding: 0 1rem;
+            .block-container{
+                position: relative;
+                .newBlock {
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    color: var(--greenSuccess);
+                    opacity: 0;
+                }
+                .active-animation {
+                    animation: newBlock 4s ease-in 1;
+                }
+            }
+            &:first-child {
+                border-left: unset;
+            }
+            .blinking {
+                animation: blinker 2s ease-in infinite; 
+            }
+        }
+    }
+}
+
+@keyframes blinker {
+    50% {
+      opacity: 0;
+    }
+}
+
+@keyframes newBlock {
+    10% {
+        opacity: 1;
+        top: -1rem;
+    }
+    60% {
+        opacity: 1;
+        top: -1rem;
+    }
+    80% {
+        opacity: 0;
+        top: 0;
+    }
 }

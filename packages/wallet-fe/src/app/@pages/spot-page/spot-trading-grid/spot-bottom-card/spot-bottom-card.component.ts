@@ -1,5 +1,6 @@
-import { Component, OnInit } from '@angular/core';
-import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-positions.service';
+import { Component } from '@angular/core';
+import { SpotChannelsService } from 'src/app/@core/services/spot-services/spot-channels.service';
+import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
 
 @Component({
   selector: 'tl-spot-bottom-card',
@@ -9,10 +10,15 @@ import { SpotPositionsService } from 'src/app/@core/services/spot-services/spot-
 
 export class SpotBottomCardComponent {
     constructor(
-      private spotPositionsService: SpotPositionsService,
+      private spotOrdersService: SpotOrdersService,
+      private spotChannelsService: SpotChannelsService,
     ) {}
 
+    get allCommitsLength() {
+      return this.spotChannelsService.channelsCommits?.length || 0;
+    }
+
     get allOrdersLength() {
-      return this.spotPositionsService.openedPositions?.length || 0;
+      return this.spotOrdersService.openedOrders?.length || 0;
     }
 }

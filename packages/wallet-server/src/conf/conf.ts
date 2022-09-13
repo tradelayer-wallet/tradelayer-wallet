@@ -1,1 +1,0 @@
-export const addTESTNETNodeServer = '5.9.150.112:19335';

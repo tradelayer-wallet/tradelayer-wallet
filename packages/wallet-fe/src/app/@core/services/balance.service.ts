@@ -1,13 +1,12 @@
 import { Injectable } from "@angular/core";
-import { AddressService } from "./address.service";
 import { RpcService } from "./rpc.service";
-import { SocketService } from "./socket.service";
 import { ToastrService } from "ngx-toastr";
-import { ApiService } from "./api.service";
+import { AuthService } from "./auth.service";
+import { IUTXO } from "./txs.service";
 
 const minBlocksForBalanceConf: number = 1;
 const emptyBalanceObj = {
-    fiatBalance: {
+    coinBalance: {
         confirmed: 0,
         unconfirmed: 0,
     },
@@ -18,12 +17,10 @@ const emptyBalanceObj = {
     providedIn: 'root',
 })
 
-
 export class BalanceService {
-
     private _allBalancesObj: {
         [key: string]: {
-            fiatBalance: {
+            coinBalance: {
                 confirmed: number;
                 unconfirmed: number;
             };
@@ -35,80 +32,73 @@ export class BalanceService {
         }
     } = {};
 
+    // public balanceLoading: boolean = false;
+
     constructor(
         private rpcService: RpcService,
-        private addressService: AddressService,
-        private socketService: SocketService,
+        private authService: AuthService,
         private toastrService: ToastrService,
-        private apiService: ApiService,
-    ) {
-        this.handleSocketEvents()
-    }
+    ) { }
 
-    get selectedAddress() {
-        return this.addressService.activeKeyPair?.address;
-    }
-
-    get ssApi() {
-        return this.apiService.socketScriptApi;
+    get sumAvailableCoins() {
+        return Object.values(this._allBalancesObj)
+            .reduce((a, b) => a + b.coinBalance.confirmed, 0);
     }
 
     get allBalances() {
         return this._allBalancesObj;
     }
 
-    get isApiRPC() {
-        return this.rpcService.isApiRPC;
+    getCoinBalancesByAddress(_address: string) {
+        const address = _address;
+        if (!address) return emptyBalanceObj.coinBalance;
+        return this._allBalancesObj?.[address]?.coinBalance || emptyBalanceObj.coinBalance;
     }
 
-    getTokensBalancesByAddress(_address?: string) {
-        const address = _address || this.selectedAddress;
+    getTokensBalancesByAddress(_address: string) {
+        const address = _address;
         if (!address) return [];
-        
         return this._allBalancesObj?.[address]?.tokensBalance || [];
     }
 
-    getFiatBalancesByAddress(_address?: string) {
-        const address = _address || this.selectedAddress;
-        if (!address) return emptyBalanceObj.fiatBalance;
-        return this._allBalancesObj?.[address]?.fiatBalance || emptyBalanceObj.fiatBalance;
-    }
+    onInit() {
+        this.authService.updateAddressesSubs$
+            .subscribe(kp => {
+                if (!kp.length || !this.allBalances.mainKeyPair) this.restartBalance();
+                this.updateBalances();
+            });
 
-    private handleSocketEvents() {
-        this.socketService.socket.on('API::newBlock', () => {
-            if (!this.rpcService.isApiRPC) return;
-            this.updateBalances();
-        });
+        this.rpcService.blockSubs$
+            .subscribe(() => this.updateBalances());
 
-        this.socketService.socket.on('newBlock', (blockHeight) => {
-            if (this.rpcService.isApiRPC) return;
-            this.updateBalances();
-        });
+        setInterval(() => this.updateBalances(), 20000);
     }
 
     async updateBalances() {
-        const addressesArray = this.addressService.allAddresses;
-        for (let i = 0; i < addressesArray.length; i++) {
-            const address = addressesArray[i].address;
-            await this.updateFiatBalanceForAddressFromUnspents(address);
+        // this.balanceLoading = true;
+        const addressesArray = this.authService.listOfallAddresses;
+        for (let i = 0; i < addressesArray?.length; i++) {
+            const address = addressesArray[i]?.address;
+            await this.updateCoinBalanceForAddressFromUnspents(address);
             await this.updateTokensBalanceForAddress(address);
         }
+        // this.balanceLoading = false;
     }
 
-    private async updateFiatBalanceForAddressFromUnspents(address: string) {
-        const fiatBalanceObjRes = await this.getFiatBalanceObjForAddress(address);
-        if (fiatBalanceObjRes.error || !fiatBalanceObjRes.data) {
-            this.toastrService.error(fiatBalanceObjRes.error || `Error with updating balances`, 'Error');
+    private async updateCoinBalanceForAddressFromUnspents(address: string) {
+        const coinBalanceObjRes = await this.getCoinBalanceObjForAddress(address);
+        if (coinBalanceObjRes.error || !coinBalanceObjRes.data) {
+            this.toastrService.error(coinBalanceObjRes.error || `Error with updating balances: ${address}`, 'Error');
             return;
         }
-        const { confirmed, unconfirmed } = fiatBalanceObjRes.data;
-        const fiatObj = { confirmed, unconfirmed };
+        const { confirmed, unconfirmed } = coinBalanceObjRes.data;
+        const coinObj = { confirmed, unconfirmed };
         if (!this._allBalancesObj[address]) this._allBalancesObj[address] = emptyBalanceObj;
         this._allBalancesObj = {
             ...this._allBalancesObj, 
             [address]: {
                 ...this._allBalancesObj[address], 
-                fiatBalance: fiatObj,
+                coinBalance: coinObj,
             },
         };
     }
@@ -121,26 +111,27 @@ export class BalanceService {
         }
         if (!this._allBalancesObj[address]) this._allBalancesObj[address] = emptyBalanceObj;
         this._allBalancesObj[address].tokensBalance = tokensBalanceArrRes.data;
-
     }
 
-    private async getFiatBalanceObjForAddress(address: string) {
+    private async getCoinBalanceObjForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-        const luResConfirmed = await this.rpcService.smartRpc('listunspent', [minBlocksForBalanceConf, 999999999, [address]]);
-        if (luResConfirmed.error || !luResConfirmed.data) return { error: luResConfirmed.error || 'Undefined Error' };
-        const luResUnconfirmed = await this.rpcService.smartRpc('listunspent', [0, minBlocksForBalanceConf - 1, [address]]);
-        if (luResUnconfirmed.error || !luResUnconfirmed.data) return { error: luResUnconfirmed.error || 'Undefined Error' };
+        const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [address]]);
+        if (luRes.error || !luRes.data) return { error: luRes.error || 'Undefined Error' };
 
-        const _confirmed: number = luResConfirmed.data.map((e: any) => e.amount).reduce((a: number, b: number) => a + b, 0);
-        const _unconfirmed: number = luResUnconfirmed.data.map((e: any) => e.amount).reduce((a: number, b: number) => a + b, 0);
-        const confirmed = parseFloat(_confirmed.toFixed(5));
-        const unconfirmed = parseFloat(_unconfirmed.toFixed(5));
+        const _confirmed = (luRes.data as IUTXO[])
+            .filter(utxo => utxo.confirmations >= minBlocksForBalanceConf)
+            .reduce((a, b) => a + b.amount, 0);
+        const _unconfirmed = (luRes.data as IUTXO[])
+            .filter(utxo => utxo.confirmations < minBlocksForBalanceConf)
+            .reduce((a, b) => a + b.amount, 0);
+        const confirmed = parseFloat(_confirmed.toFixed(6));
+        const unconfirmed = parseFloat(_unconfirmed.toFixed(6));
         return {data: { confirmed, unconfirmed } };
     }
 
     private async getTokensBalanceArrForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-        const balanceRes = await this.rpcService.smartRpc('tl_getallbalancesforaddress', [address]);
+        const balanceRes = await this.rpcService.rpc('tl_getallbalancesforaddress', [address]);
         if (!balanceRes.data || balanceRes.error) return { data: [] };
         try {
             const promisesArray = (balanceRes.data as { propertyid: number, balance: string, reserved: string }[])
@@ -159,30 +150,17 @@ export class BalanceService {
         }
     }
 
-    private async getTokenNameById(id: number) {
-        const gpRes = await this.rpcService.smartRpc('tl_getproperty', [id]);
+    async getTokenNameById(id: number) {
+        const existingTokenName = Object.values(this._allBalancesObj)
+            .reduce((acc: { name: string, propertyid: number }[], val) => acc.concat(val.tokensBalance), [])
+            .find(e => e.propertyid === id);
+        if (existingTokenName?.name) return existingTokenName.name;
+        const gpRes = await this.rpcService.rpc('tl_getproperty', [id]);
         if (gpRes.error || !gpRes.data?.name) return `ID_${id}`;
         return gpRes.data.name;
     }
 
-    async withdraw(optionsObj: { fromAddress: string, toAddress: string, amount: number, propId: number }) {
-        const { fromAddress, toAddress, amount, propId } = optionsObj;
-        if (propId === -1) {
-            const res = this.isApiRPC
-                ? await this.rpcService.localRpcCall('sendtoaddress', [fromAddress, toAddress, amount]).toPromise()
-                : await this.ssApi.withdraw(fromAddress, toAddress, amount).toPromise();
-            return res;
-        } else {
-            // const setFeeRes = await this.rpcService.setEstimateFee();
-            const res = this.isApiRPC
-                ?  await this.rpcService.localRpcCall('tl_send', [fromAddress, toAddress, propId, amount.toString()]).toPromise()
-                :  await this.rpcService.rpc('tl_send', [fromAddress, toAddress, propId, amount.toString()]);
-            return res;
-        }
-
-    }
-
-    restartBalance() {
+    private restartBalance() {
         this._allBalancesObj = {};
     }
 }

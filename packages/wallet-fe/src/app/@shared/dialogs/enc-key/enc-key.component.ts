@@ -3,7 +3,7 @@ import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dial
 import { saveAs } from 'file-saver';
 import { ToastrService } from 'ngx-toastr';
 import { first } from 'rxjs/operators';
-import { decryptKeyPair } from 'src/app/utils/litecore.util';
+import { decrypt } from 'src/app/utils/crypto.util';
 import { PasswordDialog } from '../password/password.component';
 
 @Component({
@@ -35,11 +35,11 @@ export class EncKeyDialog {
 
         if (!password) return;
         const encKey = this.data;
-        const decryptResult = decryptKeyPair(encKey, password);
+        const decryptResult = decrypt(encKey, password);
         if (!decryptResult) {
             this.toastrService.error('Wrong Password', 'Error');
         } else {
-            this.decodedJson = JSON.stringify(decryptResult,  null, 4);
+            this.decodedJson = JSON.stringify(JSON.parse(decryptResult), null, 4);
         }
     }
 

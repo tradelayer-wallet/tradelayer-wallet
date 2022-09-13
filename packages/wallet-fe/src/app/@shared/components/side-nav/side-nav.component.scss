@@ -1,4 +1,7 @@
 mat-drawer-container {
+    mat-drawer-content {
+        overflow: unset;
+    }
     mat-drawer {
         position: fixed;
         height: 100%;

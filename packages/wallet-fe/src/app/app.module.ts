@@ -6,7 +6,6 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
 
-import { CoreModule } from './@core/core.module';
 import { PagesModule } from './@pages/pages.module';
 import { SharedModule } from './@shared/shared.module';
 import { ThemeModule } from './@theme/theme.module';
@@ -23,15 +22,13 @@ const NG_MODULES = [
 ];
 
 const toastrOptionsObject = {
+  positionClass: 'custom-toastr',
   maxOpened: 8,
-  newestOnTop: true,
-  positionClass: 'toast-bottom-right',
-  preventDuplicates: false,
   timeOut: 3000,
+  countDuplicates: true,
 };
 
 const TL_MODULES = [
-  CoreModule,
   PagesModule,
   SharedModule,
   ThemeModule,

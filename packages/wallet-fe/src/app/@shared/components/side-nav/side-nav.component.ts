@@ -10,7 +10,6 @@ import { MenuService } from 'src/app/@core/services/menu.service';
 export class SideNavComponent implements AfterViewInit {
   @ViewChild('sideNav') sideNav: any;
 
-
   constructor(
     private menuService: MenuService,
     private dialogService: DialogService,

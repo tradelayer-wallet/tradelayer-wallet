@@ -1,13 +1,14 @@
-import { App, app, BrowserWindow, globalShortcut, ipcMain, dialog, ipcRenderer } from 'electron';
-import { AppImageUpdater, NsisUpdater, MacUpdater } from 'electron-updater';
-import { ChildProcess, fork } from 'child_process';
+import { App, app, BrowserWindow, globalShortcut, ipcMain, dialog } from 'electron';
+import { AutoUpdater } from './auto-updater';
+import { FastifyServer } from '../packages/wallet-server/src/fastify-server';
+
 import * as url from 'url';
 import * as path from 'path';
 
-class ElectronApp {
+export class ElectronApp {
     private app: App;
-    private serverProcess: ChildProcess;
     private autoUpdater: AutoUpdater;
+    private localServer: FastifyServer;
     public mainWindow: BrowserWindow | null = null;
 
     constructor(app: App) {
@@ -15,12 +16,16 @@ class ElectronApp {
         this.handleOnEvents();
         this.handleAngularSignals()
         this.disableSecurityWarnings();
-        this.serverProcess = fork(path.join(__dirname, './server/index.js'), ['args'], {
-            stdio: ['pipe', 'pipe', 'pipe', 'ipc']
-        });
+        this.startChildProcess();
+    }
 
-        this.serverProcess.on("message", (message: any) => console.log({message}));
-        this.serverProcess.send('init');
+    private startChildProcess() {
+        const { initLoclaServer } = require('../dist/server');
+        this.localServer = initLoclaServer(this.safeExist.bind(this));
+    }
+
+    private safeExist() {
+        if (this.mainWindow) this.mainWindow.destroy();
     }
 
     private handleAngularSignals() {
@@ -63,11 +68,6 @@ class ElectronApp {
 
         this.app.on('window-all-closed', async () => {
             if (process.platform !== 'darwin') app.quit();
-            await new Promise(res => {
-                this.serverProcess.on("exit", () => res(true));
-                setTimeout(() => res(true), 10000);
-            });
-            app.quit();
         });
 
         this.app.on('activate', () => {
@@ -95,14 +95,18 @@ class ElectronApp {
             this.mainWindow = null;
         });
 
-        this.mainWindow.on('close', async () => {
-            if (this.serverProcess?.connected) this.serverProcess.send('stop');
+        this.mainWindow.on('close', async (e) => {
+            e.preventDefault();
+            this.sendMessageToAngular('close-app', true);
+            this.localServer?.mainSocketService?.currentSocket?.connected
+                ? this.localServer.stop()
+                : this.safeExist();
         });
     }
 
 
     createMainWindow() {
-        this.serverProcess.send('start');
+        this.localServer.start();
         const windowOptions = {
             width: 1280,
             height: 800,
@@ -129,59 +133,6 @@ class ElectronApp {
 
     private disableSecurityWarnings() {
         process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
-    }
-}
-
-class AutoUpdater {
-    private autoUpdater: NsisUpdater | MacUpdater | AppImageUpdater;
-    private electronApp: ElectronApp;
-
-    constructor(app: ElectronApp) {
-        this.electronApp = app;
-        this.initAutoUpdater();
-        this.handleEvents();
-        this.check();
-    }
-
-    initAutoUpdater() {
-        this.autoUpdater = process.platform === "win32"
-        ? new NsisUpdater()
-        : process.platform === "darwin"
-            ? new MacUpdater()
-            : process.platform === "linux"
-                ? new AppImageUpdater()
-                : null;
-
-        if (!this.autoUpdater) return;
-        this.autoUpdater.autoDownload = false;
-        this.autoUpdater.setFeedURL({
-            owner: "valiopld",
-            repo: 'tradelayer-wallet',
-            provider: 'github',
-            user: 'valiopld',
-        });
-    }
-
-    handleEvents() {
-        if (!this.autoUpdater) return;
-        const e = 'update-app';
-        this.autoUpdater.on("error", (error) => this.electronApp.sendMessageToAngular(e, { state: 1, data: error }));
-        this.autoUpdater.on("checking-for-update", (data) => this.electronApp.sendMessageToAngular(e, { state: 2, data }));
-        this.autoUpdater.on("update-not-available", () => this.electronApp.sendMessageToAngular(e, { state: 3, data: null }));
-        this.autoUpdater.on("update-available", () => this.electronApp.sendMessageToAngular(e, { state: 4, data: null }));
-        this.autoUpdater.on("download-progress", () => this.electronApp.sendMessageToAngular(e, { state: 5, data: null }));
-        this.autoUpdater.on("update-downloaded", () => {
-            this.electronApp.sendMessageToAngular(e, { state: 6, data: null });
-            this.autoUpdater.quitAndInstall(true, true);
-        });
-    }
-
-    async download() {
-        this.autoUpdater.downloadUpdate();
-    }
-
-    async check() {
-        this.autoUpdater.checkForUpdates();
     }
 }
 

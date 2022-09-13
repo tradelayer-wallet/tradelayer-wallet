@@ -1,24 +1,17 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
+import { AuthGuard } from './@core/guards/auth.guard';
+import { RPCGuard } from './@core/guards/rpc.guard';
 
 import { HomePageComponent } from './@pages/home-page/home-page.component';
 import { LoginPageComponent } from './@pages/login-page/login-page.component';
-import { SpotPageComponent } from './@pages/spot-page/spot-page.component';
-import { FuturesPageComponent } from './@pages/futures-page/futures-page.component';
 import { PortfolioPageComponent } from './@pages/portfolio-page/portfolio-page.component';
-import { SettingsPageComponent } from './@pages/settings-page/settings-page.component';
-import { MultisigPageComponent } from './@pages/multisig-page/multisig-page.component';
-import { NodeRewardPageComponent } from './@pages/node-reward/reward-page.component';
-
-import { RPCGuard } from './@core/guards/rpc.guard';
-import { AuthGuard } from './@core/guards/auth.guard';
-import { SyncedGuard } from './@core/guards/sync.guard';
-import { LiquidityProviderPageComponent } from './@pages/liquidity-provider/liquidity-provider.component';
+import { SpotPageComponent } from './@pages/spot-page/spot-page.component';
 
 export const routes: Routes = [
   {
     path: '',
-    canActivate: [ RPCGuard ], 
+    canActivate: [RPCGuard],
     children: [
       {
         path: '',
@@ -29,38 +22,14 @@ export const routes: Routes = [
         component: LoginPageComponent,
       },
       {
-        path: 'spot',
-        component: SpotPageComponent,
-        canActivate: [AuthGuard, SyncedGuard]
-      },
-      {
-        path: 'futures',
-        component: FuturesPageComponent,
-        canActivate: [AuthGuard, SyncedGuard]
-      },
-      {
         path: 'portfolio',
         component: PortfolioPageComponent,
         canActivate: [AuthGuard],
       },
       {
-        path: 'settings',
-        component: SettingsPageComponent,
-        canActivate: [AuthGuard, SyncedGuard],
-      },
-      {
-        path: 'multisig',
-        component: MultisigPageComponent,
-      },
-      {
-        path: 'reward',
-        component: NodeRewardPageComponent,
-        canActivate: [AuthGuard, SyncedGuard],
-      },
-      {
-        path: 'liquidity-provider',
-        component: LiquidityProviderPageComponent,
-        canActivate: [AuthGuard, SyncedGuard],
+        path: 'spot',
+        component: SpotPageComponent,
+        canActivate: [AuthGuard],
       },
       {
         path: '**',

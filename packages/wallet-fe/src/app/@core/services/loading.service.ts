@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
 
-type TLoadings = 'tradesLoading' | 'isLoading';
+type TLoadings = 'tradesLoading';
 
 @Injectable({
     providedIn: 'root',
@@ -27,15 +27,15 @@ export class LoadingService {
     }
 
     set tradesLoading(value: boolean) {
-        if(value === true) this._setMaxLoadingTime('tradesLoading', 100000);
+        if(value === true) this._setMaxLoadingTime('tradesLoading', 60000);
         this._tradesLoading = value;
     }
 
     private _setMaxLoadingTime(loading: TLoadings, ms: number) {
         setTimeout(() => {
-            if (this[loading] === true) {
+            if (this?.[loading] === true) {
                 this[loading] = false;
-                this.toastrService.warning(`Loading Warning`, "Warning");
+                this.toastrService.warning(`Loading Warning`, "Something goes Wrong");
             }
         }, ms);
     }

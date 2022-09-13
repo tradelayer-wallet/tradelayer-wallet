@@ -22,13 +22,43 @@
             button {
                 margin-top: 1rem
             }
+            .message {
+                text-align: center;
+                color: red;
+                min-height: 1.25rem;
+            }
+        }
+        .content-container-not-started {
+            display: flex !important;
+            flex-direction: column !important;
+            padding-top: 1rem;
+            .advanced {
+                display: flex;
+                align-items: center;
+                padding: 0 0.75rem;
+                margin-top: 1rem;
+                span {
+                    font-size: 0.75rem;
+                    cursor: pointer;
+                }
+                mat-icon {
+                    margin-right: 0.5rem;
+                    transform: scale(0.75);
+                    cursor: pointer;
+                }
+            }
+            .advaned-options {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                padding: 0 2rem;
+            }
+            button {
+                background-color: var(--mossGreen);
+            }
         }
     }
-    .message {
-        text-align: center;
-        color: red;
-        min-height: 1.25rem;
-    }
+
 }
 
 ::ng-deep mat-progress-bar {

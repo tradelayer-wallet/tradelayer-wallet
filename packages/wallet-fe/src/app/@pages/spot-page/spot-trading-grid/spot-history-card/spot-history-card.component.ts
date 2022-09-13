@@ -4,8 +4,8 @@ import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-
 
 @Component({
   selector: 'tl-spot-history-card',
-  templateUrl: '../../../shared/trading-grid/history/shared-history-card.component.html',
-  styleUrls: ['../../../shared/trading-grid/history/shared-history-card.component.scss'],
+  templateUrl: './shared-history-card.component.html',
+  styleUrls: ['./shared-history-card.component.scss'],
 })
 export class SportHistoryCardComponent {
     displayedColumns: string[] = ['price', 'amount', 'total', 'txid'];

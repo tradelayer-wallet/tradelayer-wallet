@@ -4,6 +4,10 @@
 # The script could take around 2-3 minutes
 
 #Ask the user about the OS
+
+#If throw an error uncomment next line and try again
+#export NODE_OPTIONS=--openssl-legacy-provider
+
 echo Please select OS you are using [w: Windows, l: Linux, m: MAC ]
 read osvar
 if [[ $osvar != "w" && $osvar != "l" && $osvar != "m" ]]; then

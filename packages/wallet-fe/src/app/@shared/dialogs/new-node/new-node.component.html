@@ -1,12 +1,10 @@
 <div class="dialog-container">
-    <h1>Initialize New Node</h1>
+    <h1>Create Config File</h1>
     <mat-dialog-content class="mat-typography">
         <div class="content-container">
-            <!-- <mat-checkbox disabled style='margin: 0.25rem 0' [(ngModel)]='defaultDirectoryCheckbox'> Default Directory (recommended) </mat-checkbox>
-            <mat-form-field class="example-form-field" *ngIf='!defaultDirectoryCheckbox'>
-                <mat-label>Path Directory</mat-label>
-                <input matInput [(ngModel)]='directory'>
-            </mat-form-field> -->
+            <div class="directory">
+                {{ path.length > 20 ? "..." + path.slice(-30) + '\\litecoin.conf' : path  + '\\litecoin.conf' }}
+            </div>
             <mat-form-field class="example-form-field">
                 <mat-label>Port</mat-label>
                 <input matInput type="number" [(ngModel)]='port'>
@@ -25,14 +23,12 @@
                 <mat-label>Re-Password</mat-label>
                 <input matInput type="password" [(ngModel)]='repassword'>
             </mat-form-field>
-
-            <p class='message'> {{ message }}</p>
             <button
                 [disabled]='buttonDisabled'
                 mat-button
                 (click)='create()'
                 class='create-button'
-            >Start</button>
+            >Create</button>
         </div>
     </mat-dialog-content>
 </div>

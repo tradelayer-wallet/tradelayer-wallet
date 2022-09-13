@@ -1,18 +1,67 @@
 <custom-window title='Synchronization'>
     <div class="dialog-container">
         <mat-dialog-content class="mat-typography">
-            <div class="content-container">
-                <p class='synced' *ngIf="isSynced || isOffline">{{ isOffline ? "Offline Wallet" : "Full Syncrhonized" }} </p>
-                <span class='information' *ngIf="!isSynced && !isOffline">{{ eta }}</span>
-                <mat-progress-bar *ngIf="!isOffline" mode="determinate" [value]="readyPercent"></mat-progress-bar>
-                <span class='blocks-span' *ngIf="!isOffline"> {{ nodeBlock }} / {{ networkBlocks }} </span>
-                <p class='message'> {{ message }}</p>
+            <div class="content-container" *ngIf="coreStarted">
+                <p class='synced' *ngIf="isSynced && nodeBlock && networkBlocks">{{ "Full Synchronized" }} </p>
+                <span class='information' *ngIf="!isSynced || !nodeBlock || !networkBlocks">{{ eta }}</span>
+                <mat-progress-bar mode="determinate" [value]="readyPercent"></mat-progress-bar>
+                <span class='blocks-span'> {{ nodeBlock }} / {{ networkBlocks }} </span>
+                <div class="message" *ngIf="message"> {{ message }}</div>
                 <button
                     color="warn"
                     mat-button
+                    [disabled]="!isAbleToRpc"
                     (click)='terminate()'
-                    [disabled]='terminateDisabled'
                 >Terminate</button>
+            </div>
+            <div class="content-container-not-started" *ngIf="!coreStarted">
+                <div style='display: flex; align-items: center; justify-content: space-between;'>
+                    <mat-checkbox
+                        color='primary'
+                        style='margin: 0.25rem 1rem'
+                        [(ngModel)]='defaultDirectoryCheckbox'
+                    >Default Directory</mat-checkbox>
+                    <button
+                        [ngStyle]="{ visibility: defaultDirectoryCheckbox ? 'hidden' : 'visible' }"
+                        style='margin: 0.5rem 0; background: lightsteelblue; max-width: 8rem;'
+                        mat-button
+                        (click)='openDirSelectDialog()'
+                    >Select Directory</button>
+                </div>
+                <span style="text-align: center; width: 100%;">
+                    {{ directory.length > 30 ? "..." + directory.slice(-30) : directory }}
+                </span>
+                <mat-form-field appearance="fill" >
+                    <mat-label>Network</mat-label>
+                    <mat-select [(ngModel)]="network">
+                        <mat-option value="LTC">Litecoin</mat-option>
+                        <mat-option value="LTCTEST">Litecoin Testnet</mat-option>
+                    </mat-select>
+                </mat-form-field>
+                <div class="advanced">
+                    <mat-icon (click)="toggleAdvanced()">
+                        {{ showAdvanced ? "arrow_drop_up" : "arrow_drop_down" }}
+                    </mat-icon>
+                    <span (click)="toggleAdvanced()">Advanced Options</span>
+                </div>
+                <div class="advaned-options" *ngIf="showAdvanced">
+                    <mat-checkbox
+                        color='primary'
+                        style='margin: 0.25rem 1rem'
+                        [(ngModel)]='reindex'
+                    >-reindex</mat-checkbox>
+                    <mat-checkbox
+                        color='primary'
+                        style='margin: 0.25rem 1rem'
+                        [(ngModel)]='startclean'
+                    >-startclean</mat-checkbox>
+                </div>
+                <button
+                    style='margin: 0.5rem 0;'
+                    class='greenButton'
+                    mat-button
+                    (click)="startWalletNode()"
+                >Start Node</button>
             </div>
         </mat-dialog-content>
     </div>

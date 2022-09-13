@@ -22,17 +22,17 @@ export class RescanDialog {
     ) { }
 
     async rescan() {
-        this.scannign = true;
-        const rbRes = await this.rpcService.rpc('rescanblockchain');
+        // this.scannign = true;
+        // const rbRes = await this.rpcService.rpc('rescanblockchain');
 
-        if (rbRes.error || !rbRes.data) {
-            this.toastrService.error(rbRes.error || 'Error with Blockchain Rescan!', 'Error');
-            this.scannign = false;
-            return;
-        }
-        const { key, pass } = this.data;
-        if (key && pass) this.authService.loginFromKeyFile(this.data.key, this.data.pass);
-        this.close();
+        // if (rbRes.error || !rbRes.data) {
+        //     this.toastrService.error(rbRes.error || 'Error with Blockchain Rescan!', 'Error');
+        //     this.scannign = false;
+        //     return;
+        // }
+        // const { key, pass } = this.data;
+        // if (key && pass) this.authService.loginFromKeyFile(this.data.key, this.data.pass);
+        // this.close();
     }
 
     close() {

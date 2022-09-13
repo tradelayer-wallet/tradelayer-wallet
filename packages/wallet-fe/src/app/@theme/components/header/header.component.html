@@ -6,38 +6,27 @@
                 <img src='./assets/tl-logo.svg'>
             </button>
         </div>
-
         <span class="spacer"></span>
-
-        <div class="right-side">
-            <div class='address' *ngIf='publicAddress && isLoggedIn'>
-                <span class='main-address' (click)='copyToClipboard(publicAddress)'> {{ publicAddress }}  </span>
-                <div class="all-addresses" *ngIf="allMainAddresses?.length > 1">
-                    <div
-                        class="sub-address"
-                        *ngFor="let kp of allMainAddresses"
-                        (click)="setMainAddress(kp)"
-                    >
-                        {{ kp.address }}
-                    </div>
-                </div>
-                <span 
-                    class='balance'
-                    (click)='updateBalance()'
-                >
-                    ({{ getAvailableBalance() }})
+        <div class="right-side" *ngIf="isLoggedIn">
+            <div class="balance" (click)='updateBalance()'>
+                <span>Balance: </span>
+                <span class="balance-span" *ngIf="!balanceLoading">
+                    {{ availableBalance }} LTC
+                </span>
+                <span class="balance-span" *ngIf="balanceLoading">
+                    <mat-spinner diameter="25"></mat-spinner>
                 </span>
             </div>
-            <button mat-icon-button (click)='isLoggedIn ? logOut() : navigateToLoginRoute()'>
-                <mat-icon>{{ isLoggedIn ? 'logout' : 'login' }}</mat-icon>
-            </button>
         </div>
 
+        <button mat-icon-button (click)='isLoggedIn ? logOut() : navigateToLoginRoute()'>
+            <mat-icon>{{ isLoggedIn ? 'logout' : 'login' }}</mat-icon>
+        </button>
     </mat-toolbar-row>
 </mat-toolbar>
 
 <div class="nav-container">
-    <nav mat-tab-nav-bar  mat-align-tabs="center">
+    <nav mat-tab-nav-bar mat-align-tabs="center">
         <a
             *ngFor='let route of mainRoutes'
             mat-tab-link

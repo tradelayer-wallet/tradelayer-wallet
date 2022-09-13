@@ -1,71 +1,73 @@
 import { Injectable } from "@angular/core";
-import { HttpClient, HttpHeaders } from "@angular/common/http";
+import { ToastrService } from "ngx-toastr";
 import { ApiService } from "./api.service";
 import { SocketService } from "./socket.service";
-import { DialogService, DialogTypes } from "./dialogs.service";
-import { ToastrService } from "ngx-toastr";
-// import { WindowsService } from "./windows.service";
+import { DialogService } from "./dialogs.service";
 import { LoadingService } from "./loading.service";
+import { BehaviorSubject } from "rxjs";
 
-export type TNETWORK = 'LTC' | 'LTCTEST' | 'BTC' | 'BTCTEST';
-
-export interface RPCCredentials {
-  host: string,
-  port: number,
-  username: string,
-  password: string,
-};
-
+export type TNETWORK = 'LTC' | 'LTCTEST' | null;
 export enum ENetwork {
-  BTC = 'BTC',
   LTC = 'LTC',
-  BTCTEST = 'BTCTEST',
   LTCTEST = 'LTCTEST',
 };
 
+export interface IBlockSubsObj {
+  type: "API" | "LOCAL";
+  block: number;
+}
+
 @Injectable({
     providedIn: 'root',
-  })
+})
 
 export class RpcService {
-    private _isConnected: boolean = false;
-    private _isSynced: boolean = false;
-    private _isApiRPC: boolean = true;
+  private _NETWORK: TNETWORK = null;
+  private _stoppedByTerminated: boolean = false;
 
-    private rpcHost: string = '';
-    private authToken: string = '';
-    private _NETWORK: TNETWORK = "LTC";
-    public isAbleToRpc: boolean = false;
-    public isOffline: boolean = false;
-    public myVersion: string = 'Unknown';
-  
+  isCoreStarted: boolean = false;
+  isAbleToRpc: boolean = false;
+  lastBlock: number = 0;
+  networkBlocks: number = 0;
+  isNetworkSelected: boolean = false;
+
+  blockSubs$: BehaviorSubject<IBlockSubsObj> = new BehaviorSubject({
+    type: this.isApiMode ? "API" : "LOCAL",
+    block: this.isApiMode ? this.networkBlocks : this.lastBlock,
+  });
+
     constructor(
-      private http: HttpClient,
       private apiService: ApiService,
       private socketService: SocketService,
       private dialogService: DialogService,
-      private toasterService: ToastrService,
+      private toastrService: ToastrService,
       private loadingService: LoadingService,
-    ) {
-      this.socket.on("rpc-connection-error", (error: string) => {
-        if (!this.isConnected) return;
-        this.toasterService.error(error || `Undefined Error!`, `RPC Connection Error!.`);
-        this.clearRPC();
+    ) {}
+
+    onInit() {
+      this.socket.on('core-error', error => {
+        this.clearRpcConnection();
+        if (!this._stoppedByTerminated) {
+          this.toastrService.error(error || 'Undefiend Reason', 'Core Stopped Working');
+        } else {
+          this.toastrService.success(error || 'Core Stopped Successfull');
+          this._stoppedByTerminated = false;
+          this.loadingService.isLoading = false;
+        }
       });
-            
-      this.socket.on("local-node-stopped", (error: string) => {
-        this.toasterService.error(error || `Undefined Error!`, `Local Node stopped working.`);
-        if (this.isConnected) this.clearRPC();
+
+      this.socket.on('new-block', lastBlock => {
+        console.log(`New Node Block: ${lastBlock}`);
+        this.lastBlock = lastBlock;
+        const blockSubsObj: IBlockSubsObj = { type: "LOCAL", block: lastBlock };
+        this.blockSubs$.next(blockSubsObj);
       });
+
+      setInterval(() => this.checkNetworkInfo(), 5000);
     }
 
-    get isApiRPC() {
-      if (this.isOffline) return false;
-      return this._isApiRPC;
-    }
-
-    set isApiRPC(value: boolean) {
-      this._isApiRPC = value;
+    get isSynced() {
+      return this.lastBlock + 1 >= this.networkBlocks;
     }
 
     get NETWORK() {
@@ -75,69 +77,51 @@ export class RpcService {
     set NETWORK(value: TNETWORK) {
       this.apiService._setNETOWRK(value);
       this._NETWORK = value;
-    }
-
-    get isConnected() {
-        return this._isConnected;
-    }
-
-    set isConnected(value: boolean) {
-        this._isConnected = value;
-    }
-
-    get isSynced() {
-      return this._isSynced;
-    }
-
-    set isSynced(value: boolean) {
-      this._isApiRPC = !value;
-      this._isSynced = value;
+      this.checkNetworkInfo();
     }
 
     get socket() {
       return this.socketService.socket;
     }
 
-    get socketScriptApi() {
-      return this.apiService.socketScriptApi;
+    get mainApi() {
+      return this.apiService.mainApi;
     }
 
     get tlApi() {
       return this.apiService.tlApi;
     }
-
-    async saveConfigFile() {
-      const isTestNet = this.NETWORK.endsWith('TEST');
-      const res = await this.socketScriptApi.saveConfigFile(isTestNet).toPromise();
-    }
-
-    connect(credentials: RPCCredentials, network: TNETWORK) {
-      return new Promise(async (res, rej) => {
-        try {
-          const isReady = await this._sendCredsToHomeApi(credentials);
-          if (isReady) {
-            this._saveCreds(credentials);
-            this.NETWORK = network;
-          }
-          res(isReady);
-        } catch (error) {
-          rej(error);
-        }
-      })
-    }
-
-    private _sendCredsToHomeApi(credentials: RPCCredentials) {
-      return this.socketScriptApi.connect(credentials).toPromise();
+  
+    get isApiMode() {
+      return !this.isCoreStarted || !this.isSynced || !this.lastBlock;
     }
 
     async startWalletNode(
-        directory: string,
-        network: ENetwork,
-        flags: { reindex: boolean, startclean: boolean },
-        startWithOffline: boolean = false,
-      ) {
-      const res = await this.socketScriptApi.startWalletNode(directory, network, flags, startWithOffline).toPromise();
+      path: string,
+      network: ENetwork,
+      flags: { reindex: boolean, startclean: boolean },
+    ) {
+      this.NETWORK = network;
+      await this.tlApi.rpc('tl_getinfo').toPromise()
+        .then(res2 => {
+          if (res2.error || !res2.data) throw new Error(`${ res2.error || 'Undefined Error' }`);
+        })
+        .catch(error => {
+          throw new Error(`Error with Tradelayer API Server: ${error.message || error || 'Undefined Error'}`);
+        });
 
+<<<<<<< HEAD
+      return await this.mainApi
+        .startWalletNode(path, network, flags)
+        .toPromise()
+        .then(res => {
+          if (res.data) {
+            this.isCoreStarted = true;
+            this.dialogService.closeAllDialogs();
+          }
+          return res;
+        })
+=======
       const isTestNet = network.endsWith('TEST');
       if (res.error?.includes("Config file doesn't exist in")) {
         const dialogOptions = { disableClose: false, hasBackdrop: true, data: { directory, isTestNet, flags }};
@@ -156,91 +140,51 @@ export class RpcService {
       if (!connectRes) return { error: 'Unable to start local node. Probably already running' };
       this.dialogService.closeAllDialogs();
       return { data: connectRes };
+>>>>>>> master
     }
 
-    // async createNewNode(creds: { username: string, password: string, port: number, path: string }) {
-    //   const res = await this.socketScriptApi.createNewNode(creds).toPromise();
-    //   return res;
-    // }
-
-    async smartRpc(method: string, params: any[] = []) {
-      return this.isApiRPC
-        ? this.apiRpc(method, params)
-        : this.rpc(method, params);
+    async createNewNode(params: { username: string, password: string, port: number, path: string }) {
+      return await this.mainApi.createNewConfFile(params).toPromise();
     }
 
-    localRpcCall(method: string, params: any) {
-      return this.socketScriptApi.postRpcCall(method, params);
-    }
-
-    async apiRpc(method: string, params: any[] = []) {
+    private async checkNetworkInfo() {
+      if (!this.NETWORK) return;
       try {
-        const res = await this.tlApi.rpc(method, params).toPromise();
-        return res;
-      } catch (err: any) {
-        return { error: err.message || 'API-RPC: Undefined Error' };
+          const infoRes = await this.tlApi.rpc('tl_getinfo').toPromise();
+          if (infoRes.error || !infoRes.data) throw new Error(infoRes.error);
+          if (infoRes.data.block && infoRes.data.block !== this.networkBlocks) {
+            this.networkBlocks = infoRes.data.block;
+            const blockSubsObj: IBlockSubsObj = { type: "API", block: infoRes.data.block };
+            this.blockSubs$.next(blockSubsObj);
+            console.log(`New Network Block: ${this.networkBlocks}`);
+          }
+      } catch(err: any) {
+          this.toastrService.error(err.message || err || 'Undefined Error', 'Gettinf Network Block Error');
+          throw(err);
       }
     }
 
-    async rpc(method: string, params: any[] = []) {
-      try {
-        const url = this.rpcHost;
-        const authToken = this.authToken;
-        const id = Date.now();
-        const body = { id, method, params };
-        const headers = this._getHeaders(authToken);
-        const methodRes = await this.http.post(url, JSON.stringify(body), { headers })
-          .toPromise() as { error: any, result: any };
-        const { error, result } = methodRes;
-        if (error || !result) return { error: error.message || 'Error with RPC call' };
-        return { data: result };
-      } catch (err: any) {
-        return { error: err.error?.error?.message || 'Undefined Error' }
-      }
+    async terminateNode() {
+      return await this.mainApi.stopWalletNode().toPromise()
+        .then(res => {
+          this.clearRpcConnection();
+          this._stoppedByTerminated = true;
+          return res;
+        })
+        .catch(err => {
+          this.toastrService.error('Error with stopping Node', err?.message || err);
+        });
     }
 
-    async clearRPC() {
-      this.loadingService.isLoading = true;
-      if (this.isConnected) await this.socketScriptApi.terminate().toPromise();
-      this.isConnected = false;
-      this.isSynced = false;
+    private clearRpcConnection() {
       this.isAbleToRpc = false;
-      this.rpcHost = '';
-      this.authToken = '';
-      this.dialogService.closeAllDialogs();
-      this.dialogService.openDialog(DialogTypes.RPC_CONNECT);
-      this.NETWORK = 'LTC';
-      this.loadingService.isLoading = false;
+      this.isCoreStarted = false;
+      this.lastBlock = 0;
     }
 
-    private _saveCreds(credentials: RPCCredentials) {
-      this.isConnected = true;
-      const url = `http://${credentials.host}:${credentials.port}`;
-      this.rpcHost = url;
-      this.authToken = window.btoa(`${credentials.username}:${credentials.password}`);
+    rpc(method: string, params?: any[]) {
+      return this.isApiMode
+        ? this.tlApi.rpc(method, params).toPromise()
+        : this.mainApi.rpcCall(method, params).toPromise();
     }
-  
-    private _getHeaders(token: string) {
-      return new HttpHeaders().set('Authorization', `Basic ${token}`);
-    }
-
-    // async setEstimateFee() {
-    //   if (this.isApiRPC) return;
-    //   const estimateRes = await this.rpc('estimatesmartfee', [1]);
-    //   if (estimateRes.error || !estimateRes.data?.feerate) {
-    //     this.toasterService.warning('Error getting Estimate Fee');
-    //   }
-
-    //   const _feeRate = estimateRes.error || !estimateRes.data?.feerate
-    //     ? '0.001'
-    //     : estimateRes?.data?.feerate;
-
-    //   const feeRate = parseFloat((parseFloat(_feeRate) * 1000).toFixed(8));
-    //   const setFeeRes = await this.rpc('settxfee', [feeRate]);
-    //   if (!setFeeRes.data || setFeeRes.error) {
-    //     this.toasterService.error('Error with Setting Estimate Fee');
-    //     return { error: true, data: null };
-    //   }
-    //   return setFeeRes;
-    // }
   }

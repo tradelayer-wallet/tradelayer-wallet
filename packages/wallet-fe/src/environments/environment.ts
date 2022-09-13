@@ -1,3 +1,11 @@
+<<<<<<< HEAD
+import { ENDPOINTS } from "./endpoints.conf";
+export const environment = { 
+    production: true , 
+    homeApiUrl: "http://localhost:1986",
+    ENDPOINTS,
+};
+=======
 export const environment = {
   production: true,
   homeApiUrl: 'http://localhost:1986',
@@ -6,3 +14,4 @@ export const environment = {
   relayerUrl: 'http://170.75.174.87:9191',
   relayerUrlTestnet: 'http://ec2-13-40-194-140.eu-west-2.compute.amazonaws.com:9191',
 };
+>>>>>>> master

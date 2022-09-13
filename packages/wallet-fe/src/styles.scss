@@ -22,6 +22,7 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 
 body {
   background-color: var(--background);
+  min-width: 45rem;
 }
 
 * {
@@ -71,4 +72,18 @@ input[type=number] {
 
 ::-webkit-scrollbar-thumb:window-inactive {
   background: rgba(100,100,100,0.4); 
+}
+
+.custom-toastr {
+  top: 0%;
+  right: 0%;
+  width: 100%;
+  .ngx-toastr {
+    width: 100% !important;
+    padding: 0.75rem !important;
+    padding-left: 4rem !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
 }

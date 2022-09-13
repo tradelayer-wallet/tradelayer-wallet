@@ -9,16 +9,15 @@ import { TNETWORK } from "../services/rpc.service";
 })
 
 export class MarketApiService {
-    private NETWORK: TNETWORK = 'LTC';
+    private NETWORK: TNETWORK = null;
     
     constructor(
         private http: HttpClient,
     ) {}
 
     private get apiUrl() {
-        return this.NETWORK === "LTC"
-            ? environment.orderbook_service_url + '/markets/'
-            : environment.orderbook_service_url_testnet + '/markets/';
+        if (!this.NETWORK) return null;
+        return environment.ENDPOINTS[this.NETWORK].orderbookApiUrl + '/markets/';
     }
 
     _setNETWORK(value: TNETWORK) {
@@ -26,11 +25,13 @@ export class MarketApiService {
     }
 
     getSpotMarkets() {
+        if (!this.apiUrl) throw new Error("No Api Url found");
         return this.http.get(this.apiUrl + 'spot')
             .pipe(map((res: any) => res.data));
     }
 
     getFuturesMarkets() {
+        if (!this.apiUrl) throw new Error("No Api Url found");
         return this.http.get(this.apiUrl + 'futures')
             .pipe(map((res: any) => res.data));
     }

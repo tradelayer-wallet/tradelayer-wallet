@@ -1,14 +1,12 @@
-<tl-side-nav *ngIf='serverConnected;'>
-    <tl-layout *ngIf='isRPCConnected && isAbleToRpc'>
+<tl-side-nav *ngIf="isNetworkSelected" (keydown.shift.t)="openHiddenTerminal()">
+    <tl-layout>
         <router-outlet></router-outlet>
     </tl-layout>
-    <ng-container *ngIf='isRPCConnected'>
+    <ng-container>
         <ng-template *ngFor='let w of windows' [ngComponentOutlet]="w.component"></ng-template>
         <tl-info-line></tl-info-line>
     </ng-container>
 </tl-side-nav>
 
-<tl-disconnected-line serverType='LOCAL' *ngIf='!serverConnected'></tl-disconnected-line>
-<tl-disconnected-line serverType='API' *ngIf='serverConnected && !apiServerConnected && !isOffline && isRPCConnected'></tl-disconnected-line>
-
-<overlay-loading *ngIf='isLoading'></overlay-loading>
+<tl-disconnected-line *ngIf="!allConnected"></tl-disconnected-line>
+<overlay-loading *ngIf='isLoading || socketsLoading'></overlay-loading>

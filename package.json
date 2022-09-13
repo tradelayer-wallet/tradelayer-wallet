@@ -1,6 +1,6 @@
 {
   "name": "tradelayer-wallet",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Official Tradelayer Wallet",
   "author": "Valentin Peshev",
   "license": "ISC",
@@ -22,11 +22,17 @@
     "build:all:mac": "npm run fe:build && npm run server:build:mac && npm run electron:build"
   },
   "dependencies": {
-    "electron-updater": "^4.6.1"
+    "ecpair": "^2.0.1",
+    "electron-updater": "^4.6.1",
+    "tiny-secp256k1": "^2.2.1",
+    "tl-rpc": "^1.0.4"
   },
   "devDependencies": {
     "@types/node": "^14.17.5",
     "axios": "^0.24.0",
+    "bip32": "^3.0.1",
+    "bip39": "^3.0.4",
+    "bitcoinjs-lib": "^6.0.1",
     "copy-webpack-plugin": "^9.0.1",
     "electron": "^13.1.7",
     "electron-builder": "^22.11.7",
@@ -34,7 +40,6 @@
     "fastify": "^3.19.2",
     "kill-port": "^1.6.1",
     "litecoin": "^2.0.5",
-    "litecore-lib": "^0.13.22",
     "socket.io": "^4.1.3",
     "socket.io-client": "^4.1.3",
     "ts-loader": "^9.2.4",

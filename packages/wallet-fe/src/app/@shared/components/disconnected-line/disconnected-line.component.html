@@ -1,3 +1,11 @@
-<div class="disconnected-line">
-    Disconnected from the {{ serverType }} server. Please <span (click)='reconnect()'>CLICK</span> to reconnect!
+<div class="disconnected-line" *ngIf="!isOnlineConnected">
+    No Internet Connection! Please Check your Network Connection
+</div>
+
+<div class="disconnected-line" *ngIf="!isMainSocketConnected && isOnlineConnected">
+    No connection with local server of the wallet <span (click)="mainSocketReconenct()">Click</span> to reconnect
+</div>
+
+<div class="disconnected-line" *ngIf="isOnlineConnected && isMainSocketConnected">
+    Undefined Connection Error
 </div>

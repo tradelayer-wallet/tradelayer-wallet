@@ -3,12 +3,11 @@ import { FormBuilder, FormGroup } from '@angular/forms';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { first } from 'rxjs/operators';
-import { AddressService, IMultisigPair } from 'src/app/@core/services/address.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { PasswordDialog } from '../password/password.component';
 import { AuthService } from '../../../@core/services/auth.service';
-import { decryptKeyPair, encryptKeyPair } from '../../../utils/litecore.util';
+import { encrypt, decrypt } from '../../../utils/crypto.util';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 enum KeyTypes {
     HOT = 'HOT',
@@ -28,7 +27,7 @@ export class NewMultisigDialog implements OnInit {
     private mainForm: FormGroup = new FormGroup({});
 
     public errorMessage: string = ' ';
-    public multisigAddressData: IMultisigPair | undefined;
+    // public multisigAddressData: IMultisigPair | undefined;
     public validateInfo: string = '';
     constructor(
         @Inject(MAT_DIALOG_DATA) private data: any,
@@ -36,7 +35,6 @@ export class NewMultisigDialog implements OnInit {
         public matDialog: MatDialog,
         private rpcService: RpcService,
         private formBuilder: FormBuilder,
-        private addressService: AddressService,
         private toastrService: ToastrService,
         private loadingService: LoadingService,
         private authService: AuthService,
@@ -44,7 +42,7 @@ export class NewMultisigDialog implements OnInit {
     ) { }
 
     get keyPair(){
-        return this.addressService.activeKeyPair;
+        return this.authService.activeMainKey;
     }
 
     get activeKeys(): any[] {
@@ -124,7 +122,7 @@ export class NewMultisigDialog implements OnInit {
             return;
         } 
         key.type = value;
-        if (value === KeyTypes.HOT) key.pubkey = this.keyPair?.pubKey;
+        if (value === KeyTypes.HOT) key.pubkey = this.keyPair?.pubkey;
         if (value === KeyTypes.AIRGAP) key.pubkey = '';
     }
 
@@ -157,61 +155,61 @@ export class NewMultisigDialog implements OnInit {
     }
 
     async create() {
-        this.loadingService.isLoading = true;
-        this.validateInfo = '';
-        this.errorMessage = ' ';
-        const pubkeys = this.mainForm.value.keys.map((e: any) => e.pubkey);
-        const createRes = await this.rpcService.rpc('addmultisigaddress', [this.nRequired, pubkeys]);
+        // this.loadingService.isLoading = true;
+        // this.validateInfo = '';
+        // this.errorMessage = ' ';
+        // const pubkeys = this.mainForm.value.keys.map((e: any) => e.pubkey);
+        // const createRes = await this.rpcService.rpc('addmultisigaddress', [this.nRequired, pubkeys]);
 
-        if (createRes.error || !createRes.data) {
-            this.errorMessage = createRes.error;
-            this.loadingService.isLoading = false;
-            return;
-        }
+        // if (createRes.error || !createRes.data) {
+        //     this.errorMessage = createRes.error;
+        //     this.loadingService.isLoading = false;
+        //     return;
+        // }
 
-        this.multisigAddressData = createRes.data;
-        this.validateInfo = JSON.stringify(createRes.data, null, 4);
-        const validateRes = await this.rpcService.rpc('validateaddress', [createRes.data.address]);
+        // this.multisigAddressData = createRes.data;
+        // this.validateInfo = JSON.stringify(createRes.data, null, 4);
+        // const validateRes = await this.rpcService.rpc('validateaddress', [createRes.data.address]);
 
-        if (validateRes.error || !validateRes.data) {
-            this.errorMessage = validateRes.error;
-            this.loadingService.isLoading = false;
-            return;
-        }
-        if (this.multisigAddressData) {
-            this.validateInfo += JSON.stringify(validateRes.data, null, 4);
-            this.multisigAddressData.nRequired = this.nRequired;
-            this.multisigAddressData.nAllKeys = this.nAllKeys;
-            this.multisigAddressData.keys = validateRes.data.embedded.pubkeys;
-        }
-        this.loadingService.isLoading = false;
+        // if (validateRes.error || !validateRes.data) {
+        //     this.errorMessage = validateRes.error;
+        //     this.loadingService.isLoading = false;
+        //     return;
+        // }
+        // if (this.multisigAddressData) {
+        //     this.validateInfo += JSON.stringify(validateRes.data, null, 4);
+        //     this.multisigAddressData.nRequired = this.nRequired;
+        //     this.multisigAddressData.nAllKeys = this.nAllKeys;
+        //     this.multisigAddressData.keys = validateRes.data.embedded.pubkeys;
+        // }
+        // this.loadingService.isLoading = false;
     }
 
     async save() {
-        const passDialog = this.matDialog.open(PasswordDialog);
-        const password = await passDialog.afterClosed()
-            .pipe(first())
-            .toPromise();
-        if (!password) return;
-        const encKey = this.authService.encKey;
-        const decryptResult = decryptKeyPair(encKey, password);
-        if (!decryptResult) {
-            this.toastrService.error('Wrong Password', 'Error');
-        } else {
-            if (this.multisigAddressData) {
-                this.addressService.addMultisigAddress(this.multisigAddressData);
-                const allKeyParis = [
-                    ...this.addressService.keyPairs, 
-                    ...this.addressService.multisigPairs, 
-                    ...this.addressService.rewardAddresses,
-                    ...this.addressService.liquidityAddresses,
-                ];
-                this.authService.encKey = encryptKeyPair(allKeyParis, password);
-                this.dialogService.openEncKeyDialog(this.authService.encKey);
-                this.close();
-            }
+        // const passDialog = this.matDialog.open(PasswordDialog);
+        // const password = await passDialog.afterClosed()
+        //     .pipe(first())
+        //     .toPromise();
+        // if (!password) return;
+        // const encKey = this.authService.encKey;
+        // const decryptResult = decryptKeyPair(encKey, password);
+        // if (!decryptResult) {
+        //     this.toastrService.error('Wrong Password', 'Error');
+        // } else {
+        //     if (this.multisigAddressData) {
+        //         this.addressService.addMultisigAddress(this.multisigAddressData);
+        //         const allKeyParis = [
+        //             ...this.addressService.keyPairs, 
+        //             ...this.addressService.multisigPairs, 
+        //             ...this.addressService.rewardAddresses,
+        //             ...this.addressService.liquidityAddresses,
+        //         ];
+        //         this.authService.encKey = encryptKeyPair(allKeyParis, password);
+        //         this.dialogService.openEncKeyDialog(this.authService.encKey);
+        //         this.close();
+        //     }
 
-        }
+        // }
     }
 
     close() {

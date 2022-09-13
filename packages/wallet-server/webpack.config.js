@@ -6,7 +6,7 @@ const webpack = require('webpack');
 const osPATH = {
   WINDOWS: [
     path.resolve(__dirname, 'src', 'core', 'litecoind.exe'),
-    path.resolve(__dirname, 'src', 'core', 'bitcoind.exe'),
+    // path.resolve(__dirname, 'src', 'core', 'bitcoind.exe'),
   ],
   LINUX: [
     path.resolve(__dirname, 'src', 'core', 'litecoind'),
@@ -18,7 +18,6 @@ const osPATH = {
 
 module.exports = (env) => {
   const { os } = env;
-  const osList = ["WINDOWS", "LINUX", "MAC"];
   if (!os || !osPATH[os] ) return;
   const fromPath = osPATH[os];
 
@@ -70,7 +69,8 @@ module.exports = (env) => {
       'long',
       'pino-pretty',
       'bufferutil',
-      'utf-8-validate'
+      'utf-8-validate',
+      'tiny-secp256k1',
     ],
     optimization: {
       minimizer: [
