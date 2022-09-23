@@ -31,22 +31,20 @@ table {
         background-color: var(--darkBlue2);
     }
 
-    td.mat-column-actions {
-        mat-icon {
-            cursor: pointer;
-        }
-    }
+    td.mat-column-side {
+        min-width: 2rem;
 
-    td.mat-column-sender,
-    td.mat-column-channel,
-    td.mat-column-property,
+    }
+    td.mat-column-price,
     td.mat-column-amount,
-    td.mat-column-block {
-        min-width: 4rem;
+    td.mat-column-total {
+        min-width: 3rem;
     }
 
-    td.mat-column-sender,
-    td.mat-column-channel {
+    td.mat-column-buyer,
+    td.mat-column-seller,
+    td.mat-column-txid {
+        min-width: 4rem;
         span {
             cursor: pointer;
         }

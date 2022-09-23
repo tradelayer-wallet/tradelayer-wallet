@@ -18,14 +18,13 @@ export class SportHistoryCardComponent {
     get tradeHistory() {
         return this.spotOrderbookService.tradeHistory   
             .map(trade => {
-                const {amountForSale, amountDesired, txid } = trade;
-                const price = parseFloat((amountForSale / amountDesired).toFixed(4));
-                return { price, txid, amount: parseFloat(amountDesired) };
+                const {amountForSale, amountDesired, txid, price } = trade;
+                return { price, txid, amount: amountDesired, total: amountForSale };
             }).splice(0, 10);
     }
 
     copy(text: string) {
         navigator.clipboard.writeText(text);
-        this.toastrService.info('Transaction Id Copied to clipboard', 'Copied')
+        this.toastrService.info(`Transaction Id Copied to clipboard: ${text}`, 'Copied')
     }
 }

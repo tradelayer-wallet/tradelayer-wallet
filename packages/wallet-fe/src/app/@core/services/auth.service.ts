@@ -197,6 +197,7 @@ export class AuthService {
         this._walletKeys = JSON.parse(JSON.stringify(defaultWalletObj));
         this.walletObjRaw = JSON.parse(JSON.stringify(this.defaultWalletObjRaw));
         this.encKey = '';
+        this.savedFromUrl = '';
         this.router.navigateByUrl('login');
         this.updateAddressesSubs$.next(this.listOfallAddresses);
     }

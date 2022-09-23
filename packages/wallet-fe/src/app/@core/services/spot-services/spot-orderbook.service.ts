@@ -4,6 +4,17 @@ import { SpotMarketsService } from "./spot-markets.service";
 import { obEventPrefix, SocketService } from "../socket.service";
 import { ToastrService } from "ngx-toastr";
 import { LoadingService } from "../loading.service";
+import { AuthService } from "../auth.service";
+
+export interface IHistoryTrade {
+    amountDesired: number;
+    amountForSale: number;
+    price: number;
+    txid: string;
+    buyerAddress: string;
+    sellerAddress: string;
+    side?: string;
+}
 
 export interface ISpotOrder {
     action: "SELL" | "BUY",
@@ -33,7 +44,7 @@ export class SpotOrderbookService {
     outsidePriceHandler: Subject<number> = new Subject();
     buyOrderbooks: { amount: number, price: number }[] = [];
     sellOrderbooks: { amount: number, price: number }[] = [];
-    tradeHistory: any[] = [];
+    tradeHistory: IHistoryTrade[] = [];
     currentPrice: number = 1;
 
     constructor(
@@ -41,7 +52,16 @@ export class SpotOrderbookService {
         private spotMarkertService: SpotMarketsService,
         private toastrService: ToastrService,
         private loadingService: LoadingService,
+        private authService: AuthService,
     ) {}
+
+    get activeSpotKey() {
+        return this.authService.activeSpotKey;
+    }
+
+    get activeSpotAddress() {
+        return this.activeSpotKey?.address;
+    }
 
     get selectedMarket() {
         return this.spotMarkertService.selectedMarket;
@@ -49,6 +69,13 @@ export class SpotOrderbookService {
 
     get rawOrderbookData() {
         return this._rawOrderbookData;
+    }
+
+    get relatedHistoryTrades() {
+        if (!this.activeSpotAddress) return [];
+        return this.tradeHistory
+            .filter(e => e.sellerAddress === this.activeSpotAddress || e.buyerAddress === this.activeSpotAddress)
+            .map(t => ({...t, side: t.buyerAddress === this.activeSpotAddress ? 'BUY' : 'SELL'})) as IHistoryTrade[];
     }
 
     set rawOrderbookData(value: ISpotOrder[]) {
@@ -80,19 +107,16 @@ export class SpotOrderbookService {
             this.socket.emit('update-orderbook', this.marketFilter)
         });
 
-        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: ISpotOrder[]) => {
-            this.rawOrderbookData = orderbookData;
-        });
-
-        this.socket.on(`${obEventPrefix}::trade-history`, (tradesHistory: any) => {
-            this.tradeHistory = tradesHistory;
+        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: { orders: ISpotOrder[], history: IHistoryTrade[] }) => {
+            this.rawOrderbookData = orderbookData.orders;
+            this.tradeHistory = orderbookData.history;
         });
 
         this.socket.emit('update-orderbook', this.marketFilter);
     }
 
     endOrderbookSbuscription() {
-        ['update-orders-request', 'orderbook-data', 'trade-history', 'order:error', 'order:saved']
+        ['update-orders-request', 'orderbook-data', 'order:error', 'order:saved']
             .forEach(m => this.socket.off(`${obEventPrefix}::${m}`));
     }
 

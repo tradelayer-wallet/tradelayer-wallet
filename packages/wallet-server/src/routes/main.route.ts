@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { fasitfyServer } from "../index";
 import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
-import { buildTx, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
+import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
 
 export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
@@ -70,6 +70,19 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const { isApiMode } = request.body as { isApiMode: boolean };
             const txConfig = { fromKeyPair, toKeyPair, payload, amount, inputs, addPsbt, network };
             const hexResult = await buildTx(txConfig, isApiMode);
+            reply.status(200).send(hexResult);
+        } catch (error) {
+            reply.status(500).send({ error: error.message || 'Undefined Error' })
+        }
+    });
+
+
+    fastify.post('build-ltcit-tx', async (request, reply) => {
+        try {
+            const { buyerKeyPair, sellerKeyPair, payload, amount, commitUTXO, network } = request.body as IBuildLTCITTxConfig;
+            const { isApiMode } = request.body as { isApiMode: boolean };
+            const txConfig = { buyerKeyPair, sellerKeyPair, payload, amount, commitUTXO, network };
+            const hexResult = await buildLTCInstatTx(txConfig, isApiMode);
             reply.status(200).send(hexResult);
         } catch (error) {
             reply.status(500).send({ error: error.message || 'Undefined Error' })

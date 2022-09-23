@@ -26,6 +26,21 @@ export interface IBuildTxConfig {
     network?: string;
 };
 
+export interface IBuildLTCITTxConfig {
+    buyerKeyPair: {
+        address: string;
+        pubkey?: string;
+    };
+    sellerKeyPair: {
+        address: string;
+        pubkey?: string;
+    };
+    amount: number;
+    payload: string;
+    commitUTXO: IInput,
+    network: string;
+}
+
 export interface ISignTxConfig {
     rawtx: string;
     wif: string;
@@ -64,6 +79,59 @@ export const smartRpc: TClient = async (method: string, params: any[] = [], api:
         } else {
             return { error: `Relayer API url not found` };
         }
+    }
+};
+
+export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode: boolean) => {
+    try {
+        const { buyerKeyPair, sellerKeyPair, amount, payload, commitUTXO, network } = txConfig;
+        const buyerAddress = buyerKeyPair.address;
+        const sellerAddress = sellerKeyPair.address;
+        const vaRes1 = await smartRpc('validateaddress', [buyerAddress], isApiMode);
+        if (vaRes1.error || !vaRes1.data?.isvalid) throw new Error(`validateaddress: ${vaRes1.error}`);
+        const vaRes2 = await smartRpc('validateaddress', [sellerAddress], isApiMode);
+        if (vaRes2.error || !vaRes2.data?.isvalid) throw new Error(`validateaddress: ${vaRes2.error}`);
+    
+        const luRes = await smartRpc('listunspent', [0, 999999999, [buyerAddress]], true);
+        if (luRes.error || !luRes.data) throw new Error(`listunspent: ${luRes.error}`);
+        const _utxos = (luRes.data as IInput[])
+            .map(i => ({ ...i, pubkey: buyerKeyPair.pubkey }))
+            .sort((a, b) => b.amount - a.amount);
+        const utxos = [commitUTXO, ..._utxos];
+        const minAmountRes = await getMinVoutAmount(sellerAddress, isApiMode);
+        if (minAmountRes.error || !minAmountRes.data) throw new Error(`getMinVoutAmount: ${minAmountRes.error}`);
+        const minAmount = minAmountRes.data;
+        const buyerLtcAmount = minAmount;
+        const sellerLtcAmount = Math.max(amount, minAmount);
+        const minAmountForAllOuts = safeNumber(buyerLtcAmount + sellerLtcAmount);
+        const inputsRes = getEnoughInputs2(utxos, minAmountForAllOuts);
+        const { finalInputs, fee } = inputsRes;
+        const _inputsSum = finalInputs.map(({amount}) => amount).reduce((a, b) => a + b, 0);
+        const inputsSum = safeNumber(_inputsSum);
+        const changeBuyerLtcAmount = safeNumber(inputsSum - sellerLtcAmount - fee) > buyerLtcAmount
+            ? safeNumber(inputsSum - sellerLtcAmount - fee)
+            : buyerLtcAmount;
+        if (inputsSum < safeNumber(fee + sellerLtcAmount + changeBuyerLtcAmount)) throw new Error("Not Enaugh coins for paying fees. Code 1");
+        if (!finalInputs.length) throw new Error("Not Enaugh coins for paying fees. Code 3");
+        const _insForRawTx = finalInputs.map(({txid, vout }) => ({ txid, vout }));
+        const _outsForRawTx = { [buyerAddress]: changeBuyerLtcAmount, [sellerAddress]: sellerLtcAmount };
+
+        const crtRes = await smartRpc('createrawtransaction', [_insForRawTx, _outsForRawTx], isApiMode);
+        if (crtRes.error || !crtRes.data) throw new Error(`createrawtransaction: ${crtRes.error}`);
+        const crtxoprRes = await smartRpc('tl_createrawtx_opreturn', [crtRes.data, payload], isApiMode);
+        if (crtxoprRes.error || !crtxoprRes.data) throw new Error(`tl_createrawtx_opreturn: ${crtxoprRes.error}`);
+        const finalTx = crtxoprRes.data;
+        const psbtHexConfig = {
+            rawtx: finalTx,
+            inputs: finalInputs,
+            network: network,
+        };
+        const psbtHexRes = buildPsbt(psbtHexConfig);
+        if (psbtHexRes.error || !psbtHexRes.data) throw new Error(`buildPsbt: ${psbtHexRes.error}`);
+        const data: any = { rawtx: finalTx, inputs: finalInputs, psbtHex: psbtHexRes.data };
+        return { data };
+    } catch (error) {
+        return { error: error.message || 'Undefined build Tx Error' };
     }
 };
 
@@ -132,6 +200,18 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
         return { error: error.message || 'Undefined build Tx Error' };
     }
 }
+
+const getEnoughInputs2 = (_inputs: IInput[], amount: number) => {
+    const finalInputs: IInput[] = [];
+    _inputs.forEach(u => {
+        const _amountSum: number = finalInputs.map(r => r.amount).reduce((a, b) => a + b, 0);
+        const amountSum = safeNumber(_amountSum);
+        const _fee = safeNumber((0.3 * minFeeLtcPerKb) * finalInputs.length + 1);
+        if (amountSum < amount + _fee) finalInputs.push(u);
+    });
+    const fee = safeNumber((0.3 * minFeeLtcPerKb) * finalInputs.length);
+    return { finalInputs, fee };
+};
 
 const getEnoughInputs = (_inputs: IInput[], amount: number) => {
     const finalInputs: IInput[] = [];

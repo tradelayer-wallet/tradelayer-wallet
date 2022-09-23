@@ -74,4 +74,9 @@ export class SpotChannelsComponent implements OnInit, OnDestroy {
     ngOnDestroy(): void {
       this.subsArray.forEach(s => s.unsubscribe()) ;
     }
+
+    copy(text: string) {
+      navigator.clipboard.writeText(text);
+      this.toastrService.info(`Transaction Id Copied to clipboard: ${text}`, 'Copied')
+    }
 }

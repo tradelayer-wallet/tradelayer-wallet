@@ -23,6 +23,7 @@
             cursor: pointer;
             color: var(--white);
             background-color: var(--darkBlue);
+            white-space: nowrap;
         }
     }
     .info-line {
@@ -30,7 +31,8 @@
         .info {
             border-left: 1px solid white;
             padding: 0 1rem;
-            .block-container{
+            white-space: nowrap;
+            .block-container {
                 position: relative;
                 .newBlock {
                     position: absolute;

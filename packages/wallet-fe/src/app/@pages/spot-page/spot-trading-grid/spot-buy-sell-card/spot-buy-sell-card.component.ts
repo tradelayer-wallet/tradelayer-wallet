@@ -120,6 +120,11 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
 
     handleBuySell(isBuy: boolean) {
+      const isKYC = this.attestationService.getAttByAddress(this.spotAddress);
+      if (!isKYC) {
+        this.toastrService.error(`Spot Address Need KYC first!`, 'KYC Needed');
+        return;
+      }
       const amount = this.buySellGroup.value.amount;
       const _price = this.buySellGroup.value.price;
       const price = this.isLimitSelected ? _price : this.currentPrice;

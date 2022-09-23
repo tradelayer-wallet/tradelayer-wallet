@@ -42,12 +42,20 @@ export interface IBuildTxConfig {
     network?: TNETWORK;
 }
 
-// export interface IBuildPSBTConfig {
-//     fromAddress: string;
-//     toAddress: string;
-//     amount?: number;
-//     payload?: string;
-// }
+export interface IBuildLTCITTxConfig {
+    buyerKeyPair: {
+        address: string;
+        pubkey?: string;
+    };
+    sellerKeyPair: {
+        address: string;
+        pubkey?: string;
+    };
+    amount: number;
+    payload: string;
+    commitUTXO: IUTXO,
+    network?: TNETWORK;
+}
 
 @Injectable({
     providedIn: 'root',
@@ -73,6 +81,21 @@ export class TxsService {
 
     getWifByAddress(address: string) {
         return this.authService.getWifByAddress(address);
+    }
+
+    async buildLTCITTx(
+        buildTxConfig: IBuildLTCITTxConfig,
+    ): Promise<{ data?: { rawtx: string; inputs: IUTXO[], psbtHex?: string }, error?: string }>
+    {
+        try {
+            const network = this.rpcService.NETWORK;
+            buildTxConfig.network = network;
+            const isApiMode = this.rpcService.isApiMode;
+            let result = await this.mainApi.buildLTCITTx(buildTxConfig, isApiMode).toPromise();
+            return result;
+        } catch(error: any) {
+            return { error: error.message }
+        }
     }
 
     async buildTx(

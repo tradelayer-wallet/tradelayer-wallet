@@ -31,6 +31,7 @@ import { ShortAddressPipe } from '../@shared/pipes/short-address.pipe';
 import { LoginContainerComponent } from './login-page/login-container/login-container.component';
 import { HomePageComponent } from './home-page/home-page.component';
 import { SpotChannelsComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-channels/spot-channels.component';
+import { SpotRelatedHistoryComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-related-history/spot-related-history.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -69,6 +70,7 @@ const SPOT_COMPONENTS = [
     SportChartCardComponent,
     SpotOrdersComponent,
     SpotChannelsComponent,
+    SpotRelatedHistoryComponent,
 ];
 
 const PIPES = [

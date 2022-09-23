@@ -3,8 +3,7 @@ import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { environment } from "src/environments/environment";
 import { ENetwork, TNETWORK } from "../services/rpc.service";
-import { IBuildTxConfig, ISignPsbtConfig, ISignTxConfig } from "../services/txs.service";
-// import { ENetwork, RPCCredentials } from "../services/rpc.service";
+import { IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig } from "../services/txs.service";
 
 @Injectable({
     providedIn: 'root',
@@ -83,15 +82,16 @@ export class MainApiService {
         }>(this.apiUrl + 'build-tx', { ...buildTxConfig, isApiMode })
     }
 
-    // buildPsbt(buildPSBTConfig: IBuildPSBTConfig, isApiMode: boolean): Observable<{
-    //     data?: { rawtx: string; psbtTx: string; inputs: any[] };
-    //     error?: string;
-    // }>{
-    //     return this.http.post<{
-    //         data?: { rawtx: string; psbtTx: string; inputs: any[]};
-    //         error?: string;  
-    //     }>(this.apiUrl + 'build-psbt', { ...buildPSBTConfig, isApiMode })
-    // }
+    buildLTCITTx(buildTxConfig: IBuildLTCITTxConfig, isApiMode: boolean): Observable<{
+        data?: { rawtx: string; inputs: any[]};
+        error?: string;
+    }>{
+        return this.http.post<{
+            data?: { rawtx: string; inputs: any[]};
+            error?: string;  
+        }>(this.apiUrl + 'build-ltcit-tx', { ...buildTxConfig, isApiMode })
+    }
+
 
     signTx(buildTxConfig: ISignTxConfig, network: TNETWORK): Observable<{
         data?: {

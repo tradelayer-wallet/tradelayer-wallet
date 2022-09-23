@@ -1,5 +1,5 @@
 import { Socket as SocketClient } from 'socket.io-client';
-import { IBuildTxConfig, IUTXO, TxsService } from '../@core/services/txs.service';
+import { IBuildLTCITTxConfig, IBuildTxConfig, IUTXO, TxsService } from '../@core/services/txs.service';
 
 class SwapEvent {
     constructor(
@@ -127,21 +127,21 @@ export class BuySwapper extends Swap {
         const cpitRes = await this.client('tl_createpayload_instant_ltc_trade', cpitLTCOptions);
         if (cpitRes.error || !cpitRes.data) return this.terminateTrade(`Step3: get Payload: ${cpitRes.error}`);
         if (propIdForSale === -1) {
-            const buildOptions: IBuildTxConfig  = {
-                fromKeyPair: {
+            const buildOptions: IBuildLTCITTxConfig = {
+                buyerKeyPair: {
                     address: this.myInfo.address,
-                    pubkey: this.myInfo.pubKey
+                    pubkey: this.myInfo.pubKey,
                 },
-                toKeyPair: {
+                sellerKeyPair: {
                     address: this.cpInfo.address,
                     pubkey: this.cpInfo.pubKey,
                 },
-                inputs: [commitUTXO],
+                commitUTXO: commitUTXO,
                 payload: cpitRes.data,
                 amount: amountForSale,
-                addPsbt: true,
-            }
-            const rawHexRes = await this.txsService.buildTx(buildOptions);
+            };
+            const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
+
             if (rawHexRes.error || !rawHexRes.data?.psbtHex) return this.terminateTrade(`Step3: build Trade: ${cpitRes.error}`);
             const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
             this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
