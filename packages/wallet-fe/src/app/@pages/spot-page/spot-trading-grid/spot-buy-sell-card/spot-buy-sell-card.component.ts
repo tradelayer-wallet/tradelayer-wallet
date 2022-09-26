@@ -4,10 +4,12 @@ import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { ReplaySubject } from 'rxjs';
 import { first, takeUntil } from 'rxjs/operators';
+import { ApiService } from 'src/app/@core/services/api.service';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
 import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
+import { RpcService } from 'src/app/@core/services/rpc.service';
 import { IMarket, IToken, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { ISpotTradeConf, SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
@@ -35,6 +37,8 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       public matDialog: MatDialog,
       private attestationService: AttestationService,
       private loadingService: LoadingService,
+      private rpcService: RpcService,
+      private apiService: ApiService,
     ) {}
 
     get spotKeyPair() {
@@ -64,6 +68,10 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     set isLimitSelected(value: boolean) {
       this._isLimitSelected = value;
       this.buySellGroup.controls.price.setValue(this.currentPrice);
+    }
+
+    get reLayerApi() {
+      return this.apiService.tlApi;
     }
 
     ngOnInit() {
@@ -179,7 +187,16 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
           .toPromise();
   
       if (!password) return;
-      this.authService.addKeyPair(EAddress.SPOT, password);
+      await this.authService.addKeyPair(EAddress.SPOT, password);
+
+      if (this.rpcService.NETWORK?.endsWith('TEST') && this.authService.activeSpotKey?.address) {
+        const fundRes = await this.reLayerApi.fundTestnetAddress(this.authService.activeSpotKey.address).toPromise();
+        if (fundRes.error || !fundRes.data) {
+            this.toastrService.warning(fundRes.error, 'Faucet Error');
+        } else {
+            this.toastrService.success(`${this.authService.activeSpotKey?.address} was Fund with small amount tLTC`, 'Testnet Faucet')
+        }
+    }
     }
 
     getNameBalanceInfo(token: IToken) {

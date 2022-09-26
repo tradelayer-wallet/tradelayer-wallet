@@ -46,4 +46,14 @@ export class TradeLayerApiService {
             error?: any
         }>(this.apiURL + '/address/validate/' + address);
     }
+
+    fundTestnetAddress(address: string): Observable<{
+        data?: any;
+        error?: any;
+    }>  {
+        return this.http.get<{
+            data?: any;
+            error?: any
+        }>(this.apiURL + '/address/faucet/' + address);
+    }
 }

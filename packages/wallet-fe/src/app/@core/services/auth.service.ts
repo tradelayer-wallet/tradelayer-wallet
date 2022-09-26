@@ -130,6 +130,15 @@ export class AuthService {
         this.walletObjRaw.network = this.rpcService.NETWORK;
         await this.addKeyPair(EAddress.MAIN, pass);
         this.router.navigateByUrl(this.savedFromUrl);
+
+        if (this.rpcService.NETWORK?.endsWith('TEST') && this.activeMainKey?.address) {
+            const fundRes = await this.reLayerApi.fundTestnetAddress(this.activeMainKey.address).toPromise();
+            if (fundRes.error || !fundRes.data) {
+                this.toastrService.warning(fundRes.error, 'Faucet Error');
+            } else {
+                this.toastrService.success(`${this.activeMainKey?.address} was Fund with small amount tLTC`, 'Testnet Faucet')
+            }
+        }
     }
 
     async addKeyPair(type: EAddress, password: string): Promise<boolean> {

@@ -1,6 +1,6 @@
 <div class="dialog-container">
     <div class="title">
-        <h1>Withdraw - {{ tokenName }}</h1>
+        <h1>Send - {{ tokenName }}</h1>
     </div>
     <div class="content">
         <mat-form-field width='350px' required>
@@ -26,6 +26,6 @@
     </div>
     <div class="buttons">
         <button mat-button (click)="close()" color="warn">CANCLE</button>
-        <button mat-button [disabled]='buttonDisabled' (click)='withdraw()' color="primary">WITHDRAW</button>
+        <button mat-button [disabled]='buttonDisabled' (click)='withdraw()' color="primary">SEND</button>
     </div>
 </div>

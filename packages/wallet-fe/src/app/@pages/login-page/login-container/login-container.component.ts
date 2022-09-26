@@ -53,9 +53,9 @@ export class LoginContainerComponent implements OnInit {
     };
 }
 
-  register() {
+ async register() {
     const password = this.password;
-    this.authService.register(password);
+    await this.authService.register(password);
   }
 
   selectTab(index: number) {
