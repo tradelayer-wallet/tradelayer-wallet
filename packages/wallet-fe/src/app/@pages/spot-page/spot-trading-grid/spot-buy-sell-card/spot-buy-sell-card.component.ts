@@ -119,7 +119,8 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
           ?.find((t: any) => t.propertyid === propId)
           ?.balance;
-      const available = safeNumber(_available || 0);
+      const inOrderBalance = this.getInOrderAmount(propId);
+      const available = safeNumber((_available || 0 )- inOrderBalance);
       if (!available || ((available / price) <= 0)) return 0;
       const _max = isBuy ? (available / price) : available;
       const max = safeNumber(_max);
@@ -129,7 +130,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
     handleBuySell(isBuy: boolean) {
       const isKYC = this.attestationService.getAttByAddress(this.spotAddress);
-      if (!isKYC) {
+      if (isKYC !== true) {
         this.toastrService.error(`Spot Address Need KYC first!`, 'KYC Needed');
         return;
       }
@@ -204,10 +205,25 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         ? this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmed
         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
           ?.find(e => e.propertyid === token.propertyId)?.balance;
-      const balance = safeNumber(_balance || 0);
-      return [token.fullName, `${balance} ${token.shortName}`];
+      const inOrderBalance = this.getInOrderAmount(token.propertyId);
+      const balance = safeNumber((_balance  || 0) - inOrderBalance);
+      return [token.fullName, `${ balance > 0 ? balance : 0 } ${token.shortName}`];
     }
 
+    private getInOrderAmount(propertyId: number) {
+      const num = this.spotOrdersService.openedOrders.map(o => {
+        const { amount, price, id_for_sale } = o.props;
+        if (propertyId === -1) {
+          if (id_for_sale === -1) return safeNumber(amount * price);
+          return 0.001;
+        } else {
+          if (id_for_sale === propertyId) return safeNumber(amount * price);
+          return 0;
+        }
+      }).reduce((a, b) => a + b, 0);
+      return safeNumber(num);
+    }
+  
     isSpotAddressSelfAtt() {
       const isKYC = this.attestationService.getAttByAddress(this.spotAddress);
       return isKYC === true ? "YES" : "NO";

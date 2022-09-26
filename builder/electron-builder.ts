@@ -25,7 +25,11 @@ export class ElectronApp {
     }
 
     private safeExist() {
-        if (this.mainWindow) this.mainWindow.destroy();
+        if (this.mainWindow) {
+            this.mainWindow.destroy();
+            this.mainWindow = null;
+            window = null;
+        }
     }
 
     private handleAngularSignals() {

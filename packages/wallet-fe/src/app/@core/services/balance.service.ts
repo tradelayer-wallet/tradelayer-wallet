@@ -69,26 +69,29 @@ export class BalanceService {
             });
 
         this.rpcService.blockSubs$
-            .subscribe(() => this.updateBalances());
+            .subscribe(() => this.updateBalances(false));
 
-        setInterval(() => this.updateBalances(), 20000);
+        setInterval(() => this.updateBalances(false), 20000);
     }
 
-    async updateBalances() {
+    async updateBalances(notiffy: boolean = true) {
         // this.balanceLoading = true;
         const addressesArray = this.authService.listOfallAddresses;
         for (let i = 0; i < addressesArray?.length; i++) {
             const address = addressesArray[i]?.address;
-            await this.updateCoinBalanceForAddressFromUnspents(address);
-            await this.updateTokensBalanceForAddress(address);
+            await this.updateCoinBalanceForAddressFromUnspents(address, notiffy);
+            await this.updateTokensBalanceForAddress(address, notiffy);
         }
         // this.balanceLoading = false;
     }
 
-    private async updateCoinBalanceForAddressFromUnspents(address: string) {
+    private async updateCoinBalanceForAddressFromUnspents(address: string, notiffy: boolean) {
         const coinBalanceObjRes = await this.getCoinBalanceObjForAddress(address);
         if (coinBalanceObjRes.error || !coinBalanceObjRes.data) {
-            this.toastrService.error(coinBalanceObjRes.error || `Error with updating balances: ${address}`, 'Error');
+            if (notiffy) this.toastrService.error(
+                coinBalanceObjRes.error || `Error with updating balances: ${address}`,
+                'Balance Error',
+            );
             return;
         }
         const { confirmed, unconfirmed } = coinBalanceObjRes.data;
@@ -103,10 +106,13 @@ export class BalanceService {
         };
     }
 
-    private async updateTokensBalanceForAddress(address: string) {
+    private async updateTokensBalanceForAddress(address: string, notiffy: boolean) {
         const tokensBalanceArrRes = await this.getTokensBalanceArrForAddress(address);
         if (tokensBalanceArrRes.error || !tokensBalanceArrRes.data) {
-            this.toastrService.error(tokensBalanceArrRes.error || `Error with updating balances`, 'Error');
+            if (notiffy) this.toastrService.error(
+                tokensBalanceArrRes.error || `Error with updating balances`,
+                'Balance Error',
+            );
             return;
         }
         if (!this._allBalancesObj[address]) this._allBalancesObj[address] = emptyBalanceObj;

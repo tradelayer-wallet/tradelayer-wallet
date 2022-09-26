@@ -54,11 +54,21 @@ export class FastifyServer {
         if (this.rpcClient || this.rpcPort) return;
         this.clearOBSocketConnection();
         this.safeClose();
+        this.clearMainSocketConnection();
     }
 
     initOBSocketConnection(options: IOBSocketServiceOptions) {
         this.clearOBSocketConnection();
         this.obSocketService = new OBSocketService(options);
+    }
+
+
+    clearMainSocketConnection() {
+        if (this.mainSocketService?.currentSocket) {
+            this.mainSocketService?.currentSocket.offAny();
+            this.mainSocketService?.currentSocket.disconnect();
+        }
+        this.mainSocketService = null;
     }
 
     clearOBSocketConnection() {

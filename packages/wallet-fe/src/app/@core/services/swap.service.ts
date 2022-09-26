@@ -18,7 +18,7 @@ interface IRawChannelSwap {
     secondSocketId: string;
     propIdDesired: number;
     propIdForSale: number;
-    filled: boolean;
+    unfilled: any;
     buyer: boolean;
 }
 
@@ -48,7 +48,7 @@ export class SwapService {
                     this.toastrService.success(res.data.txid, 'Trade Success')
                 }
                 const mySocketId = swapConfig.buyer ? swapConfig.buyerSocketId : swapConfig.sellerSocketId;
-                if (swapConfig.filled && swapConfig?.secondSocketId === mySocketId) {
+                if (swapConfig.unfilled?.socket_id !== mySocketId && swapConfig?.secondSocketId === mySocketId) {
                     this.loadingService.tradesLoading = false;
                 }
         });

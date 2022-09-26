@@ -94,7 +94,7 @@ export class SpotOrderbookService {
     subscribeForOrderbook() {
         this.endOrderbookSbuscription();
         this.socket.on(`${obEventPrefix}::order:error`, (message: string) => {
-            this.toastrService.error(message || `Undefined Error`, 'Error');
+            this.toastrService.error(message || `Undefined Error`, 'Orderbook Error');
             this.loadingService.tradesLoading = false;
         });
 

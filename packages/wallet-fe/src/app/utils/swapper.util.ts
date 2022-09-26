@@ -142,7 +142,7 @@ export class BuySwapper extends Swap {
             };
             const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
 
-            if (rawHexRes.error || !rawHexRes.data?.psbtHex) return this.terminateTrade(`Step3: build Trade: ${cpitRes.error}`);
+            if (rawHexRes.error || !rawHexRes.data?.psbtHex) return this.terminateTrade(`Step3: build Trade: ${rawHexRes.error}`);
             const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
             this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
         } else {
@@ -237,7 +237,7 @@ export class SellSwapper extends Swap {
         const wif = this.txsService.getWifByAddress(this.myInfo.address);
         if (!wif)  return this.terminateTrade(`Step 2: getWifByAddress: WIF not found: ${this.myInfo.address}`);
         const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
-        if (cimmitTxSignRes.error || !cimmitTxSignRes.data?.isValid || !cimmitTxSignRes.data?.signedHex) return this.terminateTrade(`Step 2: signCommitTx: ${commitTxRes.error}`);
+        if (cimmitTxSignRes.error || !cimmitTxSignRes.data?.isValid || !cimmitTxSignRes.data?.signedHex) return this.terminateTrade(`Step 2: signCommitTx: ${cimmitTxSignRes.error}`);
         const signedTx = cimmitTxSignRes.data.signedHex;
         const commiTxSendRes = await this.txsService.sendTx(signedTx);
         if (commiTxSendRes.error || !commiTxSendRes.data) return this.terminateTrade(`Step 2: SendCommitTX: ${commiTxSendRes.error}`);
