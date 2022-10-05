@@ -37,7 +37,7 @@ export interface IBuildLTCITTxConfig {
     };
     amount: number;
     payload: string;
-    commitUTXO: IInput,
+    commitUTXOs: IInput[],
     network: string;
 }
 
@@ -84,7 +84,7 @@ export const smartRpc: TClient = async (method: string, params: any[] = [], api:
 
 export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode: boolean) => {
     try {
-        const { buyerKeyPair, sellerKeyPair, amount, payload, commitUTXO, network } = txConfig;
+        const { buyerKeyPair, sellerKeyPair, amount, payload, commitUTXOs, network } = txConfig;
         const buyerAddress = buyerKeyPair.address;
         const sellerAddress = sellerKeyPair.address;
         const vaRes1 = await smartRpc('validateaddress', [buyerAddress], isApiMode);
@@ -97,7 +97,7 @@ export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode:
         const _utxos = (luRes.data as IInput[])
             .map(i => ({ ...i, pubkey: buyerKeyPair.pubkey }))
             .sort((a, b) => b.amount - a.amount);
-        const utxos = [commitUTXO, ..._utxos];
+        const utxos = [...commitUTXOs, ..._utxos];
         const minAmountRes = await getMinVoutAmount(sellerAddress, isApiMode);
         if (minAmountRes.error || !minAmountRes.data) throw new Error(`getMinVoutAmount: ${minAmountRes.error}`);
         const minAmount = minAmountRes.data;
@@ -206,8 +206,8 @@ const getEnoughInputs2 = (_inputs: IInput[], amount: number) => {
     _inputs.forEach(u => {
         const _amountSum: number = finalInputs.map(r => r.amount).reduce((a, b) => a + b, 0);
         const amountSum = safeNumber(_amountSum);
-        const _fee = safeNumber((0.3 * minFeeLtcPerKb) * finalInputs.length + 1);
-        if (amountSum < amount + _fee) finalInputs.push(u);
+        const _fee = safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length + 1));
+        if (amountSum < safeNumber(amount + _fee)) finalInputs.push(u);
     });
     const fee = safeNumber((0.3 * minFeeLtcPerKb) * finalInputs.length);
     return { finalInputs, fee };
@@ -231,6 +231,7 @@ const getMinVoutAmount = async (toAddress: string, isApiMode: boolean) => {
         const drwRes = await smartRpc('decoderawtransaction', [crtxrRes.data], isApiMode);
         if (drwRes.error || !drwRes.data) throw new Error(`decoderawtransaction: ${drwRes.error}`);
         const minAmount = parseFloat(drwRes.data.vout[0].value);
+        if (minAmount !== 0.000036) throw new Error(`min Amount is not 0.000036`);
         return { data: minAmount };
     } catch (error) {
         return { error: error.message || 'Undefined getMinVoutAmount Error' };

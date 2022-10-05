@@ -53,7 +53,7 @@ export interface IBuildLTCITTxConfig {
     };
     amount: number;
     payload: string;
-    commitUTXO: IUTXO,
+    commitUTXOs: IUTXO[],
     network?: TNETWORK;
 }
 

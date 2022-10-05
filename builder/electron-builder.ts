@@ -28,7 +28,6 @@ export class ElectronApp {
         if (this.mainWindow) {
             this.mainWindow.destroy();
             this.mainWindow = null;
-            window = null;
         }
     }
 

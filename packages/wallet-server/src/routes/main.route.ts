@@ -79,9 +79,9 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('build-ltcit-tx', async (request, reply) => {
         try {
-            const { buyerKeyPair, sellerKeyPair, payload, amount, commitUTXO, network } = request.body as IBuildLTCITTxConfig;
+            const { buyerKeyPair, sellerKeyPair, payload, amount, commitUTXOs, network } = request.body as IBuildLTCITTxConfig;
             const { isApiMode } = request.body as { isApiMode: boolean };
-            const txConfig = { buyerKeyPair, sellerKeyPair, payload, amount, commitUTXO, network };
+            const txConfig = { buyerKeyPair, sellerKeyPair, payload, amount, commitUTXOs, network };
             const hexResult = await buildLTCInstatTx(txConfig, isApiMode);
             reply.status(200).send(hexResult);
         } catch (error) {

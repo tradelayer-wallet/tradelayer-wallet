@@ -9,6 +9,7 @@ const emptyBalanceObj = {
     coinBalance: {
         confirmed: 0,
         unconfirmed: 0,
+        utxos: [],
     },
     tokensBalance: [],
 };
@@ -23,6 +24,7 @@ export class BalanceService {
             coinBalance: {
                 confirmed: number;
                 unconfirmed: number;
+                utxos: IUTXO[];
             };
             tokensBalance: {
                 name: string;
@@ -76,26 +78,24 @@ export class BalanceService {
 
     async updateBalances(notiffy: boolean = true) {
         // this.balanceLoading = true;
-        const addressesArray = this.authService.listOfallAddresses;
-        for (let i = 0; i < addressesArray?.length; i++) {
-            const address = addressesArray[i]?.address;
-            await this.updateCoinBalanceForAddressFromUnspents(address, notiffy);
-            await this.updateTokensBalanceForAddress(address, notiffy);
+        try {
+            const addressesArray = this.authService.listOfallAddresses;
+            for (let i = 0; i < addressesArray?.length; i++) {
+                const address = addressesArray[i]?.address;
+                await this.updateCoinBalanceForAddressFromUnspents(address);
+                await this.updateTokensBalanceForAddress(address);
+            }
+        } catch(err: any) {
+            this.toastrService.warning(err.message || `Error with updating balances`, 'Balance Error');
         }
         // this.balanceLoading = false;
     }
 
-    private async updateCoinBalanceForAddressFromUnspents(address: string, notiffy: boolean) {
+    private async updateCoinBalanceForAddressFromUnspents(address: string) {
         const coinBalanceObjRes = await this.getCoinBalanceObjForAddress(address);
-        if (coinBalanceObjRes.error || !coinBalanceObjRes.data) {
-            if (notiffy) this.toastrService.error(
-                coinBalanceObjRes.error || `Error with updating balances: ${address}`,
-                'Balance Error',
-            );
-            return;
-        }
-        const { confirmed, unconfirmed } = coinBalanceObjRes.data;
-        const coinObj = { confirmed, unconfirmed };
+        if (coinBalanceObjRes.error || !coinBalanceObjRes.data) throw new Error(coinBalanceObjRes.error || `Error with updating balances: ${address}`);
+        const { confirmed, unconfirmed, utxos } = coinBalanceObjRes.data;
+        const coinObj = { confirmed, unconfirmed, utxos };
         if (!this._allBalancesObj[address]) this._allBalancesObj[address] = emptyBalanceObj;
         this._allBalancesObj = {
             ...this._allBalancesObj, 
@@ -106,15 +106,9 @@ export class BalanceService {
         };
     }
 
-    private async updateTokensBalanceForAddress(address: string, notiffy: boolean) {
+    private async updateTokensBalanceForAddress(address: string) {
         const tokensBalanceArrRes = await this.getTokensBalanceArrForAddress(address);
-        if (tokensBalanceArrRes.error || !tokensBalanceArrRes.data) {
-            if (notiffy) this.toastrService.error(
-                tokensBalanceArrRes.error || `Error with updating balances`,
-                'Balance Error',
-            );
-            return;
-        }
+        if (tokensBalanceArrRes.error || !tokensBalanceArrRes.data) throw new Error(tokensBalanceArrRes.error || `Error with updating balances`);
         if (!this._allBalancesObj[address]) this._allBalancesObj[address] = emptyBalanceObj;
         this._allBalancesObj[address].tokensBalance = tokensBalanceArrRes.data;
     }
@@ -132,7 +126,7 @@ export class BalanceService {
             .reduce((a, b) => a + b.amount, 0);
         const confirmed = parseFloat(_confirmed.toFixed(6));
         const unconfirmed = parseFloat(_unconfirmed.toFixed(6));
-        return {data: { confirmed, unconfirmed } };
+        return {data: { confirmed, unconfirmed, utxos: luRes.data } };
     }
 
     private async getTokensBalanceArrForAddress(address: string) {

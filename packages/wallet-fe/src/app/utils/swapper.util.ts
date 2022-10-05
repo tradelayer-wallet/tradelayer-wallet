@@ -123,31 +123,87 @@ export class BuySwapper extends Swap {
         if (tlgiRes.error || !tlgiRes.data?.block) return this.terminateTrade(`Step3: Getinfo: ${tlgiRes.error}`);
         const bbData = tlgiRes.data.block + 100;
         const { propIdDesired, amountDesired, amountForSale, propIdForSale } = this.tradeInfo;
-        const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), (amountForSale).toString(), bbData ];
-        const cpitRes = await this.client('tl_createpayload_instant_ltc_trade', cpitLTCOptions);
-        if (cpitRes.error || !cpitRes.data) return this.terminateTrade(`Step3: get Payload: ${cpitRes.error}`);
-        if (propIdForSale === -1) {
-            const buildOptions: IBuildLTCITTxConfig = {
-                buyerKeyPair: {
-                    address: this.myInfo.address,
-                    pubkey: this.myInfo.pubKey,
-                },
-                sellerKeyPair: {
-                    address: this.cpInfo.address,
-                    pubkey: this.cpInfo.pubKey,
-                },
-                commitUTXO: commitUTXO,
-                payload: cpitRes.data,
-                amount: amountForSale,
-            };
-            const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
-
-            if (rawHexRes.error || !rawHexRes.data?.psbtHex) return this.terminateTrade(`Step3: build Trade: ${rawHexRes.error}`);
-            const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
-            this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
-        } else {
-            return this.terminateTrade(`Step3: Token-Token Trade is not allowed}`);
+        if (propIdForSale && propIdDesired) {
+            if (propIdForSale === -1) {
+                const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), (amountForSale).toString(), bbData ];
+                const cpitRes = await this.client('tl_createpayload_instant_ltc_trade', cpitLTCOptions);
+                if (cpitRes.error || !cpitRes.data) return this.terminateTrade(`Step3: get Payload: ${cpitRes.error}`);
+                const buildOptions: IBuildLTCITTxConfig = {
+                    buyerKeyPair: {
+                        address: this.myInfo.address,
+                        pubkey: this.myInfo.pubKey,
+                    },
+                    sellerKeyPair: {
+                        address: this.cpInfo.address,
+                        pubkey: this.cpInfo.pubKey,
+                    },
+                    commitUTXOs: [commitUTXO],
+                    payload: cpitRes.data,
+                    amount: amountForSale,
+                };
+                const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
+    
+                if (rawHexRes.error || !rawHexRes.data?.psbtHex) return this.terminateTrade(`Step3: build Trade: ${rawHexRes.error}`);
+                const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
+                this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+            } else {
+                const ctcpParams = [propIdDesired, (amountDesired).toString()];
+                const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
+                if (cpctcRes.error || !cpctcRes.data) return this.terminateTrade(`Step 3: tl_createpayload_commit_tochannel: ${cpctcRes.error}`);
+                const commitTxConfig: IBuildTxConfig = {
+                    fromKeyPair: { address: this.myInfo.address },
+                    toKeyPair: { address: this.multySigChannelData.address },
+                    payload: cpctcRes.data,
+                };
+        
+                const commitTxRes = await this.txsService.buildTx(commitTxConfig);
+                if (commitTxRes.error || !commitTxRes.data) return this.terminateTrade(`Step 3: build Commit Tx: ${commitTxRes.error}`);
+                const { inputs, rawtx } = commitTxRes.data;
+                const wif = this.txsService.getWifByAddress(this.myInfo.address);
+                if (!wif)  return this.terminateTrade(`Step 3: getWifByAddress: WIF not found: ${this.myInfo.address}`);
+                const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
+                if (cimmitTxSignRes.error || !cimmitTxSignRes.data?.isValid || !cimmitTxSignRes.data?.signedHex) return this.terminateTrade(`Step 3: signCommitTx: ${cimmitTxSignRes.error}`);
+                const signedTx = cimmitTxSignRes.data.signedHex;
+                const commiTxSendRes = await this.txsService.sendTx(signedTx);
+                if (commiTxSendRes.error || !commiTxSendRes.data) return this.terminateTrade(`Step 3: SendCommitTX: ${commiTxSendRes.error}`);
+                const commitTx = commiTxSendRes.data;
+                const drtRes = await this.client("decoderawtransaction", [rawtx]);
+                if (drtRes.error || !drtRes.data?.vout) return this.terminateTrade(`Step 3: decoderawtransaction: ${drtRes.error}`);
+                const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
+                if (!vout) return this.terminateTrade(`Step 3: ${drtRes.error}`);
+                const utxoData = {
+                    amount: vout.value,
+                    vout: vout.n,
+                    txid: commitTx,
+                    scriptPubKey: this.multySigChannelData.scriptPubKey,
+                    redeemScript: this.multySigChannelData.redeemScript,
+                } as IUTXO;
+    
+                const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), propIdForSale, (amountForSale).toString(), bbData ];
+                const cpitRes = await this.client('tl_createpayload_instant_trade', cpitLTCOptions);
+                if (cpitRes.error || !cpitRes.data) return this.terminateTrade(`Step3: get Payload: ${cpitRes.error}`);
+                const buildOptions: IBuildLTCITTxConfig = {
+                    buyerKeyPair: {
+                        address: this.myInfo.address,
+                        pubkey: this.myInfo.pubKey,
+                    },
+                    sellerKeyPair: {
+                        address: this.cpInfo.address,
+                        pubkey: this.cpInfo.pubKey,
+                    },
+                    commitUTXOs: [commitUTXO, utxoData],
+                    payload: cpitRes.data,
+                    amount: 0,
+                };
+                const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
+    
+                if (rawHexRes.error || !rawHexRes.data?.psbtHex) return this.terminateTrade(`Step3: build Trade: ${rawHexRes.error}`);
+                const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
+                this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+            }
+            return;
         }
+        return this.terminateTrade(`Step3: Unrecognized Trade Type`);
     }
 
     private async onStep5(cpId: string, psbtHex: string) {

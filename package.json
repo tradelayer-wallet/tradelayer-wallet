@@ -22,6 +22,7 @@
     "build:all:mac": "npm run fe:build && npm run server:build:mac && npm run electron:build"
   },
   "dependencies": {
+    "@trezor/connect": "^9.0.2",
     "ecpair": "^2.0.1",
     "electron-updater": "^4.6.1",
     "tiny-secp256k1": "^2.2.1",

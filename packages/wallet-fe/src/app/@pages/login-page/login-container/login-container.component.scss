@@ -14,12 +14,12 @@
             justify-content: center;
             .tab {
                 border-bottom: 1px solid var(--darkBlue);
-                padding: 0.25rem 3rem;
+                padding: 0.25rem 2rem;
                 cursor: pointer;
                 transition: all 0.25s;
                 color: var(--darkGrey);
                 white-space: nowrap;
-
+                font-size: 0.9rem;
             }
             .activeTabHeader {
                 border-bottom: 1px solid var(--lightBlue);
@@ -32,6 +32,23 @@
             flex-direction: column;
             button {
                 margin-top: 2rem;
+            }
+        }
+
+        .recover {
+            .words {
+                display: flex;
+                flex-wrap: wrap;
+                .word {
+                    display: flex;
+                    width: 30%;
+                    margin: 0.5rem;
+                    border-bottom: 1px solid black;
+                    padding: 0 0.5rem;
+                    .prefix {
+                        margin: 0 0.25rem;
+                    }
+                }
             }
         }
         .login {

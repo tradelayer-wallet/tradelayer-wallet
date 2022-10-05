@@ -13,8 +13,12 @@ import { RpcService } from 'src/app/@core/services/rpc.service';
 import { IMarket, IToken, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { ISpotTradeConf, SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
+import { IUTXO } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
+
+const minFeeLtcPerKb = 0.002;
+const minVOutAmount = 0.000036;
 
 @Component({
   selector: 'tl-spot-buy-sell-card',
@@ -34,11 +38,11 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       private spotOrderbookService: SpotOrderbookService,
       private authService: AuthService,
       private toastrService: ToastrService,
-      public matDialog: MatDialog,
       private attestationService: AttestationService,
       private loadingService: LoadingService,
       private rpcService: RpcService,
       private apiService: ApiService,
+      public matDialog: MatDialog,
     ) {}
 
     get spotKeyPair() {
@@ -89,6 +93,9 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     fillMax(isBuy: boolean) {
       const value = this.getMaxAmount(isBuy);
       this.buySellGroup?.controls?.['amount'].setValue(value);
+      // tricky update the Max Amount 
+      const value2 = this.getMaxAmount(isBuy);
+      this.buySellGroup?.controls?.['amount'].setValue(value2);
     }
 
     getTotal(isBuy: boolean): string {
@@ -115,7 +122,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         : this.selectedMarket.first_token.propertyId;
 
       const _available = propId === -1
-        ? this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed
+        ? safeNumber(this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed - this.getFees(isBuy))
         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
           ?.find((t: any) => t.propertyid === propId)
           ?.balance;
@@ -129,6 +136,12 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
 
     handleBuySell(isBuy: boolean) {
+      const fee = this.getFees(isBuy);
+      const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed || 0) - fee)
+      if (available < 0) {
+        this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
+        return;
+      }
       const isKYC = this.attestationService.getAttByAddress(this.spotAddress);
       if (isKYC !== true) {
         this.toastrService.error(`Spot Address Need KYC first!`, 'KYC Needed');
@@ -232,5 +245,32 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     ngOnDestroy() {
       this.destroyed$.next(true);
       this.destroyed$.complete();
+    }
+
+    getFees(isBuy: boolean) {
+      const { amount, price } = this.buySellGroup.value;
+      if (!amount || !price) return 0;
+
+      const propId = isBuy
+        ? this.selectedMarket.second_token.propertyId
+        : this.selectedMarket.first_token.propertyId;
+
+      const finalInputs: number[] = [];
+      const _amount = propId !== -1
+        ? safeNumber(minVOutAmount * 2)
+        : safeNumber((amount * price) + minVOutAmount);
+      const _allAmounts = this.balanceService.getCoinBalancesByAddress(this.spotAddress).utxos
+        .map(r => r.amount)
+        .sort((a, b) => b - a);
+      const allAmounts =  propId !== -1
+        ? _allAmounts
+        : [minVOutAmount, ..._allAmounts]
+      allAmounts.forEach(u => {
+        const _amountSum: number = finalInputs.reduce((a, b) => a + b, 0);
+        const amountSum = safeNumber(_amountSum);
+        const _fee = safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length + 1));
+        if (amountSum < safeNumber(_amount + _fee)) finalInputs.push(u);
+      });
+      return safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length));
     }
 }

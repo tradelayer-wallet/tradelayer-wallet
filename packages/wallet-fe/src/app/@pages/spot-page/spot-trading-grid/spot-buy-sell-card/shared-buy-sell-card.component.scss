@@ -196,18 +196,25 @@ mat-card {
                 }
             }
         }
-        .max {
+
+        .buy-sell-info {
             display: flex;
             padding: 0 16px;
             align-items: center;
             justify-content: space-between;
-            .buy-max,
-            .sell-max {
-                cursor: pointer;
-                font-size: 0.8rem;
+            .column {
+                font-size: 0.75rem;
                 width: 45%;
                 text-align: center;
                 color: var(--white);
+                display: flex;
+                flex-direction: column;
+                white-space: nowrap;
+            }
+        }
+        .max {
+            .column {
+                cursor: pointer;
             }
         }
     }

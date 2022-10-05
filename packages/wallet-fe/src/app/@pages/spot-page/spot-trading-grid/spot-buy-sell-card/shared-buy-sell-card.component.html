@@ -36,6 +36,14 @@
         <div class="suffix">{{ selectedMarket.first_token.shortName }}</div>
       </div>
     </div>
+    <div class="buy-sell-info">
+      <div class="column">
+        <span>Fee: {{ getFees(true).toFixed(6) }} LTC </span>
+      </div>
+      <div class="column">
+        <span>Fee: {{ getFees(false).toFixed(6) }} LTC </span>
+      </div>
+    </div>
     <div class="buttons">
       <button
         class='buy-button'
@@ -48,12 +56,12 @@
         [disabled]='getButtonDisabled(false)'
       >Sell</button>
     </div>
-    <div class="max" *ngIf="spotAddress">
-      <div class="buy-max" (click)="fillMax(true)">
-        Max: {{ getMaxAmount(true).toFixed(6).slice(0, 6) }}
+    <div class="buy-sell-info max" *ngIf="spotAddress">
+      <div class="column" (click)="fillMax(true)">
+        <span>Max: {{ getMaxAmount(true).toFixed(6) }} {{ this.selectedMarket.second_token.shortName }} </span>
       </div>
-      <div class="sell-max" (click)="fillMax(false)">
-        Max: {{ getMaxAmount(false).toFixed(6).slice(0, 6) }}
+      <div class="column" (click)="fillMax(false)">
+        <span>Max: {{ getMaxAmount(false).toFixed(6) }} {{ this.selectedMarket.first_token.shortName }} </span>
       </div>
     </div>
     <div class="address">

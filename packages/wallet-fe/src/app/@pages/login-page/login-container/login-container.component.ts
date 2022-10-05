@@ -9,7 +9,9 @@ import { LoadingService } from 'src/app/@core/services/loading.service';
   styleUrls: ['./login-container.component.scss']
 })
 export class LoginContainerComponent implements OnInit {
-  activeTab: 1 | 2 | 3 = 1;
+  activeTab: 1 | 2 | 3 | 4 = 1;
+  mnemonicsLength: number = 12;
+  mnemonics: string[] = new Array(this.mnemonicsLength).fill("");
   securePass: boolean = true;
 
   password: string = '';
@@ -59,7 +61,7 @@ export class LoginContainerComponent implements OnInit {
   }
 
   selectTab(index: number) {
-    if (index !== 1 && index !== 2 && index !== 3) return;
+    if (index !== 1 && index !== 2 && index !== 3 && index !== 4) return;
     this._resetFields();
     this.activeTab = index;
   }
