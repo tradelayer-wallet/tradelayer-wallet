@@ -97,6 +97,21 @@ mat-card {
                 }
             }
         }
+        .additional-info {
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            button {
+                margin: 0.5rem 0;
+                font-size: 0.8rem;
+                border: none;
+                text-align: center;
+                padding: 0.5rem;
+                border-radius: 4px;
+                transition: background-color 0.25s;
+                cursor: pointer;
+            }
+        }
         .order-type {
             display: flex;
             padding: 0.5rem 16px;

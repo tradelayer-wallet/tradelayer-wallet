@@ -46,6 +46,7 @@ export class SpotOrderbookService {
     sellOrderbooks: { amount: number, price: number }[] = [];
     tradeHistory: IHistoryTrade[] = [];
     currentPrice: number = 1;
+    lastPrice: number = 1;
 
     constructor(
         private socketService: SocketService,
@@ -110,6 +111,7 @@ export class SpotOrderbookService {
         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: { orders: ISpotOrder[], history: IHistoryTrade[] }) => {
             this.rawOrderbookData = orderbookData.orders;
             this.tradeHistory = orderbookData.history;
+            this.currentPrice = this.tradeHistory?.[0]?.price || 1;
         });
 
         this.socket.emit('update-orderbook', this.marketFilter);
@@ -141,8 +143,10 @@ export class SpotOrderbookService {
                 amount: o.props.amount,
             });
         });
+        if (!isBuy) this.lastPrice = result.sort((a, b) => b.price - a.price)?.[result.length - 1]?.price || this.currentPrice || 1;
+
         return isBuy
-        ? result.sort((a, b) => b.price - a.price).slice(0, 9)
-        : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
+            ? result.sort((a, b) => b.price - a.price).slice(0, 9)
+            : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
     }
 }

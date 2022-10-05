@@ -51,6 +51,10 @@ export class SpotOrdersService {
         this.socket.emit('new-order', orderConf);
     }
 
+    addLiquidity(orders: ISpotTradeConf[]) {
+        this.socket.emit('many-orders', orders);
+    }
+
     closeOpenedOrder(uuid: string) {
         this.socket.emit('close-order', uuid);
     }

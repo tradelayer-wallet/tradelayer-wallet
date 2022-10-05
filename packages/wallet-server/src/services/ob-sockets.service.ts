@@ -47,7 +47,7 @@ export class OBSocketService {
         });
 
         //from Wallet ToServer;
-        ["update-orderbook", "new-order", "close-order"].forEach(eventName => {
+        ["update-orderbook", "new-order", "close-order", 'many-orders'].forEach(eventName => {
             this.walletSocket.on(eventName, (data: any) => {
                 this.socket.emit(eventName, data);
             });

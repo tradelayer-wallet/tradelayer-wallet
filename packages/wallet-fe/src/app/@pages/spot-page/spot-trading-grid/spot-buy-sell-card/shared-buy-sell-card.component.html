@@ -90,6 +90,16 @@
         <div class="key-value-pair"></div>
       </div>
     </div>
+    <div class="additional-info" *ngIf="spotAddress">
+      <button
+        class="blueButton"
+        (click)='addLiquidity()'
+      >Add Liquidity</button>
+      <button
+        class="blueButton"
+        (click)='closeAll()'
+      >Close All Orders</button>
+    </div>
   </mat-card-content>
 </mat-card>
 
