@@ -23,8 +23,8 @@ import { SpotTradingGridComponent } from './spot-page/spot-trading-grid/spot-tra
 import { SpotBuySellCardComponent } from './spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component';
 import { SpotOrderbookCardComponent } from './spot-page/spot-trading-grid/spot-orderbook-card/spot-orderbook-card.component';
 import { SpotBottomCardComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-bottom-card.component';
-import { SportHistoryCardComponent } from './spot-page/spot-trading-grid/spot-history-card/spot-history-card.component';
-import { SportChartCardComponent } from './spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component';
+import { SpotHistoryCardComponent } from './spot-page/spot-trading-grid/spot-history-card/spot-history-card.component';
+import { SpotChartCardComponent } from './spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component';
 import { SpotOrdersComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-orders/spot-orders.component';
 
 import { ShortAddressPipe } from '../@shared/pipes/short-address.pipe';
@@ -32,6 +32,14 @@ import { LoginContainerComponent } from './login-page/login-container/login-cont
 import { HomePageComponent } from './home-page/home-page.component';
 import { SpotChannelsComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-channels/spot-channels.component';
 import { SpotRelatedHistoryComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-related-history/spot-related-history.component';
+import { FuturesPageComponent } from './futures-page/futures-page.component';
+import { FuturesMarketsToolbarComponent } from './futures-page/futures-markes-toolbar/spot-markets-toolbar.component';
+import { FuturesTradingGridComponent } from './futures-page/futures-trading-grid/futures-trading-grid.component';
+import { FuturesChartCardComponent } from './futures-page/futures-trading-grid/futures-chart-card/futures-chart-card.component';
+import { FuturesHistoryCardComponent } from './futures-page/futures-trading-grid/futures-history-card/futures-history-card.component';
+import { FuturesOrderbookCardComponent } from './futures-page/futures-trading-grid/futures-orderbook-card/futures-orderbook-card.component';
+import { FuturesBuySellCardComponent } from './futures-page/futures-trading-grid/futures-buy-sell-card/futures-buy-sell-card.component';
+import { FuturesBottomCardComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-bottom-card.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -57,6 +65,7 @@ const PAGE_COMPONENTS = [
     LoginPageComponent,
     PortfolioPageComponent,
     SpotPageComponent,
+    FuturesPageComponent,
     LoginContainerComponent,
 ];
 
@@ -66,11 +75,21 @@ const SPOT_COMPONENTS = [
     SpotBuySellCardComponent,
     SpotOrderbookCardComponent,
     SpotBottomCardComponent,
-    SportHistoryCardComponent,
-    SportChartCardComponent,
+    SpotHistoryCardComponent,
+    SpotChartCardComponent,
     SpotOrdersComponent,
     SpotChannelsComponent,
     SpotRelatedHistoryComponent,
+];
+
+const FUTURES_COMPONENTS = [
+    FuturesMarketsToolbarComponent,
+    FuturesTradingGridComponent,
+    FuturesChartCardComponent,
+    FuturesHistoryCardComponent,
+    FuturesOrderbookCardComponent,
+    FuturesBuySellCardComponent,
+    FuturesBottomCardComponent,
 ];
 
 const PIPES = [
@@ -85,6 +104,7 @@ const imports = [
 const declarations = [
     ...PAGE_COMPONENTS,
     ...SPOT_COMPONENTS,
+    ...FUTURES_COMPONENTS,
     ...PIPES,
 ];
 

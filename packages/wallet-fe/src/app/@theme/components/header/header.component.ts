@@ -36,6 +36,12 @@ export class HeaderComponent implements OnInit {
       name: 'Spot Trading',
       link: '/spot',
       needAuthToShow: true,
+    },
+    {
+      id: 4,
+      name: 'Futures Trading',
+      link: '/futures',
+      needAuthToShow: true,
     }
   ];
 
@@ -74,7 +80,7 @@ export class HeaderComponent implements OnInit {
   ngOnInit(): void { }
 
   navigateTo(route: any) {
-    if (route.id === 3) {
+    if (route.id === 3 || route.id === 4) {
       if (!this.connectionService.isOBSocketConnected) {
         this.toastrService.warning('Please first connect to orderbook Server');
         const window = this.windowsService.tabs.find(tab => tab.title === 'Orderbook Server');

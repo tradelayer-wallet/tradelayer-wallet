@@ -8,6 +8,7 @@ import { ApiService } from 'src/app/@core/services/api.service';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
 import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
+import { FuturesMarketService } from 'src/app/@core/services/futures-services/futures-markets.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { IMarket, IToken, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
@@ -21,21 +22,21 @@ const minFeeLtcPerKb = 0.002;
 const minVOutAmount = 0.000036;
 
 @Component({
-  selector: 'tl-spot-buy-sell-card',
-  templateUrl: './spot-buy-sell-card.component.html',
-  styleUrls: ['./spot-buy-sell-card.component.scss'],
+  selector: 'tl-futures-buy-sell-card',
+  templateUrl: '../../../spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component.html',
+  styleUrls: ['../../../spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component.scss'],
 })
-export class SpotBuySellCardComponent implements OnInit, OnDestroy {
+export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
     buySellGroup: FormGroup = new FormGroup({});
     private _isLimitSelected: boolean = true;
 
     constructor(
-      private spotMarketsService: SpotMarketsService,
+      private futuresMarketService: FuturesMarketService,
       private balanceService: BalanceService,
       private fb: FormBuilder,
-      private spotOrdersService: SpotOrdersService,
-      private spotOrderbookService: SpotOrderbookService,
+      // private spotOrdersService: SpotOrdersService,
+      // private spotOrderbookService: SpotOrderbookService,
       private authService: AuthService,
       private toastrService: ToastrService,
       private attestationService: AttestationService,
@@ -58,11 +59,12 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     get selectedMarket(): IMarket {
-      return this.spotMarketsService.selectedMarket;
+      return this.futuresMarketService.selectedMarket;
     }
 
     get currentPrice() {
-      return this.spotOrderbookService.currentPrice;
+      return 0;
+      // return this.spotOrderbookService.currentPrice;
     }
 
     get isLimitSelected() {
@@ -173,12 +175,12 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
       };
-      this.spotOrdersService.newOrder(order);
+      // this.spotOrdersService.newOrder(order);
       this.buySellGroup.reset();
     }
 
     addLiquidity() {
-      const price = this.spotOrderbookService.lastPrice;
+      // const price = this.spotOrderbookService.lastPrice;
       const orders: ISpotTradeConf[] = [];
       const availableLtc = this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed;
       const first =  this.selectedMarket.first_token.propertyId;
@@ -211,37 +213,37 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
           marketName: this.selectedMarket.pairString,
         };
 
-        const buyProps = {
-          id_desired: this.selectedMarket.second_token.propertyId,
-          id_for_sale: this.selectedMarket.first_token.propertyId,
-          amount: safeNumber(availableFirst / 10),
-          price: safeNumber(price + i* (price / 10)),
-        };
+        // const buyProps = {
+        //   id_desired: this.selectedMarket.second_token.propertyId,
+        //   id_for_sale: this.selectedMarket.first_token.propertyId,
+        //   amount: safeNumber(availableFirst / 10),
+        //   price: safeNumber(price + i* (price / 10)),
+        // };
 
-        const sellProps = {
-          id_desired: this.selectedMarket.first_token.propertyId,
-          id_for_sale: this.selectedMarket.second_token.propertyId,
-          amount: safeNumber(availableSecond / 10),
-          price: safeNumber(price - i* (price / 10)),
-        };
+        // const sellProps = {
+        //   id_desired: this.selectedMarket.first_token.propertyId,
+        //   id_for_sale: this.selectedMarket.second_token.propertyId,
+        //   amount: safeNumber(availableSecond / 10),
+        //   price: safeNumber(price - i* (price / 10)),
+        // };
 
-        const buyOrder: ISpotTradeConf = {
-          ...rawOrder, 
-          type:"SPOT", 
-          action: "SELL", 
-          props: buyProps,
-        };
+        // const buyOrder: ISpotTradeConf = {
+        //   ...rawOrder, 
+        //   type:"SPOT", 
+        //   action: "SELL", 
+        //   props: buyProps,
+        // };
 
-        const sellOrder: ISpotTradeConf = {
-          ...rawOrder, 
-          type:"SPOT", 
-          action: "BUY", 
-          props: sellProps,
-        };
+        // const sellOrder: ISpotTradeConf = {
+        //   ...rawOrder, 
+        //   type:"SPOT", 
+        //   action: "BUY", 
+        //   props: sellProps,
+        // };
 
-        orders.push(buyOrder, sellOrder)
+        // orders.push(buyOrder, sellOrder)
       }
-      this.spotOrdersService.addLiquidity(orders);
+      // this.spotOrdersService.addLiquidity(orders);
     }
 
     getButtonDisabled(isBuy: boolean) {
@@ -250,11 +252,11 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     private trackPriceHandler() {
-      this.spotOrderbookService.outsidePriceHandler
-        .pipe(takeUntil(this.destroyed$))
-        .subscribe(price => {
-          this.buySellGroup.controls['price'].setValue(price);
-        });
+      // this.spotOrderbookService.outsidePriceHandler
+      //   .pipe(takeUntil(this.destroyed$))
+      //   .subscribe(price => {
+      //     this.buySellGroup.controls['price'].setValue(price);
+      //   });
     }
 
     async newSpotAddress() {
@@ -291,17 +293,18 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     private getInOrderAmount(propertyId: number) {
-      const num = this.spotOrdersService.openedOrders.map(o => {
-        const { amount, price, id_for_sale } = o.props;
-        if (propertyId === -1) {
-          if (id_for_sale === -1) return safeNumber(amount * price);
-          return 0.001;
-        } else {
-          if (id_for_sale === propertyId) return safeNumber(amount * price);
-          return 0;
-        }
-      }).reduce((a, b) => a + b, 0);
-      return safeNumber(num);
+      return 0;
+      // const num = this.spotOrdersService.openedOrders.map(o => {
+      //   const { amount, price, id_for_sale } = o.props;
+      //   if (propertyId === -1) {
+      //     if (id_for_sale === -1) return safeNumber(amount * price);
+      //     return 0.001;
+      //   } else {
+      //     if (id_for_sale === propertyId) return safeNumber(amount * price);
+      //     return 0;
+      //   }
+      // }).reduce((a, b) => a + b, 0);
+      // return safeNumber(num);
     }
   
     isSpotAddressSelfAtt() {
@@ -342,6 +345,6 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     closeAll() {
-      this.spotOrdersService.closeAllOrders();
+      // this.spotOrdersService.closeAllOrders();
     }
 }

@@ -7,7 +7,7 @@ import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-
   templateUrl: './shared-history-card.component.html',
   styleUrls: ['./shared-history-card.component.scss'],
 })
-export class SportHistoryCardComponent {
+export class SpotHistoryCardComponent {
     displayedColumns: string[] = ['price', 'amount', 'total', 'txid'];
     
     constructor(

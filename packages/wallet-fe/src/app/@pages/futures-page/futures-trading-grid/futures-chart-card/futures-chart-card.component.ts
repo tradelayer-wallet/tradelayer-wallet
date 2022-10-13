@@ -60,11 +60,11 @@ export const chartOptions: DeepPartial<ChartOptions> = {
 };
 
 @Component({
-  selector: 'tl-spot-chart-card',
-  templateUrl: './spot-chart-card.component.html',
-  styleUrls: ['./spot-chart-card.component.scss']
+  selector: 'tl-futures-chart-card',
+  templateUrl: '../../../spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.html',
+  styleUrls: ['../../../spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.scss']
 })
-export class SpotChartCardComponent implements AfterViewInit {
+export class FuturesChartCardComponent implements AfterViewInit {
   @ViewChild('chart') chartElement: ElementRef | undefined;
   @HostListener('window:resize', ['$event'])
   private onResize = (event: any) => {
