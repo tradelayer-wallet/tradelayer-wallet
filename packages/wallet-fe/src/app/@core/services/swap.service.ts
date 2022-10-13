@@ -1,10 +1,10 @@
 import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
-import { BuySwapper, ITradeInfo, SellSwapper } from "src/app/utils/swapper.util";
 import { RpcService } from "./rpc.service";
 import { obEventPrefix, SocketService } from "./socket.service";
 import { TxsService } from "./txs.service";
 import { LoadingService } from "./loading.service";
+import { BuySwapper, SellSwapper, ITradeInfo } from 'src/app/utils/swapper';
 
 interface IRawChannelSwap {
     amountDesired: number;
