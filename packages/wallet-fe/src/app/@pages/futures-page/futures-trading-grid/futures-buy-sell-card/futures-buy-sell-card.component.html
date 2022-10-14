@@ -1,0 +1,104 @@
+<mat-card>
+  <mat-card-title>
+    <div class="header-wrapper">
+      <div class="title-text">
+        <span>Order Form</span>
+        <span class='contract'>wETH / LTC</span>
+      </div>
+      <div class="icons">
+        <!-- <mat-icon svgIcon="resize"></mat-icon>
+        <mat-icon svgIcon="close"></mat-icon> -->
+      </div>
+    </div>
+  </mat-card-title>
+  <mat-card-content>
+    <div class="order-type">
+      <div class="order-type-buttons">
+        <p
+          [ngClass]="{ selected: isLimitSelected }"
+          (click)="isLimitSelected = true"
+        >Limit</p>
+        <p
+          [ngClass]="{ selected: !isLimitSelected }"
+          (click)="isLimitSelected = false"
+        >Market</p>
+      </div>
+    </div>
+    <div class="buy-sell-form" [formGroup]='buySellGroup'>
+      <div class="custom-form-field" *ngIf='isLimitSelected'>
+        <div class="prefix">Price</div>
+        <input type='number' formControlName="price">
+        <div class="suffix">{{ selectedMarket.second_token.shortName }}</div>
+      </div>
+      <div class="custom-form-field">
+        <div class="prefix">Amount</div>
+        <input type='number' formControlName="amount">
+        <div class="suffix">{{ selectedMarket.first_token.shortName }}</div>
+      </div>
+    </div>
+    <div class="buy-sell-info">
+      <div class="column">
+        <span>Fee: {{ getFees(true).toFixed(6) }} LTC </span>
+      </div>
+      <div class="column">
+        <span>Fee: {{ getFees(false).toFixed(6) }} LTC </span>
+      </div>
+    </div>
+    <div class="buttons">
+      <button
+        class='buy-button'
+        (click)='handleBuySell(true)'
+        [disabled]='getButtonDisabled(true)'
+      >Long</button>
+      <button
+        class='sell-button'
+        (click)='handleBuySell(false)'
+        [disabled]='getButtonDisabled(false)'
+      >Short</button>
+    </div>
+    <div class="buy-sell-info max" *ngIf="futureAddress">
+      <div class="column" (click)="fillMax(true)">
+        <span>Max: {{ getMaxAmount(true).toFixed(6) }} {{ this.selectedMarket.collateral.shortName }} </span>
+      </div>
+      <div class="column" (click)="fillMax(false)">
+        <span>Max: {{ getMaxAmount(false).toFixed(6) }} {{ this.selectedMarket.collateral.shortName }} </span>
+      </div>
+    </div>
+    <div class="address">
+      <button
+        *ngIf="!futureAddress"
+        class="blueButton"
+        (click)='newFutureAddress()'
+      >Create Spot Address</button>
+      <div class="address-info" *ngIf="futureAddress">
+        <div class="key-value-pair">
+          <div class="key">Address:</div>
+          <div class="value">{{ futureAddress | shortAddress }}</div>
+        </div>
+        <div class="key-value-pair">
+          <div class="key">{{ getNameBalanceInfo(selectedMarket.collateral)[0] }}:</div>
+          <div class="value">{{ getNameBalanceInfo(selectedMarket.collateral)[1] }}</div>
+        </div>
+        <div class="key-value-pair">
+          <div class="key">KYC:</div>
+          <div class="value">{{ isFutureAddressSelfAtt() }}</div>
+        </div>
+        <div class="key-value-pair"></div>
+      </div>
+    </div>
+    <div class="additional-info" *ngIf="futureAddress">
+      <button
+        class="blueButton"
+        (click)='addLiquidity()'
+      >Add Liquidity</button>
+      <button
+        class="blueButton"
+        (click)='closeAll()'
+      >Close All Orders</button>
+    </div>
+  </mat-card-content>
+</mat-card>
+
+<div class="overlay-loading" *ngIf='isLoading'>
+  <mat-spinner></mat-spinner>
+</div>

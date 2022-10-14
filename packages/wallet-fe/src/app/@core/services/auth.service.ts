@@ -72,6 +72,8 @@ export class AuthService {
     private _walletKeys: IWalletObj = JSON.parse(JSON.stringify(defaultWalletObj));
     private _activeMainKey: IKeyPair = this.walletKeys.main?.[0] || null;
     private _activeSpotKey: IKeyPair  = this.walletKeys.spot?.[0] || null;
+    private _activeFuturesKey: IKeyPair  = this.walletKeys.futures?.[0] || null;
+
     public encKey: string = '';
     savedFromUrl: string = '';
     mnemonic: string = '';
@@ -90,6 +92,10 @@ export class AuthService {
 
     get activeSpotKey() {
         return this._activeSpotKey || this.walletKeys.spot?.[0];
+    }
+
+    get activeFuturesKey() {
+        return this._activeFuturesKey || this.walletKeys.futures?.[0];
     }
 
     get activeMainKey() {
@@ -164,6 +170,16 @@ export class AuthService {
                 this.walletKeys.spot.push(keyPair);
                 this.walletObjRaw.derivatePaths.spot.push(derivatePath);
             }
+
+            if (type === EAddress.FUTURES) {
+                const derivatePath = initDPath + `3/0/` + this.walletKeys.futures.length;
+                const mnemonic = this.walletObjRaw.mnemonic;
+                if (!mnemonic) throw new Error("Not found mnemonic");
+                const keyPair = await this.keysApi.getKeyPair(derivatePath, mnemonic).toPromise() as IKeyPair;
+                this.walletKeys.futures.push(keyPair);
+                this.walletObjRaw.derivatePaths.futures.push(derivatePath);
+            }
+
             // add more types
             this.updateAddressesSubs$.next(this.listOfallAddresses);
             this.saveEncKey(password);

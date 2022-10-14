@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
-import { ISpotOrder } from "./spot-orderbook.service";
+import { IFuturesOrder } from "./futures-orderbook.service";
 
 interface ITradeConf {
     keypair: {
@@ -9,15 +9,14 @@ interface ITradeConf {
         pubkey: string;
     };
     action: "BUY" | "SELL";
-    type: "SPOT";
+    type: "FUTURES";
     isLimitOrder: boolean;
     marketName: string;
 }
 
-export interface ISpotTradeConf extends ITradeConf {
+export interface IFuturesTradeConf extends ITradeConf {
     props: {
-        id_desired: number,
-        id_for_sale: number,
+        contract_id: number,
         amount: number,
         price: number,
     };
@@ -27,8 +26,8 @@ export interface ISpotTradeConf extends ITradeConf {
     providedIn: 'root',
 })
 
-export class SpotOrdersService {
-    private _openedOrders: ISpotOrder[] = []
+export class FuturesOrdersService {
+    private _openedOrders: IFuturesOrder[] = []
     constructor(
         private socketService: SocketService,
         private loadingService: LoadingService,
@@ -38,20 +37,20 @@ export class SpotOrdersService {
         return this.socketService.socket;
     }
 
-    get openedOrders(): ISpotOrder[] {
+    get openedOrders(): IFuturesOrder[] {
         return this._openedOrders;
     }
 
-    set openedOrders(value: ISpotOrder[]) {
+    set openedOrders(value: IFuturesOrder[]) {
         this._openedOrders = value;
     }
 
-    newOrder(orderConf: ISpotTradeConf) {
+    newOrder(orderConf: IFuturesTradeConf) {
         this.loadingService.tradesLoading = true;
         this.socket.emit('new-order', orderConf);
     }
 
-    addLiquidity(orders: ISpotTradeConf[]) {
+    addLiquidity(orders: IFuturesTradeConf[]) {
         this.socket.emit('many-orders', orders);
     }
 

@@ -8,63 +8,60 @@ import { ApiService } from 'src/app/@core/services/api.service';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
 import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
-import { FuturesMarketService } from 'src/app/@core/services/futures-services/futures-markets.service';
+import { FuturesMarketService, IFutureMarket, IToken } from 'src/app/@core/services/futures-services/futures-markets.service';
+import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
+import { FuturesOrdersService, IFuturesTradeConf } from 'src/app/@core/services/futures-services/futures-orders.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
-import { IMarket, IToken, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
-import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
-import { ISpotTradeConf, SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
-import { IUTXO } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
 
-const minFeeLtcPerKb = 0.002;
-const minVOutAmount = 0.000036;
+// const minFeeLtcPerKb = 0.002;
+// const minVOutAmount = 0.000036;
 
 @Component({
   selector: 'tl-futures-buy-sell-card',
-  templateUrl: '../../../spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component.html',
+  templateUrl: './futures-buy-sell-card.component.html',
   styleUrls: ['../../../spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component.scss'],
 })
 export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
-    buySellGroup: FormGroup = new FormGroup({});
     private _isLimitSelected: boolean = true;
+    public buySellGroup: FormGroup = new FormGroup({});
 
     constructor(
       private futuresMarketService: FuturesMarketService,
       private balanceService: BalanceService,
       private fb: FormBuilder,
-      // private spotOrdersService: SpotOrdersService,
-      // private spotOrderbookService: SpotOrderbookService,
       private authService: AuthService,
       private toastrService: ToastrService,
       private attestationService: AttestationService,
       private loadingService: LoadingService,
       private rpcService: RpcService,
       private apiService: ApiService,
+      private futuresOrdersService: FuturesOrdersService,
+      private futuresOrderbookService: FuturesOrderbookService,
       public matDialog: MatDialog,
     ) {}
 
-    get spotKeyPair() {
-      return this.authService.walletKeys?.spot?.[0];
+    get futureKeyPair() {
+      return this.authService.walletKeys?.futures?.[0];
     }
 
-    get spotAddress() {
-      return this.spotKeyPair?.address;
+    get futureAddress() {
+      return this.futureKeyPair?.address;
     }
 
     get isLoading(): boolean {
       return this.loadingService.tradesLoading;
     }
 
-    get selectedMarket(): IMarket {
-      return this.futuresMarketService.selectedMarket;
+    get selectedMarket(): IFutureMarket {
+      return this.futuresMarketService.selectedMarket
     }
 
     get currentPrice() {
-      return 0;
-      // return this.spotOrderbookService.currentPrice;
+      return this.futuresOrderbookService.currentPrice;
     }
 
     get isLimitSelected() {
@@ -93,60 +90,24 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     fillMax(isBuy: boolean) {
-      const value = this.getMaxAmount(isBuy);
-      this.buySellGroup?.controls?.['amount'].setValue(value);
-      // tricky update the Max Amount 
-      const value2 = this.getMaxAmount(isBuy);
-      this.buySellGroup?.controls?.['amount'].setValue(value2);
-    }
 
-    getTotal(isBuy: boolean): string {
-      const { price, amount } = this.buySellGroup.value;
-      const tokenName = isBuy 
-        ? this.selectedMarket.second_token.shortName
-        : this.selectedMarket.first_token.shortName;
-      const _amount = isBuy
-        ? (price * amount).toFixed(4)
-        : (amount || 0).toFixed(4);
-      return `${_amount} ${tokenName}`;
     }
 
     getMaxAmount(isBuy: boolean) {
-      if (!this.spotAddress) return 0;
-      if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
-      const _price = this.isLimitSelected 
-        ? this.buySellGroup.value['price'] 
-        : this.currentPrice;
-      const price = safeNumber(_price);
-
-      const propId = isBuy
-        ? this.selectedMarket.second_token.propertyId
-        : this.selectedMarket.first_token.propertyId;
-
-      const _available = propId === -1
-        ? safeNumber(this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed - this.getFees(isBuy))
-        : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
-          ?.find((t: any) => t.propertyid === propId)
-          ?.balance;
-      const inOrderBalance = this.getInOrderAmount(propId);
-      const available = safeNumber((_available || 0 )- inOrderBalance);
-      if (!available || ((available / price) <= 0)) return 0;
-      const _max = isBuy ? (available / price) : available;
-      const max = safeNumber(_max);
-      return max;
+      return 0;
     }
 
 
     handleBuySell(isBuy: boolean) {
       const fee = this.getFees(isBuy);
-      const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed || 0) - fee)
+      const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.futureAddress)?.confirmed || 0) - fee)
       if (available < 0) {
         this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
         return;
       }
-      const isKYC = this.attestationService.getAttByAddress(this.spotAddress);
+      const isKYC = this.attestationService.getAttByAddress(this.futureAddress);
       if (isKYC !== true) {
-        this.toastrService.error(`Spot Address Need KYC first!`, 'KYC Needed');
+        this.toastrService.error(`Futures Address Need KYC first!`, 'KYC Needed');
         return;
       }
       const amount = this.buySellGroup.value.amount;
@@ -154,114 +115,51 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       const price = this.isLimitSelected ? _price : this.currentPrice;
 
       const market = this.selectedMarket;
-      const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
-      const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
-      if (!propIdForSale || !propIdDesired || (!price && this.isLimitSelected) || !amount) return;
-      if (!this.spotKeyPair) return;
+      const contract_id = market.contract_id;
+      if (!contract_id || (!price && this.isLimitSelected) || !amount) return;
+      if (!this.futureKeyPair) return;
   
-      const order: ISpotTradeConf = { 
+      const order: IFuturesTradeConf = { 
         keypair: {
-          address: this.spotKeyPair?.address,
-          pubkey: this.spotKeyPair?.pubkey,
+          address: this.futureKeyPair?.address,
+          pubkey: this.futureKeyPair?.pubkey,
         },
         action: isBuy ? "BUY" : "SELL",
-        type: "SPOT",
+        type: "FUTURES",
         props: {
-          id_desired: propIdDesired,
-          id_for_sale: propIdForSale,
+          contract_id: contract_id,
           amount: amount,
           price: price,
         },
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
       };
-      // this.spotOrdersService.newOrder(order);
+      this.futuresOrdersService.newOrder(order);
       this.buySellGroup.reset();
     }
 
     addLiquidity() {
-      // const price = this.spotOrderbookService.lastPrice;
-      const orders: ISpotTradeConf[] = [];
-      const availableLtc = this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed;
-      const first =  this.selectedMarket.first_token.propertyId;
-      const second = this.selectedMarket.second_token.propertyId;
-
-      const availableFirst = first === -1
-        ? this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed
-        : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
-          ?.find((t: any) => t.propertyid === first)
-          ?.balance;
-
-      const availableSecond = second === -1
-        ? this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed
-        : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
-          ?.find((t: any) => t.propertyid === second)
-          ?.balance;
-      
-      if (!availableFirst || !availableSecond || availableFirst < 1 || availableSecond < 1) {
-        this.toastrService.error(`You Need At least balance of 1 from each: ${this.selectedMarket.pairString}`);
-        return;
-      }
-
-      for (let i = 1; i < 11; i++) {
-        const rawOrder = { 
-          keypair: {
-            address: this.spotKeyPair?.address,
-            pubkey: this.spotKeyPair?.pubkey,
-          },
-          isLimitOrder: this.isLimitSelected,
-          marketName: this.selectedMarket.pairString,
-        };
-
-        // const buyProps = {
-        //   id_desired: this.selectedMarket.second_token.propertyId,
-        //   id_for_sale: this.selectedMarket.first_token.propertyId,
-        //   amount: safeNumber(availableFirst / 10),
-        //   price: safeNumber(price + i* (price / 10)),
-        // };
-
-        // const sellProps = {
-        //   id_desired: this.selectedMarket.first_token.propertyId,
-        //   id_for_sale: this.selectedMarket.second_token.propertyId,
-        //   amount: safeNumber(availableSecond / 10),
-        //   price: safeNumber(price - i* (price / 10)),
-        // };
-
-        // const buyOrder: ISpotTradeConf = {
-        //   ...rawOrder, 
-        //   type:"SPOT", 
-        //   action: "SELL", 
-        //   props: buyProps,
-        // };
-
-        // const sellOrder: ISpotTradeConf = {
-        //   ...rawOrder, 
-        //   type:"SPOT", 
-        //   action: "BUY", 
-        //   props: sellProps,
-        // };
-
-        // orders.push(buyOrder, sellOrder)
-      }
-      // this.spotOrdersService.addLiquidity(orders);
+      this.toastrService.error('Not Allowed', 'Error');
+      return;
     }
 
     getButtonDisabled(isBuy: boolean) {
-      const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
-      return !this.buySellGroup.valid || !v;
+      return false;
+      // const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
+      // return !this.buySellGroup.valid || !v;
     }
 
     private trackPriceHandler() {
-      // this.spotOrderbookService.outsidePriceHandler
-      //   .pipe(takeUntil(this.destroyed$))
-      //   .subscribe(price => {
-      //     this.buySellGroup.controls['price'].setValue(price);
-      //   });
+      this.futuresOrderbookService.outsidePriceHandler
+        .pipe(takeUntil(this.destroyed$))
+        .subscribe(price => {
+          this.buySellGroup.controls['price'].setValue(price);
+        });
     }
 
-    async newSpotAddress() {
-      if (this.authService.walletKeys.spot.length) {
-        this.toastrService.error('The Limit of Spot Addresses is Reached');
+    async newFutureAddress() {
+      if (this.authService.walletKeys.futures.length) {
+        this.toastrService.error('The Limit of Futures Addresses is Reached');
         return;
       }
       const passDialog = this.matDialog.open(PasswordDialog);
@@ -270,22 +168,22 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
           .toPromise();
   
       if (!password) return;
-      await this.authService.addKeyPair(EAddress.SPOT, password);
+      await this.authService.addKeyPair(EAddress.FUTURES, password);
 
-      if (this.rpcService.NETWORK?.endsWith('TEST') && this.authService.activeSpotKey?.address) {
-        const fundRes = await this.reLayerApi.fundTestnetAddress(this.authService.activeSpotKey.address).toPromise();
+      if (this.rpcService.NETWORK?.endsWith('TEST') && this.authService.activeFuturesKey?.address) {
+        const fundRes = await this.reLayerApi.fundTestnetAddress(this.authService.activeFuturesKey.address).toPromise();
         if (fundRes.error || !fundRes.data) {
             this.toastrService.warning(fundRes.error, 'Faucet Error');
         } else {
-            this.toastrService.success(`${this.authService.activeSpotKey?.address} was Fund with small amount tLTC`, 'Testnet Faucet')
+            this.toastrService.success(`${this.authService.activeFuturesKey?.address} was Fund with small amount tLTC`, 'Testnet Faucet')
         }
     }
     }
 
     getNameBalanceInfo(token: IToken) {
       const _balance = token.propertyId === -1
-        ? this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmed
-        : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
+        ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
+        : this.balanceService.getTokensBalancesByAddress(this.futureAddress)
           ?.find(e => e.propertyid === token.propertyId)?.balance;
       const inOrderBalance = this.getInOrderAmount(token.propertyId);
       const balance = safeNumber((_balance  || 0) - inOrderBalance);
@@ -294,21 +192,10 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
     private getInOrderAmount(propertyId: number) {
       return 0;
-      // const num = this.spotOrdersService.openedOrders.map(o => {
-      //   const { amount, price, id_for_sale } = o.props;
-      //   if (propertyId === -1) {
-      //     if (id_for_sale === -1) return safeNumber(amount * price);
-      //     return 0.001;
-      //   } else {
-      //     if (id_for_sale === propertyId) return safeNumber(amount * price);
-      //     return 0;
-      //   }
-      // }).reduce((a, b) => a + b, 0);
-      // return safeNumber(num);
     }
   
-    isSpotAddressSelfAtt() {
-      const isKYC = this.attestationService.getAttByAddress(this.spotAddress);
+    isFutureAddressSelfAtt() {
+      const isKYC = this.attestationService.getAttByAddress(this.futureAddress);
       return isKYC === true ? "YES" : "NO";
     }
 
@@ -320,31 +207,10 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     getFees(isBuy: boolean) {
       const { amount, price } = this.buySellGroup.value;
       if (!amount || !price) return 0;
-
-      const propId = isBuy
-        ? this.selectedMarket.second_token.propertyId
-        : this.selectedMarket.first_token.propertyId;
-
-      const finalInputs: number[] = [];
-      const _amount = propId !== -1
-        ? safeNumber(minVOutAmount * 2)
-        : safeNumber((amount * price) + minVOutAmount);
-      const _allAmounts = this.balanceService.getCoinBalancesByAddress(this.spotAddress).utxos
-        .map(r => r.amount)
-        .sort((a, b) => b - a);
-      const allAmounts =  propId !== -1
-        ? _allAmounts
-        : [minVOutAmount, ..._allAmounts]
-      allAmounts.forEach(u => {
-        const _amountSum: number = finalInputs.reduce((a, b) => a + b, 0);
-        const amountSum = safeNumber(_amountSum);
-        const _fee = safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length + 1));
-        if (amountSum < safeNumber(_amount + _fee)) finalInputs.push(u);
-      });
-      return safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length));
+      return 0;
     }
 
     closeAll() {
-      // this.spotOrdersService.closeAllOrders();
+      this.futuresOrdersService.closeAllOrders();
     }
 }

@@ -13,7 +13,7 @@
                 <ng-template mat-tab-label>
                     <span matTooltip='Positions'> 
                         Positions
-                        <span class='num'>{{ allOrdersLength }}</span>
+                        <span class='num'> - </span>
                     </span>
                 </ng-template>
                 <!-- <tl-spot-orders></tl-spot-orders> -->
@@ -25,7 +25,7 @@
                         <span class='num'>{{ allOrdersLength }}</span>
                     </span>
                 </ng-template>
-                <!-- <tl-spot-orders></tl-spot-orders> -->
+                <tl-futures-orders></tl-futures-orders>
             </mat-tab>
             <mat-tab>
                 <ng-template mat-tab-label>
@@ -34,17 +34,8 @@
                         <span class='num'> {{ allRelayedHistory }} </span>
                     </span>
                 </ng-template>
-                <!-- <tl-spot-related-history></tl-spot-related-history> -->
+                    <tl-futures-related-history></tl-futures-related-history>
             </mat-tab>
-            <!-- <mat-tab>
-                <ng-template mat-tab-label>
-                    <span matTooltip='Channels Commits'>
-                        Channels Commits
-                        <span class='num'> {{ allCommitsLength }} </span>
-                    </span>
-                </ng-template>
-                <tl-spot-channels></tl-spot-channels>
-            </mat-tab> -->
         </mat-tab-group>
     </mat-card-content>
 </mat-card>

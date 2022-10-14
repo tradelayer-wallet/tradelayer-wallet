@@ -15,8 +15,8 @@ export interface IFutureMarket {
     disabled: boolean,
     pairString: string;
     contractName: string;
-    contractId: number;
-    collateral: number;
+    contract_id: number;
+    collateral: IToken;
 }
 
 export interface IToken {
@@ -83,9 +83,8 @@ export class FuturesMarketService {
     
     get marketFilter() {
         return {
-            type: 'SPOT',
-            first_token: this.selectedMarket.first_token.propertyId,
-            second_token: this.selectedMarket.second_token.propertyId,
+            type: 'FUTURES',
+            contract_id: this.selectedMarket.contract_id,
         };
     };
 

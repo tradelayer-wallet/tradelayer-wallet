@@ -1,8 +1,7 @@
 import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FuturesMarketService } from 'src/app/@core/services/futures-services/futures-markets.service';
-import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
-import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
-import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
+import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
+import { FuturesOrdersService } from 'src/app/@core/services/futures-services/futures-orders.service';
 
 
 export interface PeriodicElement {
@@ -22,8 +21,8 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     displayedColumns: string[] = ['price', 'amount', 'total'];
     clickedRows = new Set<PeriodicElement>();
     constructor(
-      // private spotOrderbookService: SpotOrderbookService,
-      // private spotOrdersService: SpotOrdersService,
+      private futuresOrderbookService: FuturesOrderbookService,
+      private futuresOrdersService: FuturesOrdersService,
       private futuresMarketService: FuturesMarketService,
     ) {}
 
@@ -33,48 +32,40 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
 
     get lastPrice() {
       return 0;
-      // return this.spotOrderbookService.lastPrice;
+      return this.futuresOrderbookService.lastPrice;
     }
 
     get marketPrice() {
-      return 1;
-      // return this.spotOrderbookService.currentPrice;
+      return this.futuresOrderbookService.currentPrice;
     }
 
     get openedOrders() {
-      return []
-      // return this.spotOrdersService.openedOrders;
+      return this.futuresOrdersService.openedOrders;
     }
 
     get openedBuyOrders() {
-      return [];
-      // return this.openedOrders.filter(p => {
-      //   const isBuy = p.action === "BUY";
-      //   const matchPropDesired = p.props.id_desired === this.selectedMarket.first_token.propertyId;
-      //   const matchPropForSale = p.props.id_for_sale === this.selectedMarket.second_token.propertyId;
-      //   return isBuy && matchPropDesired && matchPropForSale;
-      // });
+      return this.openedOrders.filter(p => {
+        const isBuy = p.action === "BUY";
+        const matchContract = p.props.contract_id === this.selectedMarket.contract_id;
+        return isBuy && matchContract;
+      });
     }
 
     get openedSellOrders() {
-      return [];
-      // return this.openedOrders.filter(p => {
-      //   const isSell = p.action === "SELL";
-      //   const matchPropDesired = p.props.id_desired === this.selectedMarket.second_token.propertyId;
-      //   const matchPropForSale = p.props.id_for_sale === this.selectedMarket.first_token.propertyId;
-      //   return isSell && matchPropDesired && matchPropForSale;
-      // });
+      return this.openedOrders.filter(p => {
+        const isSell = p.action === "SELL";
+        const matchContract = p.props.contract_id === this.selectedMarket.contract_id;
+        return isSell && matchContract;
+      });
     }
 
     get buyOrderbooks() {
-      return [];
-      // return this.spotOrderbookService.buyOrderbooks;
+      return this.futuresOrderbookService.buyOrderbooks;
     }
 
     get sellOrderbooks() {
       this.scrollToBottom();
-      return [];
-      // return this.spotOrderbookService.sellOrderbooks;
+      return this.futuresOrderbookService.sellOrderbooks;
     }
 
     get selectedMarket() {
@@ -82,7 +73,7 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     }
   
     ngOnInit() {
-      // this.spotOrderbookService.subscribeForOrderbook();
+      this.futuresOrderbookService.subscribeForOrderbook();
     }
 
     scrollToBottom() {
@@ -92,11 +83,11 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy() {
-      // this.spotOrderbookService.endOrderbookSbuscription()
+      this.futuresOrderbookService.endOrderbookSbuscription()
     }
 
     fillBuySellPrice(price: number) {
-      // if (price) this.spotOrderbookService.outsidePriceHandler.next(price);
+      if (price) this.futuresOrderbookService.outsidePriceHandler.next(price);
     }
 
     // haveOpenedOrdersOnThisPrice(isBuy: boolean, price: number) {

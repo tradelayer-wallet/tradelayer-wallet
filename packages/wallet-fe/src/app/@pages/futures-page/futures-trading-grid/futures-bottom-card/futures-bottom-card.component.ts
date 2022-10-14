@@ -1,4 +1,6 @@
 import { Component } from '@angular/core';
+import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
+import { FuturesOrdersService } from 'src/app/@core/services/futures-services/futures-orders.service';
 
 @Component({
   selector: 'tl-futures-bottom-card',
@@ -8,23 +10,15 @@ import { Component } from '@angular/core';
 
 export class FuturesBottomCardComponent {
     constructor(
-      // private spotOrdersService: SpotOrdersService,
-      // private spotChannelsService: SpotChannelsService,
-      // private spotOrderbookService: SpotOrderbookService,
+      private futuresOrdersService: FuturesOrdersService,
+      private futuresOrderbookService: FuturesOrderbookService,
     ) {}
 
-    get allCommitsLength() {
-      return 0;
-      // return this.spotChannelsService.channelsCommits?.length || 0;
-    }
-
     get allOrdersLength() {
-      return 0;
-      // return this.spotOrdersService.openedOrders?.length || 0;
+      return this.futuresOrdersService.openedOrders?.length || 0;
     }
 
     get allRelayedHistory() {
-      return 0;
-      // return this.spotOrderbookService.relatedHistoryTrades.length || 0;
+      return this.futuresOrderbookService.relatedHistoryTrades.length || 0;
     }
 }
