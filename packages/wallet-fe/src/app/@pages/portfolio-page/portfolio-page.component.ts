@@ -84,17 +84,23 @@ export class PortfolioPageComponent {
   }
 
   async selfAttestate(address: string) {
-    const isAttestated = await this.attestationService.checkAttAddress(address);
-    if (isAttestated) return;
-    const payload = '007600';
-    const res = await this.txsService.buildSingSendTx({
-      fromKeyPair: { address },
-      toKeyPair: { address },
-      payload: payload,
-    });
-    if (res.data) {
-      this.attestationService.setPendingAtt(address);
-      this.toastrService.success(res.data, 'Transaction Sent');
+    try {
+      const isAttestated = await this.attestationService.checkAttAddress(address);
+      if (isAttestated) return;
+      const payloadRes = await this.rpcService.tlApi.rpc('tl_createpayload_attestation').toPromise();
+      if (!payloadRes.data || payloadRes.error) throw new Error(payloadRes.error || "Getting Attestation Payload Error");
+      const res = await this.txsService.buildSingSendTx({
+        fromKeyPair: { address },
+        toKeyPair: { address },
+        payload: payloadRes.data,
+      });
+      if (res.data) {
+        this.attestationService.setPendingAtt(address);
+        this.toastrService.success(res.data, 'Transaction Sent');
+      }
+    } catch (error: any) {
+      this.toastrService.error(error.message, `Attestate Error`);
+
     }
   }
 }
