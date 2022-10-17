@@ -47,11 +47,11 @@ export interface IBuyerSellerInfo {
     socketId: string;
 };
 
-export interface ITradeInfo {
+export interface ITradeInfo<IProps = IFuturesTradeProps | ISpotTradeProps> {
     buyer: IBuyerSellerInfo;
     seller: IBuyerSellerInfo;
     taker: string;
     maker: string;
-    props: IFuturesTradeProps | ISpotTradeProps;
+    props: IProps;
     type: ETradeType;
 };

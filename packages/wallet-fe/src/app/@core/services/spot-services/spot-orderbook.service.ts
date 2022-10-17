@@ -5,15 +5,17 @@ import { obEventPrefix, SocketService } from "../socket.service";
 import { ToastrService } from "ngx-toastr";
 import { LoadingService } from "../loading.service";
 import { AuthService } from "../auth.service";
+import { ITradeInfo } from "src/app/utils/swapper";
+import { ISpotTradeProps } from "src/app/utils/swapper/common";
 
-export interface IHistoryTrade {
-    amountDesired: number;
-    amountForSale: number;
-    price: number;
+interface ISpotOrderbookData {
+    orders: ISpotOrder[],
+    history: ISpotHistoryTrade[],
+}
+
+export interface ISpotHistoryTrade extends ITradeInfo<ISpotTradeProps> {
     txid: string;
-    buyerAddress: string;
-    sellerAddress: string;
-    side?: string;
+    side?: "SELL" | "BUY";
 }
 
 export interface ISpotOrder {
@@ -44,7 +46,7 @@ export class SpotOrderbookService {
     outsidePriceHandler: Subject<number> = new Subject();
     buyOrderbooks: { amount: number, price: number }[] = [];
     sellOrderbooks: { amount: number, price: number }[] = [];
-    tradeHistory: IHistoryTrade[] = [];
+    tradeHistory: ISpotHistoryTrade[] = [];
     currentPrice: number = 1;
     lastPrice: number = 1;
 
@@ -75,8 +77,8 @@ export class SpotOrderbookService {
     get relatedHistoryTrades() {
         if (!this.activeSpotAddress) return [];
         return this.tradeHistory
-            .filter(e => e.sellerAddress === this.activeSpotAddress || e.buyerAddress === this.activeSpotAddress)
-            .map(t => ({...t, side: t.buyerAddress === this.activeSpotAddress ? 'BUY' : 'SELL'})) as IHistoryTrade[];
+            .filter(e => e.seller.keypair.address === this.activeSpotAddress || e.buyer.keypair.address === this.activeSpotAddress)
+            .map(t => ({...t, side: t.buyer.keypair.address === this.activeSpotAddress ? 'BUY' : 'SELL'})) as ISpotHistoryTrade[];
     }
 
     set rawOrderbookData(value: ISpotOrder[]) {
@@ -108,10 +110,15 @@ export class SpotOrderbookService {
             this.socket.emit('update-orderbook', this.marketFilter)
         });
 
-        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: { orders: ISpotOrder[], history: IHistoryTrade[] }) => {
+        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: ISpotOrderbookData) => {
             this.rawOrderbookData = orderbookData.orders;
             this.tradeHistory = orderbookData.history;
-            this.currentPrice = this.tradeHistory?.[0]?.price || 1;
+            const lastTrade = this.tradeHistory[0];
+            if (!lastTrade) return this.currentPrice = 1;
+            const { amountForSale , amountDesired } = lastTrade.props;
+            const price = parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
+            this.currentPrice = price;
+            return;
         });
 
         this.socket.emit('update-orderbook', this.marketFilter);

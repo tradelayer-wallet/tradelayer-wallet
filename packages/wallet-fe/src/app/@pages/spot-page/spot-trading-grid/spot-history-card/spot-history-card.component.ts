@@ -18,7 +18,9 @@ export class SpotHistoryCardComponent {
     get tradeHistory() {
         return this.spotOrderbookService.tradeHistory   
             .map(trade => {
-                const {amountForSale, amountDesired, txid, price } = trade;
+                const { txid } = trade;
+                const { amountForSale, amountDesired } = trade.props;
+                const price = parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
                 return { price, txid, amount: amountDesired, total: amountForSale };
             }).splice(0, 10);
     }

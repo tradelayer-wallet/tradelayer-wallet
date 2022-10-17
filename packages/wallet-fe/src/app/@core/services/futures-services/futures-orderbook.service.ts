@@ -5,16 +5,18 @@ import { ToastrService } from "ngx-toastr";
 import { LoadingService } from "../loading.service";
 import { AuthService } from "../auth.service";
 import { FuturesMarketService } from "./futures-markets.service";
+import { ITradeInfo } from "src/app/utils/swapper";
+import { IFuturesTradeProps } from "src/app/utils/swapper/common";
 
-export interface IHistoryTrade {
-    amountDesired: number;
-    amountForSale: number;
-    price: number;
+interface IFuturesOrderbookData {
+    orders: IFuturesOrder[],
+    history: IFuturesHistoryTrade[],
+};
+
+export interface IFuturesHistoryTrade extends ITradeInfo<IFuturesTradeProps> {
     txid: string;
-    buyerAddress: string;
-    sellerAddress: string;
-    side?: string;
-}
+    side?: "SELL" | "BUY";
+};
 
 export interface IFuturesOrder {
     action: "SELL" | "BUY",
@@ -45,7 +47,7 @@ export class FuturesOrderbookService {
     outsidePriceHandler: Subject<number> = new Subject();
     buyOrderbooks: { amount: number, price: number }[] = [];
     sellOrderbooks: { amount: number, price: number }[] = [];
-    tradeHistory: IHistoryTrade[] = [];
+    tradeHistory: IFuturesHistoryTrade[] = [];
     currentPrice: number = 1;
     lastPrice: number = 1;
 
@@ -76,8 +78,8 @@ export class FuturesOrderbookService {
     get relatedHistoryTrades() {
         if (!this.activeFuturesAddress) return [];
         return this.tradeHistory
-            .filter(e => e.sellerAddress === this.activeFuturesAddress || e.buyerAddress === this.activeFuturesAddress)
-            .map(t => ({...t, side: t.buyerAddress === this.activeFuturesAddress ? 'BUY' : 'SELL'})) as IHistoryTrade[];
+            .filter(e => e.seller.keypair.address === this.activeFuturesAddress || e.buyer.keypair.address === this.activeFuturesAddress)
+            .map(t => ({...t, side: t.buyer.keypair.address === this.activeFuturesAddress ? 'BUY' : 'SELL'})) as IFuturesHistoryTrade[];
     }
 
     set rawOrderbookData(value: IFuturesOrder[]) {
@@ -109,10 +111,13 @@ export class FuturesOrderbookService {
             this.socket.emit('update-orderbook', this.marketFilter)
         });
 
-        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: { orders: IFuturesOrder[], history: IHistoryTrade[] }) => {
+        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: IFuturesOrderbookData) => {
             this.rawOrderbookData = orderbookData.orders;
             this.tradeHistory = orderbookData.history;
-            this.currentPrice = this.tradeHistory?.[0]?.price || 1;
+            const lastTrade = this.tradeHistory[0];
+            if (!lastTrade) return this.currentPrice = 1;
+            this.currentPrice = lastTrade?.props?.price || 1;
+            return;
         });
 
         this.socket.emit('update-orderbook', this.marketFilter);

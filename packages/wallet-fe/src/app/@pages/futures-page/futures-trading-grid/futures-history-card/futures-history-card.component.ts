@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
+import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
 
 @Component({
   selector: 'tl-futures-history-card',
@@ -10,17 +11,18 @@ export class FuturesHistoryCardComponent {
     displayedColumns: string[] = ['price', 'amount', 'total', 'txid'];
     
     constructor(
-        // private spotOrderbookService: SpotOrderbookService,
+        private futuresOrderbookService: FuturesOrderbookService,
         private toastrService: ToastrService,
     ) { }
 
     get tradeHistory() {
-        return []
-        // return this.spotOrderbookService.tradeHistory   
-        //     .map(trade => {
-        //         const {amountForSale, amountDesired, txid, price } = trade;
-        //         return { price, txid, amount: amountDesired, total: amountForSale };
-        //     }).splice(0, 10);
+        return [];
+        return this.futuresOrderbookService.tradeHistory   
+            .map(trade => {
+                const { txid } = trade;
+                const { amount, price } = trade.props
+                return { price, txid, amount, total: parseFloat((amount * price).toFixed(6)) };
+            }).splice(0, 10);
     }
 
     copy(text: string) {

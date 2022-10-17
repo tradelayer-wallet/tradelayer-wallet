@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
-import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
+import { ISpotHistoryTrade, SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 
 @Component({
   selector: 'tl-spot-related-history',
@@ -18,7 +18,7 @@ export class SpotRelatedHistoryComponent {
     private spotMarketService: SpotMarketsService,
   ) {}
 
-  get relayedHistory() {
+  get relayedHistory(): ISpotHistoryTrade[] {
     return this.spotOrderbookService.relatedHistoryTrades;
   }
 
@@ -29,5 +29,10 @@ export class SpotRelatedHistoryComponent {
   copy(text: string) {
     navigator.clipboard.writeText(text);
     this.toastrService.info(`Transaction Id Copied to clipboard: ${text}`, 'Copied')
+  }
+
+  getPrice(element: ISpotHistoryTrade) {
+    const { amountForSale, amountDesired } = element.props;
+    return parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
   }
 }

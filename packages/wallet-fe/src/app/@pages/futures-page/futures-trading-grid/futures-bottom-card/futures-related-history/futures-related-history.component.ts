@@ -19,6 +19,7 @@ export class FuturesRelatedHistoryComponent {
   ) {}
 
   get relayedHistory() {
+    return [];
     return this.futuresOrderbookService.relatedHistoryTrades;
   }
 
