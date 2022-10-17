@@ -40,8 +40,8 @@ import { FuturesHistoryCardComponent } from './futures-page/futures-trading-grid
 import { FuturesOrderbookCardComponent } from './futures-page/futures-trading-grid/futures-orderbook-card/futures-orderbook-card.component';
 import { FuturesBuySellCardComponent } from './futures-page/futures-trading-grid/futures-buy-sell-card/futures-buy-sell-card.component';
 import { FuturesBottomCardComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-bottom-card.component';
-import { FuturesOrdersComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-orders/spot-orders.component';
-import { FuturesRelatedHistoryComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-related-history/spot-related-history.component';
+import { FuturesOrdersComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-orders/futures-orders.component';
+import { FuturesRelatedHistoryComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-related-history/futures-related-history.component';
 import { FuturesPositionsComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-positions/futures-positions.component';
 
 const NG_MODULES = [

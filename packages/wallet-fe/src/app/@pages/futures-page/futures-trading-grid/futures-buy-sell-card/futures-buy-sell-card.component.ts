@@ -130,6 +130,8 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
           contract_id: contract_id,
           amount: amount,
           price: price,
+          collateral: 4,
+          levarage: 2,
         },
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,

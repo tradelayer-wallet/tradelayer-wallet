@@ -27,6 +27,8 @@ export interface IFuturesOrder {
         amount: number;
         contract_id: number;
         price: number;
+        leverage: 2;
+        collateral: number;
     };
     socket_id: string;
     timestamp: number;

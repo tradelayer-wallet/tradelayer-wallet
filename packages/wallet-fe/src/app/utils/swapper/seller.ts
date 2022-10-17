@@ -1,18 +1,19 @@
 import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
-import { IMSChannelData, ITradeInfo, SwapEvent, TBuyerSellerInfo, TClient } from "./common";
+import { IMSChannelData, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
 import { Swap } from "./swap";
 
 export class SellSwapper extends Swap {
     constructor(
-        tradeInfo: ITradeInfo, 
-        sellerInfo: TBuyerSellerInfo,
-        buyerInfo: TBuyerSellerInfo,
+        typeTrade: ETradeType,
+        tradeInfo: IFuturesTradeProps | ISpotTradeProps, 
+        sellerInfo: IBuyerSellerInfo,
+        buyerInfo: IBuyerSellerInfo,
         client: TClient,
         socket: SocketClient,
         txsService: TxsService,
     ) {
-        super(tradeInfo, sellerInfo, buyerInfo, client, socket, txsService);
+        super(typeTrade, tradeInfo, sellerInfo, buyerInfo, client, socket, txsService);
         this.handleOnEvents();
         this.onReady();
         this.initTrade();
@@ -44,7 +45,7 @@ export class SellSwapper extends Swap {
 
     private async initTrade() {
         try {
-            const pubKeys = [this.myInfo.pubKey, this.cpInfo.pubKey];
+            const pubKeys = [this.myInfo.keypair.pubkey, this.cpInfo.keypair.pubkey];
 
             const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
             if (amaRes.error || !amaRes.data) throw new Error(`addmultisigaddress: ${amaRes.error}`);
@@ -67,23 +68,31 @@ export class SellSwapper extends Swap {
             if (!this.multySigChannelData?.address) throw new Error(`Error with finding Multisig Address`);
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
 
-            const { propIdDesired, amountDesired } = this.tradeInfo;
-            const ctcpParams = [propIdDesired, (amountDesired).toString()];
+            const fromKeyPair = { address: this.myInfo.keypair.address };
+            const toKeyPair = { address: this.multySigChannelData.address };
+            const commitTxConfig: IBuildTxConfig = { fromKeyPair, toKeyPair };
+
+            const ctcpParams = [];
+            if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
+                const { propIdDesired, amountDesired } = this.tradeInfo;
+                ctcpParams.push(propIdDesired, (amountDesired).toString());
+            } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {
+                const { amount, collateral } = this.tradeInfo;
+                ctcpParams.push(collateral, (amount).toString());
+            } else {
+                throw new Error(`Unrecognized Trade Type: ${this.typeTrade}`);
+            }
             const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
             if (cpctcRes.error || !cpctcRes.data) throw new Error(`tl_createpayload_commit_tochannel: ${cpctcRes.error}`);
 
-            
-            const fromKeyPair = { address: this.myInfo.address };
-            const toKeyPair = { address: this.multySigChannelData.address };
             const payload = cpctcRes.data;
-            const commitTxConfig: IBuildTxConfig = { fromKeyPair, toKeyPair, payload };
-    
+            commitTxConfig. payload = payload;
             // build Commit Tx
             const commitTxRes = await this.txsService.buildTx(commitTxConfig);
             if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
             const { inputs, rawtx } = commitTxRes.data;
-            const wif = this.txsService.getWifByAddress(this.myInfo.address);
-            if (!wif) throw new Error(`WIF not found: ${this.myInfo.address}`);
+            const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
+            if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
 
             // sign Commit Tx
             const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
@@ -120,8 +129,8 @@ export class SellSwapper extends Swap {
         try {
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
             if (!psbtHex) throw new Error(`PsbtHex for syncing not provided`);
-            const wif = this.txsService.getWifByAddress(this.myInfo.address);
-            if (!wif) throw new Error(`WIF not found: ${this.myInfo.address}`);
+            const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
+            if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
             const signRes = await this.txsService.signPsbt({ wif, psbtHex });
             if (signRes.error || !signRes.data?.psbtHex) throw new Error(`Sign Tx: ${signRes.error}`);
             const swapEvent = new SwapEvent(`SELLER:STEP5`, this.myInfo.socketId, signRes.data.psbtHex);

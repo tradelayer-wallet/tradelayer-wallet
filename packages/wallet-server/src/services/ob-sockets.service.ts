@@ -60,8 +60,7 @@ export class OBSocketService {
         });
 
         this.socket.on('new-channel', (d) => {
-            const isBuyer = d.buyerSocketId === this.socket.id;
-            const cpSocketId = isBuyer ? d.sellerSocketId : d.buyerSocketId;
+            const cpSocketId = d.isBuyer ? d.tradeInfo.seller.socketId : d.tradeInfo.buyer.socketId;
             this.socket.removeAllListeners(`${cpSocketId}::${swapEventName}`);
             this.socket.on(`${cpSocketId}::${swapEventName}`, (data) => {
                 this.walletSocket.emit(`${cpSocketId}::${swapEventName}`, data);
