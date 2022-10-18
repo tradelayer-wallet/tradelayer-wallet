@@ -16,8 +16,8 @@ import { RpcService } from 'src/app/@core/services/rpc.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
 
-// const minFeeLtcPerKb = 0.002;
-// const minVOutAmount = 0.000036;
+const minFeeLtcPerKb = 0.002;
+const minVOutAmount = 0.000036;
 
 @Component({
   selector: 'tl-futures-buy-sell-card',
@@ -90,11 +90,32 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     fillMax(isBuy: boolean) {
-
+      const value = this.getMaxAmount(isBuy);
+      this.buySellGroup?.controls?.['amount'].setValue(value);
+      // tricky update the Max Amount 
+      const value2 = this.getMaxAmount(isBuy);
+      this.buySellGroup?.controls?.['amount'].setValue(value2);
     }
 
     getMaxAmount(isBuy: boolean) {
-      return 0;
+      if (!this.futureAddress) return 0;
+      if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
+      const _price = this.isLimitSelected 
+        ? this.buySellGroup.value['price'] 
+        : this.currentPrice;
+      const price = safeNumber(_price);
+
+      const propId = this.selectedMarket.collateral.propertyId;
+
+      const _available = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
+        ?.find((t: any) => t.propertyid === propId)
+        ?.balance;
+      const inOrderBalance = this.getInOrderAmount(propId);
+      const available = safeNumber((_available || 0 )- inOrderBalance);
+      if (!available || ((available / price) <= 0)) return 0;
+      const _max = isBuy ? (available / price) : available;
+      const max = safeNumber(_max);
+      return max;
     }
 
 
@@ -113,9 +134,11 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       const amount = this.buySellGroup.value.amount;
       const _price = this.buySellGroup.value.price;
       const price = this.isLimitSelected ? _price : this.currentPrice;
-
+      const levarage = 1;
       const market = this.selectedMarket;
+      const collateral = market.collateral.propertyId;
       const contract_id = market.contract_id;
+
       if (!contract_id || (!price && this.isLimitSelected) || !amount) return;
       if (!this.futureKeyPair) return;
   
@@ -130,8 +153,8 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
           contract_id: contract_id,
           amount: amount,
           price: price,
-          collateral: 4,
-          levarage: 2,
+          collateral: collateral,
+          levarage: levarage,
         },
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
@@ -146,9 +169,8 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     getButtonDisabled(isBuy: boolean) {
-      return false;
-      // const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
-      // return !this.buySellGroup.valid || !v;
+      const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
+      return !this.buySellGroup.valid || !v;
     }
 
     private trackPriceHandler() {
@@ -193,7 +215,12 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     private getInOrderAmount(propertyId: number) {
-      return 0;
+      const num = this.futuresOrdersService.openedOrders.map(o => {
+        const { amount, price, collateral } = o.props;
+        if (collateral === propertyId) return safeNumber(amount * price);
+        return 0;
+      }).reduce((a, b) => a + b, 0);
+      return safeNumber(num);
     }
   
     isFutureAddressSelfAtt() {
@@ -209,7 +236,19 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     getFees(isBuy: boolean) {
       const { amount, price } = this.buySellGroup.value;
       if (!amount || !price) return 0;
-      return 0;
+      const finalInputs: number[] = [];
+      const _amount = safeNumber((amount * price) + minVOutAmount);
+      const _allAmounts = this.balanceService.getCoinBalancesByAddress(this.futureAddress).utxos
+        .map(r => r.amount)
+        .sort((a, b) => b - a);
+      const allAmounts = [minVOutAmount, ..._allAmounts]
+      allAmounts.forEach(u => {
+        const _amountSum: number = finalInputs.reduce((a, b) => a + b, 0);
+        const amountSum = safeNumber(_amountSum);
+        const _fee = safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length + 1));
+        if (amountSum < safeNumber(_amount + _fee)) finalInputs.push(u);
+      });
+      return safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length));
     }
 
     closeAll() {

@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { FuturesChannelsService } from 'src/app/@core/services/futures-services/futures-channels.service';
 import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
 import { FuturesOrdersService } from 'src/app/@core/services/futures-services/futures-orders.service';
 
@@ -12,7 +13,16 @@ export class FuturesBottomCardComponent {
     constructor(
       private futuresOrdersService: FuturesOrdersService,
       private futuresOrderbookService: FuturesOrderbookService,
+      private futuresChannelsService: FuturesChannelsService,
     ) {}
+
+    get allPositionsLength() {
+      return 0
+    }
+
+    get allCommitsLength() {
+      return this.futuresChannelsService.channelsCommits?.length || 0;
+    }
 
     get allOrdersLength() {
       return this.futuresOrdersService.openedOrders?.length || 0;

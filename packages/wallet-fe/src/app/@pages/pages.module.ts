@@ -43,6 +43,7 @@ import { FuturesBottomCardComponent } from './futures-page/futures-trading-grid/
 import { FuturesOrdersComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-orders/futures-orders.component';
 import { FuturesRelatedHistoryComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-related-history/futures-related-history.component';
 import { FuturesPositionsComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-positions/futures-positions.component';
+import { FuturesChannelsComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-commits/futures-commits.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -96,6 +97,7 @@ const FUTURES_COMPONENTS = [
     FuturesOrdersComponent,
     FuturesRelatedHistoryComponent,
     FuturesPositionsComponent,
+    FuturesChannelsComponent,
 ];
 
 const PIPES = [
