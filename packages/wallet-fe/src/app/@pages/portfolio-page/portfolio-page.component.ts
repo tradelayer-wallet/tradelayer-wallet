@@ -6,6 +6,7 @@ import { AttestationService } from 'src/app/@core/services/attestation.service';
 import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
+import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { TxsService } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
@@ -30,6 +31,7 @@ export class PortfolioPageComponent {
     private rpcService: RpcService,
     private txsService: TxsService,
     private attestationService: AttestationService,
+    private loadingService: LoadingService,
   ) {}
 
   get coinBalance() {
@@ -85,8 +87,12 @@ export class PortfolioPageComponent {
 
   async selfAttestate(address: string) {
     try {
+      this.loadingService.isLoading = true;
       const isAttestated = await this.attestationService.checkAttAddress(address);
-      if (isAttestated) return;
+      if (isAttestated) {
+        this.loadingService.isLoading = false;
+        return
+      }
       const payloadRes = await this.rpcService.tlApi.rpc('tl_createpayload_attestation').toPromise();
       if (!payloadRes.data || payloadRes.error) throw new Error(payloadRes.error || "Getting Attestation Payload Error");
       const res = await this.txsService.buildSingSendTx({
@@ -97,10 +103,11 @@ export class PortfolioPageComponent {
       if (res.data) {
         this.attestationService.setPendingAtt(address);
         this.toastrService.success(res.data, 'Transaction Sent');
+        this.loadingService.isLoading = false;
       }
     } catch (error: any) {
       this.toastrService.error(error.message, `Attestate Error`);
-
+      this.loadingService.isLoading = false;
     }
   }
 }

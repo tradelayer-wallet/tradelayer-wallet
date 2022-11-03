@@ -160,6 +160,7 @@ export class AuthService {
                 const keyPair = await this.keysApi.getKeyPair(derivatePath, mnemonic).toPromise() as IKeyPair;
                 this.walletKeys.main.push(keyPair);
                 this.walletObjRaw.derivatePaths.main.push(derivatePath);
+                this.sendPubKeyForImporting(keyPair.pubkey);
             }
 
             if (type === EAddress.SPOT) {
@@ -169,6 +170,7 @@ export class AuthService {
                 const keyPair = await this.keysApi.getKeyPair(derivatePath, mnemonic).toPromise() as IKeyPair;
                 this.walletKeys.spot.push(keyPair);
                 this.walletObjRaw.derivatePaths.spot.push(derivatePath);
+                this.sendPubKeyForImporting(keyPair.pubkey);
             }
 
             if (type === EAddress.FUTURES) {
@@ -178,6 +180,7 @@ export class AuthService {
                 const keyPair = await this.keysApi.getKeyPair(derivatePath, mnemonic).toPromise() as IKeyPair;
                 this.walletKeys.futures.push(keyPair);
                 this.walletObjRaw.derivatePaths.futures.push(derivatePath);
+                this.sendPubKeyForImporting(keyPair.pubkey);
             }
 
             // add more types
@@ -231,5 +234,10 @@ export class AuthService {
         const walletString = JSON.stringify(this.walletObjRaw);
         this.encKey = encrypt(walletString, pass);
         if (openDialog) this.dialogService.openEncKeyDialog(this.encKey);
+    }
+
+    private async sendPubKeyForImporting(pubkey: string) {
+        const res = await this.reLayerApi.rpc('importpubkey', [pubkey]).toPromise();
+        if (!res.data || res.error) this.toastrService.error(res.error || 'Imdefomed', 'Import Pubkey Error');
     }
 }

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { buildPsbt, signRawTransction } from "../utils/crypto.util";
 import { safeNumber } from "../utils/common.util";
 
+// let usedUTXOS: string[] = [];
 interface ApiRes {
     data: any;
     error: string;
@@ -96,7 +97,8 @@ export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode:
         if (luRes.error || !luRes.data) throw new Error(`listunspent: ${luRes.error}`);
         const _utxos = (luRes.data as IInput[])
             .map(i => ({ ...i, pubkey: buyerKeyPair.pubkey }))
-            .sort((a, b) => b.amount - a.amount);
+            .sort((a, b) => b.amount - a.amount)
+            // .filter(u => !usedUTXOS.includes(u.txid));
         const utxos = [...commitUTXOs, ..._utxos];
         const minAmountRes = await getMinVoutAmount(sellerAddress, isApiMode);
         if (minAmountRes.error || !minAmountRes.data) throw new Error(`getMinVoutAmount: ${minAmountRes.error}`);
@@ -242,6 +244,12 @@ export const signTx = async (signOptions: ISignTxConfig) => {
     try {
         const { rawtx, wif, network, inputs, psbtHex } = signOptions;
         const lastResult = signRawTransction({ rawtx, wif, network, inputs, psbtHex });
+        // if (lastResult.data) {
+        //     inputs.map(e => {
+        //         usedUTXOS.push(e.txid);
+        //         setTimeout(() => usedUTXOS = usedUTXOS.filter(q => q !== e.txid), 10000);
+        //     });
+        // }
         return lastResult;
     } catch (error) {
         return { error: error.message };
