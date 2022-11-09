@@ -10,7 +10,7 @@
             (click)='selectTab(2)'
             [ngClass]="{ activeTabHeader: activeTab === 2}"
         >Create New Wallet</div>
-        <!-- <div
+        <div
             class="tab"
             (click)='selectTab(3)'
             [ngClass]="{ activeTabHeader: activeTab === 3}"
@@ -19,7 +19,7 @@
             class="tab"
             (click)='selectTab(4)'
             [ngClass]="{ activeTabHeader: activeTab === 4}"
-        >Connect Trezor</div> -->
+        >Connect Trezor</div>
     </div>
     <div class="activeTab login" *ngIf="activeTab === 1">
         <div class="input-file">
@@ -111,19 +111,24 @@
     </div>
     <div class="activeTab recover" *ngIf="activeTab === 3">
         <div class="words">
-            <div class="word" *ngFor="let w of mnemonics; let i = index">
+            <div class="word" *ngFor="let w of mnemonics; let i = index;">
                 <div class="prefix">
-                    {{ i }}.
+                    {{ i + 1}}.
                 </div>
                 <input
                     type="text"
                     matInput
-                    [(ngModel)]="mnemonics[i + 1]"
+                    id="word-{{ i }}"
+                    name="word-{{ i }}"
                 >
             </div>
         </div>
+        <button
+            class="blueButton"
+            (click)="ImportWords()"
+        >Import</button>
     </div>
     <div class="activeTab trezor" *ngIf="activeTab === 4">
-        Connect Trezor
+        Coming Soon !!!
     </div>
 </div>

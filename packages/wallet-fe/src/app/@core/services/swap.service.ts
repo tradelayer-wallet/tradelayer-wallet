@@ -7,6 +7,7 @@ import { LoadingService } from "./loading.service";
 import { BuySwapper, SellSwapper, ITradeInfo } from 'src/app/utils/swapper';
 import { ISpotOrder } from "./spot-services/spot-orderbook.service";
 import { IFuturesOrder } from "./futures-services/futures-orderbook.service";
+import { ESounds, SoundsService } from "./sound.service";
 
 interface IChannelSwapData {
     tradeInfo: ITradeInfo;
@@ -25,6 +26,7 @@ export class SwapService {
         private txsService: TxsService,
         private toastrService: ToastrService,
         private loadingService: LoadingService,
+        private soundsService: SoundsService,
     ) {}
 
     private get socket() {
@@ -37,7 +39,7 @@ export class SwapService {
                 if (res.error || !res.data?.txid) {
                     this.toastrService.error(res.error, 'Trade Error')
                 } else {
-                    this.toastrService.success(res.data.txid, 'Trade Success')
+                    this.soundsService.playSound(ESounds.TRADE_COMPLETED);
                 }
                 const mySocketId = swapConfig.isBuyer
                     ? swapConfig.tradeInfo.buyer.socketId

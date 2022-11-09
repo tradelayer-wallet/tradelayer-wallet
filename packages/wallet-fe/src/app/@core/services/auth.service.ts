@@ -1,3 +1,4 @@
+import { ThrowStmt } from "@angular/compiler";
 import { Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { ToastrService } from "ngx-toastr";
@@ -203,6 +204,16 @@ export class AuthService {
             if (!mnemonic || !derivatePaths) throw new Error("Error with file decrypt. Code 2");
             if (network !== this.rpcService.NETWORK) throw new Error(`This login only availble in network: ${network}`);
             const keyPairs = await this.keysApi.getKeyPairsFromLoginFile(derivatePaths, mnemonic).toPromise() as IWalletObj;
+
+            // check if pubkeys are imported; 
+            const addresses = Object.values(keyPairs)
+                .reduce((acc, el) => acc.concat(el), [])
+                .filter((q: any) => q.address)
+                .map((q: any) => q.address);
+            const checkAddressesRes = await this.validatePubkeys(addresses);
+            if (checkAddressesRes.error || !checkAddressesRes.data?.isValid) throw new Error("Pubkeys not imported");
+            //
+
             Object.entries(keyPairs)
                 .forEach(entry => {
                     const [key, value] = entry as [string, IKeyPair[]];
@@ -239,5 +250,24 @@ export class AuthService {
     private async sendPubKeyForImporting(pubkey: string) {
         const res = await this.reLayerApi.rpc('importpubkey', [pubkey]).toPromise();
         if (!res.data || res.error) this.toastrService.error(res.error || 'Imdefomed', 'Import Pubkey Error');
+    }
+
+    private async validatePubkeys(addresses: string[]) {
+        try {
+            const objRes: any = {};
+            for (let i = 0; i < addresses.length; i++) {
+                const address = addresses[i];
+                const vaRes = await this.rpcService.rpc('validateaddress', [address]);
+                if (vaRes.error || !vaRes.data) throw new Error(`validatePubkeys: validateaddress: ${vaRes.error}`);
+                objRes[address] = {
+                    pubkeyImported: !!vaRes.data.pubkey,
+                    valid: !!vaRes.data.isvalid,
+                }
+            }
+            const isValid = Object.values(objRes).every((q: any) => q.pubkeyImported);
+            return { data: { objRes, isValid } };
+        } catch (error: any) {
+            return { error: error.message };
+        }
     }
 }

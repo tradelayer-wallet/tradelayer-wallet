@@ -72,4 +72,8 @@ export class LoginContainerComponent implements OnInit {
     this.jsonFile = null;
     this.filePath = '';
   }
+
+  ImportWords() {
+    this.toasterService.warning('This Functionality is not available. Coming Soon')
+  }
 }
