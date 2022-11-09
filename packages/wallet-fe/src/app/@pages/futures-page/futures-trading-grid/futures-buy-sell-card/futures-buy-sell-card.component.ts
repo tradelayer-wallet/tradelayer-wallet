@@ -128,7 +128,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       }
       const isKYC = this.attestationService.getAttByAddress(this.futureAddress);
       if (isKYC !== true) {
-        this.toastrService.error(`Futures Address Need KYC first!`, 'KYC Needed');
+        this.toastrService.error(`Futures Address Need Attestation first!`, 'Attestation Needed');
         return;
       }
       const amount = this.buySellGroup.value.amount;
