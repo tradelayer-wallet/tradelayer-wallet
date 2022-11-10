@@ -14,12 +14,12 @@
             class="tab"
             (click)='selectTab(3)'
             [ngClass]="{ activeTabHeader: activeTab === 3}"
-        >Import Mnemonics</div>
-        <div
+        >Recover From Words</div>
+        <!-- <div
             class="tab"
             (click)='selectTab(4)'
             [ngClass]="{ activeTabHeader: activeTab === 4}"
-        >Connect Trezor</div>
+        >Connect Trezor</div> -->
     </div>
     <div class="activeTab login" *ngIf="activeTab === 1">
         <div class="input-file">
@@ -85,7 +85,64 @@
             </button>
         </mat-form-field>
 
-          <mat-form-field appearance="legacy">
+        <mat-form-field appearance="legacy">
+        <mat-label>Re-password</mat-label>
+        <input
+            [type]="securePass ? 'password' : 'text'"
+            matInput
+            [(ngModel)]="confirmPassword"
+        >
+        <button
+            mat-icon-button
+            matSuffix
+            (click)="securePass = !securePass"
+            [attr.aria-label]="'Hide password'"
+            [attr.aria-pressed]="securePass"
+        >
+            <mat-icon>{{ securePass ? 'visibility' : 'visibility_off' }}</mat-icon>
+        </button>
+        </mat-form-field>
+          <button
+            mat-button
+            class="blueButton"
+            (click)="register()"
+            [disabled]="!password || password !== confirmPassword"
+          >Create Wallet</button>
+    </div>
+    <div class="activeTab recover" *ngIf="activeTab === 3">
+        <div class="words" [formGroup]='mnemonicForm'>
+            <div class="word" *ngFor="let w of mnemonics; let i = index;">
+                <div class="prefix">
+                    {{ i + 1 }}.
+                </div>
+                <input
+                    [formControlName]="w"
+                    type="text"
+                    matInput
+                >
+            </div>
+        </div>
+        <div class="mnem-password">
+            <mat-form-field appearance="legacy">
+                <mat-label>New Password</mat-label>
+                <input
+                    [type]="securePass ? 'password' : 'text'"
+                    matInput
+                    [(ngModel)]="password"
+                >
+                <mat-error *ngIf="false">Please enter a valid Password address</mat-error>
+                <button
+                    mat-icon-button
+                    matSuffix
+                    (click)="securePass = !securePass"
+                    [attr.aria-label]="'Hide password'"
+                    [attr.aria-pressed]="securePass"
+                >
+                    <mat-icon>{{ securePass ? 'visibility' : 'visibility_off' }}</mat-icon>
+                </button>
+            </mat-form-field>
+    
+            <mat-form-field appearance="legacy">
             <mat-label>Re-password</mat-label>
             <input
                 [type]="securePass ? 'password' : 'text'"
@@ -101,31 +158,12 @@
             >
                 <mat-icon>{{ securePass ? 'visibility' : 'visibility_off' }}</mat-icon>
             </button>
-          </mat-form-field>
-          <button
-            mat-button
-            class="blueButton"
-            (click)="register()"
-            [disabled]="!password || password !== confirmPassword"
-          >Create Wallet</button>
-    </div>
-    <div class="activeTab recover" *ngIf="activeTab === 3">
-        <div class="words">
-            <div class="word" *ngFor="let w of mnemonics; let i = index;">
-                <div class="prefix">
-                    {{ i + 1}}.
-                </div>
-                <input
-                    type="text"
-                    matInput
-                    id="word-{{ i }}"
-                    name="word-{{ i }}"
-                >
-            </div>
+            </mat-form-field>
         </div>
         <button
             class="blueButton"
             (click)="ImportWords()"
+            [disabled]="!mnemonicForm.valid  || !password || password !== confirmPassword"
         >Import</button>
     </div>
     <div class="activeTab trezor" *ngIf="activeTab === 4">

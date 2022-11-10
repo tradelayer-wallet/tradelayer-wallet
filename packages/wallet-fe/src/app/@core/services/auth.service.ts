@@ -148,6 +148,21 @@ export class AuthService {
         }
     }
 
+    async loginWithMnemonics(words: string[], pass: string) {
+        try {
+            const mnemonic = words.join(' ');
+            if (!mnemonic) return;
+            this.walletObjRaw.mnemonic = mnemonic;
+            this.walletObjRaw.network = this.rpcService.NETWORK;
+            await this.addKeyPair(EAddress.MAIN, pass);
+            this.router.navigateByUrl(this.savedFromUrl);
+        } catch (error: any) {
+            this.toastrService.error(error?.message || 'Undefined Error');
+            this.walletObjRaw = JSON.parse(JSON.stringify(this.defaultWalletObjRaw));
+            throw (error);
+        }
+    }
+
     async addKeyPair(type: EAddress, password: string): Promise<boolean> {
         try {
             if (this.encKey) {

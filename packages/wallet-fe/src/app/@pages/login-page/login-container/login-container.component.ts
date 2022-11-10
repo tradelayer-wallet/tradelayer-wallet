@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
@@ -11,9 +12,9 @@ import { LoadingService } from 'src/app/@core/services/loading.service';
 export class LoginContainerComponent implements OnInit {
   activeTab: 1 | 2 | 3 | 4 = 1;
   mnemonicsLength: number = 12;
-  mnemonics: string[] = new Array(this.mnemonicsLength).fill("");
   securePass: boolean = true;
 
+  mnemonicForm: FormGroup = new FormGroup({});
   password: string = '';
   confirmPassword: string = '';
   jsonFile: any = null;
@@ -23,6 +24,7 @@ export class LoginContainerComponent implements OnInit {
     private authService: AuthService,
     private toasterService: ToastrService,
     private loadingService: LoadingService,
+    private fb: FormBuilder,
   ) {}
 
   ngOnInit() { }
@@ -62,6 +64,7 @@ export class LoginContainerComponent implements OnInit {
 
   selectTab(index: number) {
     if (index !== 1 && index !== 2 && index !== 3 && index !== 4) return;
+    if (index === 3) this.buildMnemonicsForm();
     this._resetFields();
     this.activeTab = index;
   }
@@ -74,6 +77,18 @@ export class LoginContainerComponent implements OnInit {
   }
 
   ImportWords() {
-    this.toasterService.warning('This Functionality is not available. Coming Soon')
+    const mnemonicWords = Object.values(this.mnemonicForm.value) as string[];
+    this.authService.loginWithMnemonics(mnemonicWords, this.password);
+  }
+
+  buildMnemonicsForm() {
+    const mnemObj: any = {};
+    new Array(this.mnemonicsLength).fill("")
+      .forEach((q, i) => mnemObj["word" + i] = ['', Validators.required]);
+    this.mnemonicForm = this.fb.group(mnemObj);
+  }
+
+  get mnemonics() {
+    return Object.keys(this.mnemonicForm.value);
   }
 }
