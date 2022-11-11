@@ -44,6 +44,7 @@ import { FuturesOrdersComponent } from './futures-page/futures-trading-grid/futu
 import { FuturesRelatedHistoryComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-related-history/futures-related-history.component';
 import { FuturesPositionsComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-positions/futures-positions.component';
 import { FuturesChannelsComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-commits/futures-commits.component';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 const NG_MODULES = [
     CommonModule,
@@ -62,6 +63,7 @@ const MAT_MODULES = [
     MatIconModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
+    MatSlideToggleModule,
 ];
 
 const PAGE_COMPONENTS = [

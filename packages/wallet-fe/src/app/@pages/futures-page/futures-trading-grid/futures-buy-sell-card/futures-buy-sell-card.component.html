@@ -2,12 +2,18 @@
   <mat-card-title>
     <div class="header-wrapper">
       <div class="title-text">
-        <span>Order Form</span>
-        <span class='contract'>wETH / LTC</span>
+        <span>Buy/Sell</span>
+        <span class='contract'> - </span>
       </div>
       <div class="icons">
         <!-- <mat-icon svgIcon="resize"></mat-icon>
         <mat-icon svgIcon="close"></mat-icon> -->
+        <div class="on-chain">
+          <mat-slide-toggle
+            color='primary'
+            labelPosition="before"
+          >On-Chain</mat-slide-toggle>
+        </div>
       </div>
     </div>
   </mat-card-title>
@@ -69,7 +75,7 @@
         *ngIf="!futureAddress"
         class="blueButton"
         (click)='newFutureAddress()'
-      >Create Spot Address</button>
+      >Create Futures Address</button>
       <div class="address-info" *ngIf="futureAddress">
         <div class="key-value-pair">
           <div class="key">Address:</div>
