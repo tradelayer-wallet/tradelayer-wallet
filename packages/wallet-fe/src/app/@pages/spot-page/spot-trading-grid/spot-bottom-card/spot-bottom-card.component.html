@@ -13,28 +13,37 @@
                 <ng-template mat-tab-label>
                     <span matTooltip='Orders'> 
                         Orders 
-                        <span class='num'>{{ allOrdersLength }}</span>
+                        <span class='num'>{{ openedOrders }}</span>
                     </span>
                 </ng-template>
                 <tl-spot-orders></tl-spot-orders>
             </mat-tab>
             <mat-tab>
                 <ng-template mat-tab-label>
-                    <span matTooltip='Channels Commits'>
-                        Channels Commits
-                        <span class='num'> {{ allCommitsLength }} </span>
+                    <span matTooltip='Order History'>
+                        Order History
+                        <span class='num'> {{ orderHistory }} </span>
                     </span>
                 </ng-template>
-                <tl-spot-channels></tl-spot-channels>
+                <tl-spot-order-history></tl-spot-order-history>
             </mat-tab>
             <mat-tab>
                 <ng-template mat-tab-label>
-                    <span matTooltip='History'>
-                        History
-                        <span class='num'> {{ allRelayedHistory }} </span>
+                    <span matTooltip='Trade History'>
+                        Trade History
+                        <span class='num'> {{ tradeHistory }} </span>
                     </span>
                 </ng-template>
-                <tl-spot-related-history></tl-spot-related-history>
+                <tl-spot-trade-history></tl-spot-trade-history>
+            </mat-tab>
+            <mat-tab>
+                <ng-template mat-tab-label>
+                    <span matTooltip='Channels Commits'>
+                        Channels Commits
+                        <span class='num'> {{ channelCommits }} </span>
+                    </span>
+                </ng-template>
+                <tl-spot-channels></tl-spot-channels>
             </mat-tab>
         </mat-tab-group>
     </mat-card-content>

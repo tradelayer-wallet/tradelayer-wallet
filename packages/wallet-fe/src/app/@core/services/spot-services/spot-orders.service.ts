@@ -28,7 +28,9 @@ export interface ISpotTradeConf extends ITradeConf {
 })
 
 export class SpotOrdersService {
-    private _openedOrders: ISpotOrder[] = []
+    private _openedOrders: ISpotOrder[] = [];
+    private _orderHistory: any[] = [];
+
     constructor(
         private socketService: SocketService,
         private loadingService: LoadingService,
@@ -44,6 +46,14 @@ export class SpotOrdersService {
 
     set openedOrders(value: ISpotOrder[]) {
         this._openedOrders = value;
+    }
+
+    get orderHistory() {
+        return this._orderHistory;
+    }
+
+    set orderHistory(value: any[]) {
+        this._orderHistory = value;
     }
 
     newOrder(orderConf: ISpotTradeConf) {

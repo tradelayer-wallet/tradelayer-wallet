@@ -29,7 +29,9 @@ export interface IFuturesTradeConf extends ITradeConf {
 })
 
 export class FuturesOrdersService {
-    private _openedOrders: IFuturesOrder[] = []
+    private _openedOrders: IFuturesOrder[] = [];
+    private _orderHistory: any[] = [];
+
     constructor(
         private socketService: SocketService,
         private loadingService: LoadingService,
@@ -46,6 +48,15 @@ export class FuturesOrdersService {
     set openedOrders(value: IFuturesOrder[]) {
         this._openedOrders = value;
     }
+
+    get orderHistory() {
+        return this._orderHistory;
+    }
+
+    set orderHistory(value: any[]) {
+        this._orderHistory = value;
+    }
+
 
     newOrder(orderConf: IFuturesTradeConf) {
         this.loadingService.tradesLoading = true;

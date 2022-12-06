@@ -16,15 +16,19 @@ export class SpotBottomCardComponent {
       private spotOrderbookService: SpotOrderbookService,
     ) {}
 
-    get allCommitsLength() {
+    get orderHistory() {
+      return this.spotOrdersService.orderHistory?.length || 0;
+    }
+
+    get channelCommits() {
       return this.spotChannelsService.channelsCommits?.length || 0;
     }
 
-    get allOrdersLength() {
+    get openedOrders() {
       return this.spotOrdersService.openedOrders?.length || 0;
     }
 
-    get allRelayedHistory() {
+    get tradeHistory() {
       return this.spotOrderbookService.relatedHistoryTrades.length || 0;
     }
 }

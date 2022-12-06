@@ -35,6 +35,7 @@ export interface ISpotOrder {
     timestamp: number;
     type: "SPOT";
     uuid: string;
+    state?: "CANCALED" | "FILLED"
 }
 
 @Injectable({

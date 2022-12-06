@@ -17,7 +17,11 @@ export class FuturesBottomCardComponent {
     ) {}
 
     get allPositionsLength() {
-      return 0
+      return 0;
+    }
+
+    get allOrderHistoryLength() {
+      return this.futuresOrdersService.orderHistory?.length || 0;
     }
 
     get allCommitsLength() {

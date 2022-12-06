@@ -4,12 +4,12 @@ import { FuturesMarketService } from 'src/app/@core/services/futures-services/fu
 import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
 
 @Component({
-  selector: 'tl-futures-related-history',
-  templateUrl: '../../../../spot-page/spot-trading-grid/spot-bottom-card/spot-related-history/spot-related-history.component.html',
-  styleUrls: ['../../../../spot-page/spot-trading-grid/spot-bottom-card/spot-related-history/spot-related-history.component.scss']
+  selector: 'tl-futures-trade-history',
+  templateUrl: '../../../../spot-page/spot-trading-grid/spot-bottom-card/spot-trade-history/spot-trade-history.component.html',
+  styleUrls: ['../../../../spot-page/spot-trading-grid/spot-bottom-card/spot-trade-history/spot-trade-history.component.scss']
 })
 
-export class FuturesRelatedHistoryComponent {
+export class FuturesTradeHistoryComponent {
   displayedColumns: string[] = [ 'side', 'buyer', 'seller', 'amount', 'price', 'total', 'txid'];
 
   constructor(

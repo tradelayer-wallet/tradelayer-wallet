@@ -4,12 +4,12 @@ import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-ma
 import { ISpotHistoryTrade, SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 
 @Component({
-  selector: 'tl-spot-related-history',
-  templateUrl: './spot-related-history.component.html',
-  styleUrls: ['./spot-related-history.component.scss']
+  selector: 'tl-spot-trade-history',
+  templateUrl: './spot-trade-history.component.html',
+  styleUrls: ['./spot-trade-history.component.scss']
 })
 
-export class SpotRelatedHistoryComponent {
+export class SpotTradeHistoryComponent {
   displayedColumns: string[] = [ 'side', 'buyer', 'seller', 'amount', 'price', 'total', 'txid'];
 
   constructor(

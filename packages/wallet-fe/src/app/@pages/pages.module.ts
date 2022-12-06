@@ -31,7 +31,7 @@ import { ShortAddressPipe } from '../@shared/pipes/short-address.pipe';
 import { LoginContainerComponent } from './login-page/login-container/login-container.component';
 import { HomePageComponent } from './home-page/home-page.component';
 import { SpotChannelsComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-channels/spot-channels.component';
-import { SpotRelatedHistoryComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-related-history/spot-related-history.component';
+import { SpotTradeHistoryComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-trade-history/spot-trade-history.component';
 import { FuturesPageComponent } from './futures-page/futures-page.component';
 import { FuturesMarketsToolbarComponent } from './futures-page/futures-markes-toolbar/spot-markets-toolbar.component';
 import { FuturesTradingGridComponent } from './futures-page/futures-trading-grid/futures-trading-grid.component';
@@ -41,10 +41,12 @@ import { FuturesOrderbookCardComponent } from './futures-page/futures-trading-gr
 import { FuturesBuySellCardComponent } from './futures-page/futures-trading-grid/futures-buy-sell-card/futures-buy-sell-card.component';
 import { FuturesBottomCardComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-bottom-card.component';
 import { FuturesOrdersComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-orders/futures-orders.component';
-import { FuturesRelatedHistoryComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-related-history/futures-related-history.component';
+import { FuturesTradeHistoryComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-trade-history/futures-trade-history.component';
 import { FuturesPositionsComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-positions/futures-positions.component';
 import { FuturesChannelsComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-commits/futures-commits.component';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { FuturesOrderHistoryComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-order-history/futures-order-history.component';
+import { SpotOrderHistoryComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-order-history/spot-order-history.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -85,7 +87,8 @@ const SPOT_COMPONENTS = [
     SpotChartCardComponent,
     SpotOrdersComponent,
     SpotChannelsComponent,
-    SpotRelatedHistoryComponent,
+    SpotTradeHistoryComponent,
+    SpotOrderHistoryComponent,
 ];
 
 const FUTURES_COMPONENTS = [
@@ -97,9 +100,10 @@ const FUTURES_COMPONENTS = [
     FuturesBuySellCardComponent,
     FuturesBottomCardComponent,
     FuturesOrdersComponent,
-    FuturesRelatedHistoryComponent,
+    FuturesTradeHistoryComponent,
     FuturesPositionsComponent,
     FuturesChannelsComponent,
+    FuturesOrderHistoryComponent,
 ];
 
 const PIPES = [

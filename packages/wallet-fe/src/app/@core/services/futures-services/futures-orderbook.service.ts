@@ -36,6 +36,7 @@ export interface IFuturesOrder {
     timestamp: number;
     type: "FUTURES";
     uuid: string;
+    state?: "CANCALED" | "FILLED";
 }
 
 @Injectable({
