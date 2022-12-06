@@ -42,7 +42,7 @@ export class SpotOrdersComponent implements OnInit, OnDestroy {
       this.socket.on(`${obEventPrefix}::placed-orders`, (orders: { openedOrders: ISpotOrder[], orderHistory: ISpotOrder[] }) => {
         const { openedOrders, orderHistory } = orders;
         this.spotOrdersService.orderHistory = orderHistory
-          .filter(q => q.type === "SPOT" && q.keypair.pubkey === this.authService.activeSpotKey.pubkey && q.state);
+          .filter(q => q.type === "SPOT" && q.keypair.pubkey === this.authService.activeSpotKey?.pubkey && q.state);
         this.spotOrdersService.openedOrders = openedOrders.filter(q => q.type === "SPOT");
       });
       this.spotOrdersService.closeOpenedOrder('test-for-update');

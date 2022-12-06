@@ -43,7 +43,7 @@ export class FuturesOrdersComponent implements OnInit, OnDestroy {
         const { openedOrders, orderHistory } = orders;
 
         this.futuresOrdersService.orderHistory = orderHistory
-          .filter(q => q.type === "FUTURES" && q.keypair.pubkey === this.authService.activeFuturesKey.pubkey && q.state);
+          .filter(q => q.type === "FUTURES" && q.keypair.pubkey === this.authService.activeFuturesKey?.pubkey && q.state);
         this.futuresOrdersService.openedOrders = openedOrders.filter(q => q.type === "FUTURES");
       });
       this.futuresOrdersService.closeOpenedOrder('test-for-update');
