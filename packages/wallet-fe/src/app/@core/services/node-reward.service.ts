@@ -29,6 +29,7 @@ export class NodeRewardService {
 
     set rewardAddresses(value: IRewardKeyPair[]){
         this._rewardAddresses = value;
+        this.checkRegisteredAddresses();
     }
 
     onInit() {
@@ -76,6 +77,7 @@ export class NodeRewardService {
     }
 
     async checkRegisteredAddresses(cleanPendings: boolean = false) {
+        if (!this.rewardAddresses.length) return;
         const lnraRes = await this.rpcService.rpc('tl_listnodereward_addresses');
         if (lnraRes.error || !lnraRes.data) {
             this.toastrService.error(lnraRes.error || 'Error With getting Reward registered Addresses', "Error")

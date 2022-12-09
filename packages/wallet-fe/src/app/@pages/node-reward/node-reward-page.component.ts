@@ -31,7 +31,9 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
       return 3;
     }
   
-    ngOnInit(){}
+    ngOnInit() {
+      this.nodeRewardService.rewardAddresses = [...this.authService.walletKeys.reward];
+    }
 
     async generateRewardAddress() {
       try {
