@@ -1,4 +1,6 @@
 import { Component, OnInit } from '@angular/core';
+import { FuturesMarketService } from 'src/app/@core/services/futures-services/futures-markets.service';
+import { FuturesPositionsService, IPosition } from 'src/app/@core/services/futures-services/futures-positions.service';
 
 @Component({
   selector: 'tl-futures-positions',
@@ -8,12 +10,30 @@ import { Component, OnInit } from '@angular/core';
 
 export class FuturesPositionsComponent implements OnInit {
 
-    displayedColumns: string[] = ['market', 'amount', 'price', 'pnl', 'isBuy', 'close'];
-    constructor() {}
+    displayedColumns: string[] = ['market', 'position', 'price', 'liquidation', 'margin', 'upnl', 'close'];
+    constructor(
+      private futuresPositionsService: FuturesPositionsService,
+      private futuresMarketService: FuturesMarketService,
+    ) {}
 
     get openedPositions() {
-      return [];
+      if (this.futuresPositionsService.openedPosition) {
+        return [this.futuresPositionsService.openedPosition];
+      } else {
+        return [];
+      }
     }
 
-    ngOnInit() {}
+    get marketName() {
+      return this.futuresMarketService.selectedMarket.contractName;
+    }
+  
+    ngOnInit() {
+      this.futuresPositionsService.onInit();
+    }
+
+    closePosition(position: IPosition) {
+      console.log("CLOSE");
+      console.log(position);
+    }
 }

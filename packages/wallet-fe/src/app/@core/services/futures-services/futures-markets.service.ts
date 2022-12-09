@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core";
 import { ApiService } from "../api.service";
 import { SocketService } from "../socket.service";
+import { FuturesPositionsService } from "./futures-positions.service";
 
 export interface IFuturesMarketType {
     name: string,
@@ -39,6 +40,7 @@ export class FuturesMarketService {
     constructor(
         private apiService: ApiService,
         private socketService: SocketService,
+        private futuresPositionsService: FuturesPositionsService,
     ) { }
 
     get futuresMarketsTypes() {
@@ -71,6 +73,8 @@ export class FuturesMarketService {
     set selectedMarket(value: IFutureMarket) {
         this._selectedMarket = value;
         this.changeOrderbookMarketFilter();
+        this.futuresPositionsService.selectedContractId = (this.selectedMarket.contract_id).toString()
+        this.futuresPositionsService.updatePositions();
     }
 
     get selectedMarketIndex() {
