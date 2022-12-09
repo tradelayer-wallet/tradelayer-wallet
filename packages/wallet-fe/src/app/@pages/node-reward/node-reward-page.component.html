@@ -1,0 +1,66 @@
+<div class="reward-page-container">
+    <mat-card>
+        <div class="custom-header">
+            <button 
+                mat-raised-button
+                (click)='generateRewardAddress()'
+                [disabled]='rewardAddresses.length >= maxRewardAddresses'
+            >Create Node Reward Farming Addresses</button>
+            <div class="in-use">In Use:  {{ rewardAddresses.length }} / {{ maxRewardAddresses }}</div>
+        </div>
+        <mat-card-content>
+            <mat-table [dataSource]="rewardAddresses">
+
+                <ng-container matColumnDef="address">
+                    <mat-header-cell *matHeaderCellDef>Address</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                      <span> {{ element.address }} </span>
+                      <!-- <mat-icon class='copy-icon' (click)='copy(element?.address)'>content_copy</mat-icon> -->
+                    </mat-cell>
+                </ng-container>
+
+                <ng-container matColumnDef="balance">
+                    <mat-header-cell *matHeaderCellDef>Balance</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                      <span> {{ getAddressBalance(element.address) }} </span>
+                      <!-- <mat-icon class='copy-icon' (click)='copy(element?.address)'>content_copy</mat-icon> -->
+                    </mat-cell>
+                </ng-container>
+
+                <ng-container matColumnDef="action">
+                    <mat-header-cell *matHeaderCellDef>Action</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                        <button
+                            mat-raised-button
+                            color="primary"
+                            (click)='register(element)'
+                            *ngIf='element.isRegistered === false'
+                        >Register</button>
+                        <button
+                            mat-raised-button
+                            color="primary"
+                            *ngIf='element.isRegistered === "PENDING"'
+                            [disabled]="true"
+                        >PENDING</button>
+                        <button
+                            (click)="toggleAutoClaim(element)"
+                            mat-raised-button
+                            color="primary"
+                            *ngIf='element.isRegistered === true && !element.autoClaim'
+                        >AUTO CLAIM</button>
+                        <button
+                            (click)="toggleAutoClaim(element)"
+                            mat-raised-button
+                            color="primary"
+                            *ngIf='element.isRegistered === true && element.autoClaim'
+                        >STOP</button>
+                    </mat-cell>
+                </ng-container>
+
+                <mat-header-row *matHeaderRowDef="rewardTableColumns"></mat-header-row>
+                <mat-row *matRowDef="let row; columns: rewardTableColumns;"></mat-row>
+
+            </mat-table>
+        </mat-card-content>
+    </mat-card>
+</div>

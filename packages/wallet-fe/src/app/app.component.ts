@@ -4,6 +4,7 @@ import { BalanceService } from './@core/services/balance.service';
 import { ConnectionService } from './@core/services/connections.service';
 import { ElectronService } from './@core/services/electron.service';
 import { LoadingService } from './@core/services/loading.service';
+import { NodeRewardService } from './@core/services/node-reward.service';
 import { RpcService } from './@core/services/rpc.service';
 import { SocketService } from './@core/services/socket.service';
 import { SwapService } from './@core/services/swap.service';
@@ -27,6 +28,7 @@ export class AppComponent {
     private balanceService: BalanceService,
     private socketService: SocketService,
     private swapService: SwapService,
+    private nodeRewardService: NodeRewardService,
   ) {
     this.handleInits();
     this.handleConnections();
@@ -67,6 +69,7 @@ export class AppComponent {
     this.balanceService.onInit();
     this.attestationService.onInit();
     this.swapService.onInit();
+    this.nodeRewardService.onInit();
   }
 
   handleConnections() {

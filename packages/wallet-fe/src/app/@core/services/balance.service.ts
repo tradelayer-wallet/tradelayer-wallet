@@ -3,6 +3,7 @@ import { RpcService } from "./rpc.service";
 import { ToastrService } from "ngx-toastr";
 import { AuthService } from "./auth.service";
 import { IUTXO } from "./txs.service";
+import { ApiService } from "./api.service";
 
 const minBlocksForBalanceConf: number = 1;
 const emptyBalanceObj = {
@@ -40,7 +41,12 @@ export class BalanceService {
         private rpcService: RpcService,
         private authService: AuthService,
         private toastrService: ToastrService,
+        private apiService: ApiService,
     ) { }
+
+    get tlApi() {
+        return this.apiService.tlApi;
+    }
 
     get sumAvailableCoins() {
         return Object.values(this._allBalancesObj)
@@ -115,7 +121,7 @@ export class BalanceService {
 
     private async getCoinBalanceObjForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-        const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [address]]);
+        const luRes = await this.tlApi.rpc('listunspent', [0, 999999999, [address]]).toPromise()
         if (luRes.error || !luRes.data) return { error: luRes.error || 'Undefined Error' };
 
         const _confirmed = (luRes.data as IUTXO[])
@@ -131,7 +137,7 @@ export class BalanceService {
 
     private async getTokensBalanceArrForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-        const balanceRes = await this.rpcService.rpc('tl_getallbalancesforaddress', [address]);
+        const balanceRes = await this.tlApi.rpc('tl_getallbalancesforaddress', [address]).toPromise()
         if (!balanceRes.data || balanceRes.error) return { data: [] };
         try {
             const promisesArray = (balanceRes.data as { propertyid: number, balance: string, reserved: string }[])
@@ -155,7 +161,7 @@ export class BalanceService {
             .reduce((acc: { name: string, propertyid: number }[], val) => acc.concat(val.tokensBalance), [])
             .find(e => e.propertyid === id);
         if (existingTokenName?.name) return existingTokenName.name;
-        const gpRes = await this.rpcService.rpc('tl_getproperty', [id]);
+        const gpRes = await this.tlApi.rpc('tl_getproperty', [id]).toPromise()
         if (gpRes.error || !gpRes.data?.name) return `ID_${id}`;
         return gpRes.data.name;
     }

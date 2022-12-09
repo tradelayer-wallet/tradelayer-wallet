@@ -47,6 +47,7 @@ import { FuturesChannelsComponent } from './futures-page/futures-trading-grid/fu
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { FuturesOrderHistoryComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-order-history/futures-order-history.component';
 import { SpotOrderHistoryComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-order-history/spot-order-history.component';
+import { NodeRewardPageComponent } from './node-reward/node-reward-page.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -74,6 +75,7 @@ const PAGE_COMPONENTS = [
     PortfolioPageComponent,
     SpotPageComponent,
     FuturesPageComponent,
+    NodeRewardPageComponent,
     LoginContainerComponent,
 ];
 

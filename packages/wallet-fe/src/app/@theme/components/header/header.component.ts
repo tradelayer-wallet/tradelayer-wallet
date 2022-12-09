@@ -4,6 +4,7 @@ import { ToastrService } from 'ngx-toastr';
 import { AuthService } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { ConnectionService } from 'src/app/@core/services/connections.service';
+import { RpcService } from 'src/app/@core/services/rpc.service';
 import { WindowsService } from 'src/app/@core/services/windows.service';
 
 @Component({
@@ -18,6 +19,7 @@ export class HeaderComponent implements OnInit {
     name: string;
     link: string;
     needAuthToShow: boolean;
+    needFullSynced?: boolean;
   }[] = [
     {
       id: 1,
@@ -42,6 +44,13 @@ export class HeaderComponent implements OnInit {
       name: 'Futures Trading',
       link: '/futures',
       needAuthToShow: true,
+    },
+    {
+      id: 5,
+      name: 'Node Reward',
+      link: '/node-reward',
+      needAuthToShow: true,
+      needFullSynced: true,
     }
   ];
 
@@ -54,6 +63,7 @@ export class HeaderComponent implements OnInit {
     private connectionService: ConnectionService,
     private windowsService: WindowsService,
     private toastrService: ToastrService,
+    private rpcService: RpcService,
   ) { }
 
   get selectedRoute(){
@@ -66,7 +76,8 @@ export class HeaderComponent implements OnInit {
 
   get mainRoutes(){
     return this._mainRoutes
-      .filter(e => e.needAuthToShow ? this.isLoggedIn : true);
+      .filter(e => e.needAuthToShow ? this.isLoggedIn : true)
+      .filter(e => e.needFullSynced ? this.isSynced : true);
   }
 
   get availableBalance() {
@@ -75,6 +86,10 @@ export class HeaderComponent implements OnInit {
 
   get isLoggedIn() {
     return this.authService.isLoggedIn;
+  }
+
+  get isSynced() {
+    return this.rpcService.isSynced;
   }
 
   ngOnInit(): void { }

@@ -28,6 +28,7 @@ export enum EAddress {
     MAIN = 'MAIN',
     SPOT = 'SPOT',
     FUTURES = 'FUTURES',
+    REWARD = 'REWARD',
 };
 
 export interface IRawWalletObj {
@@ -199,6 +200,16 @@ export class AuthService {
                 this.sendPubKeyForImporting(keyPair.pubkey);
             }
 
+            if (type === EAddress.REWARD) {
+                const derivatePath = initDPath + `4/0/` + this.walletKeys.reward.length;
+                const mnemonic = this.walletObjRaw.mnemonic;
+                if (!mnemonic) throw new Error("Not found mnemonic");
+                const keyPair = await this.keysApi.getKeyPair(derivatePath, mnemonic).toPromise() as IKeyPair;
+                this.walletKeys.reward.push(keyPair);
+                this.walletObjRaw.derivatePaths.reward.push(derivatePath);
+                this.sendPubKeyForImporting(keyPair.pubkey);
+            }
+            
             // add more types
             this.updateAddressesSubs$.next(this.listOfallAddresses);
             this.saveEncKey(password);
@@ -272,7 +283,7 @@ export class AuthService {
             const objRes: any = {};
             for (let i = 0; i < addresses.length; i++) {
                 const address = addresses[i];
-                const vaRes = await this.rpcService.rpc('validateaddress', [address]);
+                const vaRes = await this.reLayerApi.rpc('validateaddress', [address]).toPromise();
                 if (vaRes.error || !vaRes.data) throw new Error(`validatePubkeys: validateaddress: ${vaRes.error}`);
                 objRes[address] = {
                     pubkeyImported: !!vaRes.data.pubkey,

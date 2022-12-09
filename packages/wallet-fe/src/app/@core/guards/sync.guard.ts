@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { CanActivate, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { DialogService, DialogTypes } from '../services/dialogs.service';
 import { RpcService } from '../services/rpc.service';
 
 @Injectable({
@@ -16,15 +15,8 @@ export class SyncedGuard implements CanActivate {
     ) {}
 
     canActivate(): boolean {
-        const isOffline = this.rpcService.isOffline;
         const isSynced = this.rpcService.isSynced;
-        const isApiRPC = this.rpcService.isApiRPC;
-
-        if (isOffline) {
-            this.toastrService.warning('Not allowed in offline mode', 'Warning');
-            return false;
-        }
-        if (!isSynced && !isApiRPC) {
+        if (!isSynced ) {
             this.toastrService.warning('Need full sync!', 'Warning');
             return false;
         }
