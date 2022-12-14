@@ -10,7 +10,7 @@ import { FuturesOrderbookService } from 'src/app/@core/services/futures-services
 })
 
 export class FuturesTradeHistoryComponent {
-  displayedColumns: string[] = [ 'side', 'buyer', 'seller', 'amount', 'price', 'total', 'txid'];
+  displayedColumns: string[] = [ 'date', 'side', 'buyer', 'seller', 'amount', 'price', 'total', 'txid'];
 
   constructor(
     private futuresOrderbookService: FuturesOrderbookService,

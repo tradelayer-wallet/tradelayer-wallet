@@ -8,7 +8,7 @@ import { FuturesOrdersService } from 'src/app/@core/services/futures-services/fu
 })
 
 export class FuturesOrderHistoryComponent {
-  displayedColumns: string[] = ['market', 'status', 'amount', 'price', 'isBuy'];
+  displayedColumns: string[] = ['date', 'market', 'status', 'amount', 'price', 'isBuy'];
 
     constructor(
       private futuresOrdersService: FuturesOrdersService,

@@ -25,6 +25,7 @@
     "@trezor/connect": "^9.0.2",
     "ecpair": "^2.0.1",
     "electron-updater": "^4.6.1",
+    "moment": "^2.29.4",
     "tiny-secp256k1": "^2.2.1",
     "tl-rpc": "^1.0.4"
   },

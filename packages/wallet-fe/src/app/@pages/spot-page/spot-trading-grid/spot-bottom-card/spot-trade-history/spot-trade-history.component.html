@@ -1,4 +1,9 @@
 <table mat-table [dataSource]="relayedHistory">
+    <ng-container matColumnDef="date">
+        <th mat-header-cell *matHeaderCellDef> Date </th>
+        <td mat-cell *matCellDef="let element"> {{ element.time | dateFormat }} </td>
+    </ng-container>
+
     <ng-container matColumnDef="side">
         <th mat-header-cell *matHeaderCellDef> Side </th>
         <td mat-cell *matCellDef="let element"> {{ element.side }} </td>

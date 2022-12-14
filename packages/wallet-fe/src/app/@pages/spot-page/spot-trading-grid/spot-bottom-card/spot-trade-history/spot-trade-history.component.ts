@@ -10,7 +10,7 @@ import { ISpotHistoryTrade, SpotOrderbookService } from 'src/app/@core/services/
 })
 
 export class SpotTradeHistoryComponent {
-  displayedColumns: string[] = [ 'side', 'buyer', 'seller', 'amount', 'price', 'total', 'txid'];
+  displayedColumns: string[] = [ 'date', 'side', 'buyer', 'seller', 'amount', 'price', 'total', 'txid'];
 
   constructor(
     private spotOrderbookService: SpotOrderbookService,

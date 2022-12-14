@@ -8,7 +8,7 @@ import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-ord
 })
 
 export class SpotOrderHistoryComponent {
-    displayedColumns: string[] = ['market', 'status', 'amount', 'price', 'isBuy'];
+    displayedColumns: string[] = ['date', 'market', 'status', 'amount', 'price', 'isBuy'];
 
     constructor(
       private spotOrdersService: SpotOrdersService,

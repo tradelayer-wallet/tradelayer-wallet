@@ -14,7 +14,7 @@ import { IFuturesOrder } from 'src/app/@core/services/futures-services/futures-o
 export class FuturesOrdersComponent implements OnInit, OnDestroy {
     private subsArray: Subscription[] = [];
 
-    displayedColumns: string[] = ['market', 'amount', 'price', 'isBuy', 'close'];
+    displayedColumns: string[] = ['date', 'market', 'amount', 'price', 'isBuy', 'close'];
 
     constructor(
       private futuresOrdersService: FuturesOrdersService,

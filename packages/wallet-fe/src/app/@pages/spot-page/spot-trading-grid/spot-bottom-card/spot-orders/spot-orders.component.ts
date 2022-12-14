@@ -14,7 +14,7 @@ import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-ord
 export class SpotOrdersComponent implements OnInit, OnDestroy {
     private subsArray: Subscription[] = [];
 
-    displayedColumns: string[] = ['market', 'amount', 'price', 'isBuy', 'close'];
+    displayedColumns: string[] = ['date', 'market', 'amount', 'price', 'isBuy', 'close'];
 
     constructor(
       private spotOrdersService: SpotOrdersService,

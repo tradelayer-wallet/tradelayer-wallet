@@ -48,6 +48,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { FuturesOrderHistoryComponent } from './futures-page/futures-trading-grid/futures-bottom-card/futures-order-history/futures-order-history.component';
 import { SpotOrderHistoryComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-order-history/spot-order-history.component';
 import { NodeRewardPageComponent } from './node-reward/node-reward-page.component';
+import { DateFormatPipe } from '../@shared/pipes/date-format.pipe';
 
 const NG_MODULES = [
     CommonModule,
@@ -110,6 +111,7 @@ const FUTURES_COMPONENTS = [
 
 const PIPES = [
     ShortAddressPipe,
+    DateFormatPipe,
 ];
 
 const imports = [
