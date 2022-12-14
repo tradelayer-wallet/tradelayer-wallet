@@ -233,7 +233,7 @@ const getMinVoutAmount = async (toAddress: string, isApiMode: boolean) => {
         const drwRes = await smartRpc('decoderawtransaction', [crtxrRes.data], isApiMode);
         if (drwRes.error || !drwRes.data) throw new Error(`decoderawtransaction: ${drwRes.error}`);
         const minAmount = parseFloat(drwRes.data.vout[0].value);
-        if (minAmount !== 0.000036) throw new Error(`min Amount is not 0.000036`);
+        // if (minAmount !== 0.000036) throw new Error(`min Amount is not 0.000036`);
         return { data: minAmount };
     } catch (error) {
         return { error: error.message || 'Undefined getMinVoutAmount Error' };
