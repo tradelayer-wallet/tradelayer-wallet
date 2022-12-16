@@ -23,6 +23,7 @@ export class SellSwapper extends Swap {
         this.removePreviuesListeners();
         const _eventName = `${this.cpInfo.socketId}::swap`;
         this.socket.on(_eventName, (eventData: SwapEvent) => {
+            this.eventSubs$.next(eventData);
             const { socketId, data } = eventData;
             switch (eventData.eventName) {
                 case 'TERMINATE_TRADE':

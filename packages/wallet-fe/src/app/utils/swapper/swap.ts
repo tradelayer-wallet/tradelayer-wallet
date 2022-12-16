@@ -1,9 +1,11 @@
 import { TxsService } from "src/app/@core/services/txs.service";
 import { ETradeType, IBuyerSellerInfo, IFuturesTradeProps, IMSChannelData, ISpotTradeProps, SwapEvent, TClient } from "./common";
 import { Socket as SocketClient } from 'socket.io-client';
+import { Subject } from "rxjs";
 
 export abstract class Swap {
     readyRes: (value: { data?: any, error?: any }) => void = () => {};
+    eventSubs$: Subject<SwapEvent> = new Subject();
     multySigChannelData: IMSChannelData | null = null;
     constructor(
         public typeTrade: ETradeType,

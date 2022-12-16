@@ -35,20 +35,21 @@ export class SwapService {
 
     onInit() {
         this.socket.on(`${obEventPrefix}::new-channel`, async (swapConfig: IChannelSwapData) => {
+                this.loadingService.tradesLoading = false;
                 const res = await this.channelSwap(swapConfig.tradeInfo, swapConfig.isBuyer);
                 if (res.error || !res.data?.txid) {
                     this.toastrService.error(res.error, 'Trade Error')
                 } else {
                     this.soundsService.playSound(ESounds.TRADE_COMPLETED);
                 }
-                const mySocketId = swapConfig.isBuyer
-                    ? swapConfig.tradeInfo.buyer.socketId
-                    : swapConfig.tradeInfo.seller.socketId;
-                const unffiledSocketIf = swapConfig.unfilled?.socket_id;
-                const takerSocketId = swapConfig.tradeInfo?.taker;
-                if (unffiledSocketIf !== mySocketId && takerSocketId === mySocketId) {
-                    this.loadingService.tradesLoading = false;
-                }
+                // const mySocketId = swapConfig.isBuyer
+                //     ? swapConfig.tradeInfo.buyer.socketId
+                //     : swapConfig.tradeInfo.seller.socketId;
+                // const unffiledSocketIf = swapConfig.unfilled?.socket_id;
+                // const takerSocketId = swapConfig.tradeInfo?.taker;
+                // if (unffiledSocketIf !== mySocketId && takerSocketId === mySocketId) {
+                //     this.loadingService.tradesLoading = false;
+                // }
         });
     }
 
@@ -57,6 +58,9 @@ export class SwapService {
         const swapper = isBuyer
             ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService)
             : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService);
+        swapper.eventSubs$.subscribe(eventData => {
+            this.toastrService.info(eventData.eventName, 'Trade Info', { timeOut: 3000 });
+        });
         const res = await swapper.onReady();
     return res;
     }

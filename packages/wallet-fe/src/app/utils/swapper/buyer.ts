@@ -23,6 +23,7 @@ export class BuySwapper extends Swap {
         const _eventName = `${this.cpInfo.socketId}::swap`;
         this.socket.on(_eventName, (eventData: SwapEvent) => {
             const { socketId, data } = eventData;
+            this.eventSubs$.next(eventData);
             switch (eventData.eventName) {
                 case 'TERMINATE_TRADE':
                     this.onTerminateTrade.bind(this)(socketId, data);
