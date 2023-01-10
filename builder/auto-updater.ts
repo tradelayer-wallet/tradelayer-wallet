@@ -24,10 +24,10 @@ export class AutoUpdater {
         if (!this.autoUpdater) return;
         this.autoUpdater.autoDownload = false;
         this.autoUpdater.setFeedURL({
-            owner: "valiopld",
+            owner: "tradelayer-wallet",
             repo: 'tradelayer-wallet',
             provider: 'github',
-            user: 'valiopld',
+            user: 'tradelayer-wallet',
         });
     }
 
