@@ -20,7 +20,7 @@ export class WindowComponent {
   }
 
   get closable() {
-    return this.title !== 'Synchronization' && this.title !== 'Orderbook Server';
+    return this.title !== 'Synchronization' && this.title !== 'Servers';
   }
 
   minimize() {

@@ -16,7 +16,6 @@
                     align-items: center;
                     height: 2rem;
                     margin: 0.25rem 0;
-
                     .is-selected {
                         width: 10%;
                         height: 100%;
@@ -30,12 +29,25 @@
                             margin: 0;
                         }
                     }
+
                     .buttons {
                         width: 25%;
                     }
 
                     .url {
                         width: 65%;
+                    }
+
+                    .input_url {
+                        width: 65%;
+                        border: none;
+                        border-bottom: 1px solid black;
+                        height: 2rem;
+                        background-color: unset !important;
+                        cursor: pointer;
+                        &:focus {
+                            outline: none;
+                        }
                     }
                 }
             }

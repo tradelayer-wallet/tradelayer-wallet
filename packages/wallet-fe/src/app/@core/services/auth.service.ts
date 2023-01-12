@@ -8,6 +8,7 @@ import { encrypt, decrypt } from '../../utils/crypto.util'
 import { ApiService } from "./api.service";
 import { DialogService } from "./dialogs.service";
 import { RpcService, TNETWORK } from "./rpc.service";
+import { WindowsService } from "./windows.service";
 
 const defaultWalletObj: IWalletObj = {
     main: [],
@@ -86,6 +87,7 @@ export class AuthService {
         private apiService: ApiService,
         private toastrService: ToastrService,
         private rpcService: RpcService,
+        private windowsService: WindowsService,
     ) {}
 
     get isLoggedIn() {
@@ -130,6 +132,12 @@ export class AuthService {
     }
 
     async register(pass: string) {
+        if (!this.apiService.apiUrl) {
+            this.toastrService.error('Please Frist select API server', 'Error');
+            const serversWindow = this.windowsService.tabs.find(q => q.title === 'Servers');
+            if (serversWindow) this.windowsService.toggleTab(serversWindow, false);
+            return;
+        }
         const rawWalletObj = await this.keysApi.getNewWallet().toPromise() as
             { mnemonic: string, mainKeyPair: IKeyPair };
         const { mnemonic } = rawWalletObj;
@@ -150,6 +158,12 @@ export class AuthService {
     }
 
     async loginWithMnemonics(words: string[], pass: string) {
+        if (!this.apiService.apiUrl) {
+            this.toastrService.error('Please Frist select API server', 'Error');
+            const serversWindow = this.windowsService.tabs.find(q => q.title === 'Servers');
+            if (serversWindow) this.windowsService.toggleTab(serversWindow, false);
+            return;
+        }
         try {
             const mnemonic = words.join(' ');
             if (!mnemonic) return;
@@ -222,6 +236,12 @@ export class AuthService {
 
     async loginFromKeyFile(key: string, pass: string) {
         try {
+            if (!this.apiService.apiUrl) {
+                this.toastrService.error('Please Frist select API server', 'Error');
+                const serversWindow = this.windowsService.tabs.find(q => q.title === 'Servers');
+                if (serversWindow) this.windowsService.toggleTab(serversWindow, false);
+                return;
+            }
             const stringKeyPairObj = decrypt(key, pass);
             if (!stringKeyPairObj) throw new Error("Error with file decrypt. Code 1");
             const walletObjRaw = JSON.parse(stringKeyPairObj);

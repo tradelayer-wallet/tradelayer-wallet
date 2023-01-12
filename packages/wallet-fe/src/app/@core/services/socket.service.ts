@@ -4,6 +4,7 @@ import { ToastrService } from "ngx-toastr";
 import { Socket } from "socket.io-client";
 import { io } from 'socket.io-client'
 import { environment } from '../../../environments/environment';
+import { ApiService } from "./api.service";
 
 export enum SocketEmits {
     LTC_INSTANT_TRADE = 'LTC_INSTANT_TRADE',
@@ -25,6 +26,7 @@ export class SocketService {
     constructor(
         private toasterService: ToastrService,
         private router: Router,
+        private apiService: ApiService,
     ) {}
 
     get socketsLoading() {
@@ -42,6 +44,10 @@ export class SocketService {
     get socket() {
         if (!this._socket) return this.mainSocketConnect();
         return this._socket;
+    }
+
+    get marketApi() {
+        return this.apiService.marketApi;
     }
 
     mainSocketConnect() {

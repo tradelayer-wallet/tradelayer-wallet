@@ -34,7 +34,7 @@ import { PasswordDialog } from './dialogs/password/password.component';
 import { WithdrawDialog } from './dialogs/withdraw/withdraw.component';
 import { DepositDialog } from './dialogs/deposit/deposit.component';
 import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
-import { OrderbookServerDialog } from './dialogs/orderbook-server/orderbook-server.component';
+import { ServersDialog } from './dialogs/servers/servers.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -68,7 +68,7 @@ const DIALOGS = [
     WithdrawDialog,
     DepositDialog,
     CommingSoonDialog,
-    OrderbookServerDialog,
+    ServersDialog,
 ];
 
 const COMPONENTS = [

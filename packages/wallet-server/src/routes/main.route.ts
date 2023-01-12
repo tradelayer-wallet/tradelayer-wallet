@@ -76,7 +76,6 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
 
-
     fastify.post('build-ltcit-tx', async (request, reply) => {
         try {
             const { buyerKeyPair, sellerKeyPair, payload, amount, commitUTXOs, network } = request.body as IBuildLTCITTxConfig;
@@ -111,7 +110,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('set-api-url', async (request, reply) => {
         try {
-            const { apiUrl } = request.body as { apiUrl: "LTC" | "LTCTEST" | null };
+            const { apiUrl } = request.body as { apiUrl: string | null };
             fasitfyServer.relayerApiUrl = apiUrl;
             const result = { data: true };
             reply.status(200).send(result);
