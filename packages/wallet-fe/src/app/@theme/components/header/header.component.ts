@@ -97,8 +97,8 @@ export class HeaderComponent implements OnInit {
   navigateTo(route: any) {
     if (route.id === 3 || route.id === 4) {
       if (!this.connectionService.isOBSocketConnected) {
-        this.toastrService.warning('Please first connect to orderbook Server');
-        const window = this.windowsService.tabs.find(tab => tab.title === 'Orderbook Server');
+        this.toastrService.warning('Please first connect to Server');
+        const window = this.windowsService.tabs.find(tab => tab.title === 'Servers');
         if (window) window.minimized = false;
         return;
       }

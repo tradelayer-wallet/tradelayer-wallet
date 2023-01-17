@@ -31,7 +31,7 @@ export class SelectNetworkDialog {
       this.rpcService.isNetworkSelected = true;
       this.dialogRef.close();
       this.router.navigateByUrl('/');
-      const tab = this.windowsService.tabs.find(t => t.title === "Orderbook Server");
+      const tab = this.windowsService.tabs.find(t => t.title === "Servers");
       if (tab) tab.minimized = false;
       this.loadingService.isLoading = false;
     } catch (error: any) {
