@@ -19,12 +19,7 @@ export class MainApiService {
         return environment.homeApiUrl + '/api/'
     }
 
-    setNETWORK(value: TNETWORK) {
-        const apiUrl = value === "LTC"
-            ? environment.ENDPOINTS.LTC.relayerUrl
-            : value === "LTCTEST"
-                ? environment.ENDPOINTS.LTCTEST.relayerUrl
-                : null;
+    setApiUrl(apiUrl: string | null) {
         return this.http.post(this.apiUrl + 'set-api-url', { apiUrl });
     }
     

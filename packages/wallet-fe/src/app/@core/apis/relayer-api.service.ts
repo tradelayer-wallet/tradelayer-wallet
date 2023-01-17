@@ -2,7 +2,7 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { environment } from "src/environments/environment";
-import { RpcService, TNETWORK } from "../services/rpc.service";
+import { TNETWORK } from "../services/rpc.service";
 
 
 @Injectable({
@@ -10,19 +10,20 @@ import { RpcService, TNETWORK } from "../services/rpc.service";
 })
 
 export class TradeLayerApiService {
-    private NETWORK: TNETWORK = null;
+    // private NETWORK: TNETWORK = null;
+    private apiUrl: string | null = null;
 
     constructor(
         private http: HttpClient,
     ) {}
 
     private get apiURL() {
-        if (!this.NETWORK) return null;
-        return environment.ENDPOINTS[this.NETWORK].relayerUrl;
+        if (!this.apiUrl) return null;
+        return this.apiUrl;
     }
 
-    _setNETWORK(value: TNETWORK) {
-        this.NETWORK = value;
+    setApiUrl(value: string | null) {
+        this.apiUrl = value;
     }
 
     rpc(method: string, params?: any[]): Observable<{

@@ -63,7 +63,7 @@ export class RpcService {
         this.blockSubs$.next(blockSubsObj);
       });
 
-      setInterval(() => this.checkNetworkInfo(), 5000);
+      setInterval(() => this.checkNetworkInfo(), 8000);
     }
 
     get isSynced() {
@@ -75,9 +75,10 @@ export class RpcService {
     }
 
     set NETWORK(value: TNETWORK) {
-      this.apiService._setNETOWRK(value);
+      this.apiService.network = value;
+      this.apiService.apiUrl = null;
+      this.apiService.orderbookUrl = null;
       this._NETWORK = value;
-      this.checkNetworkInfo();
     }
 
     get socket() {
@@ -102,14 +103,7 @@ export class RpcService {
       flags: { reindex: boolean, startclean: boolean },
     ) {
       this.NETWORK = network;
-      await this.tlApi.rpc('tl_getinfo').toPromise()
-        .then(res2 => {
-          if (res2.error || !res2.data) throw new Error(`${ res2.error || 'Undefined Error' }`);
-        })
-        .catch(error => {
-          throw new Error(`Error with Tradelayer API Server: ${error.message || error || 'Undefined Error'}`);
-        });
-
+      if (this.NETWORK !== network) throw new Error("Please first Change the Network");
       return await this.mainApi
         .startWalletNode(path, network, flags)
         .toPromise()
@@ -119,15 +113,16 @@ export class RpcService {
             this.dialogService.closeAllDialogs();
           }
           return res;
-        })
+        });
     }
 
     async createNewNode(params: { username: string, password: string, port: number, path: string }) {
       return await this.mainApi.createNewConfFile(params).toPromise();
     }
 
-    private async checkNetworkInfo() {
+    async checkNetworkInfo() {
       if (!this.NETWORK) return;
+      if (!this.apiService.apiUrl) return;
       try {
           const infoRes = await this.tlApi.rpc('tl_getinfo').toPromise();
           if (infoRes.error || !infoRes.data) throw new Error(infoRes.error);
@@ -138,7 +133,8 @@ export class RpcService {
             console.log(`New Network Block: ${this.networkBlocks}`);
           }
       } catch(err: any) {
-          this.toastrService.error(err.message || err || 'Undefined Error', 'Gettinf Network Block Error');
+          this.toastrService.error(err.message || err || 'Undefined Error', 'API Server Disconnected');
+          this.apiService.apiUrl = null;
           throw(err);
       }
     }

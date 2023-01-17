@@ -12,7 +12,7 @@ export class FastifyServer {
     public mainSocketService: SocketService;
     public obSocketService: OBSocketService;
 
-    public relayerApiUrl: "LTC" | "LTCTEST" | null = null;
+    public relayerApiUrl: string | null = null;
 
     constructor(
         private port: number, 

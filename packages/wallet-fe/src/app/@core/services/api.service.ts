@@ -11,6 +11,9 @@ import { TNETWORK } from "./rpc.service";
 })
 
 export class ApiService {
+    private _network: TNETWORK = null;
+    private _apiUrl: string | null = null;
+    private _orderbookUrl: string | null = null;
 
     constructor(
         private marketApiService: MarketApiService,
@@ -19,11 +22,35 @@ export class ApiService {
         private keysApiService: KeysApiService,
     ) {}
 
-    _setNETOWRK(value: TNETWORK) {
-        this.marketApi._setNETWORK(value);
-        this.tradeLayerApiService._setNETWORK(value);
+    get network() {
+        return this._network;
+    }
+
+    set network(value: TNETWORK) {
+        this._network = value;
         this.keysApiService._setNETWORK(value);
-        this.mainApi.setNETWORK(value).toPromise();
+        console.log(`NETWORK: ${value}`);
+    }
+
+    get apiUrl() {
+        return this._apiUrl;
+    }
+
+    set apiUrl(value: string | null) {
+        this._apiUrl = value;
+        this.mainApi.setApiUrl(value);
+        this.tradeLayerApiService.setApiUrl(value);
+        console.log(`API: ${value}`);
+    }
+    
+    get orderbookUrl() {
+        return this._orderbookUrl;
+    }
+
+    set orderbookUrl(value: string | null) {
+        this._orderbookUrl = value;
+        this.marketApi.setOrderbookUrl(value);
+        console.log(`OB: ${value}`);
     }
 
     get marketApi(){ 

@@ -20,7 +20,7 @@ export class KeysApiService {
     }
 
     private get apiUrl() {
-        return environment.homeApiUrl + '/keys/'
+        return environment.homeApiUrl + '/keys/';
     }
 
     getNewWallet() {

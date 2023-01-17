@@ -1,0 +1,90 @@
+<custom-window title='Servers'>
+    <div class="dialog-container">
+        <mat-dialog-content class="mat-typography">
+            <div class="content-container">
+                <div class="servers-conteiner">
+                    <div class="title">Orderbook Servers</div>
+                    <div
+                        class="server" 
+                        *ngFor="let s of orderbookServers" 
+                        (click)="selectOrderbookServer(s)"
+                        [ngStyle]="{ 'cursor': isOrderbookConnected ? 'unset' : 'pointer' }"
+                    >
+                        <div
+                            class="is-selected"
+                            [ngStyle]="{'visibility' : selectedOrderbookServer === s ? 'visible' : 'hidden'}"
+                        ><p [ngStyle]="{'background-color': isOrderbookConnected ? 'green' : 'red'}"></p></div>
+                        <div *ngIf="s !== '@custom'" class="url"> {{ s }} </div>
+                        <input
+                            #input
+                            *ngIf="s === '@custom'"
+                            type="text"
+                            class="input_url"
+                            [disabled]="selectedOrderbookServer !== '@custom'"
+                            placeholder="Custom Url"
+                            [(ngModel)]="customOrderbookUrl"
+                        >
+                        <div
+                            class="buttons"
+                            [ngStyle]="{'visibility' : selectedOrderbookServer === s ? 'visible' : 'hidden'}"
+                        >
+                            <button
+                                *ngIf="isOrderbookConnected"
+                                class='redButton'
+                                mat-button
+                                (click)="disconnectOrderbookServer()"
+                            > disconnect </button>
+                            <button
+                                *ngIf="!isOrderbookConnected"
+                                class='greenButton'
+                                mat-button
+                                (click)="connectOrderbookServer()"
+                            > Connect </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="servers-conteiner">
+                    <div class="title">API Servers</div>
+                    <div
+                        class="server" 
+                        *ngFor="let s of apiServers" 
+                        (click)="selectApiServer(s)"
+                        [ngStyle]="{ 'cursor': isApiConnected ? 'unset' : 'pointer' }"
+                    >
+                        <div
+                            class="is-selected"
+                            [ngStyle]="{'visibility' : selectedApiServer === s ? 'visible' : 'hidden'}"
+                        ><p [ngStyle]="{'background-color': isApiConnected ? 'green' : 'red'}"></p></div>
+                        <div *ngIf="s !== '@custom'" class="url"> {{ s }} </div>
+                        <input
+                            *ngIf="s === '@custom'"
+                            type="text"
+                            class="input_url"
+                            [disabled]="selectedApiServer !== '@custom'"
+                            placeholder="Custom Url"
+                            [(ngModel)]="customApiUrl"
+                        >
+                        <div
+                            class="buttons"
+                            [ngStyle]="{'visibility' : selectedApiServer === s ? 'visible' : 'hidden'}"
+                        >
+                            <button
+                                *ngIf="isApiConnected"
+                                class='redButton'
+                                mat-button
+                                (click)="disconnectApiServer()"
+                            > disconnect </button>
+                            <button
+                                *ngIf="!isApiConnected"
+                                class='greenButton'
+                                mat-button
+                                (click)="connectApiServer()"
+                            > Connect </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </mat-dialog-content>
+    </div>
+</custom-window>
