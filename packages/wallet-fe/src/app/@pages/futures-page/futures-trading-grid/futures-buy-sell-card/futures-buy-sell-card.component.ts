@@ -163,8 +163,11 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       this.buySellGroup.reset();
     }
 
-    addLiquidity() {
-      this.toastrService.error('Not Allowed', 'Error');
+    addLiquidity(_amount: string, _orders_number: string, _range: string) {
+      const amount = parseFloat(_amount);
+      const orders_number = parseFloat(_orders_number);
+      const range = parseFloat(_range);
+      console.log({ amount, orders_number, range });
       return;
     }
 

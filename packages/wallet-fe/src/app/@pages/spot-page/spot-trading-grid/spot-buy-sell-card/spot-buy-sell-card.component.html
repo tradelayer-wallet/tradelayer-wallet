@@ -99,12 +99,29 @@
     <div class="additional-info" *ngIf="spotAddress">
       <button
         class="blueButton"
-        (click)='addLiquidity()'
-      >Add Liquidity</button>
-      <button
-        class="blueButton"
         (click)='closeAll()'
       >Close All Orders</button>
+    </div>
+    <div class="liquidity">
+      <div class="custom-form-field">
+        <div class="prefix">Amount</div>
+        <input type='number' #liquidity_amount>
+        <div class="suffix">{{ selectedMarket.first_token.shortName }} / {{ selectedMarket.second_token.shortName }}</div>
+      </div>
+      <div class="custom-form-field">
+        <div class="prefix">Number Buy/Sell Orders</div>
+        <input type='number' #liquidity_orders>
+        <div class="suffix"> </div>
+      </div>
+      <div class="custom-form-field">
+        <div class="prefix">Max. Price Range</div>
+        <input type='number' #liquidity_range>
+        <div class="suffix">%</div>
+      </div>
+      <button
+        class="blueButton"
+        (click)='addLiquidity(liquidity_amount.value, liquidity_orders.value, liquidity_range.value)'
+      >Add Liquidity</button>
     </div>
   </mat-card-content>
 </mat-card>

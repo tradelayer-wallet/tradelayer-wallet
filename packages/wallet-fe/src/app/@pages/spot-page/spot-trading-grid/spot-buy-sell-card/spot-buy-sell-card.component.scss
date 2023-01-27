@@ -100,7 +100,8 @@ mat-card {
                 }
             }
         }
-        .additional-info {
+        .additional-info,
+        .liquidity {
             padding: 1rem;
             display: flex;
             flex-direction: column;
@@ -115,6 +116,13 @@ mat-card {
                 cursor: pointer;
             }
         }
+
+        .liquidity {
+            border-top: 1px solid var(--darkBlue);
+            display: flex;
+            flex-direction: column;
+        }
+
         .order-type {
             display: flex;
             padding: 0.5rem 16px;
@@ -143,7 +151,9 @@ mat-card {
                 }
             }
         }
-        .buy-sell-form {
+
+        .buy-sell-form,
+        .liquidity {
             display: flex;
             flex-direction: column;
             padding: 16px;
@@ -156,13 +166,15 @@ mat-card {
                 align-items: center;
                 border-radius: 4px;
                 margin: 0.5rem 0;
-                .prefix, .suffix {
+                .prefix,
+                .suffix {
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     padding: 0 0.75rem;
                     color: var(--darkGrey);
                     font-size: 0.75rem;
+                    white-space: nowrap;
                 }
                 .prefix {
                     border-right: 1px solid var(--darkGrey);
@@ -183,6 +195,7 @@ mat-card {
                 }
             }
         }
+
         .buttons {
             display: flex;
             padding: 16px;
