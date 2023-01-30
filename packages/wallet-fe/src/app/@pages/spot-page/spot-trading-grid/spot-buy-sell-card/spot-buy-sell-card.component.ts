@@ -177,6 +177,10 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       this.buySellGroup.reset();
     }
 
+    stopLiquidity() {
+      console.log(`Stop Liquidity`);
+    }
+
     addLiquidity(_amount: string, _orders_number: string, _range: string) {
       const amount = parseFloat(_amount);
       const orders_number = parseFloat(_orders_number);

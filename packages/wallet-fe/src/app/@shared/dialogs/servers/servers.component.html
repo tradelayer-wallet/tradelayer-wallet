@@ -3,10 +3,10 @@
         <mat-dialog-content class="mat-typography">
             <div class="content-container">
                 <div class="servers-conteiner">
-                    <div class="title">Servers</div>
+                    <div class="title">Orderbook Servers</div>
                     <div
-                        class="server" 
-                        *ngFor="let s of orderbookServers" 
+                        class="server"
+                        *ngFor="let s of orderbookServers"
                         (click)="selectOrderbookServer(s)"
                         [ngStyle]="{ 'cursor': isOrderbookConnected ? 'unset' : 'pointer' }"
                     >
@@ -47,8 +47,8 @@
                 <div class="servers-conteiner">
                     <div class="title">API Servers</div>
                     <div
-                        class="server" 
-                        *ngFor="let s of apiServers" 
+                        class="server"
+                        *ngFor="let s of apiServers"
                         (click)="selectApiServer(s)"
                         [ngStyle]="{ 'cursor': isApiConnected ? 'unset' : 'pointer' }"
                     >
