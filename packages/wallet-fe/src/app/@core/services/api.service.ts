@@ -38,7 +38,7 @@ export class ApiService {
 
     set apiUrl(value: string | null) {
         this._apiUrl = value;
-        this.mainApi.setApiUrl(value);
+        this.mainApi.setApiUrl(value).toPromise();
         this.tradeLayerApiService.setApiUrl(value);
         console.log(`API: ${value}`);
     }
