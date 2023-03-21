@@ -10,6 +10,7 @@ import { LoginPageComponent } from './@pages/login-page/login-page.component';
 import { NodeRewardPageComponent } from './@pages/node-reward/node-reward-page.component';
 import { PortfolioPageComponent } from './@pages/portfolio-page/portfolio-page.component';
 import { SpotPageComponent } from './@pages/spot-page/spot-page.component';
+import { TxBuilderPageComponent } from './@pages/tx-builder-page/tx-builder-page.component';
 
 export const routes: Routes = [
   {
@@ -23,6 +24,10 @@ export const routes: Routes = [
       {
         path: 'login',
         component: LoginPageComponent,
+      },
+      {
+        path: 'tx-builder',
+        component: TxBuilderPageComponent,
       },
       {
         path: 'portfolio',
@@ -42,7 +47,7 @@ export const routes: Routes = [
       {
         path: 'node-reward',
         component: NodeRewardPageComponent,
-        canActivate: [ SyncedGuard, AuthGuard ],
+        canActivate: [SyncedGuard, AuthGuard],
       },
       {
         path: '**',

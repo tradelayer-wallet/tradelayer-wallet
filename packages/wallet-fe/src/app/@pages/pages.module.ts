@@ -17,6 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { LoginPageComponent } from './login-page/login-page.component';
 import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
 import { SpotPageComponent } from './spot-page/spot-page.component';
+import { TxBuilderPageComponent } from './tx-builder-page/tx-builder-page.component';
 
 import { SpotMarketsToolbarComponent } from './spot-page/spot-markets-toolbar/spot-markets-toolbar.component'; 
 import { SpotTradingGridComponent } from './spot-page/spot-trading-grid/spot-trading-grid.component';
@@ -78,6 +79,7 @@ const PAGE_COMPONENTS = [
     FuturesPageComponent,
     NodeRewardPageComponent,
     LoginContainerComponent,
+    TxBuilderPageComponent,
 ];
 
 const SPOT_COMPONENTS = [

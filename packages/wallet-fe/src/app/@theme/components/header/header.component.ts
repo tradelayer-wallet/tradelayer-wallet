@@ -51,6 +51,12 @@ export class HeaderComponent implements OnInit {
       link: '/node-reward',
       needAuthToShow: true,
       needFullSynced: true,
+    },
+    {
+      id: 6,
+      name: 'Tx Builder',
+      link: '/tx-builder',
+      needAuthToShow: false,
     }
   ];
 
