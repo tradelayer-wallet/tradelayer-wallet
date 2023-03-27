@@ -7,8 +7,8 @@ import { Component, OnInit } from '@angular/core';
 
 export class TxBuilderPageComponent implements OnInit {
   constructor() {}
-
   ngOnInit(): void {
 
   }
+  
 }

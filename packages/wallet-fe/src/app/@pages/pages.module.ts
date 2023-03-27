@@ -13,6 +13,7 @@ import { MatGridListModule } from '@angular/material/grid-list';
 import { MatIconModule } from '@angular/material/icon'; 
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip'; 
+import { MatSelectModule } from '@angular/material/select';
 
 import { LoginPageComponent } from './login-page/login-page.component';
 import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
@@ -50,6 +51,10 @@ import { FuturesOrderHistoryComponent } from './futures-page/futures-trading-gri
 import { SpotOrderHistoryComponent } from './spot-page/spot-trading-grid/spot-bottom-card/spot-order-history/spot-order-history.component';
 import { NodeRewardPageComponent } from './node-reward/node-reward-page.component';
 import { DateFormatPipe } from '../@shared/pipes/date-format.pipe';
+import { SendTxTabComponent } from './tx-builder-page/send-tab/send-tab.component';
+import { BuildTxTabComponent } from './tx-builder-page/build-tab/build-tab.component';
+import { SignTxTabComponent } from './tx-builder-page/sign-tab/sign-tab.component';
+import { DecodeTxTabComponent } from './tx-builder-page/decode-tab/decode-tab.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -69,6 +74,7 @@ const MAT_MODULES = [
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatSlideToggleModule,
+    MatSelectModule
 ];
 
 const PAGE_COMPONENTS = [
@@ -80,6 +86,10 @@ const PAGE_COMPONENTS = [
     NodeRewardPageComponent,
     LoginContainerComponent,
     TxBuilderPageComponent,
+    BuildTxTabComponent,
+    SignTxTabComponent,
+    SendTxTabComponent,
+    DecodeTxTabComponent,
 ];
 
 const SPOT_COMPONENTS = [

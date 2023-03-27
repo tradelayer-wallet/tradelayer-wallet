@@ -1,0 +1,21 @@
+<div class="build-tab-wrapper">
+    <div class="io-area output">
+        <div class="header">
+            <div class="text">Build Options</div>
+        </div>
+        <div class="content"> - </div>
+    </div>
+    <div class="buttons">
+        <button
+            class="blueButton"
+            (click)="build()"
+        >Build</button>
+    </div>
+    <div class="io-area output">
+        <div class="header">
+            <div class="text">Output</div>
+            <mat-icon (click)="copyOutput()">content_copy</mat-icon>
+        </div>
+        <div class="content"> {{ output || "// No Output"}} </div>
+    </div>
+</div>

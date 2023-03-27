@@ -1,0 +1,35 @@
+<div class="sign-tab-wrapper">
+    <div class="io-area input">
+        <div class="header">
+            <div class="text">Input</div>
+            <mat-icon (click)="pasteClipboard()">content_paste</mat-icon>
+        </div>
+        <div class="content">
+            <textarea
+                [(ngModel)]="input"
+                placeholder="Place your Raw Transction here ..."
+            ></textarea>
+        </div>
+    </div>
+    <div class="io-area options">
+        <div class="header">
+            <div class="text">Sign Options</div>
+        </div>
+        <div class="content">
+            -
+        </div>
+    </div>
+    <div class="buttons">
+        <button
+            class="blueButton"
+            (click)="sign()"
+        >Sign</button>
+    </div>
+    <div class="io-area output">
+        <div class="header">
+            <div class="text">Output</div>
+            <mat-icon (click)="copyOutput()">content_copy</mat-icon>
+        </div>
+        <div class="content"> {{ output || "// No Output"}} </div>
+    </div>
+</div>
