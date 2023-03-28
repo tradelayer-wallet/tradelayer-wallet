@@ -16,7 +16,59 @@
             <div class="text">Sign Options</div>
         </div>
         <div class="content">
-            -
+            <div class="detailed" *ngIf='vins.length'>
+                <div class="tx" *ngFor='let tx of vins; let i = index'>
+                    <mat-form-field style="width: 100%; color: var(--softGrey)">
+                        <mat-label>Input {{ i }}: Transaction ID, vout: {{ tx.vout }}</mat-label>
+                        <input matInput type='text' [value]='tx.txid' disabled>
+                    </mat-form-field>
+                    <div class="inputs">
+                        <mat-form-field>
+                            <mat-label>amount</mat-label>
+                            <input matInput type='number' [(ngModel)]='tx.amount'>
+                        </mat-form-field>
+                        <mat-form-field>
+                            <mat-label>Script PubKey</mat-label>
+                            <input matInput type='text' [(ngModel)]='tx.scriptPubKey'>
+                        </mat-form-field>
+                        <mat-form-field>
+                            <mat-label>Redeem Script</mat-label>
+                            <input matInput type='text' [(ngModel)]='tx.redeemScript'>
+                        </mat-form-field>
+                    </div>
+                </div>
+            </div>
+            <div class='priv-key-field' *ngIf='vins.length'>
+                <mat-form-field>
+                    <mat-label>Sign With</mat-label>
+                    <mat-select [(ngModel)]="keyType">
+                        <mat-option value="WALLET" [disabled]="!isLoggedIn">Wallet Key</mat-option>
+                        <mat-option value="CUSTOM">Custom Key</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-form-field *ngIf='keyType === "WALLET"'>
+                    <mat-label>Sign With</mat-label>
+                    <mat-select [(ngModel)]="privKey">
+                        <mat-option
+                            [value]="kp.wif"
+                            *ngFor="let kp of keypairs"
+                        >
+                            {{ kp.address }}
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-form-field *ngIf='keyType === "CUSTOM"'>
+                    <mat-label>Sign With</mat-label>
+                    <input
+                        [(ngModel)]="privKey"
+                        matInput
+                        placeholder="Place your Private Key here ..."
+                    >
+                </mat-form-field>
+            </div>
+            <div class="no-info" *ngIf='!vins.length'> // No Inputs detected ...</div>
         </div>
     </div>
     <div class="buttons">
@@ -30,6 +82,6 @@
             <div class="text">Output</div>
             <mat-icon (click)="copyOutput()">content_copy</mat-icon>
         </div>
-        <div class="content"> {{ output || "// No Output"}} </div>
+        <div class="content"> {{ output || "// Output"}} </div>
     </div>
 </div>

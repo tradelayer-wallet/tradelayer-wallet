@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
+import { RpcService } from 'src/app/@core/services/rpc.service';
 
 @Component({
   selector: 'tl-send-tab',
@@ -12,6 +13,7 @@ export class SendTxTabComponent implements OnInit {
   
   constructor(
     private toastrService: ToastrService,
+    private rpcService: RpcService,
   ) {}
 
   ngOnInit() { }
@@ -28,6 +30,10 @@ export class SendTxTabComponent implements OnInit {
   }
 
   send() {
-    console.log('SEND', this.input);
+    this.rpcService.rpc('sendrawtransaction', [this.input])
+      .then(res => this.output = JSON.stringify(res, null, 4))
+      .catch(error => {
+        this.output = `Error: ${error.message || error || 'Undefined'}`;
+      });
   }
 }

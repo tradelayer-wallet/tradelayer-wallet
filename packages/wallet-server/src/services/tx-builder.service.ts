@@ -242,8 +242,8 @@ const getMinVoutAmount = async (toAddress: string, isApiMode: boolean) => {
 
 export const signTx = async (signOptions: ISignTxConfig) => {
     try {
-        const { rawtx, wif, network, inputs, psbtHex } = signOptions;
-        const lastResult = signRawTransction({ rawtx, wif, network, inputs, psbtHex });
+        const { rawtx, wif, network, inputs } = signOptions;
+        const lastResult = signRawTransction({ rawtx, wif, network, inputs });
         // if (lastResult.data) {
         //     inputs.map(e => {
         //         usedUTXOS.push(e.txid);

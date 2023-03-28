@@ -19,9 +19,16 @@
     </div>
     <div class="io-area output">
         <div class="header">
-            <div class="text">Output</div>
-            <mat-icon (click)="copyOutput()">content_copy</mat-icon>
+            <div class="text">Tradelayer Output</div>
+            <mat-icon (click)="copyOutput(1)">content_copy</mat-icon>
         </div>
-        <div class="content"> {{ output || "// No Output"}} </div>
+        <div class="content"> {{ output_tl || "// No Output"}} </div>
+    </div>
+    <div class="io-area output">
+        <div class="header">
+            <div class="text">Litecoin Output</div>
+            <mat-icon (click)="copyOutput(2)">content_copy</mat-icon>
+        </div>
+        <div class="content"> {{ output_main || "// No Output"}} </div>
     </div>
 </div>
