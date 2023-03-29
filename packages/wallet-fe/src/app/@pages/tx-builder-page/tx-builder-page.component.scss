@@ -18,11 +18,12 @@
 ::ng-deep {
     .io-area {
         box-shadow: 0 0 0.5rem 0 black;
-        width: 100%;
+        width: 40rem;
         display: flex;
         flex-direction: column;
         margin: 1rem 0;
-        width: 40rem;
+        max-width: 40rem;
+
         .header {
             width: 100%;
             display: flex;
@@ -90,6 +91,27 @@
             padding: 0.5rem 1rem;
             border: none;
             cursor: pointer;
+        }
+    }
+}
+
+::ng-deep .io-area {
+    .content {
+        mat-form-field {
+            margin: 0 !important;
+            color: var(--softGrey) !important;
+            font-size: 0.75rem !important;
+        }
+        mat-label {
+            color: var(--softGrey) !important;
+        }
+        .mat-input-element:disabled {
+            color: var(--softGrey) !important;
+            font-size: 0.75rem !important;
+        }
+        .mat-select-value {
+            font-size: 0.75rem !important;
+            color: var(--softGrey) !important;
         }
     }
 }

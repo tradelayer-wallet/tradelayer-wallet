@@ -3,12 +3,57 @@
         <div class="header">
             <div class="text">Build Options</div>
         </div>
-        <div class="content"> - </div>
+        <div class="content"> 
+            <div class="from-to">
+                <mat-form-field>
+                    <mat-label>Send Address</mat-label>
+                    <input matInput [(ngModel)]="sendAddress">
+                </mat-form-field>
+                <mat-form-field>
+                    <mat-label>Receive Address</mat-label>
+                    <input matInput [(ngModel)]="receiveAddress">
+                </mat-form-field>
+            </div>
+            <mat-form-field>
+                <mat-label>Transaction Type (payload)</mat-label>
+                <mat-select
+                    (selectionChange)="onTypeChange()"
+                    [(ngModel)]="selectedTxType"
+                >
+                    <mat-option
+                        *ngFor="let type of transactionTypes"
+                        [value]="type"
+                    >
+                        {{ type.rpc }}
+                    </mat-option>
+                </mat-select>
+            </mat-form-field>
+            <div
+                class="options"
+                *ngIf="txTypeForm"
+                [formGroup]='txTypeForm'
+            >
+                <mat-form-field
+                    *ngFor="let input of selectedTxType.inputs"
+                >
+                    <mat-label>{{ input.prefix }} {{ input.required ? '*' : '' }}</mat-label>
+                    <input
+                        *ngIf="input.type === 'NUMBER'"
+                        type="number"
+                        matInput
+                        [formControlName]="input.code"
+                    >
+                </mat-form-field>
+            </div>
+        </div>
     </div>
     <div class="buttons">
         <button
             class="blueButton"
             (click)="build()"
+            [disabled]="buildDisabled"
+            [matTooltip]="buildDisabled ? 'Please fill all the required fields' : ''"
+            [matTooltipPosition]="'above'"
         >Build</button>
     </div>
     <div class="io-area output">

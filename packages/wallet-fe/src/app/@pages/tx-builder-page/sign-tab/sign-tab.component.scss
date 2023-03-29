@@ -40,26 +40,3 @@
         }
     }
 }
-
-::ng-deep .sign-tab-wrapper {
-    .io-area {
-        .content {
-            mat-form-field {
-                margin: 0 !important;
-                color: var(--softGrey) !important;
-                font-size: 0.75rem !important;
-            }
-            mat-label {
-                color: var(--softGrey) !important;
-            }
-            .mat-input-element:disabled {
-                color: var(--softGrey) !important;
-                font-size: 0.75rem !important;
-            }
-            .mat-select-value {
-                font-size: 0.75rem !important;
-                color: var(--softGrey) !important;
-            }
-        }
-    }
-}
