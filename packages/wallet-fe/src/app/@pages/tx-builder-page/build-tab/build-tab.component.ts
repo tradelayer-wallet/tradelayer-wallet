@@ -36,7 +36,15 @@ const txTypes: ITXType[] = [
     inputs: [
       new Input('Amount', 'amount', 'NUMBER', true, 'str'),
     ],
-  }
+  },
+  {
+    rpc: 'tl_createpayload_sendactivation',
+    inputs: [
+      new Input('Feature ID', 'featureid', 'NUMBER', true, 'int'),
+      new Input('Block', 'block', 'NUMBER', true, 'int'),
+      new Input('Min. Client Version', 'minclientversion', 'NUMBER', true, 'int'),
+    ],
+  },
 ];
 
 @Component({
