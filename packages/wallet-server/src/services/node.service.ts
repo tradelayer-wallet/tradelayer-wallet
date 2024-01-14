@@ -31,7 +31,7 @@ class FlagsObject implements IFlagsObject {
         this.reindex = toBool(!!options.reindex);
         this.addnode = options.addnode;
         this.datadir = options.datadir;
-        this.connect = options.connect;
+        // this.connect = options.connect;
     }
 }
 
@@ -66,7 +66,7 @@ export const createConfigFile = async (options: {
 export const startWalletNode = async (walletNodeOptions: any) => {
     try {
         const isTestnet = walletNodeOptions.testnet;
-        if (isTestnet) walletNodeOptions.connect = "178.62.46.195:19333";
+        // if (isTestnet) walletNodeOptions.connect = "178.62.46.195:19333";
         const flagsObject = new FlagsObject(walletNodeOptions);
         // Read config File
         const path = join(flagsObject.datadir || defaultDirObj);

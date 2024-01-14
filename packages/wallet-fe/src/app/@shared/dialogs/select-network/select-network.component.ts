@@ -13,7 +13,7 @@ import { WindowsService } from 'src/app/@core/services/windows.service';
 })
 
 export class SelectNetworkDialog {
-  public network: ENetwork = ENetwork.LTC;
+  public network: ENetwork = ENetwork.LTCTEST;
 
   constructor(
     private rpcService: RpcService,
