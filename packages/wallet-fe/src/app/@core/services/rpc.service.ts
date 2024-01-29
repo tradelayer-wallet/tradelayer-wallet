@@ -15,6 +15,7 @@ export enum ENetwork {
 export interface IBlockSubsObj {
   type: "API" | "LOCAL";
   block: number;
+  header: number;
 }
 
 @Injectable({
@@ -28,12 +29,14 @@ export class RpcService {
   isCoreStarted: boolean = false;
   isAbleToRpc: boolean = false;
   lastBlock: number = 0;
+  headerBlock: number = 0;
   networkBlocks: number = 0;
   isNetworkSelected: boolean = false;
 
   blockSubs$: BehaviorSubject<IBlockSubsObj> = new BehaviorSubject({
     type: this.isApiMode ? "API" : "LOCAL",
     block: this.isApiMode ? this.networkBlocks : this.lastBlock,
+    header: this.headerBlock,
   });
 
     constructor(
@@ -56,10 +59,12 @@ export class RpcService {
         }
       });
 
-      this.socket.on('new-block', lastBlock => {
+      this.socket.on('new-block', ({ height, header }) => {
+        const lastBlock = height;
         console.log(`New Node Block: ${lastBlock}`);
         this.lastBlock = lastBlock;
-        const blockSubsObj: IBlockSubsObj = { type: "LOCAL", block: lastBlock };
+        this.headerBlock = header;
+        const blockSubsObj: IBlockSubsObj = { type: "LOCAL", block: lastBlock, header };
         this.blockSubs$.next(blockSubsObj);
       });
 
@@ -67,7 +72,7 @@ export class RpcService {
     }
 
     get isSynced() {
-      return this.lastBlock + 1 >= this.networkBlocks;
+      return this.isAbleToRpc && this.headerBlock && this.lastBlock + 1 >= this.headerBlock;
     }
 
     get NETWORK() {
@@ -94,7 +99,8 @@ export class RpcService {
     }
   
     get isApiMode() {
-      return !this.isCoreStarted || !this.isSynced || !this.lastBlock;
+      return false;
+      // return !this.isCoreStarted || !this.isSynced || !this.lastBlock;
     }
 
     async startWalletNode(
@@ -124,11 +130,11 @@ export class RpcService {
       if (!this.NETWORK) return;
       if (!this.apiService.apiUrl) return;
       try {
-          const infoRes = await this.tlApi.rpc('tl_getinfo').toPromise();
+          const infoRes = await this.tlApi.rpc('getblockchaininfo').toPromise();
           if (infoRes.error || !infoRes.data) throw new Error(infoRes.error);
           if (infoRes.data.block && infoRes.data.block !== this.networkBlocks) {
             this.networkBlocks = infoRes.data.block;
-            const blockSubsObj: IBlockSubsObj = { type: "API", block: infoRes.data.block };
+            const blockSubsObj: IBlockSubsObj = { type: "API", block: infoRes.data.block, header: infoRes.data.headers };
             this.blockSubs$.next(blockSubsObj);
             console.log(`New Network Block: ${this.networkBlocks}`);
           }

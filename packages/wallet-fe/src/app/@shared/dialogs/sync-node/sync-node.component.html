@@ -2,10 +2,10 @@
     <div class="dialog-container">
         <mat-dialog-content class="mat-typography">
             <div class="content-container" *ngIf="coreStarted">
-                <p class='synced' *ngIf="isSynced && nodeBlock && networkBlocks">{{ "Full Synchronized" }} </p>
-                <span class='information' *ngIf="!isSynced || !nodeBlock || !networkBlocks">{{ eta }}</span>
+                <p class='synced' *ngIf="isSynced && nodeBlock && headerBlock">{{ "Full Synchronized" }} </p>
+                <span class='information' *ngIf="!isSynced || !nodeBlock || !headerBlock">{{ eta }}</span>
                 <mat-progress-bar mode="determinate" [value]="readyPercent"></mat-progress-bar>
-                <span class='blocks-span'> {{ nodeBlock }} / {{ networkBlocks }} </span>
+                <span class='blocks-span'> {{ nodeBlock }} / {{ headerBlock }} </span>
                 <div class="message" *ngIf="message"> {{ message }}</div>
                 <button
                     color="warn"

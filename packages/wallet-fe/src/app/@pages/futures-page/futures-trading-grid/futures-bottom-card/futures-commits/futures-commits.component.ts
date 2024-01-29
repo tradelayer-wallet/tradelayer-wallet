@@ -56,20 +56,20 @@ export class FuturesChannelsComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit() {
-      this.subscribes();
+      // this.subscribes();
     }
 
-    subscribes() {
-      const blockSubs = this.rpcService.blockSubs$
-        .subscribe(() => this.futuresChannelsService.updateOpenChannels());
+    // subscribes() {
+    //   const blockSubs = this.rpcService.blockSubs$
+    //     .subscribe(() => this.futuresChannelsService.updateOpenChannels());
 
-      const updateSubs$ = this.authService.updateAddressesSubs$
-        .subscribe(kp =>{
-          if (!this.authService.activeSpotKey || !kp.length) this.futuresChannelsService.removeAll();
-          this.futuresChannelsService.updateOpenChannels();
-        });
-      this.subsArray = [blockSubs, updateSubs$];
-    }
+    //   const updateSubs$ = this.authService.updateAddressesSubs$
+    //     .subscribe(kp =>{
+    //       if (!this.authService.activeSpotKey || !kp.length) this.futuresChannelsService.removeAll();
+    //       this.futuresChannelsService.updateOpenChannels();
+    //     });
+    //   this.subsArray = [blockSubs, updateSubs$];
+    // }
 
     ngOnDestroy(): void {
       this.subsArray.forEach(s => s.unsubscribe()) ;

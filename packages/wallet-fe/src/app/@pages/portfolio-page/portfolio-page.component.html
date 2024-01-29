@@ -1,10 +1,13 @@
 <div class="portfolio-page-container">
     <mat-card>
-        <mat-card-header>LTC Balance</mat-card-header>
-        <button mat-raised-button (click)='newAddress()' class='new-address-buttton'>New Address</button>
+        <h3 class="warning" *ngIf="!isSynced">
+          The Node is not synced and the balance may be incorrect.
+        </h3>
+        <mat-card-header>Balance</mat-card-header>
+        <button mat-raised-button (click)='newAddress()' class='new-address-buttton' [disabled]="!isAbleToRpc">New Address</button>
         <mat-card-content>
             <mat-table [dataSource]="coinBalance" *ngIf='coinBalance'>
-              <ng-container matColumnDef="attestation">
+              <!-- <ng-container matColumnDef="attestation">
                 <mat-header-cell *matHeaderCellDef>Attestation</mat-header-cell>
                 <mat-cell *matCellDef="let element">
                   <mat-icon
@@ -18,7 +21,7 @@
                     *ngIf="getAddressAttestationStatus(element.address) === 'PENDING'"
                   >timelapse</mat-icon>
                 </mat-cell>
-              </ng-container>
+              </ng-container> -->
                 <ng-container matColumnDef="address">
                   <mat-header-cell *matHeaderCellDef>Address</mat-header-cell>
                   <mat-cell

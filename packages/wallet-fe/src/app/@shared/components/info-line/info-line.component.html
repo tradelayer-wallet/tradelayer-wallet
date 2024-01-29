@@ -5,7 +5,7 @@
     <div class="info">
         <span *ngIf="!isCoreStarted" [ngStyle]="{color: 'var(--redError'}">NODE NOT STARTED</span>
         <span class='blinking' *ngIf="isCoreStarted && !isSynced" [ngStyle]="{color: 'var(--mossGreen'}">SYNCING</span>
-        <span *ngIf="!isApiMode" [ngStyle]="{color: 'var(--blue'}">SYNCED</span>
+        <span *ngIf="isCoreStarted && isSynced" [ngStyle]="{color: 'var(--blue'}">SYNCED</span>
     </div>
     <div class="info">
         <span *ngIf="!isApiMode">RPC-MODE</span>

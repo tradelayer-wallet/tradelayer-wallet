@@ -60,6 +60,10 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         return this.rpcService.isAbleToRpc;
     }
 
+    get headerBlock() {
+        return this.rpcService.headerBlock;
+    }
+
     ngOnInit() { }
 
     private checFunction() {
@@ -92,12 +96,12 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     private async checkSync() {
         await this.checkIsAbleToRpc();
         this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
-        this.readyPercent = parseFloat((this.nodeBlock / this.networkBlocks).toFixed(2)) * 100;
+        this.readyPercent = parseFloat((this.nodeBlock / this.headerBlock).toFixed(2)) * 100;
     }
 
     private async checkIsAbleToRpc() {
         if (this.rpcService.isAbleToRpc || !this.rpcService.isCoreStarted) return;
-        await this.apiService.mainApi.rpcCall('tl_getinfo').toPromise()
+        await this.apiService.mainApi.rpcCall('getblockchaininfo').toPromise()
             .then(res => {
                 if (res.error) this.message = res.error;
                 if (!res.error && res.data) {

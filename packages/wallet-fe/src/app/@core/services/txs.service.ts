@@ -80,7 +80,7 @@ export class TxsService {
     }
 
     getWifByAddress(address: string) {
-        return this.authService.getWifByAddress(address);
+        return '';
     }
 
     async buildLTCITTx(

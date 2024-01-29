@@ -39,20 +39,21 @@ export class SocketService {
         const client = fasitfyServer.rpcClient;
         if (!client) return;
         this.blockCountingInterval = setInterval(async () => {
-            const infoRes = await client.call('tl_getinfo');
+            const infoRes = await client.call('getblockchaininfo');
             if (infoRes.error || !infoRes.data) {
                 if (infoRes.error && infoRes.error.includes('ECONNREFUSED')) {
-                    const check = await client.call('tl_getinfo');
+                    const check = await client.call('getblockchaininfo');
                     if (check.error || !check.data) {
                         this.currentSocket.emit("core-error", check.error || 'Undefined Error. code 3')
                         this.stopBlockCounting();
                     }
                 }
             }
-            const height = infoRes?.data?.block;
+            const height = infoRes?.data?.blocks;
+            const header = infoRes?.data?.headers;
             if (height && this.lastBlock < height) {
                 this.lastBlock = height;
-                this.currentSocket.emit('new-block', height);
+                this.currentSocket.emit('new-block', { height, header });
             }
         }, ms);
     }

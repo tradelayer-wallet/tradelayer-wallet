@@ -36,7 +36,7 @@ export class FastifyServer {
 
     async stop() {
         if (this.rpcClient) {
-            const isConnectedRes = await this.rpcClient.call('tl_getinfo');
+            const isConnectedRes = await this.rpcClient.call('getblockchaininfo');
             const isConnected = !!isConnectedRes.data;
             if (isConnected) await this.rpcClient.call('stop');
             if (!isConnected) await killPort(this.rpcPort);

@@ -16,8 +16,8 @@ import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.compon
   templateUrl: './portfolio-page.component.html',
   styleUrls: ['./portfolio-page.component.scss']
 })
-export class PortfolioPageComponent {
-  cryptoBalanceColumns: string[] = ['attestation', 'address', 'confirmed', 'unconfirmed', 'actions'];
+export class PortfolioPageComponent implements OnInit {
+  cryptoBalanceColumns: string[] = ['address', 'confirmed', 'unconfirmed', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'balance', 'actions'];
   selectedAddress: string = '';
 
@@ -43,6 +43,18 @@ export class PortfolioPageComponent {
     return this.balanceService.getTokensBalancesByAddress(this.selectedAddress);
   }
 
+  get isAbleToRpc() {
+    return this.rpcService.isAbleToRpc;
+  }
+
+  get isSynced() {
+    return this.rpcService.isSynced;
+  }
+
+  ngOnInit(): void {
+      this.authService.getAddressesFromWallet();
+  }
+
   openDialog(dialog: string, address?: any, _propId?: number) {
     const data = { address, propId: _propId };
     const TYPE = dialog === 'deposit'
@@ -55,17 +67,17 @@ export class PortfolioPageComponent {
   }
 
   async newAddress() {
-    if (this.authService.walletKeys.main.length > 2) {
-      this.toastrService.error('The Limit of Main Addresses is Reached');
-      return;
-    }
-    const passDialog = this.matDialog.open(PasswordDialog);
-    const password = await passDialog.afterClosed()
-        .pipe(first())
-        .toPromise();
+    // if (this.authService.walletKeys.main.length > 2) {
+    //   this.toastrService.error('The Limit of Main Addresses is Reached');
+    //   return;
+    // }
+    // const passDialog = this.matDialog.open(PasswordDialog);
+    // const password = await passDialog.afterClosed()
+    //     .pipe(first())
+    //     .toPromise();
 
-    if (!password) return;
-    this.authService.addKeyPair(EAddress.MAIN, password);
+    // if (!password) return;
+    await this.authService.addKeyPair();
   }
 
   showTokens(address: string) {
@@ -81,33 +93,33 @@ export class PortfolioPageComponent {
     this.toastrService.info('Address Copied to clipboard', 'Copied');
   }
 
-  getAddressAttestationStatus(address: string) {
-    return this.attestationService.getAttByAddress(address);
-  }
+  // getAddressAttestationStatus(address: string) {
+  //   return this.attestationService.getAttByAddress(address);
+  // }
 
-  async selfAttestate(address: string) {
-    try {
-      this.loadingService.isLoading = true;
-      const isAttestated = await this.attestationService.checkAttAddress(address);
-      if (isAttestated) {
-        this.loadingService.isLoading = false;
-        return
-      }
-      const payloadRes = await this.rpcService.tlApi.rpc('tl_createpayload_attestation').toPromise();
-      if (!payloadRes.data || payloadRes.error) throw new Error(payloadRes.error || "Getting Attestation Payload Error");
-      const res = await this.txsService.buildSingSendTx({
-        fromKeyPair: { address },
-        toKeyPair: { address },
-        payload: payloadRes.data,
-      });
-      if (res.data) {
-        this.attestationService.setPendingAtt(address);
-        this.toastrService.success(res.data, 'Transaction Sent');
-        this.loadingService.isLoading = false;
-      }
-    } catch (error: any) {
-      this.toastrService.error(error.message, `Attestate Error`);
-      this.loadingService.isLoading = false;
-    }
-  }
+  // async selfAttestate(address: string) {
+  //   try {
+  //     this.loadingService.isLoading = true;
+  //     const isAttestated = await this.attestationService.checkAttAddress(address);
+  //     if (isAttestated) {
+  //       this.loadingService.isLoading = false;
+  //       return
+  //     }
+  //     const payloadRes = await this.rpcService.tlApi.rpc('tl_createpayload_attestation').toPromise();
+  //     if (!payloadRes.data || payloadRes.error) throw new Error(payloadRes.error || "Getting Attestation Payload Error");
+  //     const res = await this.txsService.buildSingSendTx({
+  //       fromKeyPair: { address },
+  //       toKeyPair: { address },
+  //       payload: payloadRes.data,
+  //     });
+  //     if (res.data) {
+  //       this.attestationService.setPendingAtt(address);
+  //       this.toastrService.success(res.data, 'Transaction Sent');
+  //       this.loadingService.isLoading = false;
+  //     }
+  //   } catch (error: any) {
+  //     this.toastrService.error(error.message, `Attestate Error`);
+  //     this.loadingService.isLoading = false;
+  //   }
+  // }
 }

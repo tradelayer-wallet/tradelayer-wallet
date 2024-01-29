@@ -33,19 +33,19 @@ export class NodeRewardService {
     }
 
     onInit() {
-        this.authService.updateAddressesSubs$
-            .subscribe(kp => {
-                if (!kp.length) this.rewardAddresses = [];
-                this.checkRegisteredAddresses();
-            });
+        // this.authService.updateAddressesSubs$
+        //     .subscribe(kp => {
+        //         if (!kp.length) this.rewardAddresses = [];
+        //         this.checkRegisteredAddresses();
+        //     });
 
-        this.rpcService.blockSubs$
-            .subscribe(async (block) => {
-                if (block.type !== "LOCAL") return;
-                if (!this.rpcService.isCoreStarted || !this.rpcService.isSynced) return;
-                await this.checkRegisteredAddresses(true);
-                await this.checkWinners();
-            });
+        // this.rpcService.blockSubs$
+        //     .subscribe(async (block) => {
+        //         if (block.type !== "LOCAL") return;
+        //         if (!this.rpcService.isCoreStarted || !this.rpcService.isSynced) return;
+        //         await this.checkRegisteredAddresses(true);
+        //         await this.checkWinners();
+        //     });
     }
 
     async registerAddress(keyPair: IRewardKeyPair) {

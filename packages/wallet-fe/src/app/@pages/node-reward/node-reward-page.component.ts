@@ -36,23 +36,23 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
     }
 
     async generateRewardAddress() {
-      try {
-        if (this.authService.walletKeys.reward.length > this.maxRewardAddresses) {
-          this.toastrService.error('The Limit of Futures Addresses is Reached');
-          return;
-        }
-        const passDialog = this.matDialog.open(PasswordDialog);
-        const password = await passDialog.afterClosed()
-            .pipe(first())
-            .toPromise();
-        if (!password) return;
+      // try {
+      //   if (this.authService.walletKeys.reward.length > this.maxRewardAddresses) {
+      //     this.toastrService.error('The Limit of Futures Addresses is Reached');
+      //     return;
+      //   }
+      //   const passDialog = this.matDialog.open(PasswordDialog);
+      //   const password = await passDialog.afterClosed()
+      //       .pipe(first())
+      //       .toPromise();
+      //   if (!password) return;
   
-        await this.authService.addKeyPair(EAddress.REWARD, password);
-        this.nodeRewardService.rewardAddresses = [...this.authService.walletKeys.reward];
-        this.nodeRewardService.checkRegisteredAddresses();
-      } catch(error: any) {
-        // error
-      }
+      //   await this.authService.addKeyPair(EAddress.REWARD, password);
+      //   this.nodeRewardService.rewardAddresses = [...this.authService.walletKeys.reward];
+      //   this.nodeRewardService.checkRegisteredAddresses();
+      // } catch(error: any) {
+      //   // error
+      // }
     }
 
     copy(text: string) {
@@ -70,12 +70,12 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
     }
 
     async register(keyPair: IRewardKeyPair) {
-      const balanceObj = this.balanceService.getCoinBalancesByAddress(keyPair.address);
-      if (balanceObj.confirmed < 0.002) {
-        this.toastrService.error('You need at least 0.002 LTC', 'Error');
-        return;
-      }
-      await this.nodeRewardService.registerAddress(keyPair);
+      // const balanceObj = this.balanceService.getCoinBalancesByAddress(keyPair.address);
+      // if (balanceObj.confirmed < 0.002) {
+      //   this.toastrService.error('You need at least 0.002 LTC', 'Error');
+      //   return;
+      // }
+      // await this.nodeRewardService.registerAddress(keyPair);
     }
 
     getAddressBalance(address: string) {

@@ -21,10 +21,10 @@ export const routes: Routes = [
         path: '',
         component: HomePageComponent,
       },
-      {
-        path: 'login',
-        component: LoginPageComponent,
-      },
+      // {
+      //   path: 'login',
+      //   component: LoginPageComponent,
+      // },
       {
         path: 'tx-builder',
         component: TxBuilderPageComponent,
@@ -32,23 +32,23 @@ export const routes: Routes = [
       {
         path: 'portfolio',
         component: PortfolioPageComponent,
-        canActivate: [AuthGuard],
+        canActivate: [],
       },
-      {
-        path: 'spot',
-        component: SpotPageComponent,
-        canActivate: [AuthGuard],
-      },
-      {
-        path: 'futures',
-        component: FuturesPageComponent,
-        canActivate: [AuthGuard],
-      },
-      {
-        path: 'node-reward',
-        component: NodeRewardPageComponent,
-        canActivate: [SyncedGuard, AuthGuard],
-      },
+      // {
+      //   path: 'spot',
+      //   component: SpotPageComponent,
+      //   canActivate: [],
+      // },
+      // {
+      //   path: 'futures',
+      //   component: FuturesPageComponent,
+      //   canActivate: [],
+      // },
+      // {
+      //   path: 'node-reward',
+      //   component: NodeRewardPageComponent,
+      //   canActivate: [SyncedGuard],
+      // },
       {
         path: '**',
         component: HomePageComponent,

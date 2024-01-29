@@ -72,7 +72,8 @@ export class BalanceService {
     onInit() {
         this.authService.updateAddressesSubs$
             .subscribe(kp => {
-                if (!kp.length || !this.allBalances.mainKeyPair) this.restartBalance();
+                console.log({ kp });
+                if (!kp.length) this.restartBalance();
                 this.updateBalances();
             });
 
@@ -85,11 +86,11 @@ export class BalanceService {
     async updateBalances(notiffy: boolean = true) {
         // this.balanceLoading = true;
         try {
-            const addressesArray = this.authService.listOfallAddresses;
+            const addressesArray = this.authService.walletAddresses;
             for (let i = 0; i < addressesArray?.length; i++) {
-                const address = addressesArray[i]?.address;
+                const address = addressesArray[i];
                 await this.updateCoinBalanceForAddressFromUnspents(address);
-                await this.updateTokensBalanceForAddress(address);
+                // await this.updateTokensBalanceForAddress(address);
             }
         } catch(err: any) {
             this.toastrService.warning(err.message || `Error with updating balances`, 'Balance Error');
@@ -121,7 +122,8 @@ export class BalanceService {
 
     private async getCoinBalanceObjForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-        const luRes = await this.tlApi.rpc('listunspent', [0, 999999999, [address]]).toPromise()
+        const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [address]]);
+        console.log({ luRes });
         if (luRes.error || !luRes.data) return { error: luRes.error || 'Undefined Error' };
 
         const _confirmed = (luRes.data as IUTXO[])

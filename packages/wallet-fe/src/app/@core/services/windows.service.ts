@@ -23,14 +23,14 @@ export class WindowsService {
     private _tabs: IWindow[] = [
         {
             component: windowComponents.SYNC_WINDOW,
-            minimized: true,
+            minimized: false,
             title: 'Synchronization'
         },
-        {
-            component: windowComponents.SERVERS,
-            minimized: true,
-            title: 'Servers'
-        },
+        // {
+        //     component: windowComponents.SERVERS,
+        //     minimized: true,
+        //     title: 'Servers'
+        // },
     ];
     constructor() { }
 

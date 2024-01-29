@@ -91,7 +91,7 @@ export const startWalletNode = async (walletNodeOptions: any) => {
 export const stopWalletNode = async () => {
         const stopRes = await fasitfyServer.rpcClient?.call('stop');
         const checkPromise = new Promise(async checkResolve => {
-            const checkRes = await fasitfyServer.rpcClient.call('tl_getinfo');
+            const checkRes = await fasitfyServer.rpcClient.call('getblockchaininfo');
             checkRes?.error?.includes("ECONNREFUSED")
                 ? checkResolve(true)
                 : await checkPromise;
@@ -104,7 +104,7 @@ export const stopWalletNode = async () => {
 
 const convertFlagsObjectToString = (flagsObject: any) => {
     const _toStr = (flag: string, value: string | boolean) => ` -${flag}=${value}`;
-    let str = ' -txindex=1';
+    let str = ' -txindex=1 -printtoconsole=0';
     Object.keys(flagsObject)
         .forEach((flag: string) => {
             if (flag === 'datadir' && flagsObject[flag]) return str += _toStr(flag, `"${flagsObject[flag]}"`);
@@ -141,7 +141,7 @@ const checkIsCoreStarted = async (
 
         const isActiveCheck = () => {
             return new Promise(async (res) => {
-                const check = await client.call('tl_getinfo');
+                const check = await client.call('getblockchaininfo');
                 if (check.data) res(2);
                 if (check.error && !check.error.includes('ECONNREFUSED')) res(check);
                 if (check.error && check.error.includes('ECONNREFUSED')) res(0);
@@ -159,7 +159,7 @@ const checkIsCoreStarted = async (
         setTimeout(() => resolve({error: 'Core Starting TimedOut: 10 secs'}), 10000);
 
         const finalCheck = () => new Promise(async checkResolve => {
-            await client.call('tl_getinfo')
+            await client.call('getblockchaininfo')
                 .then(async checkRes => {
                     if (!checkRes?.error?.includes("ECONNREFUSED")) {
                         fasitfyServer.rpcClient = client;

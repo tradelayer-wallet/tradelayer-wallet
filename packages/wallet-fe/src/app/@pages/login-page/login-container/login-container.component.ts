@@ -30,11 +30,11 @@ export class LoginContainerComponent implements OnInit {
   ngOnInit() { }
 
   async loginWithJsonFile() {
-    this.loadingService.isLoading = true;
-    const password = this.password;
-    const key = this.jsonFile;
-    await this.authService.loginFromKeyFile(key, password);
-    this.loadingService.isLoading = false;
+    // this.loadingService.isLoading = true;
+    // const password = this.password;
+    // const key = this.jsonFile;
+    // await this.authService.loginFromKeyFile(key, password);
+    // this.loadingService.isLoading = false;
   }
 
   onFileSelect(event: any, URI: string) {
@@ -58,8 +58,8 @@ export class LoginContainerComponent implements OnInit {
 }
 
  async register() {
-    const password = this.password;
-    await this.authService.register(password);
+    // const password = this.password;
+    // await this.authService.register(password);
   }
 
   selectTab(index: number) {
@@ -77,8 +77,8 @@ export class LoginContainerComponent implements OnInit {
   }
 
   ImportWords() {
-    const mnemonicWords = Object.values(this.mnemonicForm.value) as string[];
-    this.authService.loginWithMnemonics(mnemonicWords, this.password);
+    // const mnemonicWords = Object.values(this.mnemonicForm.value) as string[];
+    // this.authService.loginWithMnemonics(mnemonicWords, this.password);
   }
 
   buildMnemonicsForm() {

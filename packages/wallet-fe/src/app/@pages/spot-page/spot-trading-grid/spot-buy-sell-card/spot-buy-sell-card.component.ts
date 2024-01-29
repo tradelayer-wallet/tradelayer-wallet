@@ -267,26 +267,26 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     async newSpotAddress() {
-      if (this.authService.walletKeys.spot.length) {
-        this.toastrService.error('The Limit of Spot Addresses is Reached');
-        return;
-      }
-      const passDialog = this.matDialog.open(PasswordDialog);
-      const password = await passDialog.afterClosed()
-          .pipe(first())
-          .toPromise();
+    //   if (this.authService.walletKeys.spot.length) {
+    //     this.toastrService.error('The Limit of Spot Addresses is Reached');
+    //     return;
+    //   }
+    //   const passDialog = this.matDialog.open(PasswordDialog);
+    //   const password = await passDialog.afterClosed()
+    //       .pipe(first())
+    //       .toPromise();
   
-      if (!password) return;
-      await this.authService.addKeyPair(EAddress.SPOT, password);
+    //   if (!password) return;
+    //   await this.authService.addKeyPair(EAddress.SPOT, password);
 
-      if (this.rpcService.NETWORK?.endsWith('TEST') && this.authService.activeSpotKey?.address) {
-        const fundRes = await this.reLayerApi.fundTestnetAddress(this.authService.activeSpotKey.address).toPromise();
-        if (fundRes.error || !fundRes.data) {
-            this.toastrService.warning(fundRes.error, 'Faucet Error');
-        } else {
-            this.toastrService.success(`${this.authService.activeSpotKey?.address} was Fund with small amount tLTC`, 'Testnet Faucet')
-        }
-    }
+    //   if (this.rpcService.NETWORK?.endsWith('TEST') && this.authService.activeSpotKey?.address) {
+    //     const fundRes = await this.reLayerApi.fundTestnetAddress(this.authService.activeSpotKey.address).toPromise();
+    //     if (fundRes.error || !fundRes.data) {
+    //         this.toastrService.warning(fundRes.error, 'Faucet Error');
+    //     } else {
+    //         this.toastrService.success(`${this.authService.activeSpotKey?.address} was Fund with small amount tLTC`, 'Testnet Faucet')
+    //     }
+    // }
     }
 
     getNameBalanceInfo(token: IToken) {
