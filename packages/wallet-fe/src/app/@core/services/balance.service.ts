@@ -72,7 +72,6 @@ export class BalanceService {
     onInit() {
         this.authService.updateAddressesSubs$
             .subscribe(kp => {
-                console.log({ kp });
                 if (!kp.length) this.restartBalance();
                 this.updateBalances();
             });
@@ -123,7 +122,6 @@ export class BalanceService {
     private async getCoinBalanceObjForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
         const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [address]]);
-        console.log({ luRes });
         if (luRes.error || !luRes.data) return { error: luRes.error || 'Undefined Error' };
 
         const _confirmed = (luRes.data as IUTXO[])

@@ -58,12 +58,16 @@ export class MainApiService {
         data?: any;
         error?: string;
         statusCode: number;
+        IECode: number;
+        EECode: number;
     }> {
         const body = { method, params };
         return this.http.post<{
             data?: any;
             error?: string;
             statusCode: number;
+            IECode: number;
+            EECode: number;
         }>(this.apiUrl + 'rpc-call', body)
     }
 

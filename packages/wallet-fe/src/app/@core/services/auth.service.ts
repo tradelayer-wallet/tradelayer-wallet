@@ -150,19 +150,26 @@ export class AuthService {
         try {
             if (!this.isAbleToRpc) return;
             const res = await this.rpcService.rpc('getaddressesbylabel', [this.walletLabel]);
-            if (!res.data || res.error) {
-                if (res.error.includes("No wallet is loaded")) {
+            if (res.EECode === -18) {
+                try {
                     await this.rpcService.rpc('createwallet', [this.walletLabel]);
-                    this.getAddressesFromWallet();
-                    return;
+                    await this.rpcService.rpc('loadwallet', [this.walletLabel]);
+                } catch (error) {
+                    console.log(error);
                 }
-
-                if (res.error.includes('No addresses with label')) return;
-
-                throw new Error(res.error || 'getaddressesbylabel: Error with getting addresses');
+                await this.getAddressesFromWallet();
+                return;
             }
+
+            if (res.EECode === -11) {
+                this.walletAddresses = [];
+                return;
+            }
+
+            if (!res.data || res.error) throw new Error(res.error || 'getaddressesbylabel: Error with getting addresses');
+
             const _addresses = Object.keys(res.data);
-            const addresses = _addresses.length ? _addresses : [];
+            const addresses = _addresses?.length ? _addresses : [];
             this.walletAddresses = addresses;
         } catch (error: any) {
             this.toastrService.error(error.message || error, 'Error');

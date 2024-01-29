@@ -164,8 +164,9 @@ export class RpcService {
     }
 
     rpc(method: string, params?: any[]) {
-      return this.isApiMode
-        ? this.tlApi.rpc(method, params).toPromise()
-        : this.mainApi.rpcCall(method, params).toPromise();
+      return this.mainApi.rpcCall(method, params).toPromise();;
+      // return this.isApiMode
+      //   ? this.tlApi.rpc(method, params).toPromise()
+      //   : this.mainApi.rpcCall(method, params).toPromise();
     }
   }
