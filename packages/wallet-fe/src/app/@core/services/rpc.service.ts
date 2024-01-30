@@ -83,6 +83,7 @@ export class RpcService {
       this.apiService.network = value;
       this.apiService.apiUrl = null;
       this.apiService.orderbookUrl = null;
+      this.headerBlock = 0;
       this._NETWORK = value;
     }
 

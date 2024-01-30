@@ -93,14 +93,14 @@ export class WithdrawDialog {
 
     async validateAddress(address: string | null) {
         try {
-            this.isAddressValid = 'PENDING';
-            if (!address) throw new Error("Address not defined");
-            const vaRes = await this.tlApi.validateAddress(address).toPromise();
-            const { error, data } = vaRes;
-            if (error || !data) throw new Error(error || 'Error with validateing the address');
-            await new Promise((res) => setTimeout(() => res(true), 500));
-            const { isvalid } = data;
-            this.isAddressValid = isvalid;
+            // this.isAddressValid = 'PENDING';
+            // if (!address) throw new Error("Address not defined");
+            // const vaRes = await this.tlApi.validateAddress(address).toPromise();
+            // const { error, data } = vaRes;
+            // if (error || !data) throw new Error(error || 'Error with validateing the address');
+            // await new Promise((res) => setTimeout(() => res(true), 500));
+            // const { isvalid } = data;
+            // this.isAddressValid = isvalid;
         } catch (error: any) {
             this.toastrService.error(error.message, 'Validation Error');
             this.isAddressValid = null;

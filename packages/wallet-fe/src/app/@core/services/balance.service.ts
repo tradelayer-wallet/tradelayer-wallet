@@ -45,7 +45,7 @@ export class BalanceService {
     ) { }
 
     get tlApi() {
-        return this.apiService.tlApi;
+        return this.apiService.newTlApi;
     }
 
     get sumAvailableCoins() {
@@ -89,7 +89,7 @@ export class BalanceService {
             for (let i = 0; i < addressesArray?.length; i++) {
                 const address = addressesArray[i];
                 await this.updateCoinBalanceForAddressFromUnspents(address);
-                // await this.updateTokensBalanceForAddress(address);
+                await this.updateTokensBalanceForAddress(address);
             }
         } catch(err: any) {
             this.toastrService.warning(err.message || `Error with updating balances`, 'Balance Error');
@@ -134,8 +134,7 @@ export class BalanceService {
         const unconfirmed = parseFloat(_unconfirmed.toFixed(6));
         return {data: { confirmed, unconfirmed, utxos: luRes.data } };
     }
-
-    private async getTokensBalanceArrForAddress(address: string) {
+    private async getTokensBalanceArrForAddress_old(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
         const balanceRes = await this.tlApi.rpc('tl_getallbalancesforaddress', [address]).toPromise()
         if (!balanceRes.data || balanceRes.error) return { data: [] };
@@ -154,6 +153,15 @@ export class BalanceService {
         } catch (error: any) {
             return { error: `Error with getting tokens Balance` };
         }
+    }
+
+    private async getTokensBalanceArrForAddress(address: string) {
+        if (!address) return { error: 'No address provided for updating the balance' };
+        const balanceRes = await this.tlApi.rpc('tl_getallbalancesforaddress', address).toPromise();
+        if (!balanceRes.data || balanceRes.error) return { data: [] };
+        const data = (balanceRes.data as { propertyId: string, amount: number, available: number, reserved: string }[])
+            .map((token) => ({ ...token, name: `token_${token.propertyId}`, propertyid: parseInt(token.propertyId), balance: token.available}));
+        return { data };
     }
 
     async getTokenNameById(id: number) {

@@ -4,6 +4,7 @@ import { KeysApiService } from "../apis/keys-api.service";
 import { MarketApiService } from "../apis/market-api.service";
 import { TradeLayerApiService } from "../apis/relayer-api.service";
 import { TNETWORK } from "./rpc.service";
+import { NewTradeLayerApiService } from "../apis/tl-api.service";
 
 
 @Injectable({
@@ -20,6 +21,7 @@ export class ApiService {
         private mainApiService: MainApiService,
         private tradeLayerApiService: TradeLayerApiService,
         private keysApiService: KeysApiService,
+        private newTLApiService: NewTradeLayerApiService,
     ) {}
 
     get network() {
@@ -67,5 +69,9 @@ export class ApiService {
 
     get keysApi() {
         return this.keysApiService;
+    }
+
+    get newTlApi() {
+        return this.newTLApiService;
     }
 }

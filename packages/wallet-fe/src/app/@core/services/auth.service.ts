@@ -172,7 +172,7 @@ export class AuthService {
             const addresses = _addresses?.length ? _addresses : [];
             this.walletAddresses = addresses;
         } catch (error: any) {
-            this.toastrService.error(error.message || error, 'Error');
+            // this.toastrService.error(error.message || error, 'Error');
         }
     }
 
