@@ -170,8 +170,8 @@ export class BalanceService {
             .find(e => e.propertyid === id);
         if (existingTokenName?.name) return existingTokenName.name;
         const gpRes = await this.tlApi.rpc('tl_getproperty', [id]).toPromise()
-        if (gpRes.error || !gpRes.data?.name) return `ID_${id}`;
-        return gpRes.data.name;
+        if (gpRes.error || !gpRes.data?.ticker) return `ID_${id}`;
+        return gpRes.data.ticker;
     }
 
     private restartBalance() {

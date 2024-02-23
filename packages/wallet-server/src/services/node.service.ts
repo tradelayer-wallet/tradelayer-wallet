@@ -130,7 +130,7 @@ const checkIsCoreStarted = async (
     ) => {
     return new Promise(async (resolve) => {
         const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
-        const port = rpcport ? rpcport : isTestnet ? 19332 : 9332;
+        const port = rpcport ? rpcport : isTestnet ? 18332 : 8332;
         const client = new RpcClient({
             username: rpcuser,
             password: rpcpassword,
@@ -138,6 +138,8 @@ const checkIsCoreStarted = async (
             port: port,
             timeout: 2000,
         });
+
+        /* TODO:SK
 
         const isActiveCheck = () => {
             return new Promise(async (res) => {
@@ -147,6 +149,7 @@ const checkIsCoreStarted = async (
                 if (check.error && check.error.includes('ECONNREFUSED')) res(0);
             });
         };
+        
         const firstCheck = await isActiveCheck();
         if (firstCheck !== 0) return resolve({ error: 'The core is probably Already Running'});
 
@@ -157,7 +160,7 @@ const checkIsCoreStarted = async (
             fasitfyServer.rpcPort = null;
         });
         setTimeout(() => resolve({error: 'Core Starting TimedOut: 10 secs'}), 10000);
-
+        */
         const finalCheck = () => new Promise(async checkResolve => {
             await client.call('getblockchaininfo')
                 .then(async checkRes => {
