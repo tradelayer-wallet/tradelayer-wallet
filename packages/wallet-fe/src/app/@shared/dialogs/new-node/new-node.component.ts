@@ -13,7 +13,7 @@ const defaultPath = ``;
   styleUrls: ['./new-node.component.scss']
 })
 export class NewNodeDialog {
-  public port: number = 9332;
+  public port: number = 8332;
   public username: string = '';
   public password: string = '';
   public repassword: string = '';

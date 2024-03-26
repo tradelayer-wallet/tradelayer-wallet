@@ -7,6 +7,7 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service';
+import { ENCODER } from 'src/app/utils/payloads/encoder';
 
 @Component({
   selector: 'withdraw-dialog',
@@ -118,10 +119,12 @@ export class WithdrawDialog {
                 const toKeyPair = { address: toAddress };
                 const txOptions: IBuildTxConfig = { fromKeyPair, toKeyPair };
                 if (propId !== -1) {
-                    const payloadParams = [this.propId, (amount).toString()];
-                    const payloadRes = await this.rpcService.rpc('tl_createpayload_simplesend', payloadParams);
-                    if (payloadRes.error || !payloadRes.data) throw new Error(`tl_createpayload_simplesend: ${payloadRes.error}`);
-                    txOptions.payload = payloadRes.data;
+                    // const payloadParams = [this.propId, (amount).toString()];
+                    const payloadRes = ENCODER.encodeSend({ sendAll: false, address: toAddress, propertyId: this.propId, amount: amount });
+                    // const payloadRes = await this.rpcService.rpc('tl_createpayload_simplesend', payloadParams);
+                    // if (payloadRes.error || !payloadRes.data) throw new Error(`tl_createpayload_simplesend: ${payloadRes.error}`);
+                    console.log({ payloadRes });
+                    txOptions.payload = payloadRes;
                 } else {
                     txOptions.amount = amount
                 }

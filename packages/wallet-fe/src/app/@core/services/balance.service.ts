@@ -157,10 +157,15 @@ export class BalanceService {
 
     private async getTokensBalanceArrForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-        const balanceRes = await this.tlApi.rpc('tl_getallbalancesforaddress', address).toPromise();
+        const balanceRes = await this.tlApi.rpc('getAllBalancesForAddress', [address]).toPromise();
         if (!balanceRes.data || balanceRes.error) return { data: [] };
-        const data = (balanceRes.data as { propertyId: string, amount: number, available: number, reserved: string }[])
-            .map((token) => ({ ...token, name: `token_${token.propertyId}`, propertyid: parseInt(token.propertyId), balance: token.available}));
+        const data = (balanceRes.data as { propertyId: string, balance: { amount: number, available: number, reserved: number, margin: number, vesting: number } }[])
+            .map((token) => ({ 
+                ...token, 
+                name: `token_${token.propertyId}`, 
+                propertyid: parseInt(token.propertyId), 
+                balance: token.balance.available,
+            }));
         return { data };
     }
 

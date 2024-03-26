@@ -159,12 +159,15 @@ export class TxsService {
         try {
             this.loadingService.isLoading = true;
             const buildRes = await this.buildTx(buildTxConfig);
+            console.log({buildRes})
             if (buildRes.error || !buildRes.data) throw new Error(buildRes.error);
             const { inputs, rawtx } = buildRes.data;
             if (!inputs || !rawtx) throw new Error('buildSingSendTx: Undefined Error with building Transaction');
-            const keyPair = this.authService.listOfallAddresses.find(e => e.address === buildTxConfig.fromKeyPair.address);
-            if (!keyPair) throw new Error(`Error with finding Keys of address: ${buildTxConfig.fromKeyPair.address}`);
-            const wif = keyPair.wif;
+            // const keyPair = this.authService.listOfallAddresses.find(e => e.address === buildTxConfig.fromKeyPair.address);
+            // if (!keyPair) throw new Error(`Error with finding Keys of address: ${buildTxConfig.fromKeyPair.address}`);
+            const wifRes = await this.rpcService.rpc('dumpprivkey', [buildTxConfig.fromKeyPair.address]);
+            if (!wifRes) throw new Error(`Error with finding Keys of address: ${buildTxConfig.fromKeyPair.address}`);
+            const wif = wifRes.data;
             const signRes = await this.signTx({ inputs, rawtx, wif });
             if (signRes.error || !signRes.data) throw new Error(signRes.error);
             const { isValid, signedHex } = signRes.data;

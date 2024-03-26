@@ -83,6 +83,12 @@ export const smartRpc: TClient = async (method: string, params: any[] = [], api:
     }
 };
 
+export const jsTlApi: TClient = async (method: string, params: any[] = []) => {
+    const url = `http://localhost:3000/${method}`;
+    return await axios.post(url, { params })
+        .then(res => res.data);
+};
+
 export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode: boolean) => {
     try {
         const { buyerKeyPair, sellerKeyPair, amount, payload, commitUTXOs, network } = txConfig;
@@ -120,7 +126,7 @@ export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode:
 
         const crtRes = await smartRpc('createrawtransaction', [_insForRawTx, _outsForRawTx], isApiMode);
         if (crtRes.error || !crtRes.data) throw new Error(`createrawtransaction: ${crtRes.error}`);
-        const crtxoprRes = await smartRpc('tl_createrawtx_opreturn', [crtRes.data, payload], isApiMode);
+        const crtxoprRes = await jsTlApi('tl_createrawtx_opreturn', [crtRes.data, payload]);
         if (crtxoprRes.error || !crtxoprRes.data) throw new Error(`tl_createrawtx_opreturn: ${crtxoprRes.error}`);
         const finalTx = crtxoprRes.data;
         const psbtHexConfig = {
@@ -147,7 +153,7 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
         const vaRes2 = await smartRpc('validateaddress', [toAddress], isApiMode);
         if (vaRes2.error || !vaRes2.data?.isvalid) throw new Error(`validateaddress: ${vaRes2.error}`);
 
-        const luRes = await smartRpc('listunspent', [0, 999999999, [fromAddress]], true);
+        const luRes = await smartRpc('listunspent', [0, 999999999, [fromAddress]], isApiMode);
         if (luRes.error || !luRes.data) throw new Error(`listunspent: ${luRes.error}`);
         const _utxos = (luRes.data as IInput[])
             .map(i => ({...i, pubkey: fromKeyPair.pubkey}))
@@ -182,7 +188,7 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
         if (crtRes.error || !crtRes.data) throw new Error(`createrawtransaction: ${crtRes.error}`);
         let finalTx = crtRes.data;
         if (payload) {
-            const crtxoprRes = await smartRpc('tl_createrawtx_opreturn', [finalTx, payload], isApiMode);
+            const crtxoprRes = await jsTlApi('tl_createrawtx_opreturn', [finalTx, payload], isApiMode);
             if (crtxoprRes.error || !crtxoprRes.data) throw new Error(`tl_createrawtx_opreturn: ${crtxoprRes.error}`);
             finalTx = crtxoprRes.data;
         }
@@ -228,6 +234,7 @@ const getEnoughInputs = (_inputs: IInput[], amount: number) => {
 
 const getMinVoutAmount = async (toAddress: string, isApiMode: boolean) => {
     try {
+        return { data: 0.000564 };
         const crtxrRes = await smartRpc('tl_createrawtx_reference', ['', toAddress], isApiMode);
         if (crtxrRes.error || !crtxrRes.data) throw new Error(`tl_createrawtx_reference: ${crtxrRes.error}`);
         const drwRes = await smartRpc('decoderawtransaction', [crtxrRes.data], isApiMode);
