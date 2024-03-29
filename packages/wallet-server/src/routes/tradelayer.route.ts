@@ -1,7 +1,9 @@
 import { FastifyInstance } from "fastify";
+
 import * as Main from '../tradelayer/main.js';
 import * as TallyMap from '../tradelayer/tally.js';
 import * as PropertyManager from '../tradelayer/property.js';
+import * as Consensus from '../tradelayer/consensus.js';
 
 export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
@@ -40,6 +42,16 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         try {
             const propertiesArray = await PropertyManager.getPropertyIndex();
             reply.status(200).send(propertiesArray);
+        } catch (error) {
+            reply.status(500).send('Error: ' + error.message);
+        }
+    });
+
+    fastify.post('/getMaxProcessedHeight', async (request, reply) => {
+        try {
+            const txInfo = await Consensus.compareBlockHeights();
+            console.log({ txInfo });
+            reply.status(200).send(txInfo);
         } catch (error) {
             reply.status(500).send('Error: ' + error.message);
         }

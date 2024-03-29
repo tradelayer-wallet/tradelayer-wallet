@@ -95,6 +95,14 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     private async checkSync() {
         await this.checkIsAbleToRpc();
+
+        this.apiService.newTlApi.rpc('getMaxProcessedHeight').toPromise()
+            .then(res => {
+                console.log({ res });
+            })
+            .catch(err => {
+                console.log({ err })
+            })
         this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
         this.readyPercent = parseFloat((this.nodeBlock / this.headerBlock).toFixed(2)) * 100;
     }
@@ -184,6 +192,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             } else {
                 this.router.navigateByUrl('/');
                 await this.checkIsAbleToRpc();
+                await this.apiService.newTlApi.rpc('init').toPromise();
             }
         })
         .catch(error => {
