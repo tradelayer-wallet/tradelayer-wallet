@@ -192,7 +192,13 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             } else {
                 this.router.navigateByUrl('/');
                 await this.checkIsAbleToRpc();
-                await this.apiService.newTlApi.rpc('init').toPromise();
+                this.apiService.newTlApi.rpc('init').toPromise()
+                    .then(res => {
+                        console.log({res})
+                    })
+                    .catch((err) => {
+                        console.log({ err })
+                    });
             }
         })
         .catch(error => {

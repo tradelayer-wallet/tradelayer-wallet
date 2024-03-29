@@ -7,12 +7,12 @@ import * as Consensus from '../tradelayer/consensus.js';
 
 export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
-    fastify.post('init', async (request, reply) => {
+    fastify.post('/init', async (request, reply) => {
         try {
             const isTest = true;
             const mainProcessor = Main.getInstance(isTest);
             mainProcessor.initialize();
-            reply.status(200).send('Main process initialized successfully');
+            reply.status(200).send({ message: 'Main process initialized successfully' });
         } catch (error) {
             reply.status(500).send({ error: error || 'Undefined Error' })
         }
