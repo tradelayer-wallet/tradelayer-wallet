@@ -3,10 +3,21 @@
         <mat-dialog-content class="mat-typography">
             <div class="content-container" *ngIf="coreStarted">
                 <p class='synced' *ngIf="isSynced && nodeBlock && headerBlock">{{ "Full Synchronized" }} </p>
+
+                <p class="title">Litecoin Synchronization</p>
                 <span class='information' *ngIf="!isSynced || !nodeBlock || !headerBlock">{{ eta }}</span>
                 <mat-progress-bar mode="determinate" [value]="readyPercent"></mat-progress-bar>
                 <span class='blocks-span'> {{ nodeBlock }} / {{ headerBlock }} </span>
                 <div class="message" *ngIf="message"> {{ message }}</div>
+
+                <div class="gap"></div>
+
+                <p class="title">Tradelayer Synchronization</p>
+                <p class='synced' *ngIf="tlBlock === headerBlock && headerBlock">{{ "TradeLayer Synchronized" }} </p>
+                <mat-progress-bar mode="determinate" [value]="readyPercentTl"></mat-progress-bar>
+                <span class='blocks-span'> {{ tlBlock }} / {{ headerBlock }} </span>
+                <div class="message" *ngIf="tlMessage"> {{ tlMessage }}</div>
+
                 <button
                     color="warn"
                     mat-button
@@ -14,6 +25,7 @@
                     (click)='terminate()'
                 >Terminate</button>
             </div>
+
             <div class="content-container-not-started" *ngIf="!coreStarted">
                 <div style='display: flex; align-items: center; justify-content: space-between;'>
                     <mat-checkbox

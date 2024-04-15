@@ -28,6 +28,10 @@ export class RpcService {
 
   isCoreStarted: boolean = false;
   isAbleToRpc: boolean = false;
+
+  isTLStarted: boolean = false;
+  latestTlBlock: number = 0;
+
   lastBlock: number = 0;
   headerBlock: number = 0;
   networkBlocks: number = 0;

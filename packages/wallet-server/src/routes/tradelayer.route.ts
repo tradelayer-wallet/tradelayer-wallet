@@ -9,6 +9,7 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('/init', async (request, reply) => {
         try {
+            throw new Error("Not implemented");
             const isTest = true;
             const mainProcessor = Main.getInstance(isTest);
             mainProcessor.initialize();
@@ -20,6 +21,7 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('/getAllBalancesForAddress', async (request, reply) => {
         try {
+            throw new Error("Not implemented");
             const body = request.body as any;
             const params = body.params as any[];
             const address = params[0];
@@ -40,6 +42,7 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('/listProperties', async (request, reply) => {
         try {
+            throw new Error("Not implemented");
             const propertiesArray = await PropertyManager.getPropertyIndex();
             reply.status(200).send(propertiesArray);
         } catch (error) {
@@ -49,9 +52,9 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('/getMaxProcessedHeight', async (request, reply) => {
         try {
-            const txInfo = await Consensus.compareBlockHeights();
-            console.log({ txInfo });
-            reply.status(200).send(txInfo);
+            throw new Error("Not implemented");
+            const blockHeight = await Consensus.getMaxProcessedBlock();
+            reply.status(200).send(blockHeight);
         } catch (error) {
             reply.status(500).send('Error: ' + error.message);
         }

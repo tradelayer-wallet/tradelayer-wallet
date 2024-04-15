@@ -15,7 +15,11 @@ import { ENetwork, RpcService } from 'src/app/@core/services/rpc.service';
 })
 export class SyncNodeDialog implements OnInit, OnDestroy {
     readyPercent: number = 0;
+    readyPercentTl: number = 0;
+
     message: string = '';
+    tlMessage: string = '';
+
     eta: string = 'Calculating Remaining Time ...';
 
     prevEtaData: {
@@ -64,6 +68,14 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         return this.rpcService.headerBlock;
     }
 
+    get tlStarted() {
+        return this.rpcService.isTLStarted;
+    }
+
+    get tlBlock() {
+        return this.rpcService.latestTlBlock;
+    }
+
     ngOnInit() { }
 
     private checFunction() {
@@ -93,34 +105,50 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         }
     }
 
+    private async checkTradelayerSync() {
+        try {
+            if (!this.isAbleToRpc) return;
+            if (!this.rpcService.isTLStarted) {
+                const initRes = await this.apiService.newTlApi.rpc('init').toPromise();
+                if (initRes.error || !initRes.data) {
+                    throw new Error(initRes.error || 'Undefined Error');
+                }
+                this.rpcService.isTLStarted = true;
+            }
+            const blockHeightRes = await this.apiService.newTlApi.rpc('getMaxProcessedHeight').toPromise();
+            if (blockHeightRes.error) {
+                throw new Error(blockHeightRes.error || 'Undefined Error');
+            }
+
+            this.rpcService.latestTlBlock = blockHeightRes.data;
+            this.readyPercentTl = parseFloat((this.tlBlock / this.headerBlock).toFixed(2)) * 100;
+        } catch (error: any) {
+            const errorMessage = error?.message || error || "Undefined Error";
+            this.tlMessage = errorMessage;
+        }
+    }
+
     private async checkSync() {
         await this.checkIsAbleToRpc();
-
-        this.apiService.newTlApi.rpc('getMaxProcessedHeight').toPromise()
-            .then(res => {
-                console.log({ res });
-            })
-            .catch(err => {
-                console.log({ err })
-            })
         this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
         this.readyPercent = parseFloat((this.nodeBlock / this.headerBlock).toFixed(2)) * 100;
+
+        await this.checkTradelayerSync();
     }
 
     private async checkIsAbleToRpc() {
-        if (this.rpcService.isAbleToRpc || !this.rpcService.isCoreStarted) return;
-        await this.apiService.mainApi.rpcCall('getblockchaininfo').toPromise()
-            .then(res => {
-                if (res.error) this.message = res.error;
-                if (!res.error && res.data) {
-                    this.rpcService.isAbleToRpc = true;
-                    this.message = '';
-                }
-            })
-            .catch(error => {
-                const errrorMessage = error?.message || error || "Undefined Error";
-                this.message = errrorMessage;
-            });
+        try {
+            if (this.isAbleToRpc || !this.coreStarted) return;
+            const res = await this.apiService.mainApi.rpcCall('getblockchaininfo').toPromise();
+            if (res.error) this.message = res.error;
+            if (!res.error && res.data) {
+                this.rpcService.isAbleToRpc = true;
+                this.message = '';
+            }
+        } catch (error: any) {
+            const errrorMessage = error?.message || error || "Undefined Error";
+            this.message = errrorMessage;
+        }
     }
 
     async terminate() {
@@ -192,13 +220,6 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             } else {
                 this.router.navigateByUrl('/');
                 await this.checkIsAbleToRpc();
-                this.apiService.newTlApi.rpc('init').toPromise()
-                    .then(res => {
-                        console.log({res})
-                    })
-                    .catch((err) => {
-                        console.log({ err })
-                    });
             }
         })
         .catch(error => {
