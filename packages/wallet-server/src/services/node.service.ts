@@ -4,6 +4,8 @@ import { join } from "path";
 import { coreFilePathObj, defaultDirObj } from "../conf/windows.conf";
 import { RpcClient } from 'tl-rpc';
 import { fasitfyServer } from "..";
+import { FastifyServer } from "../fastify-server";
+import fastify from "fastify";
 
 interface IFlagsObject {
     testnet: number;
@@ -131,13 +133,16 @@ const checkIsCoreStarted = async (
     return new Promise(async (resolve) => {
         const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
         const port = rpcport ? rpcport : isTestnet ? 18332 : 8332;
-        const client = new RpcClient({
+
+        const rpcClientOptions = {
             username: rpcuser,
             password: rpcpassword,
             host: rpchost || 'localhost',
             port: port,
-            timeout: 2000,
-        });
+            timeout: 20000,
+        };
+
+        const client = new RpcClient(rpcClientOptions);
 
         const isActiveCheck = () => {
             return new Promise(async (res) => {
@@ -174,6 +179,9 @@ const checkIsCoreStarted = async (
         });
 
         const finalRes = await finalCheck();
+        const tlDbPath = join(__dirname, 'tl-db');
+        fasitfyServer.tradelayerService.init({ rpcClientOptions, dbPath: tlDbPath });
+
         resolve({ data: finalRes });
     });
 };

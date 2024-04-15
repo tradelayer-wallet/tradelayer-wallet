@@ -30,7 +30,7 @@ export class SocketService {
         });
 
         this.currentSocket.on('ob-sockets-disconnect', () => {
-            fasitfyServer.clearOBSocketConnection();
+            // fasitfyServer.clearOBSocketConnection();
         });
     }
 
