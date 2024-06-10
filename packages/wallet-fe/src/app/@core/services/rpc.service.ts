@@ -65,7 +65,6 @@ export class RpcService {
 
       this.socket.on('new-block', ({ height, header }) => {
         const lastBlock = height;
-        console.log(`New Node Block: ${lastBlock}`);
         this.lastBlock = lastBlock;
         this.headerBlock = header;
         const blockSubsObj: IBlockSubsObj = { type: "LOCAL", block: lastBlock, header };
@@ -76,7 +75,7 @@ export class RpcService {
     }
 
     get isSynced() {
-      return this.isAbleToRpc && this.headerBlock && this.lastBlock + 1 >= this.headerBlock;
+      return this.isAbleToRpc && this.headerBlock && this.lastBlock + 1 >= this.headerBlock && this.latestTlBlock + 1 >= this.headerBlock;
     }
 
     get NETWORK() {

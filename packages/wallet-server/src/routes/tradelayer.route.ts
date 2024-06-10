@@ -1,12 +1,17 @@
 import { FastifyInstance } from "fastify";
-import { fasitfyServer } from "..";
+// import { fasitfyServer } from "..";
+import axios from 'axios';
+
+const baseURL = 'http://localhost:3000/';
 
 export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('/init', async (request, reply) => {
         try {
-            await fasitfyServer.tradelayerService.start();
-            reply.status(200).send({ message: 'Main process initialized successfully' });
+            // await fasitfyServer.tradelayerService.start();
+            const res = await axios.post(baseURL + 'tl_initmain', { test: true });
+            if (res.data.error) throw new Error(res.data.error);
+            reply.status(200).send({ message: res.data });
         } catch (error) {
             reply.status(500).send({ error: error.message || 'Undefined Error' })
         }
@@ -17,10 +22,11 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const body = request.body as any;
             const params = body.params as any[];
             const address = params[0];
-            const addressBalanceData = fasitfyServer.tradelayerService.tradeLayerInstance.tallyManager.getAddressData(address);
-            const arrayBalance = Object.values(addressBalanceData || {})
-                .map((balance: any, index: number) => ({ propertyId: Object.keys(addressBalanceData)[index], balance }));
-            reply.status(200).send(arrayBalance);
+            const res = await axios.post(baseURL + 'tl_getallbalancesforaddress', { params: address });
+            // const addressBalanceData = fasitfyServer.tradelayerService.tradeLayerInstance.tallyManager.getAddressData(address);
+            // const arrayBalance = Object.values(addressBalanceData || {})
+            //     .map((balance: any, index: number) => ({ propertyId: Object.keys(addressBalanceData)[index], balance }));
+            reply.status(200).send(res.data);
         } catch (error) {
             console.error(error); // Log the full error for debugging
             reply.status(500).send('Error: ' + error.message);
@@ -39,8 +45,8 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('/getMaxProcessedHeight', async (request, reply) => {
         try {
-            const maxIndexedBlock = fasitfyServer.tradelayerService.tradeLayerInstance.txIndexManager.maxProcessedBlock;
-            reply.status(200).send(maxIndexedBlock);
+            const res = await axios.post(baseURL + 'tl_getMaxProcessedHeight');
+            reply.status(200).send(res.data || 0 );
         } catch (error) {
             reply.status(500).send('Error: ' + error.message);
         }

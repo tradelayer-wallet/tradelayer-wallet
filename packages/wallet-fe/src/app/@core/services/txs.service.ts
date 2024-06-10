@@ -129,6 +129,15 @@ export class TxsService {
         }
     }
 
+    async signRawTxWithWallet(txHex: string): Promise<{
+        data: {isValid: boolean, signedHex?: string },
+        error?: string
+    }> {
+        const result = await this.rpcService.rpc('signrawtransactionwithwallet', [txHex]);
+        const data = { isValid: result.data.complete, signedHex: result.data.hex}
+        return { data };
+    }
+
     async signPsbt(signPsbtConfig: ISignPsbtConfig): Promise<{
         data?: {
             psbtHex: string;
@@ -159,7 +168,6 @@ export class TxsService {
         try {
             this.loadingService.isLoading = true;
             const buildRes = await this.buildTx(buildTxConfig);
-            console.log({buildRes})
             if (buildRes.error || !buildRes.data) throw new Error(buildRes.error);
             const { inputs, rawtx } = buildRes.data;
             if (!inputs || !rawtx) throw new Error('buildSingSendTx: Undefined Error with building Transaction');
@@ -168,7 +176,8 @@ export class TxsService {
             const wifRes = await this.rpcService.rpc('dumpprivkey', [buildTxConfig.fromKeyPair.address]);
             if (!wifRes) throw new Error(`Error with finding Keys of address: ${buildTxConfig.fromKeyPair.address}`);
             const wif = wifRes.data;
-            const signRes = await this.signTx({ inputs, rawtx, wif });
+            // const signRes = await this.signTx({ inputs, rawtx, wif });
+            const signRes = await this.signRawTxWithWallet(rawtx);
             if (signRes.error || !signRes.data) throw new Error(signRes.error);
             const { isValid, signedHex } = signRes.data;
             if (!isValid || !signedHex) throw new Error("buildSingSendTx: Undefined Error with signing Transaction");

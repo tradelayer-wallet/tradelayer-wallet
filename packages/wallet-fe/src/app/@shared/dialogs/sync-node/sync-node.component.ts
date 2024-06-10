@@ -107,7 +107,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     private async checkTradelayerSync() {
         try {
-            if (!this.isAbleToRpc) return;
+            if (!this.isAbleToRpc || !this.nodeBlock) return;
             if (!this.rpcService.isTLStarted) {
                 const initRes = await this.apiService.newTlApi.rpc('init').toPromise();
                 if (initRes.error || !initRes.data) {

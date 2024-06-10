@@ -57,7 +57,8 @@ export const createConfigFile = async (options: {
         const filePath = join(directory, 'litecoin.conf');
         const fileExist = existsSync(filePath);
         if (fileExist) throw('litecoin.conf file Already exist in provided directory!');
-        const fileData = `rpcuser=${username}\nrpcpassword=${password}\nrpcport=${port}\ntxindex=1`;
+        // const fileData = `rpcuser=${username}\nrpcpassword=${password}\nrpcport=${port}\ntxindex=1`;
+        const fileData = `rpcuser=${username}\nrpcpassword=${password}\ntxindex=1\n[test]\nrpcport=18332`;
         writeFileSync(filePath, fileData);
         return { data: `litecoin.conf file was created` };
     } catch (error) {
@@ -155,13 +156,23 @@ const checkIsCoreStarted = async (
         const firstCheck = await isActiveCheck();
         if (firstCheck !== 0) return resolve({ error: 'The core is probably Already Running'});
 
+        const isTradelayerStarted = await fasitfyServer.tradelayerService.init()
+            .catch((error) => {
+                resolve({ error: error });
+                return false;
+            });
+        if (!isTradelayerStarted) return;
+
         exec(filePathWithFlags, (error, stdout, stderr) => {
             fasitfyServer.mainSocketService.currentSocket
                 .emit("core-error", stderr || error?.message || error || stdout);
             fasitfyServer.rpcClient = null;
             fasitfyServer.rpcPort = null;
         });
-        setTimeout(() => resolve({error: 'Core Starting TimedOut: 10 secs'}), 10000);
+        setTimeout(async () => {
+            await fasitfyServer.tradelayerService.stop();
+            resolve({error: 'Core Starting TimedOut: 10 seconds'});
+        }, 10000);
 
         const finalCheck = () => new Promise(async checkResolve => {
             await client.call('getblockchaininfo')
@@ -179,9 +190,8 @@ const checkIsCoreStarted = async (
         });
 
         const finalRes = await finalCheck();
-        const tlDbPath = join(__dirname, 'tl-db');
-        fasitfyServer.tradelayerService.init({ rpcClientOptions, dbPath: tlDbPath });
-
+        // const tlDbPath = join(__dirname, 'tl-db');
+        // fasitfyServer.tradelayerService.init({ rpcClientOptions, dbPath: tlDbPath });
         resolve({ data: finalRes });
     });
 };

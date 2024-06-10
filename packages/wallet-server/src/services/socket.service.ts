@@ -5,6 +5,7 @@ import { fasitfyServer } from "..";
 export class SocketService {
     private blockCountingInterval: any;
     private lastBlock: number = 0;
+    private lastHeader: number = 0;
 
     public io: Server;
     public currentSocket: Socket;
@@ -51,8 +52,9 @@ export class SocketService {
             }
             const height = infoRes?.data?.blocks;
             const header = infoRes?.data?.headers;
-            if (height && this.lastBlock < height) {
+            if ((height && this.lastBlock < height) || (header && this.lastHeader < header)) {
                 this.lastBlock = height;
+                this.lastHeader = header;
                 this.currentSocket.emit('new-block', { height, header });
             }
         }, ms);
