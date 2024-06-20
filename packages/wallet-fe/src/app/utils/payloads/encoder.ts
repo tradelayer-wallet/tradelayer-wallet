@@ -19,4 +19,25 @@ const encodeSend = (params: { sendAll: boolean, address: string, propertyId: num
     }
 };
 
-export const ENCODER = { encodeSend };
+type TradeTokensChannelParams = {
+    propertyId1: number;
+    propertyId2: number;
+    amountOffered1: number;
+    amountDesired2: number;
+    columnAIsOfferer: boolean;
+    expiryBlock: number;
+};
+
+const encodeTradeTokensChannel = (params: TradeTokensChannelParams): string => {
+    const payload = [
+        params.propertyId1.toString(36),
+        params.propertyId2.toString(36),
+        params.amountOffered1.toString(36),
+        params.amountDesired2.toString(36),
+        params.columnAIsOfferer ? '1' : '0',
+        params.expiryBlock.toString(36),
+    ];
+    return payload.join(',');
+};
+
+export const ENCODER = { encodeSend,encodeTradeTokensChannel };
