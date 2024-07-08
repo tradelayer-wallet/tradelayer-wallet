@@ -11,7 +11,7 @@ export class FastifyServer {
     public rpcClient: RpcClient;
     public rpcPort: number;
     public mainSocketService: SocketService;
-    // public obSocketService: OBSocketService;
+    public obSocketService: OBSocketService;
     public tradelayerService: TradeLayerService;
     public relayerApiUrl: string | null = null;
 
@@ -55,14 +55,14 @@ export class FastifyServer {
 
     private safeStop() {
         if (this.rpcClient || this.rpcPort) return;
-        // this.clearOBSocketConnection();
+        this.clearOBSocketConnection();
         this.safeClose();
         this.clearMainSocketConnection();
     }
 
     initOBSocketConnection(options: IOBSocketServiceOptions) {
-        // this.clearOBSocketConnection();
-        // this.obSocketService = new OBSocketService(options);
+        this.clearOBSocketConnection();
+        this.obSocketService = new OBSocketService(options);
     }
 
 
@@ -74,11 +74,11 @@ export class FastifyServer {
         this.mainSocketService = null;
     }
 
-    // clearOBSocketConnection() {
-    //     if (this.obSocketService?.socket) {
-    //         this.obSocketService.socket.offAny();
-    //         this.obSocketService.socket.disconnect();
-    //     }
-    //     this.obSocketService = null;
-    // }
+    clearOBSocketConnection() {
+        if (this.obSocketService?.socket) {
+            this.obSocketService.socket.offAny();
+            this.obSocketService.socket.disconnect();
+        }
+        this.obSocketService = null;
+    }
 }

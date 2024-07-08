@@ -174,7 +174,7 @@ const checkIsCoreStarted = async (
             resolve({error: 'Core Starting TimedOut: 10 seconds'});
         }, 10000);
 
-        const finalCheck = () => new Promise(async checkResolve => {
+        const finalCheck = () => new Promise<{ data: boolean }>(async checkResolve => {
             await client.call('getblockchaininfo')
                 .then(async checkRes => {
                     if (!checkRes?.error?.includes("ECONNREFUSED")) {
@@ -183,8 +183,9 @@ const checkIsCoreStarted = async (
                         fasitfyServer.mainSocketService.startBlockCounting(2000);
                         checkResolve({ data: true });
                     } else {
+                        await new Promise(res => setTimeout(() => res(true), 1000));
                         const subCheck = await finalCheck();
-                        checkResolve({ data: subCheck });
+                        checkResolve(subCheck);
                     }
                 });
         });

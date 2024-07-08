@@ -26,11 +26,11 @@ export class WindowsService {
             minimized: false,
             title: 'Synchronization'
         },
-        // {
-        //     component: windowComponents.SERVERS,
-        //     minimized: true,
-        //     title: 'Servers'
-        // },
+        {
+            component: windowComponents.SERVERS,
+            minimized: true,
+            title: 'Servers'
+        },
     ];
     constructor() { }
 

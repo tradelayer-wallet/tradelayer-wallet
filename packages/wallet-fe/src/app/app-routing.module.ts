@@ -25,20 +25,20 @@ export const routes: Routes = [
       //   path: 'login',
       //   component: LoginPageComponent,
       // },
-      {
-        path: 'tx-builder',
-        component: TxBuilderPageComponent,
-      },
+      // {
+      //   path: 'tx-builder',
+      //   component: TxBuilderPageComponent,
+      // },
       {
         path: 'portfolio',
         component: PortfolioPageComponent,
         canActivate: [],
       },
-      // {
-      //   path: 'spot',
-      //   component: SpotPageComponent,
-      //   canActivate: [],
-      // },
+      {
+        path: 'spot',
+        component: SpotPageComponent,
+        canActivate: [],
+      },
       // {
       //   path: 'futures',
       //   component: FuturesPageComponent,

@@ -46,11 +46,11 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     ) {}
 
     get spotKeyPair() {
-      return this.authService.walletKeys?.spot?.[0];
+      return this.authService.walletAddresses[0];
     }
 
     get spotAddress() {
-      return this.spotKeyPair?.address;
+      return this.spotKeyPair;
     }
 
     get isLoading(): boolean {
@@ -142,11 +142,11 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
         return;
       }
-      const isKYC = this.attestationService.getAttByAddress(this.spotAddress);
-      if (isKYC !== true) {
-        this.toastrService.error(`Spot Address Need Attestation first!`, 'Attestation Needed');
-        return;
-      }
+      // const isKYC = this.attestationService.getAttByAddress(this.spotAddress);
+      // if (isKYC !== true) {
+      //   this.toastrService.error(`Spot Address Need Attestation first!`, 'Attestation Needed');
+      //   return;
+      // }
       const amount = this.buySellGroup.value.amount;
       const _price = this.buySellGroup.value.price;
       const price = this.isLimitSelected ? _price : this.currentPrice;
@@ -159,8 +159,9 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
   
       const order: ISpotTradeConf = { 
         keypair: {
-          address: this.spotKeyPair?.address,
-          pubkey: this.spotKeyPair?.pubkey,
+          address: this.spotKeyPair,
+          // pubkey: this.spotKeyPair?.pubkey || 
+          pubkey: '',
         },
         action: isBuy ? "BUY" : "SELL",
         type: "SPOT",
@@ -182,10 +183,10 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     addLiquidity(_amount: string, _orders_number: string, _range: string) {
-      const amount = parseFloat(_amount);
-      const orders_number = parseFloat(_orders_number);
-      const range = parseFloat(_range);
-      console.log({ amount, orders_number, range });
+      // const amount = parseFloat(_amount);
+      // const orders_number = parseFloat(_orders_number);
+      // const range = parseFloat(_range);
+      // console.log({ amount, orders_number, range });
       return;
       // const price = this.spotOrderbookService.lastPrice;
       // const orders: ISpotTradeConf[] = [];

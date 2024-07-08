@@ -34,12 +34,13 @@ export class HeaderComponent implements OnInit {
       needAuthToShow: false,
       needFullSynced: false,
     },
-    // {
-    //   id: 3,
-    //   name: 'Spot Trading',
-    //   link: '/spot',
-    //   needAuthToShow: false,
-    // },
+    {
+      id: 3,
+      name: 'Spot Trading',
+      link: '/spot',
+      needAuthToShow: false,
+      needFullSynced: true,
+    },
     // {
     //   id: 4,
     //   name: 'Futures Trading',
@@ -53,12 +54,12 @@ export class HeaderComponent implements OnInit {
     //   needAuthToShow: false,
     //   needFullSynced: true,
     // },
-    {
-      id: 6,
-      name: 'Tx Builder',
-      link: '/tx-builder',
-      needAuthToShow: false,
-    }
+    // {
+    //   id: 6,
+    //   name: 'Tx Builder',
+    //   link: '/tx-builder',
+    //   needAuthToShow: false,
+    // }
   ];
 
   private _selectedRoute: any = this._mainRoutes[0];

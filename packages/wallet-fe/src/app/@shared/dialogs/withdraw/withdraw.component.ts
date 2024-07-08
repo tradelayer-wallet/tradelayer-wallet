@@ -123,7 +123,6 @@ export class WithdrawDialog {
                     const payloadRes = ENCODER.encodeSend({ sendAll: false, address: toAddress, propertyId: this.propId, amount: amount });
                     // const payloadRes = await this.rpcService.rpc('tl_createpayload_simplesend', payloadParams);
                     // if (payloadRes.error || !payloadRes.data) throw new Error(`tl_createpayload_simplesend: ${payloadRes.error}`);
-                    console.log({ payloadRes });
                     txOptions.payload = payloadRes;
                 } else {
                     txOptions.amount = amount

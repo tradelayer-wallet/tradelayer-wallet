@@ -71,11 +71,11 @@
       </div>
     </div>
     <div class="address">
-      <button
+      <!-- <button
         *ngIf="!spotAddress"
         class="blueButton"
         (click)='newSpotAddress()'
-      >Create Spot Address</button>
+      >Create Spot Address</button> -->
       <div class="address-info" *ngIf="spotAddress">
         <div class="key-value-pair">
           <div class="key">Address:</div>
@@ -102,7 +102,7 @@
         (click)='closeAll()'
       >Close All Orders</button>
     </div>
-    <div class="liquidity">
+    <!-- <div class="liquidity">
       <div class="custom-form-field">
         <div class="prefix">Amount</div>
         <input type='number' #liquidity_amount>
@@ -126,7 +126,7 @@
         class="redButton"
         (click)='stopLiquidity()'
       >Stop Liquidity</button>
-    </div>
+    </div> -->
   </mat-card-content>
 </mat-card>
 
