@@ -135,7 +135,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
 
-    handleBuySell(isBuy: boolean) {
+    async handleBuySell(isBuy: boolean) {
       const fee = this.getFees(isBuy);
       const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed || 0) - fee)
       if (available < 0) {
@@ -157,11 +157,14 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       if (!propIdForSale || !propIdDesired || (!price && this.isLimitSelected) || !amount) return;
       if (!this.spotKeyPair) return;
   
+      const pubkeyRes = await this.rpcService.rpc("getaddressinfo", [this.spotKeyPair]);
+      if (pubkeyRes.error || !pubkeyRes.data?.pubkey) throw new Error(pubkeyRes.error || "No Pubkey Found");
+      const pubkey = pubkeyRes.data.pubkey;
+
       const order: ISpotTradeConf = { 
         keypair: {
           address: this.spotKeyPair,
-          // pubkey: this.spotKeyPair?.pubkey || 
-          pubkey: '',
+          pubkey: pubkey,
         },
         action: isBuy ? "BUY" : "SELL",
         type: "SPOT",
