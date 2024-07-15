@@ -99,7 +99,7 @@ export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode:
         const vaRes2 = await smartRpc('validateaddress', [sellerAddress], isApiMode);
         if (vaRes2.error || !vaRes2.data?.isvalid) throw new Error(`validateaddress: ${vaRes2.error}`);
     
-        const luRes = await smartRpc('listunspent', [0, 999999999, [buyerAddress]], true);
+        const luRes = await smartRpc('listunspent', [0, 999999999, [buyerAddress]], false);
         if (luRes.error || !luRes.data) throw new Error(`listunspent: ${luRes.error}`);
         const _utxos = (luRes.data as IInput[])
             .map(i => ({ ...i, pubkey: buyerKeyPair.pubkey }))

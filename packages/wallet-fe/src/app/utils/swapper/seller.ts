@@ -2,6 +2,7 @@ import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
 import { IMSChannelData, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
 import { Swap } from "./swap";
+import { ENCODER } from '../payloads/encoder';
 
 export class SellSwapper extends Swap {
     constructor(
@@ -78,31 +79,43 @@ export class SellSwapper extends Swap {
                 const { propIdDesired, amountDesired } = this.tradeInfo;
                 ctcpParams.push(propIdDesired, (amountDesired).toString());
             } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {
-                const { amount, collateral } = this.tradeInfo;
-                ctcpParams.push(collateral, (amount).toString());
+                throw new Error(`Futures Trade not implemented yet`);
+                // const { amount, collateral } = this.tradeInfo;
+                // ctcpParams.push(collateral, (amount).toString());
             } else {
                 throw new Error(`Unrecognized Trade Type: ${this.typeTrade}`);
             }
-            const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
-            if (cpctcRes.error || !cpctcRes.data) throw new Error(`tl_createpayload_commit_tochannel: ${cpctcRes.error}`);
+            // const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
+            // if (cpctcRes.error || !cpctcRes.data) throw new Error(`tl_createpayload_commit_tochannel: ${cpctcRes.error}`);
 
-            const payload = cpctcRes.data;
-            commitTxConfig. payload = payload;
+            // const payload = cpctcRes.data;
+            const payload = ENCODER.encodeCommit({
+                amount: this.tradeInfo.amountDesired,
+                propertyId: this.tradeInfo.propIdDesired,
+                channelAddress: this.multySigChannelData.address,
+            });
+
+            console.log({ payload });
+            commitTxConfig.payload = payload;
             // build Commit Tx
             const commitTxRes = await this.txsService.buildTx(commitTxConfig);
+            console.log({ commitTxRes });
             if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
             const { inputs, rawtx } = commitTxRes.data;
-            const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
-            if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
+            // const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
+            // if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
 
             // sign Commit Tx
-            const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
+            // const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
+            const cimmitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
+            console.log({ cimmitTxSignRes });
             if (cimmitTxSignRes.error || !cimmitTxSignRes.data) throw new Error(`Sign Commit TX: ${cimmitTxSignRes.error}`);
             const { isValid, signedHex } = cimmitTxSignRes.data;
             if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
 
             // send Commit Tx
             const commiTxSendRes = await this.txsService.sendTx(signedHex);
+            console.log({ commiTxSendRes });
             if (commiTxSendRes.error || !commiTxSendRes.data) throw new Error(`Send Commit TX: ${commiTxSendRes.error}`);
 
             // 
@@ -132,7 +145,9 @@ export class SellSwapper extends Swap {
             if (!psbtHex) throw new Error(`PsbtHex for syncing not provided`);
             const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
             if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
+            console.log({ wif, psbtHex})
             const signRes = await this.txsService.signPsbt({ wif, psbtHex });
+            console.log({ signRes })
             if (signRes.error || !signRes.data?.psbtHex) throw new Error(`Sign Tx: ${signRes.error}`);
             const swapEvent = new SwapEvent(`SELLER:STEP5`, this.myInfo.socketId, signRes.data.psbtHex);
             this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
