@@ -1,3 +1,5 @@
+const marker = 'tl';
+
 const encodeSend = (params: { sendAll: boolean, address: string, propertyId: number | number[], amount: number | number[]}) => {
     if (params.sendAll)  return `1;${params.address}`;
     if (Array.isArray(params.propertyId) && Array.isArray(params.amount)) {
@@ -15,7 +17,10 @@ const encodeSend = (params: { sendAll: boolean, address: string, propertyId: num
             params.propertyId.toString(36),
             params.amount.toString(36)
         ];
-        return 'tl2' + payload.join(';');
+        const txNumber = 2;
+        const txNumber36 = txNumber.toString(36);
+        const payloadString = payload.join(';');
+        return marker + txNumber36 + payloadString;
     }
 };
 
@@ -37,65 +42,10 @@ const encodeTradeTokensChannel = (params: TradeTokensChannelParams): string => {
         params.columnAIsOfferer ? '1' : '0',
         params.expiryBlock.toString(36),
     ];
-    return payload.join(',');
-};
-
-type EncodeWithdrawalParams = {
-    withdrawAll: boolean;
-    propertyId: number;
-    amount: number;
-    column: number;
-    channelAddress: string;
-};
-
-const encodeWithdrawal = (params: EncodeWithdrawalParams): string => {
-    const withdrawAll = params.withdrawAll;
-    const propertyIds = params.propertyId.toString(36);
-    const amounts = params.amount.toString(36);
-    const column = params.column; // 0 is A, 1 is B
-    return [withdrawAll, propertyIds, amounts, column, params.channelAddress].join(',');
-};
-
-type EncodeTradeContractChannelParams = {
-    contractId: number;
-    price: number;
-    amount: number;
-    columnAIsSeller: boolean;
-    expiryBlock: number;
-    insurance: boolean;
-};
-
-const encodeTradeContractChannel = (params: EncodeTradeContractChannelParams): string => {
-    const payload = [
-        params.contractId.toString(36),
-        params.price.toString(36),
-        params.amount.toString(36),
-        params.columnAIsSeller ? '1' : '0',
-        params.expiryBlock.toString(36),
-        params.insurance ? '1' : '0',
-    ];
-    return payload.join(',');
-};
-
-type EncodeTradeTokenForUTXOParams = {
-    propertyId: number;
-    amount: number;
-    columnA: string;
-    satsExpected: number;
-    tokenOutput: string;
-    payToAddress: string;
-};
-
-const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string => {
-    const payload = [
-        params.propertyId.toString(36),
-        params.amount.toString(36),
-        params.columnA,
-        params.satsExpected.toString(36),
-        params.tokenOutput,
-        params.payToAddress,
-    ];
-    return payload.join(',');
+    const txNumber = 20;
+    const txNumber36 = txNumber.toString(36);
+    const payloadString = payload.join(',');
+    return marker + txNumber36 + payloadString;
 };
 
 type EncodeCommitParams = {
@@ -110,14 +60,77 @@ const encodeCommit = (params: EncodeCommitParams): string => {
         params.amount.toString(36),
         params.channelAddress,
     ];
-    return payload.join(',');
+    const txNumber = 5;
+    const txNumber36 = txNumber.toString(36);
+    const payloadString = payload.join(',');
+    return marker + txNumber36 + payloadString;
 };
+
+// type EncodeWithdrawalParams = {
+//     withdrawAll: boolean;
+//     propertyId: number;
+//     amount: number;
+//     column: number;
+//     channelAddress: string;
+// };
+
+// const encodeWithdrawal = (params: EncodeWithdrawalParams): string => {
+//     const withdrawAll = params.withdrawAll;
+//     const propertyIds = params.propertyId.toString(36);
+//     const amounts = params.amount.toString(36);
+//     const column = params.column; // 0 is A, 1 is B
+//     return [withdrawAll, propertyIds, amounts, column, params.channelAddress].join(',');
+// };
+
+// type EncodeTradeContractChannelParams = {
+//     contractId: number;
+//     price: number;
+//     amount: number;
+//     columnAIsSeller: boolean;
+//     expiryBlock: number;
+//     insurance: boolean;
+// };
+
+// const encodeTradeContractChannel = (params: EncodeTradeContractChannelParams): string => {
+//     const payload = [
+//         params.contractId.toString(36),
+//         params.price.toString(36),
+//         params.amount.toString(36),
+//         params.columnAIsSeller ? '1' : '0',
+//         params.expiryBlock.toString(36),
+//         params.insurance ? '1' : '0',
+//     ];
+//     return payload.join(',');
+// };
+
+// type EncodeTradeTokenForUTXOParams = {
+//     propertyId: number;
+//     amount: number;
+//     columnA: string;
+//     satsExpected: number;
+//     tokenOutput: string;
+//     payToAddress: string;
+// };
+
+// const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string => {
+//     const payload = [
+//         params.propertyId.toString(36),
+//         params.amount.toString(36),
+//         params.columnA,
+//         params.satsExpected.toString(36),
+//         params.tokenOutput,
+//         params.payToAddress,
+//     ];
+//     return payload.join(',');
+// };
+
+
 
 export const ENCODER = { 
     encodeSend, 
     encodeTradeTokensChannel, 
-    encodeWithdrawal, 
-    encodeTradeContractChannel, 
-    encodeTradeTokenForUTXO, 
+    // encodeWithdrawal, 
+    // encodeTradeContractChannel, 
+    // encodeTradeTokenForUTXO, 
     encodeCommit 
 };
