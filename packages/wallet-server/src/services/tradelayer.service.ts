@@ -18,11 +18,9 @@ export class TradeLayerService {
             const listenerPath = join(__dirname, '..', 'tradelayer', 'walletListener.js');
             const childProcess = spawn(`node`, [listenerPath], {});
             childProcess.stdout.on('data', (data) => {
-                // console.log({data: data.toString()})
                 resolve(true);
             });
             childProcess.stderr.on('data', (error) => {
-                // console.log({errorData: error.toString()})
                 reject(error.toString())
             });
         });

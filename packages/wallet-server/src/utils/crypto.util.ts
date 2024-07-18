@@ -141,23 +141,24 @@ export const buildPsbt = (buildPsbtOptions: { rawtx: string, inputs: IInput[], n
         const tx = Transaction.fromHex(rawtx);
         const psbt: Psbt = new Psbt({ network: _network });
 
-        const getScript = (input: any) => {
-            const payment = input.redeemScript
-                ? p2wsh({ redeem: p2ms({ output: Buffer.from(input.redeemScript, 'hex'), network: _network}) })
-                : input.pubkey
-                    ? p2wpkh({ pubkey: Buffer.from(input.pubkey, 'hex'), network: _network })
-                    : null;
-            return payment ? payment.output : null;
-        };
+        // const getScript = (input: any) => {
+        //     const payment = input.redeemScript
+        //         ? p2wsh({ redeem: p2ms({ output: Buffer.from(input.redeemScript, 'hex'), network: _network}) })
+        //         : input.pubkey
+        //             ? p2wpkh({ pubkey: Buffer.from(input.pubkey, 'hex'), network: _network })
+        //             : null;
+        //     return payment ? payment.output : null;
+        // };
 
         inputs.forEach((input: any) => {
             const hash = input.txid;
             const index = input.vout;
             const value = safeNumber(input.amount * (10**8), 0);
-            const script = null;
+            // const script = getScript(input);
+            const script = Buffer.from(input.scriptPubKey, 'hex')
             const witnessUtxo = { script, value };
             const inputObj: any = { hash, index, witnessUtxo };
-            if (script) inputObj.redeemScript = script
+            // if (script) inputObj.redeemScript = script
             if (input.redeemScript) inputObj.witnessScript = Buffer.from(input.redeemScript, 'hex');
             psbt.addInput(inputObj);
         });

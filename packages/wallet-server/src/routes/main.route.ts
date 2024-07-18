@@ -3,6 +3,12 @@ import { fasitfyServer } from "../index";
 import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
 import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
+import { backOff, BackoffOptions } from "exponential-backoff";
+
+const backoffOptions: BackoffOptions = {
+    maxDelay: 10000,
+    numOfAttempts: 5,
+}
 
 export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
     fastify.post('rpc-call', async (request, reply) => {
@@ -10,7 +16,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const { method, params } = request.body as { method: string, params: any[] };
             if (!fasitfyServer.rpcClient) throw new Error("No RPC Client initialized");
             const _params = params?.length ? params : [];
-            const res = await fasitfyServer.rpcClient.call(method, ..._params);
+            const res = await backOff(() => fasitfyServer.rpcClient.call(method, ..._params), backoffOptions);
             reply.status(200).send(res);
         } catch (error) {
             reply.status(500).send({ error: error || 'Undefined Error' })

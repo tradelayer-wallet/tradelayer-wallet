@@ -69,7 +69,7 @@ export class TxsService {
         private loadingService: LoadingService,
         private toastrService: ToastrService,
         private balanceService: BalanceService,
-    ) {}
+    ) { }
 
     get rpc() {
         return this.rpcService.rpc.bind(this);
@@ -79,35 +79,34 @@ export class TxsService {
         return this.apiService.mainApi;
     }
 
-    getWifByAddress(address: string) {
-        return '';
+    async getWifByAddress(address: string) {
+        return this.rpcService.rpc('dumpprivkey', [address]);
     }
 
     async buildLTCITTx(
         buildTxConfig: IBuildLTCITTxConfig,
-    ): Promise<{ data?: { rawtx: string; inputs: IUTXO[], psbtHex?: string }, error?: string }>
-    {
+    ): Promise<{ data?: { rawtx: string; inputs: IUTXO[], psbtHex?: string }, error?: string }> {
         try {
             const network = this.rpcService.NETWORK;
             buildTxConfig.network = network;
             const isApiMode = this.rpcService.isApiMode;
             let result = await this.mainApi.buildLTCITTx(buildTxConfig, isApiMode).toPromise();
             return result;
-        } catch(error: any) {
+        } catch (error: any) {
             return { error: error.message }
         }
     }
 
     async buildTx(
-            buildTxConfig: IBuildTxConfig, 
-        ): Promise<{ data?: { rawtx: string; inputs: IUTXO[], psbtHex?: string }, error?: string }> {
+        buildTxConfig: IBuildTxConfig,
+    ): Promise<{ data?: { rawtx: string; inputs: IUTXO[], psbtHex?: string }, error?: string }> {
         try {
             const network = this.rpcService.NETWORK;
             buildTxConfig.network = network;
             const isApiMode = this.rpcService.isApiMode;
             let result = await this.mainApi.buildTx(buildTxConfig, isApiMode).toPromise();
             return result;
-        } catch(error: any) {
+        } catch (error: any) {
             return { error: error.message }
         }
     }
@@ -119,22 +118,22 @@ export class TxsService {
             psbtHex?: string,
         },
         error?: string,
-    }>  {
+    }> {
         try {
             const network = this.rpcService.NETWORK;
             const result = await this.mainApi.signTx(signTxConfig, network).toPromise();
             return result;
-        } catch(error: any) {
+        } catch (error: any) {
             return { error: error.message }
         }
     }
 
     async signRawTxWithWallet(txHex: string): Promise<{
-        data: {isValid: boolean, signedHex?: string },
+        data: { isValid: boolean, signedHex?: string },
         error?: string
     }> {
         const result = await this.rpcService.rpc('signrawtransactionwithwallet', [txHex]);
-        const data = { isValid: result.data.complete, signedHex: result.data.hex}
+        const data = { isValid: result.data.complete, signedHex: result.data.hex }
         return { data };
     }
 
@@ -151,7 +150,7 @@ export class TxsService {
             const network = this.rpcService.NETWORK;
             const result = await this.mainApi.signPsbt(signPsbtConfig, network).toPromise();
             return result
-        } catch(error: any) {
+        } catch (error: any) {
             return { error: error.message }
         }
     }
@@ -162,8 +161,24 @@ export class TxsService {
         return result;
     }
 
+    async sendTxWithSpecRetry(rawTx: string) {
+        const _sendTxWithRetry = async (rawTx: string, retriesLeft: number, ms: number): Promise<{
+            data?: string,
+            error?: string,
+        }> => {
+            const result = await this.rpcService.rpc('sendrawtransaction', [rawTx]);
+            if (result.error && result.error.includes('bad-txns-inputs-missingorspent') && retriesLeft > 0) {
+                await new Promise(resolve => setTimeout(resolve, ms));
+                return _sendTxWithRetry(rawTx, retriesLeft - 1, ms);
+            }
+            return result;
+        }
+        return _sendTxWithRetry(rawTx, 15, 800);
+    }
+
+
     async buildSingSendTx(
-        buildTxConfig: IBuildTxConfig, 
+        buildTxConfig: IBuildTxConfig,
     ): Promise<{ data?: string, error?: string }> {
         try {
             this.loadingService.isLoading = true;
@@ -183,8 +198,8 @@ export class TxsService {
             if (!isValid || !signedHex) throw new Error("buildSingSendTx: Undefined Error with signing Transaction");
             const sendRes = await this.sendTx(signedHex);
             if (sendRes.error || !sendRes.data) throw new Error(sendRes.error);
-            return { data: sendRes.data};
-        } catch(error: any) {
+            return { data: sendRes.data };
+        } catch (error: any) {
             this.toastrService.error(error.message);
             return { error: error.message };
         } finally {

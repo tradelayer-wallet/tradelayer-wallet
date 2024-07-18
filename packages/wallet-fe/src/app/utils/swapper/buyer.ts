@@ -69,7 +69,6 @@ export class BuySwapper extends Swap {
             const bbData = gbcRes.data.block + 1000;
             if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
                 const { propIdDesired, amountDesired, amountForSale, propIdForSale } = this.tradeInfo;
-
                 if (propIdForSale === -1) {
                     throw new Error(`Litecoin is not supported for now`);
                     // const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), (amountForSale).toString(), bbData ];
@@ -99,12 +98,9 @@ export class BuySwapper extends Swap {
                         propertyId: this.tradeInfo.propIdDesired,
                         channelAddress: this.multySigChannelData.address,
                     });
-                    console.log({ payload })
                     const commitTxConfig: IBuildTxConfig = { fromKeyPair, toKeyPair, payload };
-            
                     // build Commit Tx
                     const commitTxRes = await this.txsService.buildTx(commitTxConfig);
-                    console.log({ commitTxRes });
                     if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
                     const { inputs, rawtx } = commitTxRes.data;
                     // const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
@@ -113,14 +109,12 @@ export class BuySwapper extends Swap {
                     // sign Commit Tx
                     // const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
                     const cimmitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
-                    console.log({ cimmitTxSignRes });
                     if (cimmitTxSignRes.error || !cimmitTxSignRes.data) throw new Error(`Sign Commit TX: ${cimmitTxSignRes.error}`);
                     const { isValid, signedHex } = cimmitTxSignRes.data;
                     if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
     
                     // send Commit Tx
                     const commiTxSendRes = await this.txsService.sendTx(signedHex);
-                    console.log({ commiTxSendRes });
                     if (commiTxSendRes.error || !commiTxSendRes.data) throw new Error(`Send Commit TX: ${commiTxSendRes.error}`);
         
                     //
@@ -136,7 +130,6 @@ export class BuySwapper extends Swap {
                         redeemScript: this.multySigChannelData.redeemScript,
                     } as IUTXO;
         
-                    console.log({ utxoData })
                     // const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), propIdForSale, (amountForSale).toString(), bbData ];
                     // const cpitRes = await this.client('tl_createpayload_instant_trade', cpitLTCOptions);
 
@@ -157,9 +150,7 @@ export class BuySwapper extends Swap {
                         payload: cpitRes.data,
                         amount: 0,
                     };
-                    console.log({ buildOptions });
                     const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
-                    console.log({ rawHexRes })
                     if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
                     const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
                     this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
@@ -232,14 +223,14 @@ export class BuySwapper extends Swap {
     private async onStep5(cpId: string, psbtHex: string) {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Step 5: Error with p2p connection: code 4');
         if (!psbtHex) return this.terminateTrade('Step 5: PsbtHex Not Provided');
-        const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
+        const wifRes = await this.txsService.getWifByAddress(this.myInfo.keypair.address);
+        if (wifRes.error || !wifRes.data) return this.terminateTrade(`Step 5: getWifByAddress: ${wifRes.error}`);
+        const wif = wifRes.data;
         if (!wif) return this.terminateTrade(`Step 5: getWifByAddress: WIF not found: ${this.myInfo.keypair.address}`);
         const signRes = await this.txsService.signPsbt({ wif, psbtHex });
-        console.log({ signRes })
         if (signRes.error || !signRes.data) return this.terminateTrade(`Step 5: signPsbt: ${signRes.error}`);
         if (!signRes.data.isFinished || !signRes.data.finalHex) return this.terminateTrade(`Step 5: Transaction not Full Synced`);
-        const finalTxIdRes = await this.txsService.sendTx(signRes.data.finalHex);
-        console.log({ finalTxIdRes });
+        const finalTxIdRes = await this.txsService.sendTxWithSpecRetry(signRes.data.finalHex);
         if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(`Step 5: sendRawTransaction: ${finalTxIdRes.error}` || `Error with sending Raw Tx`);
         if (this.readyRes) this.readyRes({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });
         const swapEvent = new SwapEvent('BUYER:STEP6', this.myInfo.socketId, finalTxIdRes.data);

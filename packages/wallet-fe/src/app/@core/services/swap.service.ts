@@ -41,6 +41,7 @@ export class SwapService {
                     this.toastrService.error(res.error, 'Trade Error')
                 } else {
                     this.soundsService.playSound(ESounds.TRADE_COMPLETED);
+                    this.toastrService.success('Trade Completed', res.data.txid, { timeOut: 3000 });
                 }
                 // const mySocketId = swapConfig.isBuyer
                 //     ? swapConfig.tradeInfo.buyer.socketId
