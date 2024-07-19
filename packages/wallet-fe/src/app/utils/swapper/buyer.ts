@@ -65,8 +65,9 @@ export class BuySwapper extends Swap {
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
             if (!this.multySigChannelData) throw new Error(`Wrong Multisig Data Provided`);
             const gbcRes = await this.client('getblockcount');
+            console.log({gbcRes})
             if (gbcRes.error || !gbcRes.data) throw new Error(`Block: ${gbcRes.error}`);
-            const bbData = gbcRes.data.block + 1000;
+            const bbData = parseFloat(gbcRes.data) + 1000;
             if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
                 const { propIdDesired, amountDesired, amountForSale, propIdForSale } = this.tradeInfo;
                 if (propIdForSale === -1) {

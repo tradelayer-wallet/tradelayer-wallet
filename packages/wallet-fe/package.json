@@ -17,6 +17,7 @@
     "@angular/platform-browser": "~12.1.0-",
     "@angular/platform-browser-dynamic": "~12.1.0-",
     "@angular/router": "~12.1.0-",
+    "charting_library": "git@github.com:tradingview/charting_library.git",
     "crypto-js": "^4.1.1",
     "file-saver": "^2.0.5",
     "lightweight-charts": "^3.8.0",

@@ -116,6 +116,7 @@ export class ElectronApp {
             webPreferences: {
               nodeIntegration: true,
               contextIsolation: false,
+              webSecurity: false,
             }
         };
         this.mainWindow = new BrowserWindow(windowOptions);
