@@ -66,6 +66,42 @@ const encodeCommit = (params: EncodeCommitParams): string => {
     return marker + txNumber36 + payloadString;
 };
 
+// Type definition for the parameters of encodeWithdrawal function
+interface EncodeWithdrawalParams {
+    withdrawAll: boolean;
+    propertyId: number;
+    amount: number;
+    column: number;
+    channelAddress: string;
+}
+
+// Encode Withdrawal Transaction
+const encodeWithdrawal = (params: EncodeWithdrawalParams): string => {
+    const withdrawAll = params.withdrawAll ? '1' : '0'; // Convert boolean to '1' or '0'
+    const propertyIds = params.propertyId.toString(36);
+    const amounts = params.amount.toString(36);
+    const column = params.column.toString(); // Convert number to string
+    return [withdrawAll, propertyIds, amounts, column, params.channelAddress].join(',');
+};
+
+// Type definition for the parameters of encodeTransfer function
+interface EncodeTransferParams {
+    propertyIds: number[];
+    amounts: number[];
+    isColumnA: boolean;
+    destinationAddr: string;
+}
+
+// Encode Transfer Transaction
+const encodeTransfer = (params: EncodeTransferParams): string => {
+    const propertyIds = params.propertyIds.map(id => id.toString(36)).join(';');
+    const amounts = params.amounts.map(amount => amount.toString(36)).join(';');
+    const isColumnA = params.isColumnA ? '1' : '0'; // Convert boolean to '1' or '0'
+    const destinationAddr = params.destinationAddr;
+    return [propertyIds, amounts, isColumnA, destinationAddr].join(',');
+};
+
+
 // type EncodeWithdrawalParams = {
 //     withdrawAll: boolean;
 //     propertyId: number;
