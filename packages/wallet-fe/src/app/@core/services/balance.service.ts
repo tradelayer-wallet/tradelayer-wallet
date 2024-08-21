@@ -30,7 +30,11 @@ export class BalanceService {
             tokensBalance: {
                 name: string;
                 propertyid: number;
-                balance: number;
+                amount: number,
+                available: number,
+                reserved: number,
+                margin: number,
+                vesting: number,
             }[];
         }
     } = {};
@@ -164,7 +168,11 @@ export class BalanceService {
                 ...token, 
                 name: `token_${token.propertyId}`, 
                 propertyid: parseInt(token.propertyId), 
-                balance: token.balance.available,
+                amount: token.balance.amount,
+                available: token.balance.available,
+                reserved: token.balance.reserved,
+                margin: token.balance.margin,
+                vesting: token.balance.vesting,
             }));
         return { data };
     }

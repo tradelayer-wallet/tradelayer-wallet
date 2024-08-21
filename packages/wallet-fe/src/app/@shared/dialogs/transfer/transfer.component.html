@@ -1,0 +1,42 @@
+<div class="dialog-container" >
+    <div class="title">
+        <h1>Transfer</h1>
+    </div>
+    <div class="content" *ngIf="address && firstToken && secondToken">
+        <div class="address-content">
+            <span class='address' (click)='copyAddress()'>{{ address }}</span>
+            <span class='note'>(click over the address to copy in clipboard)</span>
+        </div>
+
+        <div class="from-to">
+            <span>Available</span>
+            <div class="arrow" (click)="isFromAvialable = !isFromAvialable">
+                <mat-icon *ngIf="isFromAvialable">arrow_forward</mat-icon>
+                <mat-icon *ngIf="!isFromAvialable">arrow_back</mat-icon>
+            </div>
+            <span>Margin</span>
+        </div>
+        <mat-form-field width='350px' required>
+            <mat-label>Token</mat-label>
+            <mat-select [(ngModel)]="selectedToken">
+                <mat-option [value]="firstToken">{{ firstToken.shortName }}</mat-option>
+                <mat-option [value]="secondToken">{{ secondToken.shortName }}</mat-option>
+            </mat-select>
+        </mat-form-field>
+
+        <mat-form-field width='350px' required>
+            <mat-label>Amount</mat-label>
+            <input matInput type="number" [(ngModel)]="amount">
+        </mat-form-field>
+        <span class='max-amount' (click)="fillWithMax()">max: {{ getMax }} {{ selectedToken?.shortName || '' }}</span>
+
+        <mat-slider [value]="percentFromvalue" [showTickMarks]="true" [min]="0" [max]="100" [step]="10" (input)="changeSlider($event.value)" >
+            <input matSliderThumb>
+        </mat-slider>
+          
+    </div>
+    <div class="buttons">
+        <button mat-button (click)="close()" color="warn">CANCLE</button>
+        <button mat-button [disabled]='buttonDisabled' (click)='transfer()' color="primary">TRANSFER</button>
+    </div>
+</div>

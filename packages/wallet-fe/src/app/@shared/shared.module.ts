@@ -16,6 +16,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon'; 
 import { MatSelectModule } from '@angular/material/select'; 
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatSliderModule } from '@angular/material/slider';
+
 
 import { SideNavComponent } from './components/side-nav/side-nav.component';
 import { InfoLineComponent } from '../@shared/components/info-line/info-line.component';
@@ -35,6 +37,7 @@ import { WithdrawDialog } from './dialogs/withdraw/withdraw.component';
 import { DepositDialog } from './dialogs/deposit/deposit.component';
 import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
 import { ServersDialog } from './dialogs/servers/servers.component';
+import { TransferDialog } from './dialogs/transfer/transfer.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -55,6 +58,7 @@ const MAT_MODULES = [
     MatProgressBarModule,
     MatIconModule,
     MatSelectModule,
+    MatSliderModule,
 ];
 
 const DIALOGS = [
@@ -69,6 +73,7 @@ const DIALOGS = [
     DepositDialog,
     CommingSoonDialog,
     ServersDialog,
+    TransferDialog,
 ];
 
 const COMPONENTS = [

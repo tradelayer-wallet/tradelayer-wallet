@@ -56,7 +56,7 @@ export class WithdrawDialog {
             const balanceObj = this.balanceService.getTokensBalancesByAddress(this.fromAddress)
                 .find((o: any) => o.propertyid === this.propId);
             if (!balanceObj) return 0;
-            return balanceObj.balance;
+            return balanceObj.available;
         }
     }
 

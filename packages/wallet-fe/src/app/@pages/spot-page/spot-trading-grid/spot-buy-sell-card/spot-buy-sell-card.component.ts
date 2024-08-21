@@ -8,6 +8,7 @@ import { ApiService } from 'src/app/@core/services/api.service';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
 import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
+import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { IMarket, IToken, SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
@@ -43,6 +44,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       private rpcService: RpcService,
       private apiService: ApiService,
       public matDialog: MatDialog,
+      private dialogService: DialogService,
     ) {}
 
     get spotKeyPair() {
@@ -125,15 +127,14 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         ? safeNumber(this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed - this.getFees(isBuy))
         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
           ?.find((t: any) => t.propertyid === propId)
-          ?.balance;
+          ?.available;
       const inOrderBalance = this.getInOrderAmount(propId);
-      const available = safeNumber((_available || 0 )- inOrderBalance);
+      const available = safeNumber((_available || 0) - inOrderBalance);
       if (!available || ((available / price) <= 0)) return 0;
       const _max = isBuy ? (available / price) : available;
       const max = safeNumber(_max);
       return max;
     }
-
 
     async handleBuySell(isBuy: boolean) {
       const fee = this.getFees(isBuy);
@@ -297,7 +298,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const _balance = token.propertyId === -1
         ? this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmed
         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
-          ?.find(e => e.propertyid === token.propertyId)?.balance;
+          ?.find(e => e.propertyid === token.propertyId)?.available;
       const inOrderBalance = this.getInOrderAmount(token.propertyId);
       const balance = safeNumber((_balance  || 0) - inOrderBalance);
       return [token.fullName, `${ balance > 0 ? balance : 0 } ${token.shortName}`];
@@ -356,5 +357,15 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
     closeAll() {
       this.spotOrdersService.closeAllOrders();
+    }
+
+    transfer() {
+      const data = {
+        firstToken: this.selectedMarket.first_token,
+        secondToken: this.selectedMarket.second_token,
+        address: this.spotAddress,
+      };
+  
+      this.dialogService.openDialog(DialogTypes.TRANSFER, { data });
     }
 }

@@ -1,0 +1,68 @@
+.dialog-container {
+    display: flex;
+    flex-direction: column;
+    .title {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 1rem 0;
+    }
+    .content {
+        display: flex;
+        width: 100%;
+        flex-direction: column;
+        align-items: center;
+        .address-content {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+            align-items: center;
+            .address {
+                cursor: pointer;
+                font-size: 1.2rem;
+                color: #c76931;
+                margin-bottom: 0.5rem;
+            }
+        }
+        .from-to {
+            padding-top: 1rem;
+            margin-top: 1rem;
+            border-top: 1px solid gray;
+            display: flex;
+            gap: 1rem;
+            width: 100%;
+            align-items: center;
+            justify-content: center;
+            .arrow {
+                cursor: pointer;
+            }
+            
+            span {
+                font-size: 1.1rem;
+            }
+        }
+        .max-amount {
+            font-size: 0.75rem;
+            margin-left: 75%;
+            cursor: pointer;
+        }
+        .mat-form-field {
+            width: 350px;
+        }
+        mat-slider {
+            width: 300px;
+        }
+        .mat-hint {
+            cursor: pointer;
+        }
+    }
+    .buttons {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        button {
+            margin: 0 0.5rem;
+        }
+    }
+}

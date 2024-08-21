@@ -109,7 +109,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
       const _available = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
         ?.find((t: any) => t.propertyid === propId)
-        ?.balance;
+        ?.available;
       const inOrderBalance = this.getInOrderAmount(propId);
       const available = safeNumber((_available || 0 )- inOrderBalance);
       if (!available || ((available / price) <= 0)) return 0;
@@ -215,7 +215,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       const _balance = token.propertyId === -1
         ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
         : this.balanceService.getTokensBalancesByAddress(this.futureAddress)
-          ?.find(e => e.propertyid === token.propertyId)?.balance;
+          ?.find(e => e.propertyid === token.propertyId)?.available;
       const inOrderBalance = this.getInOrderAmount(token.propertyId);
       const balance = safeNumber((_balance  || 0) - inOrderBalance);
       return [token.fullName, `${ balance > 0 ? balance : 0 } ${token.shortName}`];

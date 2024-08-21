@@ -18,7 +18,7 @@ import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.compon
 })
 export class PortfolioPageComponent implements OnInit {
   cryptoBalanceColumns: string[] = ['address', 'confirmed', 'unconfirmed', 'actions'];
-  tokensBalanceColums: string[] = ['propertyid', 'name', 'balance', 'actions'];
+  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'margin', 'actions'];
   selectedAddress: string = '';
 
   constructor(

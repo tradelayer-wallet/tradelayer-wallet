@@ -7,6 +7,7 @@ import { EncKeyDialog } from "src/app/@shared/dialogs/enc-key/enc-key.component"
 import { DepositDialog } from "src/app/@shared/dialogs/deposit/deposit.component";
 import { WithdrawDialog } from "src/app/@shared/dialogs/withdraw/withdraw.component";
 import { CommingSoonDialog } from "src/app/@shared/dialogs/comming-soon/comming-soon.componet";
+import { TransferDialog } from 'src/app/@shared/dialogs/transfer/transfer.component';
 
 export enum DialogTypes {
     SELECT_NETOWRK = "SELECT_NETOWRK",
@@ -16,6 +17,7 @@ export enum DialogTypes {
     NEW_NODE = 'NEW_NODE',
     WITHDRAW = 'WITHDRAW',
     DEPOSIT = 'DEPOSIT',
+    TRANSFER = 'TRANSFER',
 };
 
 const dialogs: { [key: string]: any; } = {
@@ -26,6 +28,7 @@ const dialogs: { [key: string]: any; } = {
     'COMMING_SOON': CommingSoonDialog,
     'WITHDRAW': WithdrawDialog,
     'DEPOSIT': DepositDialog,
+    'TRANSFER': TransferDialog,
 };
 
 @Injectable({
