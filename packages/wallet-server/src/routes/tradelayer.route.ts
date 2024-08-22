@@ -52,5 +52,15 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
 
+     fastify.post('/getMaxParsedHeight', async (request, reply) => {
+        try {
+            const res = await axios.post(baseURL + 'tl_getMaxParsedHeight');
+            reply.status(200).send(res.data || 0 );
+        } catch (error) {
+            reply.status(500).send('Error: ' + error.message);
+        }
+    });
+
+
     done();
 }

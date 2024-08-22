@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@trezor/connect": "^9.0.2",
+    "agentkeepalive": "^4.5.0",
     "axios": "^0.24.0",
     "big-json": "^3.2.0",
     "bip32": "^3.0.1",
@@ -48,6 +49,7 @@
   },
   "devDependencies": {
     "@types/node": "^14.17.5",
+    "acorn-import-attributes": "^1.9.5",
     "copy-webpack-plugin": "^9.0.1",
     "electron": "^13.1.7",
     "electron-builder": "^22.11.7",

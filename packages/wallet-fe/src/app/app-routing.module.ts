@@ -21,14 +21,14 @@ export const routes: Routes = [
         path: '',
         component: HomePageComponent,
       },
-      // {
-      //   path: 'login',
-      //   component: LoginPageComponent,
-      // },
-      // {
-      //   path: 'tx-builder',
-      //   component: TxBuilderPageComponent,
-      // },
+       {
+         path: 'login',
+         component: LoginPageComponent,
+       },
+      {
+         path: 'tx-builder',
+         component: TxBuilderPageComponent,
+       },
       {
         path: 'portfolio',
         component: PortfolioPageComponent,
@@ -39,11 +39,11 @@ export const routes: Routes = [
         component: SpotPageComponent,
         canActivate: [],
       },
-      // {
-      //   path: 'futures',
-      //   component: FuturesPageComponent,
-      //   canActivate: [],
-      // },
+       {
+         path: 'futures',
+         component: FuturesPageComponent,
+         canActivate: [],
+       },
       // {
       //   path: 'node-reward',
       //   component: NodeRewardPageComponent,

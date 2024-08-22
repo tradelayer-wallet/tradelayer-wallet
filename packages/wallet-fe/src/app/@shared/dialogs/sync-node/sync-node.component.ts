@@ -115,7 +115,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
                 }
                 this.rpcService.isTLStarted = true;
             }
-            const blockHeightRes = await this.apiService.newTlApi.rpc('getMaxProcessedHeight').toPromise();
+            const blockHeightRes = await this.apiService.newTlApi.rpc('getMaxParsedHeight').toPromise();
             if (blockHeightRes.error) {
                 throw new Error(blockHeightRes.error || 'Undefined Error');
             }
