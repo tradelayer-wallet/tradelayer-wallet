@@ -75,7 +75,7 @@ export class RpcService {
     }
 
     get isSynced() {
-      return this.isAbleToRpc && this.headerBlock && this.lastBlock + 1 >= this.headerBlock && this.latestTlBlock + 1 >= this.headerBlock;
+      return this.headerBlock && this.lastBlock + 1 >= this.headerBlock /*&& this.latestTlBlock + 1 >= this.headerBlock;*/
     }
 
     get NETWORK() {
@@ -136,9 +136,9 @@ export class RpcService {
       try {
           const infoRes = await this.tlApi.rpc('getblockchaininfo').toPromise();
           if (infoRes.error || !infoRes.data) throw new Error(infoRes.error);
-          if (infoRes.data.block && infoRes.data.block !== this.networkBlocks) {
-            this.networkBlocks = infoRes.data.block;
-            const blockSubsObj: IBlockSubsObj = { type: "API", block: infoRes.data.block, header: infoRes.data.headers };
+          if (infoRes.data.blocks && infoRes.data.blocks !== this.networkBlocks) {
+            this.networkBlocks = infoRes.data.blocks;
+            const blockSubsObj: IBlockSubsObj = { type: "API", block: infoRes.data.blocks, header: infoRes.data.headers };
             this.blockSubs$.next(blockSubsObj);
             console.log(`New Network Block: ${this.networkBlocks}`);
           }
