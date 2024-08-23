@@ -74,6 +74,8 @@ export class BalanceService {
     }
 
     onInit() {
+        this.tlApi.roc('tl_loadwallet')
+        this.tlApi.rpc('tl_getallbalancesforaddress')
         this.authService.updateAddressesSubs$
             .subscribe(kp => {
                 if (!kp.length) this.restartBalance();
@@ -138,6 +140,7 @@ export class BalanceService {
         const unconfirmed = parseFloat(_unconfirmed.toFixed(6));
         return {data: { confirmed, unconfirmed, utxos: luRes.data } };
     }
+
     private async getTokensBalanceArrForAddress_old(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
         const balanceRes = await this.tlApi.rpc('tl_getallbalancesforaddress', [address]).toPromise()
