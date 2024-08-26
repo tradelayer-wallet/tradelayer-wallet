@@ -74,7 +74,7 @@ export class BalanceService {
     }
 
     onInit() {
-        this.tlApi.roc('tl_loadwallet')
+        //this.tlApi.rpc('tl_loadwallet')
         this.tlApi.rpc('tl_getallbalancesforaddress')
         this.authService.updateAddressesSubs$
             .subscribe(kp => {

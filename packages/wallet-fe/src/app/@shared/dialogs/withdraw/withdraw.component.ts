@@ -138,10 +138,19 @@ export class WithdrawDialog {
             this.loadingService.isLoading = true;
             if (this.fromAddress === this.toAddress) throw new Error('Both addresses are the same');
             if (!this.amount || !this.fromAddress || !this.toAddress || !this.propId) throw new Error('Fill all required data');
+            
             const txOptionsRes = await this.getTxOptions(this.fromAddress, this.toAddress, this.amount, this.propId);
-            if (txOptionsRes.error || !txOptionsRes.data) throw new Error(txOptionsRes.error);
+            if (txOptionsRes.error || !txOptionsRes.data)  {
+                this.toastrService.error(txOptionsRes.error, 'Transaction Options Error');
+                return;
+            }
+            
             const res = await this.txsService.buildSingSendTx(txOptionsRes.data);
-            if (res.error || !res.data) throw new Error(res.error);
+            if (res.error || !res.data) {
+                this.toastrService.error(res.error, 'Transaction Error');
+                return;
+            }
+            
             this.toastrService.success(`Withdraw TX: ${res.data}`, 'Success');
         } catch (error: any) {
             this.toastrService.error(error.message || `Error with Withdraw`, 'Error');
@@ -150,6 +159,7 @@ export class WithdrawDialog {
             this.clearForm();
         }
     }
+
 
     private clearForm() {
         this.toAddress = '';
