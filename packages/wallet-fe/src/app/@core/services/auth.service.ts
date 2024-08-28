@@ -166,7 +166,8 @@ export class AuthService {
 
             if (res.EECode === -11) {
                 console.log('res EE code 11 returning wallet []')
-                this.walletAddresses = [];
+                await this.rpcService.rpc('loadwallet', [this.walletLabel]);
+
                 return;
             }
 
