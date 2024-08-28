@@ -186,7 +186,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       console.log(`Stop Liquidity`);
     }
 
-    addLiquidity(_amount: string, _orders_number: string, _range: string) {
+    /*addLiquidity(_amount: string, _orders_number: string, _range: string) {
        const amount = parseFloat(_amount);
        const orders_number = parseFloat(_orders_number);
        const range = parseFloat(_range);
@@ -256,7 +256,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
          orders.push(buyOrder, sellOrder)
        }
        this.spotOrdersService.addLiquidity(orders);
-    }
+    }*/
 
     getButtonDisabled(isBuy: boolean) {
       const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
