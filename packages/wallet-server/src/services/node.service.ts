@@ -154,7 +154,10 @@ const checkIsCoreStarted = async (
             });
         };
         const firstCheck = await isActiveCheck();
-        if (firstCheck !== 0) return resolve({ error: 'The core is probably Already Running'});
+        if (firstCheck !== 0){
+            await this.stopWalletNode()
+            return resolve({ error: 'The core is probably running, shutting down, please try again.'});
+        } 
 
         const isTradelayerStarted = await fasitfyServer.tradelayerService.init()
             .catch((error) => {
