@@ -82,7 +82,7 @@ export class SocketService {
         this.socket.on(`${obEventPrefix}::connect_error`, () => {
             this._obSocketConnected = false;
             this.obServerWaiting = false;
-            this.toasterService.error('Orderbook Conenction Error', 'Error');
+            this.toasterService.error('Orderbook Connection Error, Host is probably down', 'Error');
         });
 
         this.socket.on(`${obEventPrefix}::disconnect`, () => {
