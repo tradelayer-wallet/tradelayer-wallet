@@ -18,8 +18,8 @@ import { IUTXO } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
 
-const minFeeLtcPerKb = 0.002;
-const minVOutAmount = 0.000036;
+const minFeeLtcPerKb = 0.0001;
+const minVOutAmount = 0.0000546;
 
 @Component({
   selector: 'tl-spot-buy-sell-card',
@@ -87,8 +87,8 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
     private buildForms() {
       this.buySellGroup = this.fb.group({
-        price: [null, [Validators.required, Validators.min(0.01)]],
-        amount: [null, [Validators.required, Validators.min(0.01)]],
+        price: [null, [Validators.required, Validators.min(0.0001)]],
+        amount: [null, [Validators.required, Validators.min(0.00000001)]],
       })
     }
 
@@ -187,75 +187,75 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     addLiquidity(_amount: string, _orders_number: string, _range: string) {
-      // const amount = parseFloat(_amount);
-      // const orders_number = parseFloat(_orders_number);
-      // const range = parseFloat(_range);
-      // console.log({ amount, orders_number, range });
+       const amount = parseFloat(_amount);
+       const orders_number = parseFloat(_orders_number);
+       const range = parseFloat(_range);
+       console.log({ amount, orders_number, range });
       return;
-      // const price = this.spotOrderbookService.lastPrice;
-      // const orders: ISpotTradeConf[] = [];
-      // const availableLtc = this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed;
-      // const first =  this.selectedMarket.first_token.propertyId;
-      // const second = this.selectedMarket.second_token.propertyId;
+       const price = this.spotOrderbookService.lastPrice;
+       const orders: ISpotTradeConf[] = [];
+       const availableLtc = this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed;
+       const first =  this.selectedMarket.first_token.propertyId;
+       const second = this.selectedMarket.second_token.propertyId;
 
-      // const availableFirst = first === -1
-      //   ? this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed
-      //   : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
-      //     ?.find((t: any) => t.propertyid === first)
-      //     ?.balance;
+       const availableFirst = first === -1
+         ? this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed
+         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
+           ?.find((t: any) => t.propertyid === first)
+           ?.balance;
 
-      // const availableSecond = second === -1
-      //   ? this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed
-      //   : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
-      //     ?.find((t: any) => t.propertyid === second)
-      //     ?.balance;
+       const availableSecond = second === -1
+         ? this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed
+         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
+           ?.find((t: any) => t.propertyid === second)
+           ?.balance;
       
-      // if (!availableFirst || !availableSecond || availableFirst < 1 || availableSecond < 1) {
-      //   this.toastrService.error(`You Need At least balance of 1 from each: ${this.selectedMarket.pairString}`);
-      //   return;
-      // }
+       if (!availableFirst || !availableSecond || availableFirst < 1 || availableSecond < 1) {
+         this.toastrService.error(`You Need At least balance of 1 from each: ${this.selectedMarket.pairString}`);
+         return;
+       }
 
-      // for (let i = 1; i < 11; i++) {
-      //   const rawOrder = { 
-      //     keypair: {
-      //       address: this.spotKeyPair?.address,
-      //       pubkey: this.spotKeyPair?.pubkey,
-      //     },
-      //     isLimitOrder: this.isLimitSelected,
-      //     marketName: this.selectedMarket.pairString,
-      //   };
+       for (let i = 1; i < 11; i++) {
+         const rawOrder = { 
+           keypair: {
+             address: this.spotKeyPair?.address,
+             pubkey: this.spotKeyPair?.pubkey,
+           },
+           isLimitOrder: this.isLimitSelected,
+           marketName: this.selectedMarket.pairString,
+         };
 
-      //   const buyProps = {
-      //     id_desired: this.selectedMarket.second_token.propertyId,
-      //     id_for_sale: this.selectedMarket.first_token.propertyId,
-      //     amount: safeNumber(availableFirst / 10),
-      //     price: safeNumber(price + i* (price / 10)),
-      //   };
+         const buyProps = {
+           id_desired: this.selectedMarket.second_token.propertyId,
+           id_for_sale: this.selectedMarket.first_token.propertyId,
+           amount: safeNumber(availableFirst / 10),
+           price: safeNumber(price + i* (price / 10)),
+         };
 
-      //   const sellProps = {
-      //     id_desired: this.selectedMarket.first_token.propertyId,
-      //     id_for_sale: this.selectedMarket.second_token.propertyId,
-      //     amount: safeNumber(availableSecond / 10),
-      //     price: safeNumber(price - i* (price / 10)),
-      //   };
+         const sellProps = {
+           id_desired: this.selectedMarket.first_token.propertyId,
+           id_for_sale: this.selectedMarket.second_token.propertyId,
+           amount: safeNumber(availableSecond / 10),
+           price: safeNumber(price - i* (price / 10)),
+         };
 
-      //   const buyOrder: ISpotTradeConf = {
-      //     ...rawOrder, 
-      //     type:"SPOT", 
-      //     action: "SELL", 
-      //     props: buyProps,
-      //   };
+         const buyOrder: ISpotTradeConf = {
+           ...rawOrder, 
+           type:"SPOT", 
+           action: "SELL", 
+           props: buyProps,
+         };
 
-      //   const sellOrder: ISpotTradeConf = {
-      //     ...rawOrder, 
-      //     type:"SPOT", 
-      //     action: "BUY", 
-      //     props: sellProps,
-      //   };
+         const sellOrder: ISpotTradeConf = {
+           ...rawOrder, 
+           type:"SPOT", 
+           action: "BUY", 
+           props: sellProps,
+         };
 
-      //   orders.push(buyOrder, sellOrder)
-      // }
-      // this.spotOrdersService.addLiquidity(orders);
+         orders.push(buyOrder, sellOrder)
+       }
+       this.spotOrdersService.addLiquidity(orders);
     }
 
     getButtonDisabled(isBuy: boolean) {

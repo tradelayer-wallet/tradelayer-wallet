@@ -16,6 +16,7 @@ export class MarketApiService {
     ) {}
 
     private get apiUrl() {
+        console.log('loading markets '+this.orderbookUrl + '/markets/')
         // if (!this.NETWORK) return null;
         if (!this.orderbookUrl) return null;
         return this.orderbookUrl + '/markets/';
@@ -30,12 +31,14 @@ export class MarketApiService {
     // }
 
     getSpotMarkets() {
+        console.log('spot markets '+this.apiUrl + 'spot')
         if (!this.apiUrl) throw new Error("No Api Url found");
         return this.http.get(this.apiUrl + 'spot')
             .pipe(map((res: any) => res.data));
     }
 
-    getFuturesMarkets() {
+    getFuturesMarkets() {    
+        console.log('futures markets '+this.apiUrl + 'futures')
         if (!this.apiUrl) throw new Error("No Api Url found");
         return this.http.get(this.apiUrl + 'futures')
             .pipe(map((res: any) => res.data));
