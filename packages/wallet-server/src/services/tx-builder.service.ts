@@ -66,7 +66,7 @@ export interface IInput {
     pubkey?: string;
 };
 
-const minFeeLtcPerKb = 0.002;
+const minFeeLtcPerKb = 0.0001;
 
 
 export const smartRpc: TClient = async (method: string, params: any[] = [], api: boolean = false) => {
@@ -100,14 +100,14 @@ export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode:
         if (vaRes2.error || !vaRes2.data?.isvalid) throw new Error(`validateaddress: ${vaRes2.error}`);
     
         const luRes = await smartRpc('listunspent', [0, 999999999, [buyerAddress]], false);
-        if (luRes.error || !luRes.data) throw new Error(`listunspent: ${luRes.error}`);
+        if (luRes.error || !luRes.data) return new Error(`listunspent: ${luRes.error}`);
         const _utxos = (luRes.data as IInput[])
             .map(i => ({ ...i, pubkey: buyerKeyPair.pubkey }))
             .sort((a, b) => b.amount - a.amount)
             // .filter(u => !usedUTXOS.includes(u.txid));
         const utxos = [...commitUTXOs, ..._utxos];
         const minAmountRes = await getMinVoutAmount(sellerAddress, isApiMode);
-        if (minAmountRes.error || !minAmountRes.data) throw new Error(`getMinVoutAmount: ${minAmountRes.error}`);
+        if (minAmountRes.error || !minAmountRes.data) return new Error(`getMinVoutAmount: ${minAmountRes.error}`);
         const minAmount = minAmountRes.data;
         const buyerLtcAmount = minAmount;
         const sellerLtcAmount = Math.max(amount, minAmount);
@@ -152,9 +152,10 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
         if (vaRes1.error || !vaRes1.data?.isvalid) throw new Error(`validateaddress: ${vaRes1.error}`);
         const vaRes2 = await smartRpc('validateaddress', [toAddress], isApiMode);
         if (vaRes2.error || !vaRes2.data?.isvalid) throw new Error(`validateaddress: ${vaRes2.error}`);
-
+        //console.log('About to call listunspent in buildTx '+ fromAddress)
         const luRes = await smartRpc('listunspent', [0, 999999999, [fromAddress]], isApiMode);
-        if (luRes.error || !luRes.data) throw new Error(`listunspent: ${luRes.error}`);
+        //console.log(JSON.stringify(luRes))
+        if (luRes.error || !luRes.data) return new Error(`listunspent: ${luRes.error}`);
         const _utxos = (luRes.data as IInput[])
             .map(i => ({...i, pubkey: fromKeyPair.pubkey}))
             .sort((a, b) => b.amount - a.amount);
@@ -234,7 +235,7 @@ const getEnoughInputs = (_inputs: IInput[], amount: number) => {
 
 const getMinVoutAmount = async (toAddress: string, isApiMode: boolean) => {
     try {
-        return { data: 0.000564 };
+        return { data: 0.0000546 };
         const crtxrRes = await smartRpc('tl_createrawtx_reference', ['', toAddress], isApiMode);
         if (crtxrRes.error || !crtxrRes.data) throw new Error(`tl_createrawtx_reference: ${crtxrRes.error}`);
         const drwRes = await smartRpc('decoderawtransaction', [crtxrRes.data], isApiMode);

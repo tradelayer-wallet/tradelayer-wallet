@@ -101,8 +101,9 @@ export class TxsService {
         buildTxConfig: IBuildTxConfig
     ): Promise<{ data?: { rawtx: string; inputs: IUTXO[], psbtHex?: string }, error?: string }> {
         try {
+            console.log('Inputs in build:', JSON.stringify(buildTxConfig));
             if (!buildTxConfig.inputs || buildTxConfig.inputs.length === 0) {
-                return { error: 'No inputs available for building the transaction. Please ensure your address has UTXOs.' };
+                console.log('error: No inputs available for building the transaction. Please ensure your address has UTXOs.');
             }
 
             const network = this.rpcService.NETWORK;
@@ -115,51 +116,51 @@ export class TxsService {
         }
     }
 
-    async buildSingSendTx(
-        buildTxConfig: IBuildTxConfig
-    ): Promise<{ data?: string, error?: string }> {
-        try {
-            this.loadingService.isLoading = true;
+   async buildSingSendTx(
+            buildTxConfig: IBuildTxConfig,
+        ): Promise<{ data?: string, error?: string }> {
+            try {
+                this.loadingService.isLoading = true;
+                const buildRes = await this.buildTx(buildTxConfig);
+                if (buildRes.error || !buildRes.data) {
+                    return { error: buildRes.error || 'Failed to build the transaction.' };
+                }
 
-            if (!buildTxConfig.inputs || buildTxConfig.inputs.length === 0) {
-                return { error: 'No inputs available for the transaction. Please ensure your address has UTXOs.' };
-            }
+                const { inputs, rawtx } = buildRes.data;
 
-            const buildRes = await this.buildTx(buildTxConfig);
-            if (buildRes.error || !buildRes.data) {
-                return { error: buildRes.error || 'Failed to build the transaction. Please try again.' };
-            }
-            
-            const { inputs, rawtx } = buildRes.data;
-            const keyPair = this.authService.listOfallAddresses.find(e => e.address === buildTxConfig.fromKeyPair.address);
-            if (!keyPair) {
-                return { error: `Could not find the keys for address: ${buildTxConfig.fromKeyPair.address}.` };
-            }
+                // if (!inputs || !rawtx) return { error: 'No inputs or raw transaction data available.' };
+                // const keyPair = this.authService.listOfallAddresses.find(e => e.address === buildTxConfig.fromKeyPair.address);
+                // if (!keyPair) return { error: `Could not find the keys for address: ${buildTxConfig.fromKeyPair.address}.` };
+                // const wifRes = await this.rpcService.rpc('dumpprivkey', [buildTxConfig.fromKeyPair.address]);
+                // if (!wifRes || wifRes.error) return { error: `Error with finding keys for address: ${buildTxConfig.fromKeyPair.address}.` };
+                // const wif = wifRes.data;
+                // const signRes = await this.signTx({ inputs, rawtx, wif });
 
-            const wif = keyPair.wif;
-            const signRes = await this.signTx({ inputs, rawtx, wif });
-            if (signRes.error || !signRes.data) {
-                return { error: signRes.error || 'Failed to sign the transaction. Please try again.' };
-            }
+                const signRes = await this.signRawTxWithWallet(rawtx);
+                if (signRes.error || !signRes.data) {
+                    return { error: signRes.error || 'Failed to sign the transaction.' };
+                }
 
-            const { isValid, signedHex } = signRes.data;
-            if (!isValid || !signedHex) {
-                return { error: 'The transaction is not valid or could not be signed. Please review the transaction details.' };
-            }
+                const { isValid, signedHex } = signRes.data;
+                if (!isValid || !signedHex) {
+                    return { error: 'The transaction is not valid or could not be signed.' };
+                }
 
-            const sendRes = await this.sendTx(signedHex);
-            if (sendRes.error || !sendRes.data) {
-                return { error: sendRes.error || 'Failed to broadcast the transaction. Please check your network connection and try again.' };
-            }
+                const sendRes = await this.sendTx(signedHex);
+                if (sendRes.error || !sendRes.data) {
+                    return { error: sendRes.error || 'Failed to broadcast the transaction.' };
+                }
 
-            return { data: sendRes.data };
-        } catch (error: any) {
-            return { error: error.message || 'An unexpected error occurred while processing the transaction.' };
-        } finally {
-            this.loadingService.isLoading = false;
-            this.balanceService.updateBalances();
+                return { data: sendRes.data };
+            } catch (error: any) {
+                this.toastrService.error(error.message);
+                return { error: error.message };
+            } finally {
+                this.loadingService.isLoading = false;
+                this.balanceService.updateBalances();
+            }
         }
-    }
+
 
     async signTx(signTxConfig: ISignTxConfig): Promise<{
         data?: {

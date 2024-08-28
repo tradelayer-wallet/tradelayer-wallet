@@ -93,6 +93,7 @@ export class AuthService {
     ) {}
 
     get isLoggedIn() {
+        //console.log('inside isLoggedIn '+this.walletKeys.main.length)
         return !!this.walletKeys.main.length;
     }
 
@@ -125,6 +126,7 @@ export class AuthService {
     }
 
     get listOfallAddresses() {
+        //console.log('inside list of addresses checking keys '+JSON.stringify(this.walletKeys))
         return (Object.values(this.walletKeys) as any)
             .flat() as IKeyPair[];
     }
@@ -150,6 +152,7 @@ export class AuthService {
         try {
             if (!this.isAbleToRpc) return;
             const res = await this.rpcService.rpc('getaddressesbylabel', [this.walletLabel]);
+            console.log('inside get addresses from wallet '+JSON.stringify(res))
             if (res.EECode === -18) {
                 try {
                     await this.rpcService.rpc('createwallet', [this.walletLabel]);
@@ -162,6 +165,7 @@ export class AuthService {
             }
 
             if (res.EECode === -11) {
+                console.log('res EE code 11 returning wallet []')
                 this.walletAddresses = [];
                 return;
             }
