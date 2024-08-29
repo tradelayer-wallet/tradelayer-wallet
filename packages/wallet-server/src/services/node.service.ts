@@ -154,10 +154,18 @@ const checkIsCoreStarted = async (
             });
         };
         const firstCheck = await isActiveCheck();
-        if (firstCheck !== 0){
-            await this.stopWalletNode()
-            return resolve({ error: 'The core is probably running, shutting down, please try again.'});
-        } 
+        if (firstCheck !== 0) {
+            /*console.log('Attempting to stop the core...');
+            try {
+                    console.log('RPC Client found:', client);
+                    await client.call('stop');
+                    console.log('Core stopped successfully.');
+            } catch (error) {
+                console.error('Error while trying to stop the core:', error);
+            }*/
+            return resolve({ error: 'The core is already running, try shutting down litecoind in the task manager, restarting the wallet or restarting your PC.' });
+        }
+
 
         const isTradelayerStarted = await fasitfyServer.tradelayerService.init()
             .catch((error) => {

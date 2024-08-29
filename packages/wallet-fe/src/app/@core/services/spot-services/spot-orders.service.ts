@@ -58,6 +58,7 @@ export class SpotOrdersService {
 
     newOrder(orderConf: ISpotTradeConf) {
         this.loadingService.tradesLoading = true;
+        console.log('inside new order '+JSON.stringify(orderConf))
         this.socket.emit('new-order', orderConf);
     }
 

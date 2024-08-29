@@ -111,29 +111,39 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       return `${_amount} ${tokenName}`;
     }
 
-    getMaxAmount(isBuy: boolean) {
-      if (!this.spotAddress) return 0;
-      if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
-      const _price = this.isLimitSelected 
-        ? this.buySellGroup.value['price'] 
-        : this.currentPrice;
-      const price = safeNumber(_price);
+   getMaxAmount(isBuy: boolean) {
+        if (!this.spotAddress) return 0;
+        if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
+        
+        const _price = this.isLimitSelected 
+            ? this.buySellGroup.value['price'] 
+            : this.currentPrice;
+        const price = safeNumber(_price);
 
-      const propId = isBuy
-        ? this.selectedMarket.second_token.propertyId
-        : this.selectedMarket.first_token.propertyId;
+        const propId = isBuy
+            ? this.selectedMarket.second_token.propertyId
+            : this.selectedMarket.first_token.propertyId;
 
-      const _available = propId === -1
-        ? safeNumber(this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed - this.getFees(isBuy))
-        : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
-          ?.find((t: any) => t.propertyid === propId)
-          ?.available;
-      const inOrderBalance = this.getInOrderAmount(propId);
-      const available = safeNumber((_available || 0) - inOrderBalance);
-      if (!available || ((available / price) <= 0)) return 0;
-      const _max = isBuy ? (available / price) : available;
-      const max = safeNumber(_max);
-      return max;
+        let _available;
+        if (propId === -1 || propId === 0) {
+            // Handle LTC balance
+            _available = safeNumber(this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed - this.getFees(isBuy));
+        } else {
+            // Handle other tokens
+            _available = this.balanceService.getTokensBalancesByAddress(this.spotAddress)
+                ?.find((t: any) => t.propertyid === propId)
+                ?.available;
+        }
+
+        const inOrderBalance = this.getInOrderAmount(propId);
+        const available = safeNumber((_available || 0) - inOrderBalance);
+        
+        if (!available || ((available / price) <= 0)) return 0;
+
+        const _max = isBuy ? (available / price) : available;
+        const max = safeNumber(_max);
+        
+        return max;
     }
 
     async handleBuySell(isBuy: boolean) {
@@ -155,8 +165,13 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const market = this.selectedMarket;
       const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
-      if (!propIdForSale || !propIdDesired || (!price && this.isLimitSelected) || !amount) return;
-      if (!this.spotKeyPair) return;
+      console.log('checking buySell logic '+propIdForSale+' '+propIdDesired+' '+Boolean(!price && this.isLimitSelected)+' '+Boolean(!amount)+Boolean(!this.spotKeyPair))
+      if (!propIdForSale || !propIdDesired || (!price && this.isLimitSelected) || !amount){
+         return console.log('missing parameters for trade')
+      }
+      if (!this.spotKeyPair){
+        return console.log('missing key pair')
+      } 
   
       const pubkeyRes = await this.rpcService.rpc("getaddressinfo", [this.spotKeyPair]);
       if (pubkeyRes.error || !pubkeyRes.data?.pubkey) throw new Error(pubkeyRes.error || "No Pubkey Found");
@@ -178,6 +193,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
       };
+      console.log('about to place trade '+JSON.stringify(ISpotTradeConf))
       this.spotOrdersService.newOrder(order);
       this.buySellGroup.reset();
     }
@@ -295,14 +311,18 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     getNameBalanceInfo(token: IToken) {
-      const _balance = token.propertyId === -1
-        ? this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmed
-        : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
+      let _balance;
+      if (token.propertyId === 0) {
+        _balance = this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed;
+      } else {
+        _balance = this.balanceService.getTokensBalancesByAddress(this.spotAddress)
           ?.find(e => e.propertyid === token.propertyId)?.available;
+      }
       const inOrderBalance = this.getInOrderAmount(token.propertyId);
-      const balance = safeNumber((_balance  || 0) - inOrderBalance);
-      return [token.fullName, `${ balance > 0 ? balance : 0 } ${token.shortName}`];
+      const balance = safeNumber((_balance || 0) - inOrderBalance);
+      return [token.fullName, `${balance > 0 ? balance : 0} ${token.shortName}`];
     }
+
 
     private getInOrderAmount(propertyId: number) {
       const num = this.spotOrdersService.openedOrders.map(o => {
