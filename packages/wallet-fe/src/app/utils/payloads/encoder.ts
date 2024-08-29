@@ -60,7 +60,7 @@ const encodeCommit = (params: EncodeCommitParams): string => {
         params.amount.toString(36),
         params.channelAddress,
     ];
-    const txNumber = 5;
+    const txNumber = 4;
     const txNumber36 = txNumber.toString(36);
     const payloadString = payload.join(',');
     return marker + txNumber36 + payloadString;

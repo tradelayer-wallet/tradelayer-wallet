@@ -187,7 +187,7 @@ export class BalanceService {
                     }
                 }
             } catch (error) {
-                console.log('Error fetching channel balances:', error);
+                //console.log('Error fetching channel balances:', error);
             }
 
             // Process balances
