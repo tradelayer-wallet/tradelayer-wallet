@@ -105,10 +105,10 @@ export class SellSwapper extends Swap {
 
             // sign Commit Tx
             // const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
-            const cimmitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
-            if (cimmitTxSignRes.error || !cimmitTxSignRes.data) throw new Error(`Sign Commit TX: ${cimmitTxSignRes.error}`);
-            const { isValid, signedHex } = cimmitTxSignRes.data;
-            if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
+            const commitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
+            if (commitTxSignRes.error || !commitTxSignRes.data) throw new Error(`Sign Commit TX: ${commitTxSignRes.error}`);
+            const { isValid, signedHex } = commitTxSignRes.data;
+            if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${commitTxSignRes.error}`);
 
             // send Commit Tx
             const commiTxSendRes = await this.txsService.sendTx(signedHex);

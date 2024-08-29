@@ -35,6 +35,7 @@ export class BalanceService {
                 reserved: number,
                 margin: number,
                 vesting: number,
+                channel: number
             }[];
         }
     } = {};
@@ -143,77 +144,72 @@ export class BalanceService {
     }
 
     private async getTokensBalanceArrForAddress_old(address: string) {
-        if (!address) return { error: 'No address provided for updating the balance' };
-        const balanceRes = await this.tlApi.rpc('tl_getAllBalancesForAddress', [address]).toPromise()
-       
-        if (!balanceRes.data || balanceRes.error) return { data: [] };
-        try {
-            const promisesArray = (balanceRes.data as { propertyid: number, balance: string, reserved: string }[])
-                .map(async (token) => ({ ...token, name: await this.getTokenNameById(token.propertyid)}));
-            const arr = await Promise.all(promisesArray);
-            const data = arr.map((t) => {
-                const balObj = {
-                    ...t, 
-                    balance: parseFloat(t.balance),
-                };
-                return balObj;
-            });
-            return { data };
-        } catch (error: any) {
-            return { error: `Error with getting tokens Balance` };
+            if (!address) return { error: 'No address provided for updating the balance' };
+            const balanceRes = await this.tlApi.rpc('tl_getAllBalancesForAddress', [address]).toPromise()
+           
+            if (!balanceRes.data || balanceRes.error) return { data: [] };
+            try {
+                const promisesArray = (balanceRes.data as { propertyid: number, balance: string, reserved: string }[])
+                    .map(async (token) => ({ ...token, name: await this.getTokenNameById(token.propertyid)}));
+                const arr = await Promise.all(promisesArray);
+                const data = arr.map((t) => {
+                    const balObj = {
+                        ...t, 
+                        balance: parseFloat(t.balance),
+                    };
+                    return balObj;
+                });
+                return { data };
+            } catch (error: any) {
+                return { error: `Error with getting tokens Balance` };
+            }
         }
-    }
 
-    private async getTokensBalanceArrForAddress(address: string) {
-        if (!address) return { error: 'No address provided for updating the balance' };
-        const balanceRes = await this.tlApi.rpc('getAllBalancesForAddress', [address]).toPromise();
-        const selfChannelRes = await this.tlApi.rpc('getChannel', [address]).toPromise())
+        private async getTokensBalanceArrForAddress(address: string) {
+            if (!address) return { error: 'No address provided for updating the balance' };
+            
+            // Fetch balances
+            const balanceRes = await this.tlApi.rpc('getAllBalancesForAddress', [address]).toPromise();
+            if (balanceRes.error || !balanceRes.data) {
+               return { error: balanceRes.error || 'Error with updating balances' };
+            }
 
-        /* example res
-        {"_id":"tltc1qn3src8lgu50gxhndn5hnd6zrc9yv2364wu858m","data":{"participants":{"A":"tltc1qn3src8lgu50gxhndn5hnd6zrc9yv2364wu858m","B":""},"channel":"tltc1qn3src8lgu50gxhndn5hnd6zrc9yv2364wu858m","commits":[{"senderAddress":"tltc1qn3src8lgu50gxhndn5hnd6zrc9yv2364wu858m","propertyId":"s-5-4","tokenAmount":1,"block":3383651,"columnAssigned":"A"},{"senderAddress":"tltc1qn3src8lgu50gxhndn5hnd6zrc9yv2364wu858m","propertyId":"s-5-4","tokenAmount":1,"block":3383686,"columnAssigned":"A"}],"A":{"s-5-4":0},"B":{},"lastCommitmentTime":3383686,"lastUsedColumn":"A"}}
-        */
+            // Fetch channel balances
+            let channelBalances: any = {};
+            try {
+                const selfChannelRes = await this.tlApi.rpc('getChannel', [address]).toPromise();
+                if (selfChannelRes && selfChannelRes.data) {
+                    const isA = selfChannelRes.data.participants.A === address;
+                    const isB = selfChannelRes.data.participants.B === address;
 
-        if (!balanceRes.data || balanceRes.error) return { data: [] };
-        const data = (balanceRes.data as { propertyId: string, balance: { amount: number, available: number, reserved: number, margin: number, vesting: number } }[])
-            .map((token) => ({ 
-                ...token, 
-                name: `token_${token.propertyId}`, 
-                propertyid: parseInt(token.propertyId), 
-                amount: token.balance.amount,
-                available: token.balance.available,
-                reserved: token.balance.reserved,
-                margin: token.balance.margin,
-                vesting: token.balance.vesting,
-                channel: 0
-            }));
-         if (selfChannelRes && selfChannelRes.data) {
-                const isA = selfChannelRes.data.participants.A === address;
-                const isB = selfChannelRes.data.participants.B === address;
-                
-                if (isA || isB) {
-                    const channelBalances = isA ? selfChannelRes.data.A : selfChannelRes.data.B;
-
-                    for (const [propertyId, channelBalance] of Object.entries(channelBalances)) {
-                        const existingToken = data.find(token => token.propertyid === parseInt(propertyId));
-                        if (existingToken) {
-                            existingToken.amount += channelBalance;
-                            existingToken.available += channelBalance;
-                            existingToken.channel = 'channel'; // mark this as from the channel
-                        } else {
-                            data.push({
-                                name: `token_${propertyId}`,
-                                propertyid: parseInt(propertyId),
-                                channel: channelBalance // new token from the channel
-                            });
-                        }
+                    if (isA || isB) {
+                        channelBalances = isA ? selfChannelRes.data.A : selfChannelRes.data.B;
                     }
                 }
+            } catch (error) {
+                console.log('Error fetching channel balances:', error);
             }
-        
 
-            data.channel = selfChannelRes.
-        return { data };
-    }
+            // Process balances
+            const data = (balanceRes.data as { propertyId: string, balance: { amount: number, available: number, reserved: number, margin: number, vesting: number } }[])
+                .map((token) => {
+                    const channelBalance = channelBalances[token.propertyId] || 0;
+                    return {
+                        name: `token_${token.propertyId}`, 
+                        propertyid: parseInt(token.propertyId), 
+                        amount: token.balance.amount,
+                        available: token.balance.available,
+                        reserved: token.balance.reserved,
+                        margin: token.balance.margin,
+                        vesting: token.balance.vesting,
+                        channel: channelBalance as number
+                    };
+                });
+
+            return { data };
+        }
+
+
 
     async getTokenNameById(id: number) {
         const existingTokenName = Object.values(this._allBalancesObj)

@@ -35,6 +35,9 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('/getChannel', async (request, reply) => {
         try {
+            const body = request.body as any;
+            const params = body.params as any[];
+            const address = params[0];
             const channel = await axios.post(baseURL + 'tl_getChannel', { params: address });
             reply.status(200).send(channel);
         } catch (error) {
