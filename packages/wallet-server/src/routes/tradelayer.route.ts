@@ -22,13 +22,22 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const body = request.body as any;
             const params = body.params as any[];
             const address = params[0];
-            const res = await axios.post(baseURL + 'tl_getallbalancesforaddress', { params: address });
+            const res = await axios.post(baseURL + 'tl_getAllBalancesForAddress', { params: address });
             // const addressBalanceData = fasitfyServer.tradelayerService.tradeLayerInstance.tallyManager.getAddressData(address);
             // const arrayBalance = Object.values(addressBalanceData || {})
             //     .map((balance: any, index: number) => ({ propertyId: Object.keys(addressBalanceData)[index], balance }));
             reply.status(200).send(res.data);
         } catch (error) {
             console.error(error); // Log the full error for debugging
+            reply.status(500).send('Error: ' + error.message);
+        }
+    });
+
+    fastify.post('/getChannel', async (request, reply) => {
+        try {
+            const channel = await axios.post(baseURL + 'tl_getChannel', { params: address });
+            reply.status(200).send(channel);
+        } catch (error) {
             reply.status(500).send('Error: ' + error.message);
         }
     });
@@ -61,9 +70,9 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
 
-    fastify.post('/loadwallet', async (request, reply) => {
+    fastify.post('/loadWallet', async (request, reply) => {
         try {
-            const res = await axios.post(baseURL + 'tl_loadwallet');
+            const res = await axios.post(baseURL + 'tl_loadWallet');
             reply.status(200).send(res.data || 0 );
         } catch (error) {
             reply.status(500).send('Error: ' + error.message);

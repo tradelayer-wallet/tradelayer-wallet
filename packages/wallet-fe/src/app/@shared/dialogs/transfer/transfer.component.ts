@@ -4,6 +4,8 @@ import { ToastrService } from 'ngx-toastr';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { IToken } from 'src/app/@core/services/spot-services/spot-markets.service';
+import { ENCODER } from 'src/app/utils/payloads/payloads/encoder';
+
 
 @Component({
   selector: 'transfer-dialog',
@@ -97,6 +99,11 @@ export class TransferDialog {
   async transfer() {
     try {
       this.loadingService.isLoading = true;
+      const payload = ENCODER.encodeCommit({
+                amount: this.amount,
+                propertyId: this.selectedToken.propertyId,
+                channelAddress: this.address,
+            });
 
       this.toastrService.success(`Transfer Test!`, 'Success');
     } catch (error: any) {

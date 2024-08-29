@@ -165,10 +165,11 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const market = this.selectedMarket;
       const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
-      console.log('checking buySell logic '+propIdForSale+' '+propIdDesired+' '+Boolean(!price && this.isLimitSelected)+' '+Boolean(!amount)+Boolean(!this.spotKeyPair))
-      if (!propIdForSale || !propIdDesired || (!price && this.isLimitSelected) || !amount){
-         return console.log('missing parameters for trade')
+      console.log('checking buySell logic '+Boolean(propIdForSale)+' '+Boolean(propIdDesired)+' '+Boolean(!price && this.isLimitSelected)+' '+Boolean(!amount)+Boolean(!this.spotKeyPair))
+      if (propIdForSale == null || propIdDesired == null || (!price && this.isLimitSelected) || amount == null) {
+        return console.log('missing parameters for trade ' + propIdForSale + ' ' + propIdDesired + ' ' + price + ' ' + this.isLimitSelected+ ' ' + amount);
       }
+
       if (!this.spotKeyPair){
         return console.log('missing key pair')
       } 
@@ -193,7 +194,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
       };
-      console.log('about to place trade '+JSON.stringify(ISpotTradeConf))
+      console.log('about to place trade '+JSON.stringify(order))
       this.spotOrdersService.newOrder(order);
       this.buySellGroup.reset();
     }

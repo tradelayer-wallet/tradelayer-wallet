@@ -86,10 +86,20 @@
                   <mat-header-cell *matHeaderCellDef>Available </mat-header-cell>
                   <mat-cell *matCellDef="let element"> {{ element.available }} </mat-cell>
                 </ng-container>
+
+                <ng-container matColumnDef="reserve">
+                  <mat-header-cell *matHeaderCellDef>Reserve </mat-header-cell>
+                  <mat-cell *matCellDef="let element"> {{ element.reserve }} </mat-cell>
+                </ng-container>
             
                 <ng-container matColumnDef="margin">
                   <mat-header-cell *matHeaderCellDef>Margin </mat-header-cell>
                   <mat-cell *matCellDef="let element"> {{ element.margin }} </mat-cell>
+                </ng-container>
+
+                <ng-container matColumnDef="Channel">
+                  <mat-header-cell *matHeaderCellDef>Channel </mat-header-cell>
+                  <mat-cell *matCellDef="let element"> {{ element.channel }} </mat-cell>
                 </ng-container>
                 
               <ng-container matColumnDef="actions">
