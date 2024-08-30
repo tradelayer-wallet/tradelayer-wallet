@@ -217,7 +217,7 @@ export class TxsService {
     }
 
     async getChannel(address: string){
-        const channelRes = await this.tlAPI.rpc('tl_getChannel', [address]).toPromise();
+        const channelRes = await this.tlApi.rpc('tl_getChannel', [address]).toPromise();
         console.log('channel fetch in tx service '+JSON.stringify(channelRes))
          if (!channelRes.data || channelRes.error) return { data: [] };
         
@@ -226,7 +226,7 @@ export class TxsService {
 
     async checkMempool(txid: string) {
         try {
-            const mempool = await this.rpcService.rpc('getrawmempool', []).toPromise();;
+            const mempool = await this.rpcService.rpc('getrawmempool', []);
             
             // Check if the txid is in the mempool
             const isInMempool = mempool.includes(txid);
@@ -240,7 +240,7 @@ export class TxsService {
 
     async predictColumn (channel:string, cpAddress:string){
         try {
-            const column = await this.tlAPI.rpc('tl_getChannelColumn', [channel,cpAddress]).toPromise();;
+            const column = await this.tlApi.rpc('tl_getChannelColumn', [channel,cpAddress]).toPromise();;
             console.log('column prediction fetch in tx service '+JSON.stringify(column))
 
             return column.data;

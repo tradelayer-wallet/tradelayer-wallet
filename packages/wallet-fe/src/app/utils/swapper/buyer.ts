@@ -3,6 +3,7 @@ import { IBuildLTCITTxConfig, IBuildTxConfig, IUTXO, TxsService } from "src/app/
 import { IMSChannelData, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
 import { Swap } from "./swap";
 import { ENCODER } from '../payloads/encoder';
+import { ToastrService } from "ngx-toastr";
 
 export class BuySwapper extends Swap {
     constructor(
@@ -94,14 +95,14 @@ export class BuySwapper extends Swap {
                        satsPaid = amountDesired
                     }
 
-                    const column = await this.txService.predictColumn(this.multySigChannelData.address,this.cpInfo.keypair)
+                    const column = await this.txsService.predictColumn(this.multySigChannelData.address,this.cpInfo.keypair)
                     let isA=false
                     if(column=='A'){
                         isA=true
                     } 
                     console.log('testing column check in LTC swap '+isA+' '+column)
-                    const payload = ENCODER.encode({
-                        propertyId: tokenID,
+                    const payload = ENCODER.encodeTradeTokenForUTXO({
+                        propertyId: tokenId,
                         amount: this.tradeInfo.amountDesired,
                         columnA: isA,
                         satsExpected: satsPaid,
@@ -141,7 +142,7 @@ export class BuySwapper extends Swap {
                     const commitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
                     if (commitTxSignRes.error || !commitTxSignRes.data) return console.log(`Sign Commit TX: ${commitTxSignRes.error}`);
                     const { isValid, signedHex } = commitTxSignRes.data;
-                    if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
+                    if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${commitTxSignRes.error}`);
     
                     // send Commit Tx
                     const commitTxSendRes = await this.txsService.sendTx(signedHex);
@@ -273,7 +274,7 @@ export class BuySwapper extends Swap {
         let isInMempool = false;
 
         while (attempts < maxAttempts) {
-            isInMempool = await this.txService.checkMempool(signRes.data.finalHex);
+            isInMempool = await this.txsService.checkMempool(signRes.data.finalHex);
             if (isInMempool) break;
 
             attempts++;
@@ -288,8 +289,8 @@ export class BuySwapper extends Swap {
         if (this.readyRes) this.readyRes({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });
                 
         const swapEvent = new SwapEvent('BUYER:STEP6', this.myInfo.socketId, finalTxIdRes.data);
-        const { propIdDesired, amountDesired, amountForSale, propIdForSale } = this.tradeInfo;
-          this.toastrService.info('Trade completed: '+amountDesired+' of id '+propIdDesired+ ' for ' +amountForSale +' of '+propIdForSale);
+
+        this.toastrService.info('Trade completed: '+finalTxIdRes.data);
 
         this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
         
