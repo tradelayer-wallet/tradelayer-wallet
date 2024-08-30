@@ -137,14 +137,14 @@ export class SellSwapper extends Swap {
 
     private async onStep4(cpId: string, psbtHex: string) {
         try {
-            if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
+            if (cpId !== this.cpInfo.socketId) return console.log(`Error with p2p connection`);
             if (!psbtHex) throw new Error(`PsbtHex for syncing not provided`);
             const wifRes = await this.txsService.getWifByAddress(this.myInfo.keypair.address);
-            if (wifRes.error || !wifRes.data) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
+            if (wifRes.error || !wifRes.data) return console.log(`WIF not found: ${this.myInfo.keypair.address}`);
             const wif = wifRes.data;
             if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
             const signRes = await this.txsService.signPsbt({ wif, psbtHex });
-            if (signRes.error || !signRes.data?.psbtHex) throw new Error(`Sign Tx: ${signRes.error}`);
+            if (signRes.error || !signRes.data?.psbtHex) return console.log(`Sign Tx: ${signRes.error}`);
             const swapEvent = new SwapEvent(`SELLER:STEP5`, this.myInfo.socketId, signRes.data.psbtHex);
             this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
         } catch (error: any) {

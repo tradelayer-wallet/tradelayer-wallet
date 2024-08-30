@@ -79,6 +79,10 @@ export class TxsService {
         return this.apiService.mainApi;
     }
 
+    get tlApi() {
+        return this.apiService.tlApi;
+    }
+
     async getWifByAddress(address: string) {
         return this.rpcService.rpc('dumpprivkey', [address]);
     }
@@ -210,6 +214,40 @@ export class TxsService {
         const result = await this.rpcService.rpc('sendrawtransaction', [rawTx]);
         this.balanceService.updateBalances();
         return result;
+    }
+
+    async getChannel(address: string){
+        const channelRes = await this.tlAPI.rpc('tl_getChannel', [address]).toPromise();
+        console.log('channel fetch in tx service '+JSON.stringify(channelRes))
+         if (!channelRes.data || channelRes.error) return { data: [] };
+        
+        return channelRes.data
+    }
+
+    async checkMempool(txid: string) {
+        try {
+            const mempool = await this.rpcService.rpc('getrawmempool', []).toPromise();;
+            
+            // Check if the txid is in the mempool
+            const isInMempool = mempool.includes(txid);
+
+            return isInMempool;
+        } catch (error) {
+            console.error('Error checking mempool:', error);
+            return false;
+        }
+    }
+
+    async predictColumn (channel:string, cpAddress:string){
+        try {
+            const column = await this.tlAPI.rpc('tl_getChannelColumn', [channel,cpAddress]).toPromise();;
+            console.log('column prediction fetch in tx service '+JSON.stringify(column))
+
+            return column.data;
+        } catch (error) {
+            console.error('Error checking column:', error);
+            return false;
+        }
     }
 
     async sendTxWithSpecRetry(rawTx: string) {

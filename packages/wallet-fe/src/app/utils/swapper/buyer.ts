@@ -70,30 +70,59 @@ export class BuySwapper extends Swap {
             const bbData = parseFloat(gbcRes.data) + 1000;
             if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
                 const { propIdDesired, amountDesired, amountForSale, propIdForSale } = this.tradeInfo;
-                if (propIdForSale === -1) {
-                    throw new Error(`Litecoin is not supported for now`);
-                    // const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), (amountForSale).toString(), bbData ];
-                    // const cpitRes = await this.client('tl_createpayload_instant_ltc_trade', cpitLTCOptions);
-                    // if (cpitRes.error || !cpitRes.data) throw new Error(`tl_createpayload_instant_ltc_trade: ${cpitRes.error}`);
-                    // const buildOptions: IBuildLTCITTxConfig = {
-                    //     buyerKeyPair: this.myInfo.keypair,
-                    //     sellerKeyPair: this.cpInfo.keypair,
-                    //     commitUTXOs: [commitUTXO],
-                    //     payload: cpitRes.data,
-                    //     amount: amountForSale,
-                    // };
-                    // const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
-                    // if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
-                    // const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
-                    // this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+                let ltcTrade= false
+                let ltcForSale = false
+                if(propIdDesired === 0){
+                    ltcTrade=true
+                }else if(propIdForSale ===0){
+                    ltcTrade=true
+                    ltcForSale=false
+                }
+                if (ltcTrade === true) {
+                    //throw new Error(`Litecoin is not supported for now`);
+                     const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), (amountForSale).toString(), bbData ];
+                    let tokenId
+                    let tokensSold 
+                    let satsPaid
+                    if(ltcForSale==false){
+                       tokenId = propIdDesired
+                       tokensSold = amountDesired
+                       satsPaid = amountForSale
+                    }else if(ltcForSale==true){
+                       tokenId = propIdForSale
+                       tokensSold = amountForSale
+                       satsPaid = amountDesired
+                    }
+
+                    const column = await this.txService.predictColumn(this.multySigChannelData.address,this.cpInfo.keypair)
+                    let isA=false
+                    if(column=='A'){
+                        isA=true
+                    } 
+                    console.log('testing column check in LTC swap '+isA+' '+column)
+                    const payload = ENCODER.encode({
+                        propertyId: tokenID,
+                        amount: this.tradeInfo.amountDesired,
+                        columnA: isA,
+                        satsExpected: satsPaid,
+                        tokenOutput: 0,
+                        payToAddress: 1
+                    });
+                     const buildOptions: IBuildLTCITTxConfig = {
+                         buyerKeyPair: this.myInfo.keypair,
+                         sellerKeyPair: this.cpInfo.keypair,
+                         commitUTXOs: [commitUTXO],
+                         payload: payload,
+                         amount: amountForSale,
+                     };
+                     const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
+                     if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
+                     const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
+                     this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
                 } else {
-                    // const ctcpParams = [propIdDesired, (amountDesired).toString()];
-                    // const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
-                    // if (cpctcRes.error || !cpctcRes.data) throw new Error(`tl_createpayload_commit_tochannel: ${cpctcRes.error}`);
-                    
                     const fromKeyPair = { address: this.myInfo.keypair.address };
                     const toKeyPair = { address: this.multySigChannelData.address };
-                    // const payload = cpctcRes.data;
+                 
                     const payload = ENCODER.encodeCommit({
                         amount: this.tradeInfo.amountDesired,
                         propertyId: this.tradeInfo.propIdDesired,
@@ -109,14 +138,14 @@ export class BuySwapper extends Swap {
                     
                     // sign Commit Tx
                     // const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
-                    const cimmitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
-                    if (cimmitTxSignRes.error || !cimmitTxSignRes.data) throw new Error(`Sign Commit TX: ${cimmitTxSignRes.error}`);
-                    const { isValid, signedHex } = cimmitTxSignRes.data;
+                    const commitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
+                    if (commitTxSignRes.error || !commitTxSignRes.data) return console.log(`Sign Commit TX: ${commitTxSignRes.error}`);
+                    const { isValid, signedHex } = commitTxSignRes.data;
                     if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
     
                     // send Commit Tx
-                    const commiTxSendRes = await this.txsService.sendTx(signedHex);
-                    if (commiTxSendRes.error || !commiTxSendRes.data) throw new Error(`Send Commit TX: ${commiTxSendRes.error}`);
+                    const commitTxSendRes = await this.txsService.sendTx(signedHex);
+                    if (commitTxSendRes.error || !commitTxSendRes.data) return console.log(`Send Commit TX: ${commitTxSendRes.error}`);
         
                     //
                     const drtRes = await this.client("decoderawtransaction", [rawtx]);
@@ -126,7 +155,7 @@ export class BuySwapper extends Swap {
                     const utxoData = {
                         amount: vout.value,
                         vout: vout.n,
-                        txid: commiTxSendRes.data,
+                        txid: commitTxSendRes.data,
                         scriptPubKey: this.multySigChannelData.scriptPubKey,
                         redeemScript: this.multySigChannelData.redeemScript,
                     } as IUTXO;
@@ -224,18 +253,47 @@ export class BuySwapper extends Swap {
     private async onStep5(cpId: string, psbtHex: string) {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Step 5: Error with p2p connection: code 4');
         if (!psbtHex) return this.terminateTrade('Step 5: PsbtHex Not Provided');
+        
         const wifRes = await this.txsService.getWifByAddress(this.myInfo.keypair.address);
         if (wifRes.error || !wifRes.data) return this.terminateTrade(`Step 5: getWifByAddress: ${wifRes.error}`);
+        
         const wif = wifRes.data;
         if (!wif) return this.terminateTrade(`Step 5: getWifByAddress: WIF not found: ${this.myInfo.keypair.address}`);
+        
         const signRes = await this.txsService.signPsbt({ wif, psbtHex });
         if (signRes.error || !signRes.data) return this.terminateTrade(`Step 5: signPsbt: ${signRes.error}`);
-        if (!signRes.data.isFinished || !signRes.data.finalHex) return this.terminateTrade(`Step 5: Transaction not Full Synced`);
+        if (!signRes.data.isFinished || !signRes.data.finalHex) return this.terminateTrade(`Step 5: Transaction not Fully Synced`);
+
+        // Notify user that signing is done and the process will wait for UTXOs to appear in mempool
+        this.toastrService.info('Trade signed, waiting for mempool Commits.');
+
+        const maxAttempts = 100;  // Maximum number of checks before timeout
+        const delayBetweenChecks = 5000;  // 5 seconds delay between checks
+        let attempts = 0;
+        let isInMempool = false;
+
+        while (attempts < maxAttempts) {
+            isInMempool = await this.txService.checkMempool(signRes.data.finalHex);
+            if (isInMempool) break;
+
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, delayBetweenChecks));
+        }
+
+        if (!isInMempool) return this.terminateTrade('Step 5: UTXOs not found in mempool after multiple attempts.');
+
         const finalTxIdRes = await this.txsService.sendTxWithSpecRetry(signRes.data.finalHex);
         if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(`Step 5: sendRawTransaction: ${finalTxIdRes.error}` || `Error with sending Raw Tx`);
+        
         if (this.readyRes) this.readyRes({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });
+                
         const swapEvent = new SwapEvent('BUYER:STEP6', this.myInfo.socketId, finalTxIdRes.data);
+        const { propIdDesired, amountDesired, amountForSale, propIdForSale } = this.tradeInfo;
+          this.toastrService.info('Trade completed: '+amountDesired+' of id '+propIdDesired+ ' for ' +amountForSale +' of '+propIdForSale);
+
         this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+        
         this.removePreviuesListeners();
     }
+
 }

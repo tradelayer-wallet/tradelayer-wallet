@@ -103,26 +103,30 @@ const encodeCommit = (params: EncodeCommitParams): string => {
 //     return payload.join(',');
 // };
 
-// type EncodeTradeTokenForUTXOParams = {
-//     propertyId: number;
-//     amount: number;
-//     columnA: string;
-//     satsExpected: number;
-//     tokenOutput: string;
-//     payToAddress: string;
-// };
+ type EncodeTradeTokenForUTXOParams = {
+     propertyId: number;
+     amount: number;
+     columnA: string;
+     satsExpected: number;
+     tokenOutput: string;
+     payToAddress: string;
+ };
 
-// const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string => {
-//     const payload = [
-//         params.propertyId.toString(36),
-//         params.amount.toString(36),
-//         params.columnA,
-//         params.satsExpected.toString(36),
-//         params.tokenOutput,
-//         params.payToAddress,
-//     ];
-//     return payload.join(',');
-// };
+ const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string => {
+     const payload = [
+         params.propertyId.toString(36),
+         params.amount.toString(36),
+         params.columnA,
+         params.satsExpected.toString(36),
+         params.tokenOutput,
+         params.payToAddress,
+     ];
+
+      const txNumber = 4;
+    const txNumber36 = txNumber.toString(36);
+    const payloadString = payload.join(',');
+    return marker + txNumber36 + payloadString;
+ };
 
 
 

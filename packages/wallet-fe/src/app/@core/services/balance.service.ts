@@ -34,8 +34,8 @@ export class BalanceService {
                 available: number,
                 reserved: number,
                 margin: number,
-                vesting: number,
-                channel: number
+                vesting: number//,
+                //channel: number
             }[];
         }
     } = {};
@@ -76,7 +76,7 @@ export class BalanceService {
 
     onInit() {
         //this.tlApi.rpc('tl_loadwallet')
-        this.tlApi.rpc('tl_getallbalancesforaddress')
+        this.tlApi.rpc('tl_getAllBalancesForAddress')
         this.authService.updateAddressesSubs$
             .subscribe(kp => {
                 if (!kp.length) this.restartBalance();
@@ -165,50 +165,24 @@ export class BalanceService {
             }
         }
 
-        private async getTokensBalanceArrForAddress(address: string) {
-            if (!address) return { error: 'No address provided for updating the balance' };
-            
-            // Fetch balances
-            const balanceRes = await this.tlApi.rpc('getAllBalancesForAddress', [address]).toPromise();
-            if (balanceRes.error || !balanceRes.data) {
-               return { error: balanceRes.error || 'Error with updating balances' };
-            }
-
-            // Fetch channel balances
-            let channelBalances: any = {};
-            try {
-                const selfChannelRes = await this.tlApi.rpc('getChannel', [address]).toPromise();
-                if (selfChannelRes && selfChannelRes.data) {
-                    const isA = selfChannelRes.data.participants.A === address;
-                    const isB = selfChannelRes.data.participants.B === address;
-
-                    if (isA || isB) {
-                        channelBalances = isA ? selfChannelRes.data.A : selfChannelRes.data.B;
-                    }
-                }
-            } catch (error) {
-                //console.log('Error fetching channel balances:', error);
-            }
-
-            // Process balances
-            const data = (balanceRes.data as { propertyId: string, balance: { amount: number, available: number, reserved: number, margin: number, vesting: number } }[])
-                .map((token) => {
-                    const channelBalance = channelBalances[token.propertyId] || 0;
-                    return {
-                        name: `token_${token.propertyId}`, 
-                        propertyid: parseInt(token.propertyId), 
-                        amount: token.balance.amount,
-                        available: token.balance.available,
-                        reserved: token.balance.reserved,
-                        margin: token.balance.margin,
-                        vesting: token.balance.vesting,
-                        channel: channelBalance as number
-                    };
-                });
-
-            return { data };
-        }
-
+    private async getTokensBalanceArrForAddress(address: string) {
+        if (!address) return { error: 'No address provided for updating the balance' };
+        const balanceRes = await this.tlApi.rpc('getAllBalancesForAddress', [address]).toPromise();
+        if (!balanceRes.data || balanceRes.error) return { data: [] };
+        const data = (balanceRes.data as { propertyId: string, balance: { amount: number, available: number, reserved: number, margin: number, vesting: number } }[])
+            .map((token) => ({ 
+                ...token, 
+                name: `token_${token.propertyId}`, 
+                propertyid: parseInt(token.propertyId), 
+                amount: token.balance.amount,
+                available: token.balance.available,
+                reserved: token.balance.reserved,
+                margin: token.balance.margin,
+                vesting: token.balance.vesting,
+            }));
+            console.log('checking result in get token balances '+JSON.stringify(data))
+        return { data };
+    }
 
 
     async getTokenNameById(id: number) {

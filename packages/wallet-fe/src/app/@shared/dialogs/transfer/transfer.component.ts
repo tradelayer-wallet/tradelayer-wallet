@@ -129,7 +129,7 @@ export class TransferDialog {
           const commitTxSendRes = await this.txsService.sendTx(signedHex);
           if (commitTxSendRes.error || !commitTxSendRes.data) return console.log(`Send Commit TX: ${commitTxSendRes.error}`);
 
-          this.toastrService.success(`Transfer Test!`, 'Success: '+commitTxSendRes);
+          this.toastrService.success(`Transfer Test!`, 'Success: '+JSON.stringify(commitTxSendRes));
       } catch (error: any) {
           this.toastrService.error(error.message || `Error with Withdraw`, 'Error');
       } finally {
