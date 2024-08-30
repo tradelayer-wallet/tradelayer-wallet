@@ -57,7 +57,7 @@ export class SwapService {
     private async channelSwap(tradeInfo: ITradeInfo, isBuyer: boolean) {
         const { buyer, seller, props, type } = tradeInfo;
         const swapper = isBuyer
-            ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService)
+            ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService,this.toastrService)
             : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService);
         swapper.eventSubs$.subscribe(eventData => {
             this.toastrService.info(eventData.eventName, 'Trade Info', { timeOut: 3000 });

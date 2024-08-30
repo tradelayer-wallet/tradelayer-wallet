@@ -14,6 +14,7 @@ export class BuySwapper extends Swap {
         client: TClient,
         socket: SocketClient,
         txsService: TxsService,
+        private toastrService: ToastrService
     ) {
         super(typeTrade, tradeInfo, buyerInfo, sellerInfo, client, socket, txsService);
         this.handleOnEvents();
@@ -82,9 +83,9 @@ export class BuySwapper extends Swap {
                 if (ltcTrade === true) {
                     //throw new Error(`Litecoin is not supported for now`);
                      const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), (amountForSale).toString(), bbData ];
-                    let tokenId
-                    let tokensSold 
-                    let satsPaid
+                    let tokenId = 0
+                    let tokensSold = 0
+                    let satsPaid = 0
                     if(ltcForSale==false){
                        tokenId = propIdDesired
                        tokensSold = amountDesired
@@ -94,16 +95,17 @@ export class BuySwapper extends Swap {
                        tokensSold = amountForSale
                        satsPaid = amountDesired
                     }
-
-                    const column = await this.txsService.predictColumn(this.multySigChannelData.address,this.cpInfo.keypair)
-                    let isA=false
+                    const keypairAddress = this.cpInfo.keypair.address; // assuming `address` is a string property of keypair
+                    const column = await this.txsService.predictColumn(this.multySigChannelData.address, keypairAddress);
+                    
+                    let isA=0
                     if(column=='A'){
-                        isA=true
+                        isA=1
                     } 
                     console.log('testing column check in LTC swap '+isA+' '+column)
                     const payload = ENCODER.encodeTradeTokenForUTXO({
                         propertyId: tokenId,
-                        amount: this.tradeInfo.amountDesired,
+                        amount: tokensSold,
                         columnA: isA,
                         satsExpected: satsPaid,
                         tokenOutput: 0,

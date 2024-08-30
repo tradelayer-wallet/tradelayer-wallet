@@ -106,10 +106,10 @@ const encodeCommit = (params: EncodeCommitParams): string => {
  type EncodeTradeTokenForUTXOParams = {
      propertyId: number;
      amount: number;
-     columnA: string;
+     columnA: number;
      satsExpected: number;
-     tokenOutput: string;
-     payToAddress: string;
+     tokenOutput: number;
+     payToAddress: number;
  };
 
  const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string => {
@@ -135,6 +135,6 @@ export const ENCODER = {
     encodeTradeTokensChannel, 
     // encodeWithdrawal, 
     // encodeTradeContractChannel, 
-    // encodeTradeTokenForUTXO, 
+    encodeTradeTokenForUTXO, 
     encodeCommit 
 };

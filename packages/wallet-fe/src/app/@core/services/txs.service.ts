@@ -227,9 +227,8 @@ export class TxsService {
     async checkMempool(txid: string) {
         try {
             const mempool = await this.rpcService.rpc('getrawmempool', []);
-            
-            // Check if the txid is in the mempool
-            const isInMempool = mempool.includes(txid);
+            const isInMempool = mempool.data.includes(txid);
+
 
             return isInMempool;
         } catch (error) {
