@@ -271,19 +271,20 @@ export class BuySwapper extends Swap {
         this.toastrService.info('Trade signed, waiting for mempool Commits.');
 
         const maxAttempts = 100;  // Maximum number of checks before timeout
-        const delayBetweenChecks = 5000;  // 5 seconds delay between checks
+        const delayBetweenChecks = 2000;  // 5 seconds delay between checks
         let attempts = 0;
         let isInMempool = false;
-
-        while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, delayBetweenChecks));
+        
+        /*while (attempts < maxAttempts) {
             isInMempool = await this.txsService.checkMempool(signRes.data.finalHex);
             if (isInMempool) break;
 
             attempts++;
             await new Promise(resolve => setTimeout(resolve, delayBetweenChecks));
-        }
+        }*/
 
-        if (!isInMempool) return this.terminateTrade('Step 5: UTXOs not found in mempool after multiple attempts.');
+        //if (!isInMempool) return this.terminateTrade('Step 5: UTXOs not found in mempool after multiple attempts.');
 
         const finalTxIdRes = await this.txsService.sendTxWithSpecRetry(signRes.data.finalHex);
         if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(`Step 5: sendRawTransaction: ${finalTxIdRes.error}` || `Error with sending Raw Tx`);

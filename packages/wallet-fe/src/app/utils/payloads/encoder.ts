@@ -122,7 +122,7 @@ const encodeCommit = (params: EncodeCommitParams): string => {
          params.payToAddress,
      ];
 
-      const txNumber = 4;
+      const txNumber = 3;
     const txNumber36 = txNumber.toString(36);
     const payloadString = payload.join(',');
     return marker + txNumber36 + payloadString;
