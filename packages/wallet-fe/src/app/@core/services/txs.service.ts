@@ -157,6 +157,7 @@ export class TxsService {
 
                 return { data: sendRes.data };
             } catch (error: any) {
+                console.log('was able to send despite err? ')
                 this.toastrService.error(error.message);
                 return { error: error.message };
             } finally {
@@ -212,12 +213,19 @@ export class TxsService {
 
     async sendTx(rawTx: string) {
         const result = await this.rpcService.rpc('sendrawtransaction', [rawTx]);
+        if(this.balanceService.updateBalances){ 
+        console.log(this.balanceService); // Check if balanceService is available
+        console.log(this.balanceService.updateBalances); // Ensure updateBalances is a function
+        
         this.balanceService.updateBalances();
+        }else{
+         console.log('update balances not found on balanceService')
+        }
         return result;
     }
 
     async getChannel(address: string){
-        const channelRes = await this.tlApi.rpc('tl_getChannel', [address]).toPromise();
+        const channelRes = await this.tlApi.rpc('getChannel', [address]).toPromise();
         console.log('channel fetch in tx service '+JSON.stringify(channelRes))
          if (!channelRes.data || channelRes.error) return { data: [] };
         
@@ -239,7 +247,7 @@ export class TxsService {
 
     async predictColumn (channel:string, cpAddress:string){
         try {
-            const column = await this.tlApi.rpc('tl_getChannelColumn', [channel,cpAddress]).toPromise();;
+            const column = await this.tlApi.rpc('getChannelColumn', [channel,cpAddress]).toPromise();;
             console.log('column prediction fetch in tx service '+JSON.stringify(column))
 
             return column.data;

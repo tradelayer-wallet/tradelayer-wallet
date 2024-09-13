@@ -49,6 +49,7 @@ export class WithdrawDialog {
     }
 
     get maxWithdrawAmount() {
+        console.log('inside send '+this.propId)
         if (this.propId === -1) {
             const balanceObj = this.balanceService.getCoinBalancesByAddress(this.fromAddress);
             return balanceObj.confirmed;
@@ -68,7 +69,7 @@ export class WithdrawDialog {
             this.isAddressValid === false ||
             this.isAddressValid === 'PENDING'
             || typeof this.amount !== 'number'
-            || this.amount < 0.001
+            || this.amount < 0.0001
             || this.amount > this.maxWithdrawAmount
         );
     }
@@ -153,6 +154,7 @@ export class WithdrawDialog {
             
             this.toastrService.success(`Withdraw TX: ${res.data}`, 'Success');
         } catch (error: any) {
+            console.log('issue in withdraw function')
             this.toastrService.error(error.message || `Error with Withdraw`, 'Error');
         } finally {
             this.loadingService.isLoading = false;

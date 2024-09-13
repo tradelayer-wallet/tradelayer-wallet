@@ -2,8 +2,9 @@ import { Injectable } from "@angular/core";
 import { RpcService } from "./rpc.service";
 import { ToastrService } from "ngx-toastr";
 import { AuthService } from "./auth.service";
-import { IUTXO } from "./txs.service";
+import { IUTXO, TxsService } from "./txs.service";
 import { ApiService } from "./api.service";
+import axios from 'axios';  // Add axios import
 
 const minBlocksForBalanceConf: number = 1;
 const emptyBalanceObj = {
@@ -34,8 +35,8 @@ export class BalanceService {
                 available: number,
                 reserved: number,
                 margin: number,
-                vesting: number//,
-                //channel: number
+                vesting: number,
+                channel: number
             }[];
         }
     } = {};
@@ -47,6 +48,7 @@ export class BalanceService {
         private authService: AuthService,
         private toastrService: ToastrService,
         private apiService: ApiService,
+        private txsService: TxsService   // Inject TxsService here
     ) { }
 
     get tlApi() {
@@ -76,7 +78,7 @@ export class BalanceService {
 
     onInit() {
         //this.tlApi.rpc('tl_loadwallet')
-        this.tlApi.rpc('tl_getAllBalancesForAddress')
+        //this.tlApi.rpc('tl_getAllBalancesForAddress')
         this.authService.updateAddressesSubs$
             .subscribe(kp => {
                 if (!kp.length) this.restartBalance();
@@ -127,61 +129,83 @@ export class BalanceService {
     }
 
     private async getCoinBalanceObjForAddress(address: string) {
-        if (!address) return { error: 'No address provided for updating the balance' };
-        const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [address]]);
-        console.log('returning UTXOs for '+address+' in get coin balances '+JSON.stringify(luRes))
-        if (luRes.error || !luRes.data) return { error: luRes.error || 'Undefined Error' };
-
-        const _confirmed = (luRes.data as IUTXO[])
-            .filter(utxo => utxo.confirmations >= minBlocksForBalanceConf)
-            .reduce((a, b) => a + b.amount, 0);
-        const _unconfirmed = (luRes.data as IUTXO[])
-            .filter(utxo => utxo.confirmations < minBlocksForBalanceConf)
-            .reduce((a, b) => a + b.amount, 0);
-        const confirmed = parseFloat(_confirmed.toFixed(6));
-        const unconfirmed = parseFloat(_unconfirmed.toFixed(6));
-        return {data: { confirmed, unconfirmed, utxos: luRes.data } };
-    }
-
-    private async getTokensBalanceArrForAddress_old(address: string) {
             if (!address) return { error: 'No address provided for updating the balance' };
-            const balanceRes = await this.tlApi.rpc('tl_getAllBalancesForAddress', [address]).toPromise()
-           
-            if (!balanceRes.data || balanceRes.error) return { data: [] };
-            try {
-                const promisesArray = (balanceRes.data as { propertyid: number, balance: string, reserved: string }[])
-                    .map(async (token) => ({ ...token, name: await this.getTokenNameById(token.propertyid)}));
-                const arr = await Promise.all(promisesArray);
-                const data = arr.map((t) => {
-                    const balObj = {
-                        ...t, 
-                        balance: parseFloat(t.balance),
-                    };
-                    return balObj;
-                });
-                return { data };
-            } catch (error: any) {
-                return { error: `Error with getting tokens Balance` };
-            }
+            const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [address]]);
+            console.log('returning UTXOs for '+address+' in get coin balances '+JSON.stringify(luRes))
+            if (luRes.error || !luRes.data) return { error: luRes.error || 'Undefined Error' };
+
+            const _confirmed = (luRes.data as IUTXO[])
+                .filter(utxo => utxo.confirmations >= minBlocksForBalanceConf)
+                .reduce((a, b) => a + b.amount, 0);
+            const _unconfirmed = (luRes.data as IUTXO[])
+                .filter(utxo => utxo.confirmations < minBlocksForBalanceConf)
+                .reduce((a, b) => a + b.amount, 0);
+            const confirmed = parseFloat(_confirmed.toFixed(6));
+            const unconfirmed = parseFloat(_unconfirmed.toFixed(6));
+            return {data: { confirmed, unconfirmed, utxos: luRes.data } };
         }
 
     private async getTokensBalanceArrForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-        const balanceRes = await this.tlApi.rpc('getAllBalancesForAddress', [address]).toPromise();
-        if (!balanceRes.data || balanceRes.error) return { data: [] };
-        const data = (balanceRes.data as { propertyId: string, balance: { amount: number, available: number, reserved: number, margin: number, vesting: number } }[])
-            .map((token) => ({ 
-                ...token, 
-                name: `token_${token.propertyId}`, 
-                propertyid: parseInt(token.propertyId), 
-                amount: token.balance.amount,
-                available: token.balance.available,
-                reserved: token.balance.reserved,
-                margin: token.balance.margin,
-                vesting: token.balance.vesting,
-            }));
-            console.log('checking result in get token balances '+JSON.stringify(data))
-        return { data };
+
+        try {
+            // Fetch balances for the address
+            const balanceRes = await this.tlApi.rpc('getAllBalancesForAddress', [address]).toPromise();
+            console.log('checking balance Res'+JSON.stringify(balanceRes))
+            if (!balanceRes.data || balanceRes.error) return { data: [] };
+
+            // Now process the balance data
+            const data = (balanceRes.data as { 
+                ticker: string, 
+                propertyId: string, 
+                amount: number, 
+                available: number, 
+                reserved: number, 
+                margin: number, 
+                vesting: number, 
+                channel: number 
+            }[]).map((token) => {
+                console.log('in the token mapper '+JSON.stringify(token))
+                // Ensure the token object has valid properties
+                if (!token || !token.amount || !token.available) {
+                    console.warn('Undefined token or balance object:', token);
+                    return null; // Skip invalid entries
+                }
+
+                // Extract the property ID
+                const propertyId = parseInt(token.propertyId);
+
+                return {
+                    name: token.ticker,
+                    propertyid: propertyId,
+                    amount: token.amount,
+                    available: token.available,
+                    reserved: token.reserved,
+                    margin: token.margin,
+                    vesting: token.vesting,
+                    channel: token.channel  // Include the channel balance
+                };
+            })
+            .filter(token => token !== null) as {
+                name: string;
+                propertyid: number;
+                amount: number;
+                available: number;
+                reserved: number;
+                margin: number;
+                vesting: number;
+                channel: number;
+            }[];
+
+            // Assign filtered data to tokensBalance
+            this._allBalancesObj[address].tokensBalance = data;
+
+            console.log('Checking result in get token balances ' + JSON.stringify(data));
+            return { data };
+        } catch (error) {
+            console.error(`Error fetching balances for address ${address}:`, error);
+            return { error: `Error: ${error.message || 'Unknown error'}` };
+        }
     }
 
 

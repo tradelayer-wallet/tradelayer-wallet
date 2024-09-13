@@ -7,35 +7,20 @@
         <button mat-raised-button (click)='newAddress()' class='new-address-buttton' [disabled]="!isAbleToRpc">New Address</button>
         <mat-card-content>
             <mat-table [dataSource]="coinBalance" *ngIf='coinBalance'>
-              <!-- <ng-container matColumnDef="attestation">
-                <mat-header-cell *matHeaderCellDef>Attestation</mat-header-cell>
-                <mat-cell *matCellDef="let element">
-                  <mat-icon
-                    (click)="selfAttestate(element.address)"
-                    *ngIf="getAddressAttestationStatus(element.address) === false"
-                  >fingerprint</mat-icon>
-                  <mat-icon
-                    *ngIf="getAddressAttestationStatus(element.address) === true"
-                  >check</mat-icon>
-                  <mat-icon
-                    *ngIf="getAddressAttestationStatus(element.address) === 'PENDING'"
-                  >timelapse</mat-icon>
-                </mat-cell>
-              </ng-container> -->
                 <ng-container matColumnDef="address">
-                  <mat-header-cell *matHeaderCellDef>Address</mat-header-cell>
-                  <mat-cell
-                    *matCellDef="let element"
-                    [title]="element.address"
-                    (dblclick)='copy(element.address)'
-                  >
-                    {{ element.address | shortAddress }}
-                    <mat-icon
-                      class='copy-icon'
-                      (click)='copy(element.address)'
-                      [title]="element.address"
-                    >content_copy</mat-icon>
-                  </mat-cell>
+                    <mat-header-cell *matHeaderCellDef>Address</mat-header-cell>
+                    <mat-cell
+                        *matCellDef="let element"
+                        [title]="element.address"
+                        (dblclick)='copy(element.address)'
+                    >
+                        {{ element.address | shortAddress }}
+                        <mat-icon
+                            class='copy-icon'
+                            (click)='copy(element.address)'
+                            [title]="element.address"
+                        >content_copy</mat-icon>
+                    </mat-cell>
                 </ng-container>
             
                 <ng-container matColumnDef="confirmed">
@@ -44,24 +29,24 @@
                 </ng-container>
         
                 <ng-container matColumnDef="unconfirmed">
-                  <mat-header-cell *matHeaderCellDef>Unconfirmed</mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ (element.unconfirmed).toFixed(6) }} </mat-cell>
+                    <mat-header-cell *matHeaderCellDef>Unconfirmed</mat-header-cell>
+                    <mat-cell *matCellDef="let element"> {{ (element.unconfirmed).toFixed(6) }} </mat-cell>
                 </ng-container>
 
                 <ng-container matColumnDef="actions">
-                  <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
-                  <mat-cell *matCellDef="let element"> 
-                    <span class='span-button' (click)="openDialog('deposit', element.address, -1)">Recieve</span> 
-                    <span> | </span>
-                    <span class='span-button' (click)="openDialog('withdraw', element.address, -1)">Send</span>
-                    <span> | </span>
-                    <span class='span-button' (click)="showTokens(element.address)">Show Tokens</span>
-                   </mat-cell>
+                    <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
+                    <mat-cell *matCellDef="let element"> 
+                        <span class='span-button' (click)="openDialog('deposit', element.address, -1)">Receive</span> 
+                        <span> | </span>
+                        <span class='span-button' (click)="openDialog('withdraw', element.address, -1)">Send</span>
+                        <span> | </span>
+                        <span class='span-button' (click)="showTokens(element.address)">Show Tokens</span>
+                    </mat-cell>
                 </ng-container>
+
                 <mat-header-row *matHeaderRowDef="cryptoBalanceColumns"></mat-header-row>
-            
                 <mat-row *matRowDef="let row; columns: cryptoBalanceColumns;"></mat-row>
-              </mat-table>
+            </mat-table>
         </mat-card-content>
     </mat-card>
 
@@ -73,48 +58,67 @@
             </div>
             <mat-table [dataSource]="tokensBalances" *ngIf='tokensBalances?.length'>
                 <ng-container matColumnDef="propertyid">
-                  <mat-header-cell *matHeaderCellDef>Token Id </mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ element?.propertyid }} </mat-cell>
+                    <mat-header-cell *matHeaderCellDef>Token Id</mat-header-cell>
+                    <mat-cell *matCellDef="let element"> 
+                        {{ element?.propertyid !== undefined ? element.propertyid : 'N/A' }} 
+                    </mat-cell>
                 </ng-container>
             
                 <ng-container matColumnDef="name">
-                    <mat-header-cell *matHeaderCellDef>Token Name </mat-header-cell>
-                    <mat-cell *matCellDef="let element"> {{element?.name || '-' }} </mat-cell>
+                    <mat-header-cell *matHeaderCellDef>Token Name</mat-header-cell>
+                    <mat-cell *matCellDef="let element"> 
+                        {{ element?.name || '-' }} 
+                    </mat-cell>
                 </ng-container>
         
                 <ng-container matColumnDef="available">
-                  <mat-header-cell *matHeaderCellDef>Available </mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ element.available }} </mat-cell>
+                    <mat-header-cell *matHeaderCellDef>Available</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                        {{ element?.available !== undefined ? element.available.toFixed(6) : 'N/A' }}
+                    </mat-cell>
                 </ng-container>
 
-                <!--<ng-container matColumnDef="reserve">
-                  <mat-header-cell *matHeaderCellDef>Reserve </mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ element.reserve }} </mat-cell>
-                </ng-container>
-            
-                <ng-container matColumnDef="margin">
-                  <mat-header-cell *matHeaderCellDef>Margin </mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ element.margin }} </mat-cell>
+                <ng-container matColumnDef="reserved">
+                    <mat-header-cell *matHeaderCellDef>Reserved</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                        {{ element?.reserved !== undefined ? element.reserved.toFixed(6) : 'N/A' }}
+                    </mat-cell>
                 </ng-container>
 
-                <ng-container matColumnDef="Channel">
-                  <mat-header-cell *matHeaderCellDef>Channel </mat-header-cell>
-                  <mat-cell *matCellDef="let element"> {{ element.channel }} </mat-cell>
-                </ng-container>*/-->
+                <!-- Conditional Columns -->
+                <ng-container matColumnDef="margin" >
+                    <mat-header-cell *matHeaderCellDef>Margin</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                        {{ element?.margin !== undefined ? element.margin.toFixed(6) : 'N/A' }}
+                    </mat-cell>
+                </ng-container>
+
+                <ng-container matColumnDef="vesting" >
+                    <mat-header-cell *matHeaderCellDef>Vesting</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                        {{ element?.vesting !== undefined ? element.vesting.toFixed(6) : 'N/A' }}
+                    </mat-cell>
+                </ng-container>
+
+                <ng-container matColumnDef="channel">
+                    <mat-header-cell *matHeaderCellDef>Channel</mat-header-cell>
+                    <mat-cell *matCellDef="let element">
+                        {{ element?.channel !== undefined ? element.channel.toFixed(6) : 'N/A' }}
+                    </mat-cell>
+                </ng-container>
                 
-              <ng-container matColumnDef="actions">
-                <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
-                <mat-cell *matCellDef="let element"> 
-                  <span class='span-button' (click)="openDialog('deposit', selectedAddress, element.propertyid)">Recieve</span> 
-                  <span> | </span>
-                  <span class='span-button' (click)="openDialog('withdraw', selectedAddress, element.propertyid)">Send</span>
-                 </mat-cell>
-              </ng-container>
+                <ng-container matColumnDef="actions">
+                    <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
+                    <mat-cell *matCellDef="let element"> 
+                        <span class='span-button' (click)="openDialog('deposit', selectedAddress, element.propertyid)">Receive</span> 
+                        <span> | </span>
+                        <span class='span-button' (click)="openDialog('withdraw', selectedAddress, element.propertyid)">Send</span>
+                    </mat-cell>
+                </ng-container>
 
                 <mat-header-row *matHeaderRowDef="tokensBalanceColums"></mat-header-row>
-            
                 <mat-row *matRowDef="let row; columns: tokensBalanceColums;"></mat-row>
-              </mat-table>
+            </mat-table>
         </mat-card-content>
     </mat-card>
 </div>

@@ -1,8 +1,19 @@
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 // import { fasitfyServer } from "..";
 import axios from 'axios';
 
 const baseURL = 'http://localhost:3000/';
+
+interface ChannelRequestBody {
+    channel: string;
+    cpAddress: string;
+}
+
+// Define the interface for GetChannelRequestBody
+interface GetChannelRequestBody {
+    params: string[];
+}
+
 
 export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
@@ -33,13 +44,42 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
 
-    fastify.post('/getChannel', async (request, reply) => {
+    fastify.post('/getChannel', async (request: FastifyRequest<{ Body: GetChannelRequestBody }>, reply: FastifyReply) => {
+        const { params } = request.body;
+        const address = params[0];
+        const channel = await axios.post(baseURL + 'tl_getChannel', { params: address });
+        console.log('Address:', address);  // This should log the address properly
+
+        // Return a JSON object instead of a string
+        reply.status(200).send(channel);
+    });
+
+
+    /*fastify.post('/getChannel', async (request, reply) => {
+
         try {
             const body = request.body as any;
             const params = body.params as any[];
             const address = params[0];
+            console.log(address)
             const channel = await axios.post(baseURL + 'tl_getChannel', { params: address });
-            reply.status(200).send(channel);
+            reply.status(200).send(channel.channel);
+        } catch (error) {
+            reply.status(500).send('Error: ' + error.message);
+        }
+    });*/
+
+    fastify.post('/test', async (request, reply) => {
+        console.log('Received test request');
+        reply.status(200).send({ message: 'Test route working' });
+    });
+
+     fastify.post('/getChannelColumn', async (request: FastifyRequest<{ Body: ChannelRequestBody }>, reply: FastifyReply) => {
+        console.log('inside getChannel fastify' + JSON.stringify(request.body));
+        try {
+            const { channel, cpAddress } = request.body;
+            const column = await axios.post(baseURL + 'tl_getChannelColumn', { params: [channel, cpAddress] });
+            reply.status(200).send(column);
         } catch (error) {
             reply.status(500).send('Error: ' + error.message);
         }

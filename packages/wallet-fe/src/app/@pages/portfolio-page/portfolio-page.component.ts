@@ -18,8 +18,11 @@ import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.compon
 })
 export class PortfolioPageComponent implements OnInit {
   cryptoBalanceColumns: string[] = ['address', 'confirmed', 'unconfirmed', 'actions'];
-  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', /*'reserved', 'margin', 'channel', */'actions'];
+  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'vesting', 'channel', 'actions'];
   selectedAddress: string = '';
+
+  //*ngIf="!shouldShowVesting(element?.propertyid)"
+  //*ngIf="shouldShowVesting(element?.propertyid)"
 
   constructor(
     private balanceService: BalanceService,
@@ -54,6 +57,12 @@ export class PortfolioPageComponent implements OnInit {
   ngOnInit(): void {
       this.authService.getAddressesFromWallet();
   }
+
+  shouldShowVesting(propertyId: number): boolean {
+    // Show vesting column only for propertyId 2 and 3
+    return propertyId === 2 || propertyId === 3;
+}
+
 
   openDialog(dialog: string, address?: any, _propId?: number) {
     const data = { address, propId: _propId };
