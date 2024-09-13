@@ -162,7 +162,7 @@ export class TxsService {
                 return { error: error.message };
             } finally {
                 this.loadingService.isLoading = false;
-                this.balanceService.updateBalances();
+                //this.balanceService.updateBalances();
             }
         }
 
@@ -213,14 +213,14 @@ export class TxsService {
 
     async sendTx(rawTx: string) {
         const result = await this.rpcService.rpc('sendrawtransaction', [rawTx]);
-        if(this.balanceService.updateBalances){ 
-        console.log(this.balanceService); // Check if balanceService is available
-        console.log(this.balanceService.updateBalances); // Ensure updateBalances is a function
+        //if(typeof this.balanceService.updateBalances==='function'){ 
+        //console.log('checking balance service obj ' +JSON.stringify(this.balanceService)); // Check if balanceService is available
         
-        this.balanceService.updateBalances();
-        }else{
-         console.log('update balances not found on balanceService')
-        }
+        
+        //this.balanceService.updateBalances();
+        //}else{
+        // console.log('update balances not found on balanceService')
+        //}
         return result;
     }
 

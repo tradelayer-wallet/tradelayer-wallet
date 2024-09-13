@@ -145,67 +145,26 @@ export class BalanceService {
             return {data: { confirmed, unconfirmed, utxos: luRes.data } };
         }
 
+    
     private async getTokensBalanceArrForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
-
-        try {
-            // Fetch balances for the address
-            const balanceRes = await this.tlApi.rpc('getAllBalancesForAddress', [address]).toPromise();
-            console.log('checking balance Res'+JSON.stringify(balanceRes))
-            if (!balanceRes.data || balanceRes.error) return { data: [] };
-
-            // Now process the balance data
-            const data = (balanceRes.data as { 
-                ticker: string, 
-                propertyId: string, 
-                amount: number, 
-                available: number, 
-                reserved: number, 
-                margin: number, 
-                vesting: number, 
-                channel: number 
-            }[]).map((token) => {
-                console.log('in the token mapper '+JSON.stringify(token))
-                // Ensure the token object has valid properties
-                if (!token || !token.amount || !token.available) {
-                    console.warn('Undefined token or balance object:', token);
-                    return null; // Skip invalid entries
-                }
-
-                // Extract the property ID
-                const propertyId = parseInt(token.propertyId);
-
-                return {
-                    name: token.ticker,
-                    propertyid: propertyId,
-                    amount: token.amount,
-                    available: token.available,
-                    reserved: token.reserved,
-                    margin: token.margin,
-                    vesting: token.vesting,
-                    channel: token.channel  // Include the channel balance
-                };
-            })
-            .filter(token => token !== null) as {
-                name: string;
-                propertyid: number;
-                amount: number;
-                available: number;
-                reserved: number;
-                margin: number;
-                vesting: number;
-                channel: number;
-            }[];
-
-            // Assign filtered data to tokensBalance
-            this._allBalancesObj[address].tokensBalance = data;
-
-            console.log('Checking result in get token balances ' + JSON.stringify(data));
-            return { data };
-        } catch (error) {
-            console.error(`Error fetching balances for address ${address}:`, error);
-            return { error: `Error: ${error.message || 'Unknown error'}` };
-        }
+        const balanceRes = await this.tlApi.rpc('getAllBalancesForAddress', [address]).toPromise();
+        console.log('1st load of balance '+address+JSON.stringify(balanceRes))
+        if (!balanceRes.data || balanceRes.error) return { data: [] };
+        const data = (balanceRes.data as { ticker: string, propertyId: string, amount: number, available: number, reserved: number, margin: number, vesting: number, channel: number }[])
+            .map((token) => ({ 
+                ...token, 
+                name: token.ticker || '-',  // default to '-' if ticker is undefined
+                propertyid: parseInt(token.propertyId || '0', 10),  // ensure propertyId is parsed as an integer, default to 0 if undefined
+                amount: token?.amount || 0,  // safely access amount and default to 0 if undefined
+                available: token?.available || 0,  // safely access available and default to 0 if undefined
+                reserved: token?.reserved || 0,  // safely access reserved and default to 0 if undefined
+                margin: token?.margin || 0,  // safely access margin and default to 0 if undefined
+                vesting: token?.vesting || 0,  // safely access vesting and default to 0 if undefined
+                channel: token?.channel || 0  // safely access channel and default to 0 if undefined
+            }));
+        console.log('final balance data'+JSON.stringify(data))
+        return { data };
     }
 
 

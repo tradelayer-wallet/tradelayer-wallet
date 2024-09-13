@@ -86,18 +86,19 @@
                 </ng-container>
 
                 <!-- Conditional Columns -->
-                <ng-container matColumnDef="margin" >
+                <ng-container matColumnDef="margin">
                     <mat-header-cell *matHeaderCellDef>Margin</mat-header-cell>
                     <mat-cell *matCellDef="let element">
                         {{ element?.margin !== undefined ? element.margin.toFixed(6) : 'N/A' }}
                     </mat-cell>
                 </ng-container>
 
-                <ng-container matColumnDef="vesting" >
-                    <mat-header-cell *matHeaderCellDef>Vesting</mat-header-cell>
-                    <mat-cell *matCellDef="let element">
-                        {{ element?.vesting !== undefined ? element.vesting.toFixed(6) : 'N/A' }}
-                    </mat-cell>
+              <!-- Vesting Column -->
+                <ng-container  matColumnDef="vesting">
+                  <mat-header-cell *matHeaderCellDef>Vesting</mat-header-cell>
+                  <mat-cell *matCellDef="let element">
+                    {{ element?.vesting !== undefined ? element.vesting.toFixed(6) : 'N/A' }}
+                  </mat-cell>
                 </ng-container>
 
                 <ng-container matColumnDef="channel">

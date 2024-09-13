@@ -22,7 +22,7 @@ export class PortfolioPageComponent implements OnInit {
   selectedAddress: string = '';
 
   //*ngIf="!shouldShowVesting(element?.propertyid)"
-  //*ngIf="shouldShowVesting(element?.propertyid)"
+  //*ngIf="showVestingColumn()"
 
   constructor(
     private balanceService: BalanceService,
