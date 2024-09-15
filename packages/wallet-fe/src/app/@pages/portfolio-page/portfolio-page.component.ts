@@ -18,11 +18,9 @@ import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.compon
 })
 export class PortfolioPageComponent implements OnInit {
   cryptoBalanceColumns: string[] = ['address', 'confirmed', 'unconfirmed', 'actions'];
-  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'vesting', 'channel', 'actions'];
+  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'channel', 'actions'];
   selectedAddress: string = '';
 
-  //*ngIf="!shouldShowVesting(element?.propertyid)"
-  //*ngIf="showVestingColumn()"
 
   constructor(
     private balanceService: BalanceService,
@@ -61,7 +59,17 @@ export class PortfolioPageComponent implements OnInit {
   shouldShowVesting(propertyId: number): boolean {
     // Show vesting column only for propertyId 2 and 3
     return propertyId === 2 || propertyId === 3;
-}
+  }
+
+  getReservedOrVestingValue(element: any): string {
+    if (element.propertyid === 2 || element.propertyid === 3) {
+      // Display the vesting value
+      return element.vesting !== undefined ? element.vesting.toFixed(6) : 'N/A';
+    } else {
+      // Display the reserved value
+      return element.reserved !== undefined ? element.reserved.toFixed(6) : 'N/A';
+    }
+  }
 
 
   openDialog(dialog: string, address?: any, _propId?: number) {
