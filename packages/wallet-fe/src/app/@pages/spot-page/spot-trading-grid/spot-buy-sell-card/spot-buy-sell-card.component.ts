@@ -130,9 +130,16 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
             _available = safeNumber(this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed - this.getFees(isBuy));
         } else {
             // Handle other tokens
-            _available = this.balanceService.getTokensBalancesByAddress(this.spotAddress)
-                ?.find((t: any) => t.propertyid === propId)
-                ?.available;
+            
+            // Handle other tokens
+            const tokenBalance = this.balanceService.getTokensBalancesByAddress(this.spotAddress)
+                ?.find((t: any) => t.propertyid === propId);
+
+            if (tokenBalance) {
+                _available = safeNumber(tokenBalance.available + (tokenBalance.channel || 0));
+            } else {
+                _available = 0;
+            }
         }
 
         const inOrderBalance = this.getInOrderAmount(propId);

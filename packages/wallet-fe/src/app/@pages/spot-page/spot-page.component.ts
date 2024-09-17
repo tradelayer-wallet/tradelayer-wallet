@@ -6,6 +6,7 @@ import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-ma
   templateUrl: './spot-page.component.html',
   styleUrls: ['./spot-page.component.scss']
 })
+
 export class SpotPageComponent implements OnInit {
     constructor(
       private spotMarketsService: SpotMarketsService,
