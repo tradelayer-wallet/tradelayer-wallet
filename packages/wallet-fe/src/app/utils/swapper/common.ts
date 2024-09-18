@@ -21,6 +21,8 @@ export interface ISpotTradeProps {
     amountForSale: number;
     propIdDesired: number;
     propIdForSale: number;
+    availableAmount?: number; // Add this
+    channelAmount?: number;  
 };
 
 export interface IFuturesTradeProps {
@@ -47,7 +49,8 @@ export interface IBuyerSellerInfo {
     socketId: string;
 };
 
-export interface ITradeInfo<IProps = IFuturesTradeProps | ISpotTradeProps> {
+
+export interface ITradeInfo<IProps = ISpotTradeProps> {  // Default to ISpotTradeProps only
     buyer: IBuyerSellerInfo;
     seller: IBuyerSellerInfo;
     taker: string;
@@ -55,3 +58,13 @@ export interface ITradeInfo<IProps = IFuturesTradeProps | ISpotTradeProps> {
     props: IProps;
     type: ETradeType;
 };
+
+/*
+export interface ITradeInfo<IProps = IFuturesTradeProps | ISpotTradeProps> {
+    buyer: IBuyerSellerInfo;
+    seller: IBuyerSellerInfo;
+    taker: string;
+    maker: string;
+    props: IProps;
+    type: ETradeType;
+};*/

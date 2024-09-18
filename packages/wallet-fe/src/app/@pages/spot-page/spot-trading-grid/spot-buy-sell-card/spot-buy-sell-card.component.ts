@@ -135,11 +135,12 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
             const tokenBalance = this.balanceService.getTokensBalancesByAddress(this.spotAddress)
                 ?.find((t: any) => t.propertyid === propId);
 
-            if (tokenBalance) {
-                _available = safeNumber(tokenBalance.available + (tokenBalance.channel || 0));
+           if (tokenBalance) {
+                _available = safeNumber(Math.max(tokenBalance.available, tokenBalance.channel || 0));
             } else {
                 _available = 0;
             }
+
         }
 
         const inOrderBalance = this.getInOrderAmount(propId);
@@ -152,19 +153,16 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         
         return max;
     }
-
+    
     async handleBuySell(isBuy: boolean) {
       const fee = this.getFees(isBuy);
-      const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed || 0) - fee)
+      const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed || 0) - fee);
+      
       if (available < 0) {
         this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
         return;
       }
-      // const isKYC = this.attestationService.getAttByAddress(this.spotAddress);
-      // if (isKYC !== true) {
-      //   this.toastrService.error(`Spot Address Need Attestation first!`, 'Attestation Needed');
-      //   return;
-      // }
+
       const amount = this.buySellGroup.value.amount;
       const _price = this.buySellGroup.value.price;
       const price = this.isLimitSelected ? _price : this.currentPrice;
@@ -172,19 +170,32 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const market = this.selectedMarket;
       const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
-      console.log('checking buySell logic '+Boolean(propIdForSale)+' '+Boolean(propIdDesired)+' '+Boolean(!price && this.isLimitSelected)+' '+Boolean(!amount)+Boolean(!this.spotKeyPair))
-      if (propIdForSale == null || propIdDesired == null || (!price && this.isLimitSelected) || amount == null) {
-        return console.log('missing parameters for trade ' + propIdForSale + ' ' + propIdDesired + ' ' + price + ' ' + this.isLimitSelected+ ' ' + amount);
+
+      if (!propIdForSale || !propIdDesired || (!price && this.isLimitSelected) || !amount) {
+        return console.log('missing parameters for trade ' + propIdForSale + ' ' + propIdDesired + ' ' + price + ' ' + amount);
       }
 
       if (!this.spotKeyPair){
-        return console.log('missing key pair')
-      } 
-  
+        return console.log('missing key pair');
+      }
+
       const pubkeyRes = await this.rpcService.rpc("getaddressinfo", [this.spotKeyPair]);
       if (pubkeyRes.error || !pubkeyRes.data?.pubkey) throw new Error(pubkeyRes.error || "No Pubkey Found");
       const pubkey = pubkeyRes.data.pubkey;
 
+      // Get the available and channel amounts
+      const tokenBalance = this.balanceService.getTokensBalancesByAddress(this.spotAddress)
+          ?.find((t: any) => t.propertyid === propIdForSale);
+
+      let availableAmount = 0;
+      let channelAmount = 0;
+
+      if (tokenBalance) {
+        availableAmount = safeNumber(tokenBalance.available);
+        channelAmount = safeNumber(tokenBalance.channel || 0);
+      }
+
+      // Pass both availableAmount and channelAmount to the swap service
       const order: ISpotTradeConf = { 
         keypair: {
           address: this.spotKeyPair,
@@ -197,14 +208,18 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
           id_for_sale: propIdForSale,
           amount: amount,
           price: price,
+          availableAmount: availableAmount,  // Pass available amount
+          channelAmount: channelAmount       // Pass channel amount
         },
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
       };
-      console.log('about to place trade '+JSON.stringify(order))
+
+      console.log('about to place trade with available and channel amounts:', order);
       this.spotOrdersService.newOrder(order);
       this.buySellGroup.reset();
     }
+
 
     stopLiquidity() {
       console.log(`Stop Liquidity`);

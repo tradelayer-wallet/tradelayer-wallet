@@ -93,11 +93,32 @@ const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string 
     return marker + txNumber36 + payloadString;
 };
 
+type EncodeTransferParams = {
+    propertyId: number;
+    amount: number;
+    isColumnA: boolean;
+    destinationAddr: string;
+};
+
+
+// Encode Transfer Transaction 
+const encodeTransfer = (params: EncodeTransferParams): string => {
+    const propertyId = params.propertyId.toString(36);
+    const amounts = new BigNumber(params.amount).times(1e8).toNumber();
+    const isColumnA = params.isColumnA ? 1 : 0; // Assuming boolean should map to 1 or 0
+    const destinationAddr = params.destinationAddr;
+    
+    return [propertyId, amounts, isColumnA, destinationAddr].join(',');
+};
+
+
+
 export const ENCODER = { 
     encodeSend, 
     encodeTradeTokensChannel,
     // encodeWithdrawal, 
     // encodeTradeContractChannel,  
     encodeTradeTokenForUTXO, 
-    encodeCommit 
+    encodeCommit,
+    encodeTransfer 
 };

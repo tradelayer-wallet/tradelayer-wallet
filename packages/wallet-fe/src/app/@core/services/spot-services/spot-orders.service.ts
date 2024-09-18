@@ -20,6 +20,8 @@ export interface ISpotTradeConf extends ITradeConf {
         id_for_sale: number,
         amount: number,
         price: number,
+        availableAmount?: number; // Add this
+        channelAmount?: number;  
     };
 }
 
