@@ -17,7 +17,7 @@ const encodeSend = (params: { sendAll: boolean, address: string, propertyId: num
             '0',
             params.address,
             params.propertyId.toString(36),
-            params.amount // Updated to use BigNumber
+            params.amount.toString(36) // Updated to use BigNumber
         ];
         const txNumber = 2;
         const txNumber36 = txNumber.toString(36);
