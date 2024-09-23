@@ -20,7 +20,7 @@ export interface ISpotTradeConf extends ITradeConf {
         id_for_sale: number,
         amount: number,
         price: number,
-        transfer?: number; // Add this  
+        transfer?: boolean; // Add this  
     };
 }
 

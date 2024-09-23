@@ -76,7 +76,9 @@ export class SellSwapper extends Swap {
             const toKeyPair = { address: this.multySigChannelData.address };
             const commitTxConfig: IBuildTxConfig = { fromKeyPair, toKeyPair };
 
-            let { propIdDesired, amountDesired, transfer } = this.tradeInfo as ISpotTradeProps;
+            let { propIdDesired, amountDesired } = this.tradeInfo
+            let {props }= this.tradeInfo as ISpotTradeProps;
+            let {transfer} = props
             console.log('importing transfer in step 2 '+transfer)
             if(transfer==undefined){
                 transfer = false

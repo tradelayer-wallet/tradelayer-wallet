@@ -53,7 +53,7 @@ export class SwapService {
         const { buyer, seller, props, type } = tradeInfo;
 
         if (type === "SPOT") {
-            const { availableAmount, channelAmount } = props as ISpotTradeProps;
+            const { transfer } = props as ISpotTradeProps;
 
             const swapper = isBuyer
                 ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService)
