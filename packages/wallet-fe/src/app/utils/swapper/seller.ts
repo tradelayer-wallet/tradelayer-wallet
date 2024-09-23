@@ -124,6 +124,21 @@ export class SellSwapper extends Swap {
                     throw new Error('Signed Hex is undefined for Commit TX');
                 }
 
+                 const drtRes = await this.client("decoderawtransaction", [rawtx]);
+                if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
+                const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
+                if (!vout) throw new Error(`decoderawtransaction (2): ${drtRes.error}`);
+                const utxoData = {
+                    amount: vout.value,
+                    vout: vout.n,
+                    txid: commiTxSendRes.data,
+                    scriptPubKey: this.multySigChannelData.scriptPubKey,
+                    redeemScript: this.multySigChannelData.redeemScript,
+                } as IUTXO;
+
+                const swapEvent = new SwapEvent(`SELLER:STEP3`, this.myInfo.socketId, utxoData);
+                this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+
             } else {
                 this.toastrService.info('Insufficient Balance for Trade.');
             }

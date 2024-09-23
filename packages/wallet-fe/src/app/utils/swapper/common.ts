@@ -21,8 +21,7 @@ export interface ISpotTradeProps {
     amountForSale: number;
     propIdDesired: number;
     propIdForSale: number;
-    availableAmount?: number; // Add this
-    channelAmount?: number;  
+    transfer?: boolean; // Add this  
 };
 
 export interface IFuturesTradeProps {

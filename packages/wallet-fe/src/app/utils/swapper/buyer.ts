@@ -123,14 +123,14 @@ export class BuySwapper extends Swap {
 
             } else {
                 let payload;
-                if (channelAmount !== undefined && channelAmount >= amountDesired) {
+                if (transfer) {
                     payload = ENCODER.encodeTransfer({
                         propertyId: propIdDesired,
                         amount: amountDesired,
                         isColumnA: true,  // Assume Column A, adjust based on context
                         destinationAddr: this.multySigChannelData.address,
                     });
-                } else if (availableAmount !== undefined && availableAmount >= amountDesired) {
+                } else{
                     payload = ENCODER.encodeCommit({
                         amount: amountDesired,
                         propertyId: propIdDesired,

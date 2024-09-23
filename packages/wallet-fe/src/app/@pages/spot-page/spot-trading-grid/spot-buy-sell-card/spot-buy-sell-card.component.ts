@@ -189,11 +189,18 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
       let availableAmount = 0;
       let channelAmount = 0;
-
+      
+      let transfer = false
       if (tokenBalance) {
         availableAmount = safeNumber(tokenBalance.available);
         channelAmount = safeNumber(tokenBalance.channel || 0);
+        console.log('checking fund sources in trade card '+availableAmount+' '+channelAmount)
+        if(amount<=channelAmount){
+            transfer = true
+        }
       }
+
+      console.log('checking transfer value '+transfer)
 
       // Pass both availableAmount and channelAmount to the swap service
       const order: ISpotTradeConf = { 
@@ -208,8 +215,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
           id_for_sale: propIdForSale,
           amount: amount,
           price: price,
-          availableAmount: availableAmount,  // Pass available amount
-          channelAmount: channelAmount       // Pass channel amount
+          transfer  // Pass transfer
         },
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
