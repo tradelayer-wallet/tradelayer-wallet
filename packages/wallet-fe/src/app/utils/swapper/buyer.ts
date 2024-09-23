@@ -74,16 +74,11 @@ export class BuySwapper extends Swap {
         // Preserve the ctcpParams logic based on trade type
         if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
             const { propIdDesired, amountDesired, amountForSale, propIdForSale } = this.tradeInfo
-            let { availableAmount = 0, channelAmount = 0 } = this.tradeInfo as ISpotTradeProps;
-
-            if (availableAmount == undefined) {
-                availableAmount = 0
+            let { transfer } = this.tradeInfo as ISpotTradeProps;
+            console.log('importing transfer '+transfer)
+            if (transfer == undefined) {
+                transfer=false
             }
-
-            if (channelAmount == undefined) {
-                channelAmount = 0
-            }
-
 
             let ltcTrade = false;
             let ltcForSale = false;
@@ -176,6 +171,30 @@ export class BuySwapper extends Swap {
                         scriptPubKey: this.multySigChannelData.scriptPubKey,
                         redeemScript: this.multySigChannelData.redeemScript,
                     } as IUTXO;
+
+                    
+                    // const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), propIdForSale, (amountForSale).toString(), bbData ];
+                    // const cpitRes = await this.client('tl_createpayload_instant_trade', cpitLTCOptions);
+
+                    const cpitLTCOptions = {
+                        propertyId1: propIdDesired,
+                        propertyId2: propIdForSale,
+                        amountOffered1: amountForSale,
+                        amountDesired2: amountForSale,
+                        columnAIsOfferer: true,
+                        expiryBlock: bbData,
+                    }
+                    const cpitRes = { data: ENCODER.encodeTradeTokensChannel(cpitLTCOptions), error: null };
+                    if (cpitRes.error || !cpitRes.data) throw new Error(`tl_createpayload_instant_trade: ${cpitRes.error}`);
+                    const buildOptions: IBuildLTCITTxConfig = {
+                        buyerKeyPair: this.myInfo.keypair,
+                        sellerKeyPair: this.cpInfo.keypair,
+                        commitUTXOs: [commitUTXO, utxoData],
+                        payload: cpitRes.data,
+                        amount: 0,
+                    };
+                    const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
+                    if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
 
                     const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, utxoData);
                     this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);

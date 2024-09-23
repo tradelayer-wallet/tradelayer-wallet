@@ -76,51 +76,36 @@ export class SellSwapper extends Swap {
             const toKeyPair = { address: this.multySigChannelData.address };
             const commitTxConfig: IBuildTxConfig = { fromKeyPair, toKeyPair };
 
-            const { propIdDesired, amountDesired, availableAmount = 0, channelAmount = 0 } = this.tradeInfo as ISpotTradeProps;
+            let { propIdDesired, amountDesired, transfer } = this.tradeInfo as ISpotTradeProps;
+            console.log('importing transfer in step 2 '+transfer)
+            if(transfer==undefined){
+                transfer = false
+            }
 
             const column = await this.txsService.predictColumn(this.myInfo.keypair.address, this.cpInfo.keypair.address);
             const isColumnA = column === 'A';
 
             // Check if channel balance can cover the trade amount
-            if (channelAmount >= amountDesired) {
+            if (transfer) {
                 console.log('Using channel balance for transfer');
 
-                const transferPayload = ENCODER.encodeTransfer({
+                const payload = ENCODER.encodeTransfer({
                     propertyId: propIdDesired,
                     amount: amountDesired,
                     isColumnA: isColumnA,
                     destinationAddr: this.multySigChannelData.address,
                 });
 
-                commitTxConfig.payload = transferPayload;
+            }else{
 
-                const transferTxRes = await this.txsService.buildTx(commitTxConfig);
-                if (transferTxRes.error || !transferTxRes.data) throw new Error(`Build Transfer TX: ${transferTxRes.error}`);
-
-                const { rawtx } = transferTxRes.data;
-                const signTransferTxRes = await this.txsService.signRawTxWithWallet(rawtx);
-                if (signTransferTxRes.error || !signTransferTxRes.data?.signedHex) throw new Error(`Sign Transfer TX: ${signTransferTxRes.error}`);
-
-                // Only call sendTx if signedHex is defined
-                const signedHex = signTransferTxRes.data.signedHex;
-                if (signedHex) {
-                    const sendTransferTxRes = await this.txsService.sendTx(signedHex);
-                    if (sendTransferTxRes.error || !sendTransferTxRes.data) throw new Error(`Send Transfer TX: ${sendTransferTxRes.error}`);
-                    console.log(`Transfer TX sent with txid: ${sendTransferTxRes.data}`);
-                } else {
-                    throw new Error('Signed Hex is undefined for Transfer TX');
-                }
-
-            } else if (availableAmount >= amountDesired) {
-                console.log('Using available balance for trade');
-
-                const commitPayload = ENCODER.encodeCommit({
+                const payload = ENCODER.encodeCommit({
                     amount: amountDesired,
                     propertyId: propIdDesired,
                     channelAddress: this.multySigChannelData.address,
                 });
+            }
 
-                commitTxConfig.payload = commitPayload;
+                commitTxConfig.payload = payload;
 
                 const commitTxRes = await this.txsService.buildTx(commitTxConfig);
                 if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
