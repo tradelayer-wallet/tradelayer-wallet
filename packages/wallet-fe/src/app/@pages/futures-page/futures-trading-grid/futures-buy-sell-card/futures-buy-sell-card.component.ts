@@ -42,7 +42,9 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       private futuresOrdersService: FuturesOrdersService,
       private futuresOrderbookService: FuturesOrderbookService,
       public matDialog: MatDialog,
-    ) {}
+    ) {
+      this.getButtonDisabled = this.getButtonDisabled.bind(this);
+    }
 
     get futureKeyPair() {
       return this.authService.walletKeys?.futures?.[0];
@@ -107,9 +109,18 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
       const propId = this.selectedMarket.collateral.propertyId;
 
-      const _available = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
-        ?.find((t: any) => t.propertyid === propId)
-        ?.available;
+       // Handle other tokens
+            const tokenBalance = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
+                ?.find((t: any) => t.propertyid === propId);
+
+              let _available
+
+           if (tokenBalance) {
+                _available = safeNumber(Math.max(tokenBalance.available, tokenBalance.channel || 0));
+            } else {
+                _available = 0;
+            }
+
       const inOrderBalance = this.getInOrderAmount(propId);
       const available = safeNumber((_available || 0 )- inOrderBalance);
       if (!available || ((available / price) <= 0)) return 0;
@@ -126,6 +137,11 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
         return;
       }
+
+      const propId = this.selectedMarket.collateral.propertyId;
+      const tokenBalance = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
+          ?.find((t: any) => t.propertyid === propId);
+
       const isKYC = this.attestationService.getAttByAddress(this.futureAddress);
       if (isKYC !== true) {
         this.toastrService.error(`Futures Address Need Attestation first!`, 'Attestation Needed');
@@ -138,6 +154,17 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       const market = this.selectedMarket;
       const collateral = market.collateral.propertyId;
       const contract_id = market.contract_id;
+
+      let availableAmount = 0;
+      let channelAmount = 0;
+      let transfer = false
+      if (tokenBalance) {
+        availableAmount = safeNumber(tokenBalance.available);
+        channelAmount = safeNumber(tokenBalance.channel || 0);
+        console.log('checking fund sources in trade card '+availableAmount+' '+channelAmount)
+        if(amount<=channelAmount){
+            transfer = true
+        }
 
       if (!contract_id || (!price && this.isLimitSelected) || !amount) return;
       if (!this.futureKeyPair) return;
@@ -155,6 +182,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
           price: price,
           collateral: collateral,
           levarage: levarage,
+          transfer: transfer
         },
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
@@ -162,7 +190,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       this.futuresOrdersService.newOrder(order);
       this.buySellGroup.reset();
     }
-
+    /*
     stopLiquidity() {
       console.log(`Stop Liquidity`);
     }
@@ -173,20 +201,29 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       const range = parseFloat(_range);
       console.log({ amount, orders_number, range });
       return;
-    }
+    }*/
 
     getButtonDisabled(isBuy: boolean) {
       const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
       return !this.buySellGroup.valid || !v;
     }
 
-    private trackPriceHandler() {
+    /*private trackPriceHandler() {
       this.futuresOrderbookService.outsidePriceHandler
         .pipe(takeUntil(this.destroyed$))
         .subscribe(price => {
           this.buySellGroup.controls['price'].setValue(price);
         });
-    }
+    }*/
+
+    private trackPriceHandler() {
+  this.futuresOrderbookService.outsidePriceHandler
+    .pipe(takeUntil(this.destroyed$))
+    .subscribe((price: number) => {
+      this.buySellGroup.controls['price'].setValue(price);
+    });
+}
+
 
     async newFutureAddress() {
     //   if (this.authService.walletKeys.futures.length) {

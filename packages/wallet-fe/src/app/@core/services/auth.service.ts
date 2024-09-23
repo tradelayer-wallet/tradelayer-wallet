@@ -183,6 +183,7 @@ export class AuthService {
 
     async addKeyPair(): Promise<boolean> {
         try {
+            console.log('adding new address for wallet label '+this.walletLabel)
             await this.rpcService.rpc('getnewaddress', [this.walletLabel]);
             await this.getAddressesFromWallet();
             return true;

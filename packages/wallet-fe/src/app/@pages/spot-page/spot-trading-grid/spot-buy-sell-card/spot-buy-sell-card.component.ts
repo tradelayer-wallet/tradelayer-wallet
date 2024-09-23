@@ -171,7 +171,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
 
-      if (!propIdForSale || !propIdDesired || (!price && this.isLimitSelected) || !amount) {
+      if (propIdForSale == null || propIdDesired == null || (!price && this.isLimitSelected) || !amount) {
         return console.log('missing parameters for trade ' + propIdForSale + ' ' + propIdDesired + ' ' + price + ' ' + amount);
       }
 
@@ -189,12 +189,16 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
       let availableAmount = 0;
       let channelAmount = 0;
-
+      let transfer = false
       if (tokenBalance) {
         availableAmount = safeNumber(tokenBalance.available);
         channelAmount = safeNumber(tokenBalance.channel || 0);
+        console.log('checking fund sources in trade card '+availableAmount+' '+channelAmount)
+        if(amount<=channelAmount){
+            transfer = true
+        }
       }
-
+      console.log('checking transfer value '+transfer)
       // Pass both availableAmount and channelAmount to the swap service
       const order: ISpotTradeConf = { 
         keypair: {
@@ -203,13 +207,12 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         },
         action: isBuy ? "BUY" : "SELL",
         type: "SPOT",
-        props: {
+        spotProps: {
           id_desired: propIdDesired,
           id_for_sale: propIdForSale,
           amount: amount,
           price: price,
-          availableAmount: availableAmount,  // Pass available amount
-          channelAmount: channelAmount       // Pass channel amount
+          transfer: transfer
         },
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
@@ -219,7 +222,6 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       this.spotOrdersService.newOrder(order);
       this.buySellGroup.reset();
     }
-
 
     stopLiquidity() {
       console.log(`Stop Liquidity`);

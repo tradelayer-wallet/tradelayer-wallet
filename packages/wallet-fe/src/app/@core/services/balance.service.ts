@@ -95,6 +95,7 @@ export class BalanceService {
         // this.balanceLoading = true;
         try {
             const addressesArray = this.authService.walletAddresses;
+            console.log('showing addresses '+JSON.stringify(addressesArray))
             for (let i = 0; i < addressesArray?.length; i++) {
                 const address = addressesArray[i];
                 await this.updateCoinBalanceForAddressFromUnspents(address);

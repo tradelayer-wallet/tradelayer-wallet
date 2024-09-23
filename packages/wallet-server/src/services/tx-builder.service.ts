@@ -66,7 +66,7 @@ export interface IInput {
     pubkey?: string;
 };
 
-const minFeeLtcPerKb = 0.0001;
+const minFeeLtcPerKb = 0.00012;
 
 
 export const smartRpc: TClient = async (method: string, params: any[] = [], api: boolean = false) => {
