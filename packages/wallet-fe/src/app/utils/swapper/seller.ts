@@ -76,80 +76,83 @@ export class SellSwapper extends Swap {
             const toKeyPair = { address: this.multySigChannelData.address };
             const commitTxConfig: IBuildTxConfig = { fromKeyPair, toKeyPair };
 
-            const { propIdDesired, amountDesired } = this.tradeInfo
-            const { props }= this.tradeInfo as ITrade<ISpotTradeProps;
-            let {transfer} = props
-            console.log('importing transfer in step 2 '+transfer)
-            if(transfer==undefined){
-                transfer = false
+            let propIdDesired: number = 0;
+            let amountDesired: number = 0;
+            let transfer = false;
+
+            const ctcpParams = [];
+            if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
+                ({ propIdDesired, amountDesired, transfer = false } = this.tradeInfo as ISpotTradeProps);
+                console.log('imported transfer', transfer);
+                ctcpParams.push(propIdDesired, amountDesired.toString());
             }
+
+              // Check if `propIdDesired` and `amountDesired` are assigned before usage
+                if (propIdDesired === undefined || amountDesired === undefined) {
+                    throw new Error('propIdDesired or amountDesired is undefined');
+                }
 
             const column = await this.txsService.predictColumn(this.myInfo.keypair.address, this.cpInfo.keypair.address);
             const isColumnA = column === 'A';
 
-            // Check if channel balance can cover the trade amount
+            let payload;
             if (transfer) {
                 console.log('Using channel balance for transfer');
 
-                const payload = ENCODER.encodeTransfer({
+                payload = ENCODER.encodeTransfer({
                     propertyId: propIdDesired,
                     amount: amountDesired,
                     isColumnA: isColumnA,
                     destinationAddr: this.multySigChannelData.address,
                 });
+            } else {
+                console.log('Using available balance for trade');
 
-            }else{
-
-                const payload = ENCODER.encodeCommit({
+                payload = ENCODER.encodeCommit({
                     amount: amountDesired,
                     propertyId: propIdDesired,
                     channelAddress: this.multySigChannelData.address,
                 });
             }
 
-                commitTxConfig.payload = payload;
+            commitTxConfig.payload = payload;
 
-                const commitTxRes = await this.txsService.buildTx(commitTxConfig);
-                if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
+            const commitTxRes = await this.txsService.buildTx(commitTxConfig);
+            if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
 
-                const { rawtx } = commitTxRes.data;
-                const signCommitTxRes = await this.txsService.signRawTxWithWallet(rawtx);
-                if (signCommitTxRes.error || !signCommitTxRes.data?.signedHex) throw new Error(`Sign Commit TX: ${signCommitTxRes.error}`);
+            const { rawtx } = commitTxRes.data;
+            const signCommitTxRes = await this.txsService.signRawTxWithWallet(rawtx);
+            if (signCommitTxRes.error || !signCommitTxRes.data?.signedHex) throw new Error(`Sign Commit TX: ${signCommitTxRes.error}`);
 
-                // Only call sendTx if signedHex is defined
-                const signedHex = signCommitTxRes.data.signedHex;
-                if (signedHex) {
-                    const sendCommitTxRes = await this.txsService.sendTx(signedHex);
-                    if (sendCommitTxRes.error || !sendCommitTxRes.data) throw new Error(`Send Commit TX: ${sendCommitTxRes.error}`);
-                    console.log(`Commit TX sent with txid: ${sendCommitTxRes.data}`);
-                } else {
-                    throw new Error('Signed Hex is undefined for Commit TX');
-                }
+            const signedHex = signCommitTxRes.data.signedHex;
+            //if (signedHex) {
+                const commitTxSendRes = await this.txsService.sendTx(signedHex);
+                if (commitTxSendRes.error || !commitTxSendRes.data) throw new Error(`Send Commit TX: ${commitTxSendRes.error}`);
+                console.log(`Commit TX sent with txid: ${commitTxSendRes.data}`);
+            /*} else {
+                throw new Error('Signed Hex is undefined for Commit TX');
+            }*/
 
-                 const drtRes = await this.client("decoderawtransaction", [rawtx]);
-                if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
-                const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
-                if (!vout) throw new Error(`decoderawtransaction (2): ${drtRes.error}`);
-                const utxoData = {
-                    amount: vout.value,
-                    vout: vout.n,
-                    txid: commiTxSendRes.data,
-                    scriptPubKey: this.multySigChannelData.scriptPubKey,
-                    redeemScript: this.multySigChannelData.redeemScript,
-                } as IUTXO;
+            const drtRes = await this.client("decoderawtransaction", [rawtx]);
+            if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
+            const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
+            if (!vout) throw new Error(`decoderawtransaction (2): ${drtRes.error}`);
+            const utxoData = {
+                amount: vout.value,
+                vout: vout.n,
+                txid: commitTxSendRes.data,
+                scriptPubKey: this.multySigChannelData.scriptPubKey,
+                redeemScript: this.multySigChannelData.redeemScript,
+            } as IUTXO;
 
-                const swapEvent = new SwapEvent(`SELLER:STEP3`, this.myInfo.socketId, utxoData);
-                this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
-
-            } else {
-                this.toastrService.info('Insufficient Balance for Trade.');
-            }
-
+            const swapEvent = new SwapEvent(`SELLER:STEP3`, this.myInfo.socketId, utxoData);
+            this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
         } catch (error: any) {
             const errorMessage = error.message || 'Undefined Error';
             this.terminateTrade(`Step 2: ${errorMessage}`);
         }
     }
+
 
     private async onStep4(cpId: string, psbtHex: string) {
         try {
@@ -158,7 +161,7 @@ export class SellSwapper extends Swap {
 
             const wifRes = await this.txsService.getWifByAddress(this.myInfo.keypair.address);
             if (wifRes.error || !wifRes.data) return console.log(`WIF not found: ${this.myInfo.keypair.address}`);
-
+            console.log('inside step 4 '+JSON.stringify(wifRes))
             const signRes = await this.txsService.signPsbt({ wif: wifRes.data, psbtHex });
             if (signRes.error || !signRes.data?.psbtHex) return console.log(`Sign Tx: ${signRes.error}`);
 

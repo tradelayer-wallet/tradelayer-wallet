@@ -73,8 +73,8 @@ export class BuySwapper extends Swap {
 
         // Preserve the ctcpParams logic based on trade type
         if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
-            const { propIdDesired, amountDesired, amountForSale, propIdForSale } = this.tradeInfo
-            let { transfer } = this.tradeInfo as ISpotTradeProps;
+            let { propIdDesired, amountDesired, amountForSale, propIdForSale, transfer } = this.tradeInfo
+            //let { transfer } = this.tradeInfo as ITradeInfo<ISpotTradeProps>;
             console.log('importing transfer '+transfer)
             if (transfer == undefined) {
                 transfer=false
@@ -278,7 +278,7 @@ export class BuySwapper extends Swap {
         
         const wifRes = await this.txsService.getWifByAddress(this.myInfo.keypair.address);
         if (wifRes.error || !wifRes.data) return this.terminateTrade(`Step 5: getWifByAddress: ${wifRes.error}`);
-        
+        console.log('inside step 5 '+JSON.stringify(wifRes))
         const wif = wifRes.data;
         if (!wif) return this.terminateTrade(`Step 5: getWifByAddress: WIF not found: ${this.myInfo.keypair.address}`);
         
@@ -290,7 +290,7 @@ export class BuySwapper extends Swap {
         this.toastrService.info('Trade signed, waiting for mempool Commits.');
 
         const maxAttempts = 100;  // Maximum number of checks before timeout
-        const delayBetweenChecks = 2000;  // 5 seconds delay between checks
+        const delayBetweenChecks = 1000;  // 5 seconds delay between checks
         let attempts = 0;
         let isInMempool = false;
         await new Promise(resolve => setTimeout(resolve, delayBetweenChecks));
