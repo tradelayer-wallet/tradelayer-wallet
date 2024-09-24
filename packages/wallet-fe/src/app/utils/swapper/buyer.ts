@@ -196,7 +196,7 @@ export class BuySwapper extends Swap {
                     const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
                     if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
 
-                    const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, utxoData);
+                    const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
                     this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
             }
 
