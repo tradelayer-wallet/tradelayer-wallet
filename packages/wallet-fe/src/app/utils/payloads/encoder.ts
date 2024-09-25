@@ -54,13 +54,14 @@ type EncodeCommitParams = {
     propertyId: number;
     amount: number;
     channelAddress: string;
+    ref?: number; // New optional parameter for reference output
 };
 
 const encodeCommit = (params: EncodeCommitParams): string => {
     const payload = [
         params.propertyId.toString(36),
-        new BigNumber(params.amount).times(1e8).toString(36), // Updated to use BigNumber
-        params.channelAddress,
+        new BigNumber(params.amount).times(1e8).toString(36),
+        params.channelAddress.length > 42 ? `ref:${params.ref || 0}` : params.channelAddress // Handle long multisig addresses
     ];
     const txNumber = 4;
     const txNumber36 = txNumber.toString(36);
@@ -93,20 +94,22 @@ const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string 
     return marker + txNumber36 + payloadString;
 };
 
+
 type EncodeTransferParams = {
     propertyId: number;
     amount: number;
     isColumnA: boolean;
     destinationAddr: string;
+    ref?: number; // New optional parameter for reference output
 };
 
 
 // Encode Transfer Transaction 
 const encodeTransfer = (params: EncodeTransferParams): string => {
     const propertyId = params.propertyId.toString(36);
-    const amounts = new BigNumber(params.amount).times(1e8).toNumber();
-    const isColumnA = params.isColumnA ? 1 : 0; // Assuming boolean should map to 1 or 0
-    const destinationAddr = params.destinationAddr;
+    const amounts = new BigNumber(params.amount).times(1e8).toString(36);
+    const isColumnA = params.isColumnA ? 1 : 0;
+    const destinationAddr = params.destinationAddr.length > 42 ? `ref:${params.ref || 0}` : params.destinationAddr; // Handle long multisig addresses
     
     return [propertyId, amounts, isColumnA, destinationAddr].join(',');
 };
