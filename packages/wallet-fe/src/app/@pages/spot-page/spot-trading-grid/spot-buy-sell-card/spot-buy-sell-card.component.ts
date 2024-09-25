@@ -171,9 +171,12 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
 
-      if (!propIdForSale || !propIdDesired || (!price && this.isLimitSelected) || !amount) {
-        return console.log('missing parameters for trade ' + propIdForSale + ' ' + propIdDesired + ' ' + price + ' ' + amount);
+      if (propIdForSale === undefined || propIdForSale === null || 
+            propIdDesired === undefined || propIdDesired === null || 
+            (!price && this.isLimitSelected) || !amount) {
+            return console.log('missing parameters for trade ' + propIdForSale + ' ' + propIdDesired + ' ' + price + ' ' + amount);
       }
+
 
       if (!this.spotKeyPair){
         return console.log('missing key pair');

@@ -6,6 +6,7 @@ import { ENCODER } from '../payloads/encoder';
 import { ToastrService } from "ngx-toastr";
 
 export class SellSwapper extends Swap {
+        private tradeStartTime: number; // Add this declaration for tradeStartTime
     constructor(
         typeTrade: ETradeType,
         tradeInfo: ISpotTradeProps, // IFuturesTradeProps can be added if needed for futures
@@ -18,8 +19,15 @@ export class SellSwapper extends Swap {
     ) {
         super(typeTrade, tradeInfo, sellerInfo, buyerInfo, client, socket, txsService);
         this.handleOnEvents();
+        this.tradeStartTime = Date.now(); // Start time of the trade
         this.onReady();
         this.initTrade();
+    }
+
+    
+    private logTime(stage: string) {
+        const currentTime = Date.now();
+        console.log(`Time taken for ${stage}: ${currentTime - this.tradeStartTime} ms`);
     }
 
     private handleOnEvents() {
@@ -68,6 +76,7 @@ export class SellSwapper extends Swap {
     }
 
     private async onStep2(cpId: string) {
+            this.logTime('Step 2 Start');
         try {
             if (!this.multySigChannelData?.address) throw new Error(`Error with finding Multisig Address`);
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
@@ -155,6 +164,7 @@ export class SellSwapper extends Swap {
 
 
     private async onStep4(cpId: string, psbtHex: string) {
+            this.logTime('Step 4 Start');
         try {
             if (cpId !== this.cpInfo.socketId) return console.log(`Error with p2p connection`);
             if (!psbtHex) throw new Error(`PsbtHex for syncing not provided`);
@@ -174,6 +184,7 @@ export class SellSwapper extends Swap {
     }
 
     private async onStep6(cpId: string, finalTx: string) {
+            this.logTime('Step 6 Start');
         try {
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
 

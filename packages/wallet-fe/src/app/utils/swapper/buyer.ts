@@ -6,6 +6,7 @@ import { ENCODER } from '../payloads/encoder';
 import { ToastrService } from "ngx-toastr";
 
 export class BuySwapper extends Swap {
+    private tradeStartTime: number; // Add this declaration for tradeStartTime
     constructor(
         typeTrade: ETradeType,
         tradeInfo: ISpotTradeProps,//IFuturesTradeProps |, 
@@ -18,7 +19,13 @@ export class BuySwapper extends Swap {
     ) {
         super(typeTrade, tradeInfo, buyerInfo, sellerInfo, client, socket, txsService);
         this.handleOnEvents();
+        this.tradeStartTime = Date.now(); // Start time of the trade
         this.onReady();
+    }
+
+    private logTime(stage: string) {
+        const currentTime = Date.now();
+        console.log(`Time taken for ${stage}: ${currentTime - this.tradeStartTime} ms`);
     }
 
     private handleOnEvents() {
@@ -63,6 +70,7 @@ export class BuySwapper extends Swap {
     }
 
    private async onStep3(cpId: string, commitUTXO: IUTXO) {
+        this.logTime('Step 3 Start');
     try {
         if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
         if (!this.multySigChannelData) throw new Error(`Wrong Multisig Data Provided`);
@@ -273,6 +281,7 @@ export class BuySwapper extends Swap {
 
 
     private async onStep5(cpId: string, psbtHex: string) {
+        this.logTime('Step 5 Start');
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Step 5: Error with p2p connection: code 4');
         if (!psbtHex) return this.terminateTrade('Step 5: PsbtHex Not Provided');
         
@@ -287,10 +296,10 @@ export class BuySwapper extends Swap {
         if (!signRes.data.isFinished || !signRes.data.finalHex) return this.terminateTrade(`Step 5: Transaction not Fully Synced`);
 
         // Notify user that signing is done and the process will wait for UTXOs to appear in mempool
-        this.toastrService.info('Trade signed, waiting for mempool Commits.');
+        this.toastrService.info('Signed! ${currentTime - this.tradeStartTime} ms');
 
         const maxAttempts = 100;  // Maximum number of checks before timeout
-        const delayBetweenChecks = 1000;  // 5 seconds delay between checks
+        const delayBetweenChecks = 1000;  // 1 seconds delay between checks
         let attempts = 0;
         let isInMempool = false;
         await new Promise(resolve => setTimeout(resolve, delayBetweenChecks));
