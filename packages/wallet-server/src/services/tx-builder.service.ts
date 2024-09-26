@@ -119,8 +119,8 @@ export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode:
         const changeBuyerLtcAmount = safeNumber(inputsSum - sellerLtcAmount - fee) > buyerLtcAmount
             ? safeNumber(inputsSum - sellerLtcAmount - fee)
             : buyerLtcAmount;
-        if (inputsSum < safeNumber(fee + sellerLtcAmount + changeBuyerLtcAmount)) throw new Error("Not Enaugh coins for paying fees. Code 1");
-        if (!finalInputs.length) throw new Error("Not Enaugh coins for paying fees. Code 3");
+        if (inputsSum < safeNumber(fee + sellerLtcAmount + changeBuyerLtcAmount)) throw new Error("Not Enough coins for paying fees. Code 1");
+        if (!finalInputs.length) throw new Error("Not Enough coins for paying fees. Code 3");
         const _insForRawTx = finalInputs.map(({txid, vout }) => ({ txid, vout }));
         const _outsForRawTx = { [buyerAddress]: changeBuyerLtcAmount, [sellerAddress]: sellerLtcAmount };
 
@@ -215,10 +215,10 @@ const getEnoughInputs2 = (_inputs: IInput[], amount: number) => {
     _inputs.forEach(u => {
         const _amountSum: number = finalInputs.map(r => r.amount).reduce((a, b) => a + b, 0);
         const amountSum = safeNumber(_amountSum);
-        const _fee = safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length + 1));
+        const _fee = safeNumber((0.4 * minFeeLtcPerKb) * (finalInputs.length + 1));
         if (amountSum < safeNumber(amount + _fee)) finalInputs.push(u);
     });
-    const fee = safeNumber((0.3 * minFeeLtcPerKb) * finalInputs.length);
+    const fee = safeNumber((0.4 * minFeeLtcPerKb) * finalInputs.length);
     return { finalInputs, fee };
 };
 
@@ -229,7 +229,7 @@ const getEnoughInputs = (_inputs: IInput[], amount: number) => {
         const amountSum = safeNumber(_amountSum);
         if (amountSum < amount) finalInputs.push(u);
     });
-    const fee = safeNumber((0.3 * minFeeLtcPerKb) * finalInputs.length);
+    const fee = safeNumber((0.4 * minFeeLtcPerKb) * finalInputs.length);
     return { finalInputs, fee };
 };
 

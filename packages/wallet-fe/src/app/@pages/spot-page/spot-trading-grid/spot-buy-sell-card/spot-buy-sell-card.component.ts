@@ -401,10 +401,10 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       allAmounts.forEach(u => {
         const _amountSum: number = finalInputs.reduce((a, b) => a + b, 0);
         const amountSum = safeNumber(_amountSum);
-        const _fee = safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length + 1));
+        const _fee = safeNumber((0.4 * minFeeLtcPerKb) * (finalInputs.length + 1));
         if (amountSum < safeNumber(_amount + _fee)) finalInputs.push(u);
       });
-      return safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length));
+      return safeNumber((0.4 * minFeeLtcPerKb) * (finalInputs.length));
     }
 
     closeAll() {

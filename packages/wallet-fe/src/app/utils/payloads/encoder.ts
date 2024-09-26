@@ -93,8 +93,7 @@ const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string 
     const payloadString = payload.join(',');
     return marker + txNumber36 + payloadString;
 };
-
-
+s
 type EncodeTransferParams = {
     propertyId: number;
     amount: number;
