@@ -185,6 +185,9 @@ export class SellSwapper extends Swap {
 
     private async onStep6(cpId: string, finalTx: string) {
             this.logTime('Step 6 Start');
+             const currentTime = Date.now();
+            this.toastrService.info(`Signed! ${currentTime - this.tradeStartTime} ms`);
+
         try {
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
 

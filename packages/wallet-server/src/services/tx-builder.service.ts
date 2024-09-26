@@ -215,10 +215,10 @@ const getEnoughInputs2 = (_inputs: IInput[], amount: number) => {
     _inputs.forEach(u => {
         const _amountSum: number = finalInputs.map(r => r.amount).reduce((a, b) => a + b, 0);
         const amountSum = safeNumber(_amountSum);
-        const _fee = safeNumber((0.4 * minFeeLtcPerKb) * (finalInputs.length + 1));
+        const _fee = safeNumber((0.2 * minFeeLtcPerKb) * (finalInputs.length + 1));
         if (amountSum < safeNumber(amount + _fee)) finalInputs.push(u);
     });
-    const fee = safeNumber((0.4 * minFeeLtcPerKb) * finalInputs.length);
+    const fee = safeNumber((0.2 * minFeeLtcPerKb) * finalInputs.length);
     return { finalInputs, fee };
 };
 
@@ -229,7 +229,7 @@ const getEnoughInputs = (_inputs: IInput[], amount: number) => {
         const amountSum = safeNumber(_amountSum);
         if (amountSum < amount) finalInputs.push(u);
     });
-    const fee = safeNumber((0.4 * minFeeLtcPerKb) * finalInputs.length);
+    const fee = safeNumber((0.2 * minFeeLtcPerKb) * finalInputs.length);
     return { finalInputs, fee };
 };
 

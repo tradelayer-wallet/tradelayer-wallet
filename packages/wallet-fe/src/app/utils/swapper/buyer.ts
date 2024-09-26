@@ -294,9 +294,9 @@ export class BuySwapper extends Swap {
         const signRes = await this.txsService.signPsbt({ wif, psbtHex });
         if (signRes.error || !signRes.data) return this.terminateTrade(`Step 5: signPsbt: ${signRes.error}`);
         if (!signRes.data.isFinished || !signRes.data.finalHex) return this.terminateTrade(`Step 5: Transaction not Fully Synced`);
-
+         const currentTime = Date.now();
         // Notify user that signing is done and the process will wait for UTXOs to appear in mempool
-        this.toastrService.info('Signed! ${currentTime - this.tradeStartTime} ms');
+        this.toastrService.info(`Signed! ${currentTime - this.tradeStartTime} ms`);
 
         const maxAttempts = 100;  // Maximum number of checks before timeout
         const delayBetweenChecks = 1000;  // 1 seconds delay between checks

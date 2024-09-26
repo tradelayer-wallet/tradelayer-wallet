@@ -166,7 +166,6 @@ export class TxsService {
             }
         }
 
-
     async signTx(signTxConfig: ISignTxConfig): Promise<{
         data?: {
             isValid: boolean,

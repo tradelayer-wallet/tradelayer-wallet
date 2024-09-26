@@ -381,31 +381,58 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     getFees(isBuy: boolean) {
-      const { amount, price } = this.buySellGroup.value;
-      if (!amount || !price) return 0;
+        const { amount, price } = this.buySellGroup.value;
+        if (!amount || !price) return 0;
 
-      const propId = isBuy
-        ? this.selectedMarket.second_token.propertyId
-        : this.selectedMarket.first_token.propertyId;
+        const propId = isBuy
+            ? this.selectedMarket.second_token.propertyId
+            : this.selectedMarket.first_token.propertyId;
 
-      const finalInputs: number[] = [];
-      const _amount = propId !== -1
-        ? safeNumber(minVOutAmount * 2)
-        : safeNumber((amount * price) + minVOutAmount);
-      const _allAmounts = this.balanceService.getCoinBalancesByAddress(this.spotAddress).utxos
-        .map(r => r.amount)
-        .sort((a, b) => b - a);
-      const allAmounts =  propId !== -1
-        ? _allAmounts
-        : [minVOutAmount, ..._allAmounts]
-      allAmounts.forEach(u => {
-        const _amountSum: number = finalInputs.reduce((a, b) => a + b, 0);
-        const amountSum = safeNumber(_amountSum);
-        const _fee = safeNumber((0.4 * minFeeLtcPerKb) * (finalInputs.length + 1));
-        if (amountSum < safeNumber(_amount + _fee)) finalInputs.push(u);
-      });
-      return safeNumber((0.4 * minFeeLtcPerKb) * (finalInputs.length));
+        const minSmallOutput = 0.000072; // Define the threshold for small outputs
+        let smallOutputCount = 0; // Initialize a count for small outputs
+        const finalInputs: number[] = [];
+        
+        // Use a more conservative fee multiplier: 10-15%
+        const feeMultiplier = propId === 0 ? 1.10 : 1.0; // Increase fee by 10% if propertyId is 0 (LTC)
+        
+        // Determine the required amount based on token or LTC
+        const _amount = propId !== -1
+            ? safeNumber(minVOutAmount * 2)
+            : safeNumber((amount * price) + minVOutAmount);
+        
+        // Get all UTXO amounts and sort them
+        const _allAmounts = this.balanceService.getCoinBalancesByAddress(this.spotAddress).utxos
+            .map(r => r.amount)
+            .sort((a, b) => b - a);
+
+        // Add the minVOutAmount if dealing with LTC
+        const allAmounts = propId !== -1
+            ? _allAmounts
+            : [minVOutAmount, ..._allAmounts];
+
+        // Loop through inputs to ensure we have enough to cover the amount + fee
+        allAmounts.forEach(u => {
+            const _amountSum: number = finalInputs.map(a => a).reduce((a, b) => a + b, 0);
+            const amountSum = safeNumber(_amountSum);
+            const _fee = safeNumber(feeMultiplier * (0.3 * minFeeLtcPerKb) * (finalInputs.length + 1));
+
+            // Add a small output only if we haven't added one yet
+            if (u < minSmallOutput) {
+                if (smallOutputCount > 0) return; // Skip if already added a small output
+                smallOutputCount++;
+            }
+
+            // Check if we need more inputs to cover the total (amount + fee)
+            if (amountSum < safeNumber(_amount + _fee)) finalInputs.push(u);
+        });
+
+        // Calculate the total fee as per the number of inputs, using the same logic as getEnoughInputs2
+        const fee = safeNumber((0.3 * minFeeLtcPerKb) * finalInputs.length);
+
+        // Return the final calculated fee
+        return safeNumber(feeMultiplier * fee);
     }
+
 
     closeAll() {
       this.spotOrdersService.closeAllOrders();

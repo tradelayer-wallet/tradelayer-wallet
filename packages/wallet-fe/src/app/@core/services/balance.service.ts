@@ -121,6 +121,46 @@ export class BalanceService {
         };
     }
 
+    private async consolidateWallet(address: string, network: string) {
+            const dustThreshold = 0.000072;
+            const coinBalanceObjRes = await this.getCoinBalanceObjForAddress(address);
+            
+            if (coinBalanceObjRes.error || !coinBalanceObjRes.data) {
+                throw new Error(coinBalanceObjRes.error || `Error with updating balances: ${address}`);
+            }
+
+            const { confirmed, unconfirmed, utxos } = coinBalanceObjRes.data;
+            
+            // Define the type for `utxo`
+            const smallUtxos = utxos.filter((utxo: IUTXO) => utxo.amount <= dustThreshold);
+
+            if (smallUtxos.length < 2) return;  // No need to consolidate
+
+            // Define the type for `acc` and `utxo`
+            const totalAmount = smallUtxos.reduce((acc: number, utxo: IUTXO) => acc + utxo.amount, 0);
+
+            // Create a single transaction sending the totalAmount back to the same address
+            const tx = await this.txsService.buildTx({
+                fromKeyPair: { address },
+                toKeyPair: { address },
+                amount: totalAmount,
+                inputs: smallUtxos
+            });
+
+            if (tx.error) {
+                throw new Error(tx.error);
+            }
+
+            // Check if tx.data and tx.data.rawtx are defined
+            if (tx.data && tx.data.rawtx) {
+                console.log('Consolidation TX:', tx.data.rawtx);
+            } else {
+                throw new Error('Transaction data or rawtx is undefined');
+            }
+        }
+
+
+
     private async updateTokensBalanceForAddress(address: string) {
         const tokensBalanceArrRes = await this.getTokensBalanceArrForAddress(address);
         if (tokensBalanceArrRes.error || !tokensBalanceArrRes.data) throw new Error(tokensBalanceArrRes.error || `Error with updating balances`);
