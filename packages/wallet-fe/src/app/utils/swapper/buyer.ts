@@ -57,7 +57,9 @@ export class BuySwapper extends Swap {
         try {
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
             const pubKeys = [this.cpInfo.keypair.pubkey, this.myInfo.keypair.pubkey];
+            this.logTime('Before multi 1')
             const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
+            this.logTime('After multi 1')
             if (amaRes.error || !amaRes.data) throw new Error(`addmultisigaddress: ${amaRes.error}`);
             if (amaRes.data.redeemScript !== msData.redeemScript) throw new Error(`redeemScript of Multysig is not matching`);
             this.multySigChannelData = msData;
@@ -74,8 +76,9 @@ export class BuySwapper extends Swap {
     try {
         if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
         if (!this.multySigChannelData) throw new Error(`Wrong Multisig Data Provided`);
-
+        this.logTime('B4 block count 3')
         const gbcRes = await this.client('getblockcount');
+        this.logTime('Aft block count 3')
         if (gbcRes.error || !gbcRes.data) throw new Error(`Block: ${gbcRes.error}`);
         const bbData = parseFloat(gbcRes.data) + 1000;
 
@@ -151,22 +154,28 @@ export class BuySwapper extends Swap {
                     toKeyPair: { address: this.multySigChannelData.address },
                     payload: payload
                 };
-
+                this.logTime('B4 build commit 3')
                 const commitTxRes = await this.txsService.buildTx(commitTxConfig);
+                this.logTime('Aft build cmt 3')
                 if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
 
                   const { rawtx } = commitTxRes.data;
+                    this.logTime('B4 sign cmt 3')
                     const commitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
+                    this.logTime('Aft sign cmt 3')
                     if (commitTxSignRes.error || !commitTxSignRes.data) throw new Error(`Sign Commit TX: ${commitTxSignRes.error}`);
 
                     const signedHex = commitTxSignRes.data?.signedHex;
                     if (!signedHex) throw new Error(`Failed to sign transaction`);
-
+                    this.logTime('B4 send cmt 3')
                     const commitTxSendRes = await this.txsService.sendTx(signedHex);
+                    this.logTime('Aft send cmt 3')
                     if (commitTxSendRes.error || !commitTxSendRes.data) throw new Error(`Failed to send transaction`);
 
                     // Handle UTXO creation for the next step
+                    this.logTime('B4 decode cmt 3')
                     const drtRes = await this.client("decoderawtransaction", [rawtx]);
+                    this.logTime('Aft decode cmt 3')
                     if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
 
                     const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
@@ -201,7 +210,9 @@ export class BuySwapper extends Swap {
                         payload: cpitRes.data,
                         amount: 0,
                     };
+                    this.logTime('B4 build trade 3')
                     const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
+                    this.logTime('Aft build trade 3')
                     if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
 
                     const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
@@ -285,13 +296,16 @@ export class BuySwapper extends Swap {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Step 5: Error with p2p connection: code 4');
         if (!psbtHex) return this.terminateTrade('Step 5: PsbtHex Not Provided');
         
+        this.logTime('B4 wif 5')
         const wifRes = await this.txsService.getWifByAddress(this.myInfo.keypair.address);
         if (wifRes.error || !wifRes.data) return this.terminateTrade(`Step 5: getWifByAddress: ${wifRes.error}`);
         console.log('inside step 5 '+JSON.stringify(wifRes))
         const wif = wifRes.data;
         if (!wif) return this.terminateTrade(`Step 5: getWifByAddress: WIF not found: ${this.myInfo.keypair.address}`);
-        
+        this.logTime('Aft wif 5, b4 sign')
+
         const signRes = await this.txsService.signPsbt({ wif, psbtHex });
+        this.logTime('Aft sign 5')
         if (signRes.error || !signRes.data) return this.terminateTrade(`Step 5: signPsbt: ${signRes.error}`);
         if (!signRes.data.isFinished || !signRes.data.finalHex) return this.terminateTrade(`Step 5: Transaction not Fully Synced`);
          const currentTime = Date.now();

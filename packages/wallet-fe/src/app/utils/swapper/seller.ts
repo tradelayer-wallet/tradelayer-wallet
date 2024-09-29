@@ -58,12 +58,15 @@ export class SellSwapper extends Swap {
     private async initTrade() {
         try {
             const pubKeys = [this.myInfo.keypair.pubkey, this.cpInfo.keypair.pubkey];
-
+            this.logTime('Before multisig 0')
             const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
+            this.logTime('After multi 0')
             if (amaRes.error || !amaRes.data) throw new Error(`addmultisigaddress: ${amaRes.error}`);
             this.multySigChannelData = amaRes.data as IMSChannelData;
 
+            this.logTime('Before validate 0')
             const validateMS = await this.client("validateaddress", [this.multySigChannelData.address]);
+            this.logTime('After Validate 0')
             if (validateMS.error || !validateMS.data?.scriptPubKey) throw new Error(`Init Trade: validateaddress: ${validateMS.error}`);
             this.multySigChannelData.scriptPubKey = validateMS.data.scriptPubKey;
 
@@ -125,12 +128,14 @@ export class SellSwapper extends Swap {
             }
 
             commitTxConfig.payload = payload;
-
+            this.logTime('B4 build cmt 2')
             const commitTxRes = await this.txsService.buildTx(commitTxConfig);
+            this.logTime('Aft build cmt 2')
             if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
 
             const { rawtx } = commitTxRes.data;
             const signCommitTxRes = await this.txsService.signRawTxWithWallet(rawtx);
+            this.logTime('Aft sign cmt 3')
             if (signCommitTxRes.error || !signCommitTxRes.data?.signedHex) throw new Error(`Sign Commit TX: ${signCommitTxRes.error}`);
 
             const signedHex = signCommitTxRes.data.signedHex;
@@ -169,12 +174,13 @@ export class SellSwapper extends Swap {
             if (cpId !== this.cpInfo.socketId) return console.log(`Error with p2p connection`);
             if (!psbtHex) throw new Error(`PsbtHex for syncing not provided`);
 
+            this.logTime('B4 wif 4')
             const wifRes = await this.txsService.getWifByAddress(this.myInfo.keypair.address);
             if (wifRes.error || !wifRes.data) return console.log(`WIF not found: ${this.myInfo.keypair.address}`);
-            console.log('inside step 4 '+JSON.stringify(wifRes))
+            this.logTime('B4 sig 4')
             const signRes = await this.txsService.signPsbt({ wif: wifRes.data, psbtHex });
             if (signRes.error || !signRes.data?.psbtHex) return console.log(`Sign Tx: ${signRes.error}`);
-
+            this.logTime('Aft sig 4')
             const swapEvent = new SwapEvent(`SELLER:STEP5`, this.myInfo.socketId, signRes.data.psbtHex);
             this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
         } catch (error: any) {

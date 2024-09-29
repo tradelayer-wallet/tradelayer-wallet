@@ -5,7 +5,7 @@
 
 mat-card {
     background-color: var(--darkBlue2);
-    width: 100%;
+    width: 90%;
     height: 100%;
     color: var(--white);
     padding: unset;
@@ -55,7 +55,7 @@ mat-card {
         }
         .sell {
             td.cdk-column-price {
-                color: red;
+                color:  #FF3333;
             }
         }
         .middle {
@@ -80,7 +80,7 @@ mat-card {
         }
         .buy {
             td.cdk-column-price {
-                color: green;
+                color: #33CC33;
             }
         }
 

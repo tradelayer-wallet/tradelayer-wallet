@@ -7,6 +7,7 @@ mat-card {
     background-color: var(--darkBlue2);
     width: 100%;
     height: 100%;
+    transform: translateX(-10%);  // Shift the chart 10% to the left
     color: var(--white);
     padding: unset;
     mat-card-title {
@@ -45,8 +46,10 @@ mat-card {
         height: calc(100% - (3rem + 8px));
         display: flex;
         .chart-container {
-            width: 100%;
+            width: 100%;  // Reduced width to accommodate the left shift
             height: 100%;
+            display: flex;
+            justify-content: center;  // Ensure content within the container is centered properly
         }
     }
 }

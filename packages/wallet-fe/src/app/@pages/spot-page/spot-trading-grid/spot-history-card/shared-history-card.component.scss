@@ -8,6 +8,7 @@ mat-card {
     width: 100%;
     height: 100%;
     color: var(--white);
+    transform: translateX(-10%);  // Shift the chart 10% to the left
     padding: unset;
     mat-card-title {
         padding: 24px 16px;
