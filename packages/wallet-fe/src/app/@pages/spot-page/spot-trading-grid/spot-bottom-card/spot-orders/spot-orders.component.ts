@@ -38,53 +38,25 @@ export class SpotOrdersComponent implements OnInit, OnDestroy {
       // this.subsribe();
     }
 
-    private subscribe() {
-      // Listen for placed-orders and update the service accordingly
-      this.socket.on(`${obEventPrefix}::placed-orders`, (orders: { openedOrders: ISpotOrder[], orderHistory: ISpotOrder[] }) => {
-        const { openedOrders, orderHistory } = orders;
+     private subsribe() {
+       this.socket.on(`${obEventPrefix}::placed-orders`, (orders: { openedOrders: ISpotOrder[], orderHistory: ISpotOrder[] }) => {
+         const { openedOrders, orderHistory } = orders;
+         console.log('inside the spot orders subscription '+JSON.stringify(openedOrders)+' '+JSON.stringify(orderHistory))
+           this.spotOrdersService.orderHistory = orderHistory
+             .filter(q => q.type === "SPOT" && q.keypair.pubkey === this.authService.activeSpotKey?.pubkey && q.state);
+           this.spotOrdersService.openedOrders = openedOrders.filter(q => q.type === "SPOT");
+         });
+         this.spotOrdersService.closeOpenedOrder('test-for-update');
+         this.socket.on(`${obEventPrefix}::disconnect`, () => {
+           this.spotOrdersService.openedOrders = [];
+         });
 
-        const activeSpotKey = this.authService.activeSpotKey?.pubkey;
-
-        // Only show orders for the active SPOT key
-        this.spotOrdersService.orderHistory = orderHistory.filter(q => q.type === "SPOT" && q.keypair.pubkey === activeSpotKey && q.state);
-        this.spotOrdersService.openedOrders = openedOrders.filter(q => q.type === "SPOT");
-      });
-
-      this.spotOrdersService.closeOpenedOrder('test-for-update'); // Just an example for closing test order
-
-      // Handle disconnection
-      this.socket.on(`${obEventPrefix}::disconnect`, () => {
-        this.spotOrdersService.openedOrders = [];
-      });
-
-      // Update orders when addresses are changed or logged out
-      const subs = this.authService.updateAddressesSubs$.subscribe(kp => {
-        if (!this.authService.activeSpotKey || !kp.length) {
-          this.spotOrdersService.closeAllOrders();
-        }
-      });
-      this.subsArray.push(subs);
-    }
-
-
-    // private subsribe() {
-    //   this.socket.on(`${obEventPrefix}::placed-orders`, (orders: { openedOrders: ISpotOrder[], orderHistory: ISpotOrder[] }) => {
-    //     const { openedOrders, orderHistory } = orders;
-    //     this.spotOrdersService.orderHistory = orderHistory
-    //       .filter(q => q.type === "SPOT" && q.keypair.pubkey === this.authService.activeSpotKey?.pubkey && q.state);
-    //     this.spotOrdersService.openedOrders = openedOrders.filter(q => q.type === "SPOT");
-    //   });
-    //   this.spotOrdersService.closeOpenedOrder('test-for-update');
-    //   this.socket.on(`${obEventPrefix}::disconnect`, () => {
-    //     this.spotOrdersService.openedOrders = [];
-    //   });
-
-    //   const subs = this.authService.updateAddressesSubs$
-    //     .subscribe(kp => {
-    //       if (!this.authService.activeSpotKey || !kp.length) this.spotOrdersService.closeAllOrders();
-    //     });
-    //   this.subsArray.push(subs);
-    // }
+         const subs = this.authService.updateAddressesSubs$
+           .subscribe(kp => {
+             if (!this.authService.activeSpotKey || !kp.length) this.spotOrdersService.closeAllOrders();
+           });
+         this.subsArray.push(subs);
+     }
 
     ngOnDestroy(): void {
       this.subsArray.forEach(s => s.unsubscribe());
