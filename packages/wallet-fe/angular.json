@@ -32,20 +32,11 @@
             "baseHref": "./",
             "assets": [
               "src/favicon.ico",
-              "src/assets",
-              {
-                "glob": "**/*",
-                "input": "node_modules/charting_library/charting_library",
-                "output": "/charting_library/"
-              }
+              "src/assets"
             ],
             "styles": [
               "src/styles.scss",
               "node_modules/ngx-toastr/toastr.css"
-            ],
-            "scripts": [
-              "node_modules/charting_library/charting_library/charting_library.standalone.js",
-              "node_modules/charting_library/datafeeds/udf/dist/bundle.js"
             ],
             "allowedCommonJsDependencies": [
               "crypto-js",
