@@ -35,18 +35,18 @@ export class SpotOrdersComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit() {
-      // this.subsribe();
+      this.subsribe();
     }
 
     private subsribe() {
        this.socket.on(`${obEventPrefix}::placed-orders`, (orders: { openedOrders: ISpotOrder[], orderHistory: ISpotOrder[] }) => {
           const { openedOrders, orderHistory } = orders;
-          console.log('orders '+openedOrders+' '+orderHistory)
+          console.log('orders '+JSON.stringify(openedOrders)+' '+JSON.stringify(orderHistory))
           this.spotOrdersService.orderHistory = orderHistory
             .filter(q => q.type === "SPOT" && q.keypair.pubkey === this.authService.activeSpotKey?.pubkey && q.state);
           this.spotOrdersService.openedOrders = openedOrders.filter(q => q.type === "SPOT");
         });
-       
+
         //this.spotOrdersService.closeOpenedOrder('test-for-update');
         this.socket.on(`${obEventPrefix}::disconnect`, () => {
           this.spotOrdersService.openedOrders = [];
