@@ -35,28 +35,28 @@ export class FuturesOrdersComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit() {
-      // this.subsribe();sss
+       this.subscribe();
     }
 
-    // private subsribe() {
-    //   this.socket.on(`${obEventPrefix}::placed-orders`, (orders: { openedOrders: IFuturesOrder[], orderHistory: IFuturesOrder[] }) => {
-    //     const { openedOrders, orderHistory } = orders;
+     private subscribe() {
+       this.socket.on(`${obEventPrefix}::placed-orders`, (orders: { openedOrders: IFuturesOrder[], orderHistory: IFuturesOrder[] }) => {
+         const { openedOrders, orderHistory } = orders;
 
-    //     this.futuresOrdersService.orderHistory = orderHistory
-    //       .filter(q => q.type === "FUTURES" && q.keypair.pubkey === this.authService.activeFuturesKey?.pubkey && q.state);
-    //     this.futuresOrdersService.openedOrders = openedOrders.filter(q => q.type === "FUTURES");
-    //   });
-    //   this.futuresOrdersService.closeOpenedOrder('test-for-update');
-    //   this.socket.on(`${obEventPrefix}::disconnect`, () => {
-    //     this.futuresOrdersService.openedOrders = [];
-    //   });
+         this.futuresOrdersService.orderHistory = orderHistory
+           .filter(q => q.type === "FUTURES" && q.keypair.pubkey === this.authService.activeFuturesKey?.pubkey && q.state);
+         this.futuresOrdersService.openedOrders = openedOrders.filter(q => q.type === "FUTURES");
+       });
+       this.futuresOrdersService.closeOpenedOrder('test-for-update');
+       this.socket.on(`${obEventPrefix}::disconnect`, () => {
+         this.futuresOrdersService.openedOrders = [];
+       });
 
-    //   const subs = this.authService.updateAddressesSubs$
-    //     .subscribe(kp => {
-    //       if (!this.authService.activeFuturesKey || !kp.length) this.futuresOrdersService.closeAllOrders();
-    //     });
-    //   this.subsArray.push(subs);
-    // }
+       const subs = this.authService.updateAddressesSubs$
+         .subscribe(kp => {
+           if (!this.authService.activeFuturesKey || !kp.length) this.futuresOrdersService.closeAllOrders();
+         });
+       this.subsArray.push(subs);
+     }
 
     ngOnDestroy(): void {
       this.subsArray.forEach(s => s.unsubscribe());

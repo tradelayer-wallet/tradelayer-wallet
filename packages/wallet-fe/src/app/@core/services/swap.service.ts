@@ -6,14 +6,15 @@ import { TxsService } from "./txs.service";
 import { LoadingService } from "./loading.service";
 // swap.service.ts
 import { BuySwapper, SellSwapper, ITradeInfo } from 'src/app/utils/swapper/'; // Keep this import for other classes
-import { ISpotTradeProps } from 'src/app/utils/swapper/common'; // Import ISpotTradeProps from common.ts
+import { ISpotTradeProps, IFuturesTradeProps } from 'src/app/utils/swapper/common'; // Import ISpotTradeProps from common.ts
 
 import { ISpotOrder } from "./spot-services/spot-orderbook.service";
+import { IFuturesOrder} from "./futures-services/futures-orderbook.service"
 import { ESounds, SoundsService } from "./sound.service";
 
 interface IChannelSwapData {
     tradeInfo: ITradeInfo<any>; // Changed to any since tradeInfo could be either spot or futures
-    unfilled: ISpotOrder; // Or could be IFuturesOrder if using futures logic
+    unfilled: ISpotOrder|IFuturesOrder; // if using futures logic
     isBuyer: boolean;
 }
 
@@ -66,8 +67,20 @@ export class SwapService {
             const res = await swapper.onReady();
             return res;
         } else if (type === "FUTURES") {
+            const { transfer } = props as IFuturesTradeProps;
+
+            const swapper = isBuyer
+                ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService)
+                : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService);
+
+            swapper.eventSubs$.subscribe(eventData => {
+                this.toastrService.info(eventData.eventName, 'Trade Info', { timeOut: 3000 });
+            });
+
+            const res = await swapper.onReady();
+            return res;
             // Add futures swapper logic if needed here
-            throw new Error("Futures trading not supported yet.");
+            //throw new Error("Futures trading not supported yet.");
         } else {
             throw new Error(`Unsupported trade type: ${type}`);
         }

@@ -9,7 +9,7 @@ export abstract class Swap {
     multySigChannelData: IMSChannelData | null = null;
     constructor(
         public typeTrade: ETradeType,
-        public tradeInfo: ISpotTradeProps,// IFuturesTradeProps | 
+        public tradeInfo: ISpotTradeProps|IFuturesTradeProps, 
         public myInfo: IBuyerSellerInfo,
         public cpInfo: IBuyerSellerInfo,
         public client: TClient,

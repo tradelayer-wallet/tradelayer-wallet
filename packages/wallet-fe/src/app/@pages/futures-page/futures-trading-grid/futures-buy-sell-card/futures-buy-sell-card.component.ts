@@ -15,6 +15,7 @@ import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
+import axios from 'axios';
 
 const minFeeLtcPerKb = 0.002;
 const minVOutAmount = 0.000036;
@@ -100,6 +101,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     getMaxAmount(isBuy: boolean) {
       if (!this.futureAddress) return 0;
       if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
+
       const _price = this.isLimitSelected 
         ? this.buySellGroup.value['price'] 
         : this.currentPrice;
@@ -107,73 +109,121 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
       const propId = this.selectedMarket.collateral.propertyId;
 
-      const _available = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
-        ?.find((t: any) => t.propertyid === propId)
-        ?.available;
+      let tokenBalanceObj = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
+        ?.find((t: any) => t.propertyid === propId);
+
+      let availableBalance = 0;
+      let channelBalance = 0;
+
+      if (tokenBalanceObj) {
+        availableBalance = safeNumber(tokenBalanceObj.available || 0);
+        channelBalance = safeNumber(tokenBalanceObj.channel || 0);
+      }
+
+      const tokenBalance = safeNumber(Math.max(availableBalance, channelBalance));
       const inOrderBalance = this.getInOrderAmount(propId);
-      const available = safeNumber((_available || 0 )- inOrderBalance);
+      const available = safeNumber((tokenBalance || 0) - inOrderBalance);
+
       if (!available || ((available / price) <= 0)) return 0;
+
       const _max = isBuy ? (available / price) : available;
-      const max = safeNumber(_max);
-      return max;
+      return safeNumber(_max);
     }
 
-
-    handleBuySell(isBuy: boolean) {
-      const fee = this.getFees(isBuy);
-      const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.futureAddress)?.confirmed || 0) - fee)
-      if (available < 0) {
-        this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
-        return;
-      }
-      const isKYC = this.attestationService.getAttByAddress(this.futureAddress);
-      if (isKYC !== true) {
-        this.toastrService.error(`Futures Address Need Attestation first!`, 'Attestation Needed');
-        return;
-      }
-      const amount = this.buySellGroup.value.amount;
-      const _price = this.buySellGroup.value.price;
-      const price = this.isLimitSelected ? _price : this.currentPrice;
-      const levarage = 1;
-      const market = this.selectedMarket;
-      const collateral = market.collateral.propertyId;
-      const contract_id = market.contract_id;
-
-      if (!contract_id || (!price && this.isLimitSelected) || !amount) return;
-      if (!this.futureKeyPair) return;
-  
-      const order: IFuturesTradeConf = { 
-        keypair: {
-          address: this.futureKeyPair?.address,
-          pubkey: this.futureKeyPair?.pubkey,
-        },
-        action: isBuy ? "BUY" : "SELL",
-        type: "FUTURES",
-        props: {
-          contract_id: contract_id,
-          amount: amount,
-          price: price,
-          collateral: collateral,
-          levarage: levarage,
-        },
-        isLimitOrder: this.isLimitSelected,
-        marketName: this.selectedMarket.pairString,
-      };
-      this.futuresOrdersService.newOrder(order);
-      this.buySellGroup.reset();
+    async handleBuySell(isBuy: boolean) {
+    const fee = this.getFees(isBuy);
+    const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.futureAddress)?.confirmed || 0) - fee);
+    if (available < 0) {
+      this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
+      return;
     }
+    
+    const amount = this.buySellGroup.value.amount;
+    const _price = this.buySellGroup.value.price;
+    const price = this.isLimitSelected ? _price : this.currentPrice;
+    const leverage = 10;
+    const market = this.selectedMarket;
+    const collateral = market.collateral.propertyId;
+    const contract_id = market.contract_id;
+
+    try {
+        // Fetch contract information
+        const contractInfo = await this.getContractInfo(contract_id);
+
+        if (!contractInfo) {
+          this.toastrService.error('Contract information could not be retrieved.');
+          return;
+        }
+
+        const isInverse = contractInfo.inverse || false; // Assuming the contractInfo has an "inverse" property
+        const notional = contractInfo.notional || 1;
+        const leverage = contractInfo.leverage || 10; // Fetch leverage from contractInfo, default to 10 if not provided
+        const initialMargin = this.calculateInitialMargin(isInverse, amount, price, leverage, notional);
+
+        // Get the available and channel amounts
+        const tokenBalance = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
+            ?.find((t: any) => t.propertyid === collateral);
+
+        let availableBalance = 0;
+        let channelBalance = 0;
+
+        if (tokenBalance) {
+          availableBalance = safeNumber(tokenBalance.available || 0);
+          channelBalance = safeNumber(tokenBalance.channel || 0);
+        }
+
+        let transfer = false;
+
+        if (initialMargin <= channelBalance) {
+          transfer = true;
+        } else if (initialMargin <= availableBalance) {
+          transfer = false; // Use available balance, no need for transfer from channel
+        } else {
+          this.toastrService.error(`Insufficient collateral for this trade.`);
+          return;
+        }
+
+        if (!contract_id || (!price && this.isLimitSelected) || !amount) return;
+        if (!this.futureKeyPair) return;
+
+        const order: IFuturesTradeConf = { 
+          keypair: {
+            address: this.futureKeyPair?.address,
+            pubkey: this.futureKeyPair?.pubkey,
+          },
+          action: isBuy ? "BUY" : "SELL",
+          type: "FUTURES",
+          props: {
+            contract_id: contract_id,
+            amount: amount,
+            price: price,
+            collateral: collateral,
+            levarage: leverage,
+            transfer: transfer
+          },
+          isLimitOrder: this.isLimitSelected,
+          marketName: this.selectedMarket.pairString,
+        };
+        this.futuresOrdersService.newOrder(order);
+        this.buySellGroup.reset();
+    } catch (error) {
+        console.error('Error in buy/sell process:', error);
+        this.toastrService.error('An error occurred during the trade.');
+    }  // This is the missing closing brace for the try block
+}
+
 
     stopLiquidity() {
       console.log(`Stop Liquidity`);
     }
 
-    addLiquidity(_amount: string, _orders_number: string, _range: string) {
+    /*addLiquidity(_amount: string, _orders_number: string, _range: string) {
       const amount = parseFloat(_amount);
       const orders_number = parseFloat(_orders_number);
       const range = parseFloat(_range);
       console.log({ amount, orders_number, range });
       return;
-    }
+    }*/
 
     getButtonDisabled(isBuy: boolean) {
       const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
@@ -219,6 +269,32 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       const inOrderBalance = this.getInOrderAmount(token.propertyId);
       const balance = safeNumber((_balance  || 0) - inOrderBalance);
       return [token.fullName, `${ balance > 0 ? balance : 0 } ${token.shortName}`];
+    }
+
+    async getContractInfo(contractId: number): Promise<any> {
+      try {
+        const response = await axios.get(`http://localhost:port/tl_listContractSeries?contractId=${contractId}`);
+        return response.data;
+      } catch (error) {
+        console.error('Failed to fetch contract info:', error);
+        this.toastrService.error('Error fetching contract information.');
+        return null;
+      }
+    }
+
+    // Example of initial margin calculation based on inverse contract type
+    calculateInitialMargin(isInverse: boolean, amount: number, price: number, leverage: number, notional:number){
+      let margin = 0;
+
+      if (isInverse) {
+        // Logic for inverse margin calculation
+        margin = safeNumber(((amount / price)/leverage)*notional);  // Simplified example for inverse
+      } else {
+        // Logic for standard margin calculation
+        margin = safeNumber(((amount * price)/leverage)*notional);  // Simplified example for standard
+      }
+
+      return safeNumber(margin);
     }
 
     private getInOrderAmount(propertyId: number) {
