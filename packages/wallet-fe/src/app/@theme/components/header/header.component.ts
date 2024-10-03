@@ -41,12 +41,12 @@ export class HeaderComponent implements OnInit {
       needAuthToShow: false,
       needFullSynced: true,
     },
-    // {
-    //   id: 4,
-    //   name: 'Futures Trading',
-    //   link: '/futures',
-    //   needAuthToShow: false,
-    // },
+    {
+       id: 4,
+       name: 'Futures Trading',
+       link: '/futures',
+       needAuthToShow: false,
+     },
     // {
     //   id: 5,
     //   name: 'Node Reward',
