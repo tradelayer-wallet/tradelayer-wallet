@@ -16,6 +16,9 @@ if [[ $osvar != "w" && $osvar != "l" && $osvar != "m" ]]; then
     read exit
     exit 0
 fi
+
+cd "$(dirname "$0")"
+
 #command npm run install:all includes 2 commands:
 #npm install #install all dependencies from main directory
 #npm install --prefix ./packages/wallet-fe #install all dependencies for angular front-end directory
