@@ -9,13 +9,12 @@ import { environment } from "src/environments/environment";
 })
 
 export class NewTradeLayerApiService {
-
     constructor(
         private http: HttpClient,
     ) {}
 
     private get apiUrl() {
-        return environment.homeApiUrl + '/tl/'
+        return 'http:/localhost:1986' + '/tl/'
     }
 
     rpc(method: string, params?: any[] | any): Observable<{

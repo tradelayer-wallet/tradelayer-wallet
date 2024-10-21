@@ -167,12 +167,12 @@ const checkIsCoreStarted = async (
         }
 
 
-        const isTradelayerStarted = await fasitfyServer.tradelayerService.init()
+        /*const isTradelayerStarted = await fasitfyServer.tradelayerService.init()
             .catch((error) => {
                 resolve({ error: error });
                 return false;
             });
-        if (!isTradelayerStarted) return;
+        if (!isTradelayerStarted) return;*/
 
         exec(filePathWithFlags, (error, stdout, stderr) => {
             fasitfyServer.mainSocketService.currentSocket

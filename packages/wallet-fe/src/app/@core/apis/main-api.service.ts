@@ -5,6 +5,7 @@ import { environment } from "src/environments/environment";
 import { ENetwork, TNETWORK } from "../services/rpc.service";
 import { IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig } from "../services/txs.service";
 
+
 @Injectable({
     providedIn: 'root',
 })
@@ -128,5 +129,10 @@ export class MainApiService {
         };
             error?: string;  
         }>(this.apiUrl + 'sign-psbt', { ...buildPsbtConfig, network })
+    }
+
+     // New Function to initialize TradeLayer
+    initTradeLayer(): Observable<any> {
+        return this.http.post(this.apiUrl + 'init-tradelayer', {});
     }
 }

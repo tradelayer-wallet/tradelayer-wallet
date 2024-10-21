@@ -80,7 +80,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     private checFunction() {
         this.checkSync();
-        this.checkIntervalFunc = setInterval(() => this.checkSync(), 2000);
+        this.checkIntervalFunc = setInterval(() => this.checkSync(), 5000);
     }
 
     private countETA(etaData: { stamp: number; blocks: number; }) {
@@ -108,12 +108,16 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     private async checkTradelayerSync() {
         try {
             if (!this.isAbleToRpc || !this.nodeBlock) return;
-            if (!this.rpcService.isTLStarted) {
+            if (!this.rpcService.isTLStarted&&this.rpcService.isAbleToRpc == true){
+                const initListener = await this.apiService.mainApi.initTradeLayer().toPromise();
                 const initRes = await this.apiService.newTlApi.rpc('init').toPromise();
                 if (initRes.error || !initRes.data) {
+                    console.log('issue with init resolution '+JSON.stringify(initRes))
                     throw new Error(initRes.error || 'Undefined Error');
                 }
                 this.rpcService.isTLStarted = true;
+            }else{
+                return
             }
             const blockHeightRes = await this.apiService.newTlApi.rpc('getMaxParsedHeight').toPromise();
             if (blockHeightRes.error) {
@@ -123,13 +127,34 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             this.rpcService.latestTlBlock = blockHeightRes.data;
             this.readyPercentTl = parseFloat((this.tlBlock / this.headerBlock).toFixed(2)) * 100;
         } catch (error: any) {
+        console.log('error calling init '+JSON.stringify(error))
             const errorMessage = error?.message || error || "Undefined Error";
             this.tlMessage = errorMessage;
         }
     }
 
+    private async checkIsAbleToRpcLoop() {
+        let attempts = 0;
+        const maxAttempts = 20; // You can increase this if you need a longer wait
+
+        while (!this.isAbleToRpc && attempts < maxAttempts) {
+            attempts++;
+            console.log(`Checking RPC connection, attempt ${attempts}`);
+            await this.checkIsAbleToRpc(); // Attempt to set the RPC flag
+
+            if (!this.isAbleToRpc) {
+                await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 2 seconds before retrying
+            }
+        }
+
+        if (!this.isAbleToRpc) {
+            throw new Error("Unable to establish RPC connection after multiple attempts.");
+        }
+    }
+
+
     private async checkSync() {
-        await this.checkIsAbleToRpc();
+        await this.checkIsAbleToRpcLoop(); // Keep checking until RPC is ready
         this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
         this.readyPercent = parseFloat((this.nodeBlock / this.headerBlock).toFixed(2)) * 100;
 

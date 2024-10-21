@@ -13,10 +13,18 @@ export class TradeLayerService {
 
     // init(config: ITLInstanceConfig) {
     init() {
+
+        if (this.isStarted) {
+            console.log('TradeLayer service is already initialized.');
+            return Promise.resolve(false); // Return a resolved promise indicating no new initialization
+        }
+
         // this.tradeLayerInstance = new TradelayerInstance(config);
         return new Promise((resolve, reject) => {
-            const listenerPath = join(__dirname, '..', 'tradelayer', 'walletListener.js');
+            console.log('inside the tl service init')
+            const listenerPath = join(__dirname, '..', 'tradelayer/src', 'walletListener.js');
             const childProcess = spawn(`node`, [listenerPath], {});
+            this.isStarted=true
             childProcess.stdout.on('data', (data) => {
                 console.log(data.toString());
                 resolve(true);

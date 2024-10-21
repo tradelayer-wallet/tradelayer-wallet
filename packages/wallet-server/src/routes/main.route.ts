@@ -4,6 +4,9 @@ import { startWalletNode, createConfigFile, stopWalletNode } from "../services/n
 import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
 import { backOff, BackoffOptions } from "exponential-backoff";
+import { TradeLayerService } from '../services/tradelayer.service';  // Correctly import the named export
+
+const tradeLayerService = new TradeLayerService();
 
 const backoffOptions: BackoffOptions = {
     maxDelay: 10000,
@@ -51,6 +54,17 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             reply.status(200).send(result);
         } catch (error) {
             reply.status(500).send({ error: error?.message || error || 'Undefined Error' })
+        }
+    });
+
+    fastify.post('init-tradelayer', async (request, reply) => {
+        try {
+            // Call the init method from TradeLayerService instance
+            const result = await tradeLayerService.init();
+            reply.status(200).send({ success: true, result });
+        } catch (error) {
+            console.error("Error during TradeLayer init:", error);
+            reply.status(500).send({ error: error.message || 'Undefined Error' });
         }
     });
 
