@@ -2,7 +2,8 @@
     "appId": "tl.wallet.1",
     "productName": "TradeLayer-Wallet",
     "files": [
-      "dist/**/*"
+      "dist/**/*",
+      "dist/tradelayer/node_modules/**/*"
     ],
     "directories": {
       "output": "release",

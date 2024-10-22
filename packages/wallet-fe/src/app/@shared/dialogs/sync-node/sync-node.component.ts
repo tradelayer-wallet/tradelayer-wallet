@@ -109,16 +109,20 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         try {
             if (!this.isAbleToRpc || !this.nodeBlock) return;
             if (!this.rpcService.isTLStarted&&this.rpcService.isAbleToRpc == true){
-                const initListener = await this.apiService.mainApi.initTradeLayer().toPromise();
-                const initRes = await this.apiService.newTlApi.rpc('init').toPromise();
-                if (initRes.error || !initRes.data) {
-                    console.log('issue with init resolution '+JSON.stringify(initRes))
-                    throw new Error(initRes.error || 'Undefined Error');
+                const result = await this.apiService.mainApi.initTradeLayer().toPromise();
+                console.log('TL Wallet Listener init result: '+JSON.stringify(result))
+                if (result &&result.result==true) {
+                    console.log('Initialization succeeded');
+                        const initRes = await this.apiService.newTlApi.rpc('init').toPromise();
+                        if (initRes.error || !initRes.data) {
+                            console.log('issue with init resolution '+JSON.stringify(initRes))
+                            throw new Error(initRes.error || 'Undefined Error');
+                        }
+                        this.rpcService.isTLStarted = true;
                 }
-                this.rpcService.isTLStarted = true;
-            }else{
-                return
+               
             }
+            
             const blockHeightRes = await this.apiService.newTlApi.rpc('getMaxParsedHeight').toPromise();
             if (blockHeightRes.error) {
                 throw new Error(blockHeightRes.error || 'Undefined Error');
@@ -126,8 +130,9 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
             this.rpcService.latestTlBlock = blockHeightRes.data;
             this.readyPercentTl = parseFloat((this.tlBlock / this.headerBlock).toFixed(2)) * 100;
+            this.tlMessage = "Parsing TradeLayer transactions"
         } catch (error: any) {
-        console.log('error calling init '+JSON.stringify(error))
+           console.log('error calling init '+JSON.stringify(error))
             const errorMessage = error?.message || error || "Undefined Error";
             this.tlMessage = errorMessage;
         }
@@ -135,7 +140,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     private async checkIsAbleToRpcLoop() {
         let attempts = 0;
-        const maxAttempts = 20; // You can increase this if you need a longer wait
+        const maxAttempts = 50; // You can increase this if you need a longer wait
 
         while (!this.isAbleToRpc && attempts < maxAttempts) {
             attempts++;

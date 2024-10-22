@@ -16,7 +16,7 @@ export class TradeLayerService {
 
         if (this.isStarted) {
             console.log('TradeLayer service is already initialized.');
-            return Promise.resolve(false); // Return a resolved promise indicating no new initialization
+            return Promise.resolve(true); // Return a resolved promise indicating no new initialization
         }
 
         // this.tradeLayerInstance = new TradelayerInstance(config);
@@ -30,6 +30,7 @@ export class TradeLayerService {
                 resolve(true);
             });
             childProcess.stderr.on('data', (error) => {
+                console.log('err in child process stream '+error.toString())
                 reject(error.toString())
             });
         });

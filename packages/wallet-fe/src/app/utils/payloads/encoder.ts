@@ -83,7 +83,7 @@ const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string 
         params.propertyId.toString(36),
         new BigNumber(params.amount).times(1e8).toString(36), // Updated to use BigNumber
         params.columnA,
-        params.satsExpected.toString(36),
+        new BigNumber(params.satsExpected).times(1e8).toString(36),
         params.tokenOutput.toString(36),
         params.payToAddress.toString(36)
     ];

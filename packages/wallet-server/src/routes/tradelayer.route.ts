@@ -18,9 +18,10 @@ interface GetChannelRequestBody {
 export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('/init', async (request, reply) => {
+    console.log('inside the fastify init '+baseURL+'tl_initmain')
         try {
             // await fasitfyServer.tradelayerService.start();
-            console.log('inside the fastify init')
+
             const res = await axios.post(baseURL + 'tl_initmain', { test: true });
             if (res.data.error) throw new Error(res.data.error);
             reply.status(200).send({ message: res.data });

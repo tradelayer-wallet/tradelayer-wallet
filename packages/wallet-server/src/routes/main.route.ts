@@ -58,6 +58,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
     });
 
     fastify.post('init-tradelayer', async (request, reply) => {
+    
         try {
             // Call the init method from TradeLayerService instance
             const result = await tradeLayerService.init();

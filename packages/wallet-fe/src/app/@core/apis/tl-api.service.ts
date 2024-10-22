@@ -14,7 +14,7 @@ export class NewTradeLayerApiService {
     ) {}
 
     private get apiUrl() {
-        return 'http:/localhost:1986' + '/tl/'
+        return 'http://localhost:1986' + '/tl/'
     }
 
     rpc(method: string, params?: any[] | any): Observable<{

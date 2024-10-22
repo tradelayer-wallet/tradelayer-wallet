@@ -133,6 +133,7 @@ export class MainApiService {
 
      // New Function to initialize TradeLayer
     initTradeLayer(): Observable<any> {
+        console.log('about to call init TL ' + this.apiUrl + 'init-tradelayer');
         return this.http.post(this.apiUrl + 'init-tradelayer', {});
     }
 }
