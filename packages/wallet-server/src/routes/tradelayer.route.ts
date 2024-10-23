@@ -3,6 +3,8 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import axios from 'axios';
 
 const baseURL = 'http://localhost:3000/';
+let setInit = false
+let initializing = false
 
 interface ChannelRequestBody {
     channel: string;
@@ -15,19 +17,35 @@ interface GetChannelRequestBody {
 }
 
 
-export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
+export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
+    
     fastify.post('/init', async (request, reply) => {
+
+    console.log('set init in init route '+setInit+' and initializing '+initializing)
+    if(setInit===true||initializing===true){
+         console.log('bouncing off tl init')
+         return console.log("TL Main Initialized already or initializing")
+    }
     console.log('inside the fastify init '+baseURL+'tl_initmain')
         try {
-            // await fasitfyServer.tradelayerService.start();
-
+            initializing = true; // Only set this to true once the init is done successfully
+            
             const res = await axios.post(baseURL + 'tl_initmain', { test: true });
             if (res.data.error) throw new Error(res.data.error);
-            reply.status(200).send({ message: res.data });
+            //reply.status(200).send({ message: res.data });
+            console.log('TL Init successfully');
+            setInit=true
+            initializing=false
+            reply.status(200).send({ message: 'TL Main initialized successfully' });
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            initializing =false
+            //console.log('Error initializing TL', error);
+            reply.status(500).send({ error: error.message || 'Undefined Error' });
+        }finally {
+            initializing = false; // Ensure that initializing flag is reset in all cases
         }
+            // await fasitfyServer.tradelayerService.start();
     });
 
     fastify.post('/getAllBalancesForAddress', async (request, reply) => {

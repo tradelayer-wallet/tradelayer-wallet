@@ -32,6 +32,10 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     private checkIntervalFunc: any;
 
+    // Add this variable to prevent multiple sync processes from running simultaneously
+    private isCheckingSync: boolean = false;
+
+
     constructor(
         private rpcService: RpcService,
         private apiService: ApiService,
@@ -78,9 +82,27 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     ngOnInit() { }
 
+      private async checkSyncThrottled(): Promise<void> {
+       if (this.isCheckingSync) {
+           console.log('Sync check already in progress, skipping...');
+           return;
+       }
+
+       this.isCheckingSync = true; // Lock the function
+       try {
+           console.log('Starting sync process...'); // Your console log to track sync start
+           await this.checkSync(); // Actual sync logic
+           console.log('Sync process completed successfully.'); // Log after the sync completes
+       } catch (error) {
+           console.error('Error during sync process:', error); // In case there is an error
+       } finally {
+           this.isCheckingSync = false; // Unlock the function after the sync is done
+       }
+    }
+
     private checFunction() {
-        this.checkSync();
-        this.checkIntervalFunc = setInterval(() => this.checkSync(), 5000);
+        this.checkSyncThrottled(); // First run
+        this.checkIntervalFunc = setInterval(() => this.checkSyncThrottled(), 5000); // Continue at intervals
     }
 
     private countETA(etaData: { stamp: number; blocks: number; }) {
@@ -106,13 +128,18 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     private async checkTradelayerSync() {
+        console.log('checking tl flag this sync '+this.rpcService.isTLStarted)
+        console.log(Boolean(!this.rpcService.isTLStarted&&this.rpcService.isAbleToRpc == true))
         try {
             if (!this.isAbleToRpc || !this.nodeBlock) return;
             if (!this.rpcService.isTLStarted&&this.rpcService.isAbleToRpc == true){
                 const result = await this.apiService.mainApi.initTradeLayer().toPromise();
                 console.log('TL Wallet Listener init result: '+JSON.stringify(result))
-                if (result &&result.result==true) {
-                    console.log('Initialization succeeded');
+                 // Adding a delay of 10 seconds between initTradeLayer and the next call
+                await new Promise(resolve => setTimeout(resolve, 3000));  // 3-second delay
+
+                if (result &&result.result==true&&!this.rpcService.isTLStarted) {
+                    console.log('Initialization of listener succeeded');
                         const initRes = await this.apiService.newTlApi.rpc('init').toPromise();
                         if (initRes.error || !initRes.data) {
                             console.log('issue with init resolution '+JSON.stringify(initRes))
@@ -131,10 +158,11 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             this.rpcService.latestTlBlock = blockHeightRes.data;
             this.readyPercentTl = parseFloat((this.tlBlock / this.headerBlock).toFixed(2)) * 100;
             this.tlMessage = "Parsing TradeLayer transactions"
+            return
         } catch (error: any) {
            console.log('error calling init '+JSON.stringify(error))
             const errorMessage = error?.message || error || "Undefined Error";
-            this.tlMessage = errorMessage;
+            //this.tlMessage = errorMessage;
         }
     }
 
@@ -248,6 +276,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
                 this.toastrService.error(res.error || 'Undefined Error', 'Starting Node Error');
             }
             } else {
+
                 this.router.navigateByUrl('/');
                 await this.checkIsAbleToRpc();
             }
