@@ -66,11 +66,13 @@ export const signPsbtRawtTx = (signOptions: {
 }) => {
     try {
         const { wif, network, psbtHex } = signOptions;
-        const _network = networks[network];
-        const keyPair = ECPair.fromWIF(wif, _network);
+        console.log('checking network in sign psbt '+networks[network])
+        const _network = networks[network.toLowerCase()] || networks.LTCTEST; // Ensure the correct network is chosen
+        const keyPair = ECPair.fromWIF(wif, _network);  // Create keypair from WIF
         const psbt = Psbt.fromHex(psbtHex);
         psbt.signAllInputs(keyPair);
         const newPsbtHex = psbt.toHex();
+
         try {
             psbt.finalizeAllInputs();
             const finalHex = psbt.extractTransaction().toHex();

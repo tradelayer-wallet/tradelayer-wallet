@@ -223,13 +223,14 @@ export class TxsService {
         return result;
     }
 
-    async getChannel(address: string){
-        const channelRes = await this.tlApi.rpc('getChannel', [address]).toPromise();
-        console.log('channel fetch in tx service '+JSON.stringify(channelRes))
-         if (!channelRes.data || channelRes.error) return { data: [] };
-        
-        return channelRes.data
+    async getChannel(address: string) {
+        const channelRes = await this.tlApi.rpc('getChannel', [address]).toPromise();  // Pass address as an array
+        console.log('channel fetch in tx service ' + JSON.stringify(channelRes))
+        if (!channelRes.data || channelRes.error) return { data: [] };
+
+        return channelRes.data;
     }
+
 
     async checkMempool(txid: string) {
         try {
@@ -244,10 +245,10 @@ export class TxsService {
         }
     }
 
-    async predictColumn (channel:string, cpAddress:string){
+    async predictColumn(channel: string, cpAddress: string) {
         try {
-            const column = await this.tlApi.rpc('getChannelColumn', [channel,cpAddress]).toPromise();;
-            console.log('column prediction fetch in tx service '+JSON.stringify(column))
+            const column = await this.tlApi.rpc('getChannelColumn', [channel, cpAddress]).toPromise();  // Pass parameters as an array
+            console.log('column prediction fetch in tx service ' + JSON.stringify(column))
 
             return column.data;
         } catch (error) {
@@ -255,6 +256,7 @@ export class TxsService {
             return false;
         }
     }
+
 
     async sendTxWithSpecRetry(rawTx: string) {
         const _sendTxWithRetry = async (rawTx: string, retriesLeft: number, ms: number): Promise<{

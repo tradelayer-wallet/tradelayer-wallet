@@ -77,11 +77,15 @@ export class BuySwapper extends Swap {
 
         const gbcRes = await this.client('getblockcount');
         if (gbcRes.error || !gbcRes.data) throw new Error(`Block: ${gbcRes.error}`);
-        const bbData = parseFloat(gbcRes.data) + 1000;
-
+        const bbData = parseFloat(gbcRes.data) + 10;
+        console.log('examing this.tradeInfo object '+JSON.stringify(this.tradeInfo))
         // Preserve the ctcpParams logic based on trade type
         if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
             let { propIdDesired, amountDesired, amountForSale, propIdForSale, transfer } = this.tradeInfo
+            
+            const column = await this.txsService.predictColumn(this.myInfo.keypair.address, this.cpInfo.keypair.address);
+                    let isA = column === 'A' ? 1 : 0;
+
             //let { transfer } = this.tradeInfo as ITradeInfo<ISpotTradeProps>;
             console.log('importing transfer '+transfer)
             if (transfer == undefined) {
@@ -104,9 +108,6 @@ export class BuySwapper extends Swap {
                     let tokensSold = ltcForSale ? amountForSale : amountDesired;
                     let satsPaid = ltcForSale ? amountDesired : amountForSale;
 
-                    const column = await this.txsService.predictColumn(this.multySigChannelData.address, this.cpInfo.keypair.address);
-                    let isA = column === 'A' ? 1 : 0;
-
                 const payload = ENCODER.encodeTradeTokenForUTXO({
                     propertyId: tokenId,
                     amount: tokensSold,
@@ -128,20 +129,19 @@ export class BuySwapper extends Swap {
                 if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
                 const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
                 this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
-
             } else {
                 let payload;
                 if (transfer) {
                     payload = ENCODER.encodeTransfer({
-                        propertyId: propIdDesired,
-                        amount: amountDesired,
-                        isColumnA: true,  // Assume Column A, adjust based on context
+                        propertyId: propIdForSale,
+                        amount: amountForSale,
+                        isColumnA: isA,  // Assume Column A, adjust based on context
                         destinationAddr: this.multySigChannelData.address,
                     });
                 } else{
                     payload = ENCODER.encodeCommit({
-                        amount: amountDesired,
-                        propertyId: propIdDesired,
+                        amount: amountForSale,
+                        propertyId: propIdForSale,
                         channelAddress: this.multySigChannelData.address,
                     });
                 }
@@ -185,11 +185,11 @@ export class BuySwapper extends Swap {
                     // const cpitRes = await this.client('tl_createpayload_instant_trade', cpitLTCOptions);
 
                     const cpitLTCOptions = {
-                        propertyId1: propIdDesired,
-                        propertyId2: propIdForSale,
+                        propertyId1: propIdForSale,
+                        propertyId2: propIdDesired,
                         amountOffered1: amountForSale,
-                        amountDesired2: amountForSale,
-                        columnAIsOfferer: true,
+                        amountDesired2: amountDesired,
+                        columnAIsOfferer: isA,
                         expiryBlock: bbData,
                     }
                     const cpitRes = { data: ENCODER.encodeTradeTokensChannel(cpitLTCOptions), error: null };

@@ -33,10 +33,12 @@ export class SellSwapper extends Swap {
     private handleOnEvents() {
         this.removePreviuesListeners();
         const _eventName = `${this.cpInfo.socketId}::swap`;
+        console.log(_eventName)
         this.socket.on(_eventName, (eventData: SwapEvent) => {
             this.eventSubs$.next(eventData);
             const { socketId, data } = eventData;
-            switch (eventData.eventName) {
+            console.log('event data '+JSON.stringify(eventData))
+            switch (eventData.eventName){
                 case 'TERMINATE_TRADE':
                     this.onTerminateTrade.bind(this)(socketId, data);
                     break;
@@ -58,13 +60,14 @@ export class SellSwapper extends Swap {
     private async initTrade() {
         try {
             const pubKeys = [this.myInfo.keypair.pubkey, this.cpInfo.keypair.pubkey];
-
+            console.log('showing pubkeys before adding multisig '+JSON.stringify(pubKeys))
             const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
             if (amaRes.error || !amaRes.data) throw new Error(`addmultisigaddress: ${amaRes.error}`);
             this.multySigChannelData = amaRes.data as IMSChannelData;
 
             const validateMS = await this.client("validateaddress", [this.multySigChannelData.address]);
             if (validateMS.error || !validateMS.data?.scriptPubKey) throw new Error(`Init Trade: validateaddress: ${validateMS.error}`);
+            console.log('validateMS return from validateaddress in seller init '+JSON.stringify(validateMS))
             this.multySigChannelData.scriptPubKey = validateMS.data.scriptPubKey;
 
             const swapEvent = new SwapEvent(`SELLER:STEP1`, this.myInfo.socketId, this.multySigChannelData);
@@ -79,6 +82,7 @@ export class SellSwapper extends Swap {
             this.logTime('Step 2 Start');
         try {
             if (!this.multySigChannelData?.address) throw new Error(`Error with finding Multisig Address`);
+            console.log('cpId '+cpId+' '+'this.cpInfo.socketId '+this.cpInfo.socketId)
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
 
             const fromKeyPair = { address: this.myInfo.keypair.address };
@@ -138,9 +142,9 @@ export class SellSwapper extends Swap {
                 const commitTxSendRes = await this.txsService.sendTx(signedHex);
                 if (commitTxSendRes.error || !commitTxSendRes.data) throw new Error(`Send Commit TX: ${commitTxSendRes.error}`);
                 console.log(`Commit TX sent with txid: ${commitTxSendRes.data}`);
-            /*} else {
-                throw new Error('Signed Hex is undefined for Commit TX');
-            }*/
+            //} else {
+            //    throw new Error('Signed Hex is undefined for Commit TX');
+            //}
 
             const drtRes = await this.client("decoderawtransaction", [rawtx]);
             if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
@@ -165,18 +169,18 @@ export class SellSwapper extends Swap {
 
     private async onStep4(cpId: string, psbtHex: string) {
             this.logTime('Step 4 Start');
-        try {
-            if (cpId !== this.cpInfo.socketId) return console.log(`Error with p2p connection`);
-            if (!psbtHex) throw new Error(`PsbtHex for syncing not provided`);
-
+       try{
+            //if (cpId !== this.cpInfo.socketId) return console.log(`Error with p2p connection`);
+            //if (!psbtHex) throw new Error(`PsbtHex for syncing not provided`);
+            console.log('params for the errs I commented '+psbtHex+' '+cpId+' '+this.cpInfo.socketId)
             const wifRes = await this.txsService.getWifByAddress(this.myInfo.keypair.address);
             if (wifRes.error || !wifRes.data) return console.log(`WIF not found: ${this.myInfo.keypair.address}`);
             console.log('inside step 4 '+JSON.stringify(wifRes))
             const signRes = await this.txsService.signPsbt({ wif: wifRes.data, psbtHex });
             if (signRes.error || !signRes.data?.psbtHex) return console.log(`Sign Tx: ${signRes.error}`);
-
+            console.log('sign res '+JSON.stringify(signRes))
             const swapEvent = new SwapEvent(`SELLER:STEP5`, this.myInfo.socketId, signRes.data.psbtHex);
-            this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+            this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent); 
         } catch (error: any) {
             const errorMessage = error.message || 'Undefined Error';
             this.terminateTrade(`Step 4: ${errorMessage}`);
@@ -188,15 +192,15 @@ export class SellSwapper extends Swap {
              const currentTime = Date.now();
             this.toastrService.info(`Signed! ${currentTime - this.tradeStartTime} ms`);
 
-        try {
-            if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
+        //try {
+            if (cpId !== this.cpInfo.socketId) /*throw new Error*/{console.log(`Error with p2p connection`)};
 
             const data = { txid: finalTx, seller: true, trade: this.tradeInfo };
             this.readyRes({ data });
             this.removePreviuesListeners();
-        } catch (error: any) {
-            const errorMessage = error.message || 'Undefined Error';
-            this.terminateTrade(`Step 6: ${errorMessage}`);
-        }
+        //} catch (error: any) {
+        //    const errorMessage = error.message || 'Undefined Error';
+        //    this.terminateTrade(`Step 6: ${errorMessage}`);
+        //}
     }
 }
