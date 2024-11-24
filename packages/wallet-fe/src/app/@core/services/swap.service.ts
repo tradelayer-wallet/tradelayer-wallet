@@ -4,10 +4,8 @@ import { RpcService } from "./rpc.service";
 import { obEventPrefix, SocketService } from "./socket.service";
 import { TxsService } from "./txs.service";
 import { LoadingService } from "./loading.service";
-// swap.service.ts
-import { BuySwapper, SellSwapper, ITradeInfo } from 'src/app/utils/swapper/'; // Keep this import for other classes
-import { ISpotTradeProps, IFuturesTradeProps } from 'src/app/utils/swapper/common'; // Import ISpotTradeProps from common.ts
-
+import { BuySwapper, SellSwapper, ITradeInfo } from 'src/app/utils/swapper/';
+import { ISpotTradeProps, IFuturesTradeProps } from 'src/app/utils/swapper/common'; 
 import { ISpotOrder } from "./spot-services/spot-orderbook.service";
 import { IFuturesOrder} from "./futures-services/futures-orderbook.service"
 import { ESounds, SoundsService } from "./sound.service";
@@ -37,10 +35,14 @@ export class SwapService {
     }
 
     onInit() {
-        this.socket.on(`${obEventPrefix}::new-channel`, async (swapConfig: IChannelSwapData) => {
+        // Replacing socket.io's `.on` with WebSocket's `addEventListener`
+        this.socket.addEventListener(`${obEventPrefix}::new-channel`, async (event: MessageEvent) => {
+            const swapConfig: IChannelSwapData = JSON.parse(event.data);
             this.loadingService.tradesLoading = false;
+
             const res = await this.channelSwap(swapConfig.tradeInfo, swapConfig.isBuyer);
-            
+            console.log('trade completed ' + JSON.stringify(res))
+
             if (!res || res.error || !res.data?.txid) {
                 this.toastrService.error(res?.error || 'Unknown Error', 'Trade Error');
             } else {
@@ -79,8 +81,6 @@ export class SwapService {
 
             const res = await swapper.onReady();
             return res;
-            // Add futures swapper logic if needed here
-            //throw new Error("Futures trading not supported yet.");
         } else {
             throw new Error(`Unsupported trade type: ${type}`);
         }

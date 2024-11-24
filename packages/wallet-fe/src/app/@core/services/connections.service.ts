@@ -5,21 +5,19 @@ import { SocketService } from "./socket.service";
 @Injectable({
     providedIn: 'root',
 })
-
 export class ConnectionService {
     private _isOnline: boolean = window.navigator.onLine;
     public isOnline$: Subject<boolean> = new Subject();
 
-    constructor(
-        private socketService: SocketService,
-    ) { }
+    constructor(private socketService: SocketService) {}
 
     get isOnline() {
         return this._isOnline;
     }
 
+    // Update for WebSocket connection state check
     get isMainSocketConnected() {
-        return this.socketService.socket.connected;
+        return this.socketService.socket.readyState === WebSocket.OPEN;
     }
 
     get isOBSocketConnected() {

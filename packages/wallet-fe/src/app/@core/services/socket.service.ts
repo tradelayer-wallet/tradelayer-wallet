@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { ToastrService } from "ngx-toastr";
-import { WebSocket } from "ws";  // You can use the native WebSocket API or uWS if needed.
+import WebSocket from 'ws';  // Correct way to import WebSocket from 'ws'
 import { environment } from '../../../environments/environment';
 import { ApiService } from "./api.service";
 
@@ -79,7 +79,7 @@ export class SocketService {
     }
 
     private handleMainOBSocketEvents() {
-        this.socket.onmessage = (event) => {
+        this.socket.onmessage = (event: MessageEvent) => {
             const data = JSON.parse(event.data);
             switch (data.event) {
                 case `${obEventPrefix}::connect`:

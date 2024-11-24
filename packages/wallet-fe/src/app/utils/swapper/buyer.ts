@@ -84,7 +84,7 @@ export class BuySwapper extends Swap {
             let { propIdDesired, amountDesired, amountForSale, propIdForSale, transfer } = this.tradeInfo
             
             const column = await this.txsService.predictColumn(this.myInfo.keypair.address, this.cpInfo.keypair.address);
-                    let isA = column === 'A' ? 1 : 0;
+                    const isA = column === 'A'
 
             //let { transfer } = this.tradeInfo as ITradeInfo<ISpotTradeProps>;
             console.log('importing transfer '+transfer)
@@ -111,7 +111,7 @@ export class BuySwapper extends Swap {
                 const payload = ENCODER.encodeTradeTokenForUTXO({
                     propertyId: tokenId,
                     amount: tokensSold,
-                    columnA: isA,
+                    columnA: isA? 1:0,
                     satsExpected: satsPaid,
                     tokenOutput: 0,
                     payToAddress: 1
