@@ -1,35 +1,38 @@
-import { io, Socket as SocketClient } from 'socket.io-client';
+import { WebSocket } from 'ws';
 import { fasitfyServer } from '..';
 
 export interface IOBSocketServiceOptions {
     url: string;
 }
 
-const eventPrefix = 'OB_SOCKET'
+const eventPrefix = 'OB_SOCKET';
+
 export class OBSocketService {
-    public socket: SocketClient;
+    public socket: WebSocket;
 
     constructor(
         private options: IOBSocketServiceOptions,
     ) {
-        this.socket = io(this.options.url, { reconnection: false });
-        const mainEvents = ['connect', 'disconnect', 'connect_error'];
+        this.socket = new WebSocket(this.options.url);
 
+        const mainEvents = ['open', 'close', 'error'];
+
+        // Listen for WebSocket events
         mainEvents.forEach(event => {
-            this.socket.on(event, () => {
-                if (event === 'connect') this.handleEvents();
+            this.socket.addEventListener(event, () => {
+                if (event === 'open') this.handleEvents();
                 const fullEventName = `${eventPrefix}::${event}`;
-                this.walletSocket.emit(fullEventName);
+                this.walletSocket.send(fullEventName);
             });
         });
     }
 
     get walletSocket() {
-        return fasitfyServer.mainSocketService.currentSocket
+        return fasitfyServer.mainSocketService.currentSocket;
     }
 
     private handleEvents() {
-        // from Server To wallet;
+        // From Server to wallet
         const orderEvents = [
             'order:error',
             'order:saved',
@@ -39,31 +42,31 @@ export class OBSocketService {
             'new-channel',
         ];
 
-        [...orderEvents].forEach(eventName => {
-            this.socket.on(eventName, (data: any) => {
+        orderEvents.forEach(eventName => {
+            this.socket.addEventListener('message', (event: MessageEvent) => {
+                const data = JSON.parse(event.data as string);
                 const fullEventName = `${eventPrefix}::${eventName}`;
-                this.walletSocket.emit(fullEventName, data);
+                this.walletSocket.send(JSON.stringify({ event: fullEventName, data }));
             });
         });
 
-        //from Wallet ToServer;
+        // From Wallet to Server
         ["update-orderbook", "new-order", "close-order", 'many-orders'].forEach(eventName => {
-            this.walletSocket.on(eventName, (data: any) => {
-                this.socket.emit(eventName, data);
+            this.walletSocket.addEventListener(eventName, (data: any) => {
+                this.socket.send(JSON.stringify(data));
             });
         });
-
 
         const swapEventName = 'swap';
-        this.walletSocket.on(`${this.socket.id}::${swapEventName}`, (data) => {
-            this.socket.emit(`${this.socket.id}::${swapEventName}`, data);
+        this.walletSocket.addEventListener(`${this.socket.id}::${swapEventName}`, (data) => {
+            this.socket.send(JSON.stringify({ event: `${this.socket.id}::${swapEventName}`, data }));
         });
 
-        this.socket.on('new-channel', (d) => {
+        this.socket.addEventListener('new-channel', (d: any) => {
             const cpSocketId = d.isBuyer ? d.tradeInfo.seller.socketId : d.tradeInfo.buyer.socketId;
-            this.socket.removeAllListeners(`${cpSocketId}::${swapEventName}`);
-            this.socket.on(`${cpSocketId}::${swapEventName}`, (data) => {
-                this.walletSocket.emit(`${cpSocketId}::${swapEventName}`, data);
+            this.socket.removeEventListener(`${cpSocketId}::${swapEventName}`);
+            this.socket.addEventListener(`${cpSocketId}::${swapEventName}`, (data) => {
+                this.walletSocket.send(JSON.stringify({ event: `${cpSocketId}::${swapEventName}`, data }));
             });
         });
     }
