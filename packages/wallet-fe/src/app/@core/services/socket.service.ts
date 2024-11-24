@@ -1,8 +1,7 @@
 import { Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { ToastrService } from "ngx-toastr";
-import { Socket } from "socket.io-client";
-import { io } from 'socket.io-client'
+import { WebSocket } from "ws";  // You can use the native WebSocket API or uWS if needed.
 import { environment } from '../../../environments/environment';
 import { ApiService } from "./api.service";
 
@@ -17,7 +16,7 @@ export const obEventPrefix = 'OB_SOCKET';
 })
 
 export class SocketService {
-    private _socket: Socket | null = null;
+    private _socket: WebSocket | null = null;  // Use WebSocket directly here
     private _obSocketConnected: boolean = false;
 
     private mainSocketWaiting: boolean = false;
@@ -52,44 +51,55 @@ export class SocketService {
 
     mainSocketConnect() {
         this.mainSocketWaiting = true;
-        this._socket = io(this.mainSocketUrl, { reconnection: false });
+        this._socket = new WebSocket(this.mainSocketUrl);  // Using WebSocket directly instead of Socket.IO
         this.handleMainSocketEvents();
         this.handleMainOBSocketEvents();
         return this._socket;
     }
 
-   obSocketConnect(url: string) {
+    obSocketConnect(url: string) {
         this.obServerWaiting = true;
-        this.socket.emit('ob-sockets-connect', url);
+        this.socket.send(JSON.stringify({ type: 'ob-sockets-connect', url }));  // Use send for WebSocket
     }
 
     obSocketDisconnect() {
-        this.socket.emit('ob-sockets-disconnect');
+        this.socket.send(JSON.stringify({ type: 'ob-sockets-disconnect' }));  // Use send for WebSocket
     }
 
     private handleMainSocketEvents() {
-            this.socket.on('connect', () => this.mainSocketWaiting = false);
-            this.socket.on('connect_error', () => this.mainSocketWaiting = false);
-            this.socket.on('disconnect', () => this.mainSocketWaiting = false);
+        this.socket.onopen = () => {
+            this.mainSocketWaiting = false;
+        };
+        this.socket.onerror = () => {
+            this.mainSocketWaiting = false;
+        };
+        this.socket.onclose = () => {
+            this.mainSocketWaiting = false;
+        };
     }
 
     private handleMainOBSocketEvents() {
-        this.socket.on(`${obEventPrefix}::connect`, () => {
-            this._obSocketConnected = true;
-            this.obServerWaiting = false;
-        });
-
-        this.socket.on(`${obEventPrefix}::connect_error`, () => {
-            this._obSocketConnected = false;
-            this.obServerWaiting = false;
-            this.toasterService.error('Orderbook Connection Error, Host is probably down', 'Error');
-        });
-
-        this.socket.on(`${obEventPrefix}::disconnect`, () => {
-            this._obSocketConnected = false;
-            this.obServerWaiting = false;
-            this.router.navigateByUrl('/');
-            this.toasterService.error('Orderbook Disconnected', 'Error');
-        });
+        this.socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            switch (data.event) {
+                case `${obEventPrefix}::connect`:
+                    this._obSocketConnected = true;
+                    this.obServerWaiting = false;
+                    break;
+                case `${obEventPrefix}::connect_error`:
+                    this._obSocketConnected = false;
+                    this.obServerWaiting = false;
+                    this.toasterService.error('Orderbook Connection Error, Host is probably down', 'Error');
+                    break;
+                case `${obEventPrefix}::disconnect`:
+                    this._obSocketConnected = false;
+                    this.obServerWaiting = false;
+                    this.router.navigateByUrl('/');
+                    this.toasterService.error('Orderbook Disconnected', 'Error');
+                    break;
+                default:
+                    break;
+            }
+        };
     }
 }
