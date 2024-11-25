@@ -1,4 +1,5 @@
-import WebSocket from 'ws';  
+import { io, Socket as SocketClient } from 'socket.io-client';
+//import WebSocket from 'ws';  
 import { fasitfyServer } from '..';
 
 export interface IOBSocketServiceOptions {

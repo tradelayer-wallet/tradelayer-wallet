@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
+import { Subscription } from 'rxjs';
 import { ApiService } from 'src/app/@core/services/api.service';
 import { ConnectionService } from 'src/app/@core/services/connections.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
@@ -15,6 +16,8 @@ import { environment } from 'src/environments/environment';
 export class ServersDialog implements OnInit, OnDestroy {
   public orderbookServers: string[] = [environment.ENDPOINTS?.[this.network]?.orderbookApiUrl, '@custom'];
   public apiServers: string[] = [environment.ENDPOINTS?.[this.network]?.relayerUrl, '@custom'];
+  private subscription: Subscription;
+  private subsArray: Subscription[] = [];
 
   public customApiUrl: string = '';
   public customOrderbookUrl: string = '';
@@ -44,16 +47,26 @@ export class ServersDialog implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.socketService.socket.on(`${obEventPrefix}::connect`, () => {
-      const orderbookUrl = this.selectedOrderbookServer === "@custom"
-        ? this.customOrderbookUrl
-        : this.selectedOrderbookServer;
-      this.apiService.orderbookUrl = orderbookUrl;
-    });
+    this.subscription = this.socketService.events$.subscribe((data) => {
+      if (!data || !data.event) return;
 
-    this.socketService.socket.on(`${obEventPrefix}::disconnect`, () => {
-      this.apiService.orderbookUrl = null;
-    });
+      switch (data.event) {
+        case `${obEventPrefix}::connect`:
+          const orderbookUrl = this.selectedOrderbookServer === "@custom"
+          ? this.customOrderbookUrl
+          : this.selectedOrderbookServer;
+          this.apiService.orderbookUrl = orderbookUrl;
+          break;
+
+        case `${obEventPrefix}::disconnect`:
+           this.apiService.orderbookUrl = null;
+          break;
+
+        default:
+          
+          break;
+      }
+    })
   }
 
   ngOnDestroy() { }

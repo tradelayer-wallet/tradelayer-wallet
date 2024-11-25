@@ -83,7 +83,7 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy() {
-      this.futuresOrderbookService.endOrderbookSbuscription()
+      this.futuresOrderbookService.endOrderbookSubscription()
     }
 
     fillBuySellPrice(price: number) {

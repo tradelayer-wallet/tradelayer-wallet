@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { Subject } from "rxjs";
+import { Subject, Subscription } from "rxjs";
 import { SpotMarketsService } from "./spot-markets.service";
 import { obEventPrefix, SocketService } from "../socket.service";
 import { ToastrService } from "ngx-toastr";
@@ -7,6 +7,8 @@ import { LoadingService } from "../loading.service";
 import { AuthService } from "../auth.service";
 import { ITradeInfo } from "src/app/utils/swapper";
 import { ISpotTradeProps } from "src/app/utils/swapper/common";
+import WebSocket, { MessageEvent } from 'ws';
+
 
 interface ISpotOrderbookData {
     orders: ISpotOrder[],
@@ -43,6 +45,7 @@ export interface ISpotOrder {
 })
 
 export class SpotOrderbookService {
+    private subscription: Subscription;
     private _rawOrderbookData: ISpotOrder[] = [];
     outsidePriceHandler: Subject<number> = new Subject();
     buyOrderbooks: { amount: number, price: number }[] = [];
@@ -97,47 +100,67 @@ export class SpotOrderbookService {
 
     subscribeForOrderbook() {
         this.endOrderbookSubscription();
-        
-        // Listen for 'order:error' event
-        this.socket.addEventListener(`${obEventPrefix}::order:error`, (event: MessageEvent) => {
-            const message = JSON.parse(event.data);
-            this.toastrService.error(message || 'Undefined Error', 'Orderbook Error');
-            this.loadingService.tradesLoading = false;
-        });
 
-        // Listen for 'order:saved' event
-        this.socket.addEventListener(`${obEventPrefix}::order:saved`, (event: MessageEvent) => {
-            const data = JSON.parse(event.data);
-            this.loadingService.tradesLoading = false;
-            this.toastrService.success(`The Order is Saved in Orderbook`, "Success");
-        });
+    this.subscription = this.socketService.events$.subscribe(async (data) => {
+       
+      if (!data || !data.event) return;
 
-        // Listen for 'update-orders-request' event
-        this.socket.addEventListener(`${obEventPrefix}::update-orders-request`, () => {
-            this.socket.send('update-orderbook', this.marketFilter);
-        });
+      switch (data.event) {
+        case `${obEventPrefix}::order:error`:
+          this.toastrService.error(data.message || 'Undefined Error', 'Orderbook Error');
+          this.loadingService.tradesLoading = false;
+          break;
 
-        // Listen for 'orderbook-data' event
-        this.socket.addEventListener(`${obEventPrefix}::orderbook-data`, (event: MessageEvent) => {
-            const orderbookData: ISpotOrderbookData = JSON.parse(event.data);
+        case `${obEventPrefix}::order:saved`:
+          this.toastrService.success('The Order is Saved in Orderbook', 'Success');
+          this.loadingService.tradesLoading = false;
+          break;
+
+        case `${obEventPrefix}::update-orders-request`:
+          this.socket.send(
+            JSON.stringify({
+              event: 'update-orderbook',
+              data: this.marketFilter,
+            })
+          );
+          break;
+
+        case `${obEventPrefix}::orderbook-data`:
+          try {
+            const orderbookData: ISpotOrderbookData = data.data;
             this.rawOrderbookData = orderbookData.orders;
             this.tradeHistory = orderbookData.history;
             const lastTrade = this.tradeHistory[0];
-            if (!lastTrade) return this.currentPrice = 1;
+            if (!lastTrade) {
+              this.currentPrice = 1;
+              return;
+            }
             const { amountForSale, amountDesired } = lastTrade.props;
             const price = parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
             this.currentPrice = price;
-            return;
-        });
+          } catch (error) {
+            console.error('Error processing message', error);
+          }
+          break;
 
-        // Emit 'update-orderbook' event
-        this.socket.send('update-orderbook', this.marketFilter);
+        default:
+          this.socket.send(
+              JSON.stringify({
+                event: 'update-orderbook',
+                data: this.marketFilter,
+              })
+            );
+          break;
+      }
+     });
     }
 
-    endOrderbookSubscription() {
-        ['update-orders-request', 'orderbook-data', 'order:error', 'order:saved']
-            .forEach(eventName => this.socket.removeEventListener(`${obEventPrefix}::${eventName}`));
-    }
+    endOrderbookSubscription(){
+        if(this.subscription) {
+          this.subscription.unsubscribe();
+          //this.subscription = null;
+        }
+      }
 
     private structureOrderBook() {
         this.buyOrderbooks = this._structureOrderbook(true);

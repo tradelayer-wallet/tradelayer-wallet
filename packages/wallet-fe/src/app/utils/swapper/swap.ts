@@ -1,13 +1,13 @@
 import { TxsService } from "src/app/@core/services/txs.service";
 import { ETradeType, IBuyerSellerInfo, IFuturesTradeProps, IMSChannelData, ISpotTradeProps, SwapEvent, TClient } from "./common";
-import WebSocket from 'ws';
+//import WebSocket from 'ws';
 import { Subject } from "rxjs";
 
 export abstract class Swap {
     readyRes: (value: { data?: any, error?: any }) => void = () => {};
     eventSubs$: Subject<SwapEvent> = new Subject();
     multySigChannelData: IMSChannelData | null = null;
-    listeners: { eventName: string, callback: (event: MessageEvent) => void }[] = [];s
+    listeners: { eventName: string, callback: (event: MessageEvent) => void }[] = [];
 
     constructor(
         public typeTrade: ETradeType,
@@ -42,13 +42,13 @@ export abstract class Swap {
     }
 
     removePreviuesListeners() {
-       
         if (this.listeners && this.listeners.length) {
             this.listeners.forEach(listener => {
                 // Remove each event listener for WebSocket
-                this.socket.removeEventListener(listener.eventName, listener.callback);
+                this.socket.removeEventListener(listener.eventName, listener.callback as () => void);
             });
         }
     }
+
 
 }

@@ -1,14 +1,19 @@
 {
   "compilerOptions": {
+    "target": "ES6",
+    "module": "commonjs",
+    "lib": ["ES6", "DOM"],
+    "types": [],
     "noImplicitAny": false,
     "noEmitOnError": true,
     "removeComments": true,
-    "sourceMap": false,
-    "target": "ES5",
-    "module": "commonjs",
+    "sourceMap": false
   },
   "include": [
-    "builder/**/*",
-    "declarations.d.ts",
+    "src/**/*"
   ],
+  "exclude": [
+    "node_modules",
+    "main.ts" // Exclude main process files if any
+  ]
 }

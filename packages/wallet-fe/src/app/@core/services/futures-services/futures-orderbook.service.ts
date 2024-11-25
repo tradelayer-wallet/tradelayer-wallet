@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { Subject } from "rxjs";
+import { Subject, Subscription } from "rxjs";
 import { obEventPrefix, SocketService } from "../socket.service";
 import { ToastrService } from "ngx-toastr";
 import { LoadingService } from "../loading.service";
@@ -7,6 +7,7 @@ import { AuthService } from "../auth.service";
 import { FuturesMarketService } from "./futures-markets.service";
 import { ITradeInfo } from "src/app/utils/swapper";
 import { IFuturesTradeProps } from "src/app/utils/swapper/common";
+//import WebSocket, { MessageEvent } from 'ws';
 
 interface IFuturesOrderbookData {
     orders: IFuturesOrder[],
@@ -46,6 +47,8 @@ export interface IFuturesOrder {
 export class FuturesOrderbookService {
     private _rawOrderbookData: IFuturesOrder[] = [];
     outsidePriceHandler: Subject<number> = new Subject();
+    private subscription: Subscription;
+    private subsArray: Subscription[] = [];
     buyOrderbooks: { amount: number, price: number }[] = [];
     sellOrderbooks: { amount: number, price: number }[] = [];
     tradeHistory: IFuturesHistoryTrade[] = [];
@@ -96,47 +99,55 @@ export class FuturesOrderbookService {
         return this.futuresMarketService.marketFilter;
     };
 
-    subscribeForOrderbook() {
-        this.endOrderbookSubscription();
+subscribeForOrderbook() {
+    this.endOrderbookSubscription();  // Unsubscribe from previous subscriptions
 
-        // Listen for 'order:error' event (WebSocket's addEventListener method)
-        this.socket.addEventListener(`${obEventPrefix}::order:error`, (event: MessageEvent) => {
-            const message = JSON.parse(event.data);
-            this.toastrService.error(message || 'Undefined Error', 'Orderbook Error');
-            this.loadingService.tradesLoading = false;
-        });
+    // Subscribe to the socket events
+    this.subscription = this.socketService.events$.subscribe(async (data) => {
+      if (!data || !data.event) return;
 
-        // Listen for 'order:saved' event (WebSocket's addEventListener method)
-        this.socket.addEventListener(`${obEventPrefix}::order:saved`, (event: MessageEvent) => {
-            const data = JSON.parse(event.data);
-            this.loadingService.tradesLoading = false;
-            this.toastrService.success(`The Order is Saved in Orderbook`, "Success");
-        });
+      switch (data.event) {
+        case `${obEventPrefix}::order:error`:
+          this.toastrService.error('Orderbook Error', data.message || '');
+          this.loadingService.tradesLoading = false;
+          break;
 
-        // Listen for 'update-orders-request' event
-        this.socket.addEventListener(`${obEventPrefix}::update-orders-request`, () => {
-            this.socket.send('update-orderbook', this.marketFilter);
-        });
+        case `${obEventPrefix}::order:saved`:
+          this.loadingService.tradesLoading = false;
+          this.toastrService.success('The Order is Saved in Orderbook', 'Success');
+          break;
 
-        // Listen for 'orderbook-data' event
-        this.socket.addEventListener(`${obEventPrefix}::orderbook-data`, (event: MessageEvent) => {
-            const orderbookData: IFuturesOrderbookData = JSON.parse(event.data);
+        case `${obEventPrefix}::update-orders-request`:
+          this.socket.send(JSON.stringify({ type: 'update-orderbook', contract_id: this.selectedMarket.contract_id }));
+          break;
+
+        case `${obEventPrefix}::orderbook-data`:
+          try {
+            const orderbookData: IFuturesOrderbookData = data.data;
             this.rawOrderbookData = orderbookData.orders;
             this.tradeHistory = orderbookData.history;
             const lastTrade = this.tradeHistory[0];
-            if (!lastTrade) return this.currentPrice = 1;
             this.currentPrice = lastTrade?.props?.price || 1;
-            return;
-        });
+          } catch (error) {
+            console.error('Error processing message', error);
+          }
+          break;
 
-        // Emit update-orderbook event for the market filter
-        this.socket.send('update-orderbook', this.marketFilter);
-    }
+        default:
+          // Handle other events if necessary
+          break;
+      }
+    });
+    // Request initial orderbook data
+    this.socket.send(JSON.stringify({ type: 'update-orderbook', contract_id: this.selectedMarket.contract_id }));
+  }
 
-    endOrderbookSubscription() {
-        ['update-orders-request', 'orderbook-data', 'order:error', 'order:saved']
-            .forEach(eventName => this.socket.removeEventListener(`${obEventPrefix}::${eventName}`));
+  endOrderbookSubscription(){
+    if(this.subscription){
+      this.subscription.unsubscribe();
+      //this.subscription = null;
     }
+  }
 
     private structureOrderBook() {
         this.buyOrderbooks = this._structureOrderbook(true);

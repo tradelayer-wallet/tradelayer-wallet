@@ -4,7 +4,7 @@ import { ApiService } from "./api.service";
 import { SocketService } from "./socket.service";
 import { DialogService } from "./dialogs.service";
 import { LoadingService } from "./loading.service";
-import { BehaviorSubject } from "rxjs";
+import { BehaviorSubject, Subscription } from "rxjs";
 
 export type TNETWORK = 'LTC' | 'LTCTEST' | null;
 export enum ENetwork {
@@ -25,6 +25,8 @@ export interface IBlockSubsObj {
 export class RpcService {
   private _NETWORK: TNETWORK = null;
   private _stoppedByTerminated: boolean = false;
+  private subscription: Subscription;
+  private subsArray: Subscription[] = [];
 
   isCoreStarted: boolean = false;
   isAbleToRpc: boolean = false;
@@ -50,29 +52,43 @@ export class RpcService {
       private toastrService: ToastrService,
       private loadingService: LoadingService,
     ) {}
+    
+   onInit() {
+    // Subscribe to socket events
+    this.subscription = this.socketService.events$.subscribe(data => {
+      if (!data || !data.event) return;
 
-    onInit() {
-      this.socket.on('core-error', error => {
-        this.clearRpcConnection();
-        if (!this._stoppedByTerminated) {
-          this.toastrService.error(error || 'Undefiend Reason', 'Core Stopped Working');
-        } else {
-          this.toastrService.success(error || 'Core Stopped Successfull');
-          this._stoppedByTerminated = false;
-          this.loadingService.isLoading = false;
-        }
-      });
+      console.log('data in rpc on init listener ', JSON.stringify(data))
+      switch (data.event) {
+        case 'core-error':
+          //const error: ICoreError = data.data;
+          this.clearRpcConnection();
+          if (!this._stoppedByTerminated) {
+            this.toastrService.error(data.event || 'Undefined Reason', 'Core Stopped Working');
+          } else {
+            this.toastrService.success(data.event || 'Core Stopped Successfully');
+            this._stoppedByTerminated = false;
+            this.loadingService.isLoading = false;
+          }
+          break;
 
-      this.socket.on('new-block', ({ height, header }) => {
-        const lastBlock = height;
-        this.lastBlock = lastBlock;
-        this.headerBlock = header;
-        const blockSubsObj: IBlockSubsObj = { type: "LOCAL", block: lastBlock, header };
-        this.blockSubs$.next(blockSubsObj);
-      });
+        case 'new-block':
+          const { height, header }/*: IBlock */= data.event//data.data;
+          this.lastBlock = height;
+          this.headerBlock = header;
+          const blockSubsObj: IBlockSubsObj = { type: "LOCAL", block: height, header };
+          this.blockSubs$.next(blockSubsObj);
+          break;
 
-      setInterval(() => this.checkNetworkInfo(), 8000);
-    }
+        default:
+          // Handle other events if necessary
+          break;
+      }
+    });
+
+    // Periodically check network info
+    setInterval(() => this.checkNetworkInfo(), 8000);
+  }
 
     get isSynced() {
       return this.headerBlock && this.lastBlock + 1 >= this.headerBlock /*&& this.latestTlBlock + 1 >= this.headerBlock;*/
