@@ -5,6 +5,8 @@
     "lib": ["ES6", "DOM"],
     "types": [],
     "noImplicitAny": false,
+    "esModuleInterop": true,
+     "allowSyntheticDefaultImports": true,
     "noEmitOnError": true,
     "removeComments": true,
     "sourceMap": false

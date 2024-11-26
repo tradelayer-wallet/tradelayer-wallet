@@ -43,6 +43,7 @@
     "fastify": "^3.19.2",
     "forever": "^4.0.3",
     "fs": "*",
+    "hyper-express": "^6.17.2",
     "kill-port": "^1.6.1",
     "litecoin": "^2.0.5",
     "moment": "^2.29.4",

@@ -1,6 +1,30 @@
-import { io, Socket as SocketClient } from 'socket.io-client';
-//import WebSocket from 'ws';  
-import { fasitfyServer } from '..';
+// services/ob-sockets.service.ts
+
+import { Websocket } from 'hyper-express';
+import { fasitfyServer } from '..'; // Adjust the import path as necessary
+
+// Define necessary interfaces
+interface ITradeInfo {
+    buyer: { socketId: string };
+    seller: { socketId: string };
+    // Add other relevant fields
+}
+
+interface IResultChannelSwap {
+    data?: { txid: string };
+    error?: string;
+    socketId?: string;
+}
+
+interface TOrder {
+    orderId: string;
+    // Add other relevant fields
+}
+
+interface IMessage {
+    event: string;
+    data: any;
+}
 
 export interface IOBSocketServiceOptions {
     url: string;
@@ -8,67 +32,150 @@ export interface IOBSocketServiceOptions {
 
 const eventPrefix = 'OB_SOCKET';
 
+const EVENTS = {
+    ORDER_ERROR: 'order:error',
+    ORDER_SAVED: 'order:saved',
+    PLACED_ORDERS: 'placed-orders',
+    ORDERBOOK_DATA: 'orderbook-data',
+    UPDATE_ORDERS_REQUEST: 'update-orders-request',
+    NEW_CHANNEL: 'new-channel',
+    SWAP: 'swap',
+} as const;
+
+type EventKeys = keyof typeof EVENTS;
+
+// Adjust sendEvent to accept only defined event keys
+private sendEvent(event: EventKeys, data: any) {
+    this.socket.send(JSON.stringify({ event, data }));
+}
+
 export class OBSocketService {
-    public socket: WebSocket;
+    public socket: Websocket;
 
     constructor(
         private options: IOBSocketServiceOptions,
     ) {
-        this.socket = new WebSocket(this.options.url);
+        // Initialize WebSocket connection to the wallet
+        this.socket = new Websocket(this.options.url);
 
-        const mainEvents = ['open', 'close', 'error'];
-
-        // Listen for WebSocket events
-        mainEvents.forEach(event => {
-            this.socket.addEventListener(event, () => {
-                if (event === 'open') this.handleEvents();
+        // Set up core WebSocket event handlers
+        ['open', 'close', 'error'].forEach(event => {
+            this.socket.on(event, () => {
+                if (event === 'open') this.handleOpen();
                 const fullEventName = `${eventPrefix}::${event}`;
-                this.walletSocket.send(fullEventName);
+                this.sendEvent(fullEventName as EventKeys, {});
             });
         });
+
+        // Set up custom event handlers
+        this.initializeCustomEventHandlers();
     }
 
-    get walletSocket() {
+    // Reference to the main wallet WebSocket connection
+    get walletSocket(): Websocket {
         return fasitfyServer.mainSocketService.currentSocket;
     }
 
-    private handleEvents() {
-        // From Server to wallet
-        const orderEvents = [
-            'order:error',
-            'order:saved',
-            'placed-orders',
-            'orderbook-data',
-            'update-orders-request',
-            'new-channel',
-        ];
+    private handleOpen() {
+        console.log('WebSocket connection to wallet opened.');
+        // Perform any initialization upon connection open
+    }
 
-        orderEvents.forEach(eventName => {
-            this.socket.addEventListener('message', (event: MessageEvent) => {
-                const data = JSON.parse(event.data as string);
-                const fullEventName = `${eventPrefix}::${eventName}`;
-                this.walletSocket.send(JSON.stringify({ event: fullEventName, data }));
-            });
+    private initializeCustomEventHandlers() {
+        // Listen for incoming messages and handle based on 'event' field
+        this.socket.on('message', (data: string | ArrayBuffer) => {
+            try {
+                const message = typeof data === 'string' ? data : data.toString();
+                const parsedData = JSON.parse(message) as IMessage;
+
+                if (!parsedData.event) {
+                    console.warn('Received message without event:', parsedData);
+                    return;
+                }
+
+                switch (parsedData.event) {
+                    case EVENTS.ORDER_ERROR:
+                        this.handleOrderError(parsedData.data);
+                        break;
+                    case EVENTS.ORDER_SAVED:
+                        this.handleOrderSaved(parsedData.data);
+                        break;
+                    case EVENTS.PLACED_ORDERS:
+                        this.handlePlacedOrders(parsedData.data);
+                        break;
+                    case EVENTS.ORDERBOOK_DATA:
+                        this.handleOrderbookData(parsedData.data);
+                        break;
+                    case EVENTS.UPDATE_ORDERS_REQUEST:
+                        this.handleUpdateOrdersRequest(parsedData.data);
+                        break;
+                    case EVENTS.NEW_CHANNEL:
+                        this.handleNewChannel(parsedData.data);
+                        break;
+                    case EVENTS.SWAP:
+                        this.handleSwap(parsedData.data);
+                        break;
+                    default:
+                        console.warn('Unhandled event:', parsedData.event);
+                        break;
+                }
+
+            } catch (error) {
+                console.error('Error parsing message:', error);
+            }
         });
 
-        // From Wallet to Server
+        // Handle messages from wallet to server
         ["update-orderbook", "new-order", "close-order", 'many-orders'].forEach(eventName => {
-            this.walletSocket.addEventListener(eventName, (data: any) => {
-                this.socket.send(JSON.stringify(data));
+            this.walletSocket.on(eventName, (data: any) => {
+                // Ensure the event name is one of the predefined events
+                if ((EVENTS as any)[eventName]) {
+                    this.sendEvent(eventName as EventKeys, data);
+                } else {
+                    console.warn(`Attempted to send undefined event: ${eventName}`);
+                }
             });
         });
+    }
 
-        const swapEventName = 'swap';
-        this.walletSocket.addEventListener(`${this.socket.id}::${swapEventName}`, (data) => {
-            this.socket.send(JSON.stringify({ event: `${this.socket.id}::${swapEventName}`, data }));
-        });
+    private sendEvent(event: EventKeys, data: any) {
+        this.socket.send(JSON.stringify({ event, data }));
+    }
 
-        this.socket.addEventListener('new-channel', (d: any) => {
-            const cpSocketId = d.isBuyer ? d.tradeInfo.seller.socketId : d.tradeInfo.buyer.socketId;
-            this.socket.removeEventListener(`${cpSocketId}::${swapEventName}`);
-            this.socket.addEventListener(`${cpSocketId}::${swapEventName}`, (data) => {
-                this.walletSocket.send(JSON.stringify({ event: `${cpSocketId}::${swapEventName}`, data }));
-            });
-        });
+    private handleOrderError(data: any) {
+        console.error('Order Error:', data.message);
+        // Implement additional logic here, e.g., notify clients, log, etc.
+    }
+
+    private handleOrderSaved(data: any) {
+        console.log('Order Saved:', data.orderId);
+        // Implement additional logic here, e.g., update database, notify clients, etc.
+    }
+
+    private handlePlacedOrders(data: any) {
+        console.log('Placed Orders:', data);
+        // Implement additional logic here
+    }
+
+    private handleOrderbookData(data: any) {
+        console.log('Orderbook Data:', data);
+        // Implement additional logic here
+    }
+
+    private handleUpdateOrdersRequest(data: any) {
+        console.log('Update Orders Request:', data);
+        // Implement additional logic here
+    }
+
+    private handleNewChannel(data: any) {
+        console.log('New Channel:', data);
+        // Implement logic to handle a new channel
+        // Example: Initialize a swap process or notify relevant parties
+    }
+
+    private handleSwap(data: any) {
+        console.log('Swap Event:', data);
+        // Implement swap handling logic
+        // Example: Validate swap data, initiate transactions, notify clients, etc.
     }
 }
