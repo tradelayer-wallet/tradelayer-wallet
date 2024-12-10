@@ -114,29 +114,53 @@ export class PortfolioPageComponent implements OnInit {
   //   return this.attestationService.getAttByAddress(address);
   // }
 
-  // async selfAttestate(address: string) {
-  //   try {
-  //     this.loadingService.isLoading = true;
-  //     const isAttestated = await this.attestationService.checkAttAddress(address);
-  //     if (isAttestated) {
-  //       this.loadingService.isLoading = false;
-  //       return
-  //     }
-  //     const payloadRes = await this.rpcService.tlApi.rpc('tl_createpayload_attestation').toPromise();
-  //     if (!payloadRes.data || payloadRes.error) throw new Error(payloadRes.error || "Getting Attestation Payload Error");
-  //     const res = await this.txsService.buildSingSendTx({
-  //       fromKeyPair: { address },
-  //       toKeyPair: { address },
-  //       payload: payloadRes.data,
-  //     });
-  //     if (res.data) {
-  //       this.attestationService.setPendingAtt(address);
-  //       this.toastrService.success(res.data, 'Transaction Sent');
-  //       this.loadingService.isLoading = false;
-  //     }
-  //   } catch (error: any) {
-  //     this.toastrService.error(error.message, `Attestate Error`);
-  //     this.loadingService.isLoading = false;
-  //   }
-  // }
+  async selfAttestate(address: string) {
+      try {
+        this.loadingService.isLoading = true;
+
+        // Step 1: Check IP using checkIP function
+        const ipToCheck = await this.rpcService.rpc('tl_getIpByAddress', [address]).toPromise(); // Example: Replace with actual method to get IP
+        if (!ipToCheck || ipToCheck.error) throw new Error('Unable to retrieve IP address.');
+
+        const ipCheckResult = await this.attestationService.checkIP(ipToCheck.data.ip);
+        if (!ipCheckResult.success) {
+          this.toastrService.error(ipCheckResult.error, `Attestation Error for Address: ${address}`);
+          this.loadingService.isLoading = false;
+          return;
+        }
+
+        const { countryCode } = ipCheckResult.attestation;
+
+        // Step 2: Validate country code and other conditions
+        if (!countryCode || countryCode === "US") {
+          this.toastrService.error('Cannot attest addresses originating from the US.', `Address: ${address}`);
+          this.loadingService.isLoading = false;
+          return;
+        }
+
+        // Step 3: Create attestation payload
+        const attestationPayload = ENCODER.encodeAttestation({
+            revoke: 0,
+            id: 0,
+            targetAddress: address,
+            metaData: countryCode
+        });
+
+        // Step 4: Submit the attestation transaction
+        const res = await this.txsService.buildSingSendTx({
+          fromKeyPair: { address },
+          toKeyPair: { address },
+          payload: attestationPayload,
+        });
+
+        if (res.data) {
+          this.attestationService.setPendingAtt(address);
+          this.toastrService.success(res.data, 'Transaction Sent');
+          this.loadingService.isLoading = false;
+        }
+      } catch (error: any) {
+        this.toastrService.error(error.message, `Attestation Error`);
+        this.loadingService.isLoading = false;
+      }
+    }
 }
