@@ -140,11 +140,10 @@ export class PortfolioPageComponent implements OnInit {
               metaData: countryCode,
           });
 
-          const payloadRes = await this.rpcService.rpc('tl_createpayload_attestation', [attestationPayload]);
           const res = await this.txsService.buildSignSendTx({
               fromKeyPair: { address },
               toKeyPair: { address },
-              payload: payloadRes.data,
+              payload: attestationPayload,
           });
 
           if (res.data) {
