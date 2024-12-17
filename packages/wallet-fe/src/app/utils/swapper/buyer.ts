@@ -111,7 +111,7 @@ export class BuySwapper extends Swap {
                 const payload = ENCODER.encodeTradeTokenForUTXO({
                     propertyId: tokenId,
                     amount: tokensSold,
-                    columnA: isA,
+                    columnA: isA===1,
                     satsExpected: satsPaid,
                     tokenOutput: 0,
                     payToAddress: 1
@@ -135,7 +135,7 @@ export class BuySwapper extends Swap {
                     payload = ENCODER.encodeTransfer({
                         propertyId: propIdForSale,
                         amount: amountForSale,
-                        isColumnA: isA,  // Assume Column A, adjust based on context
+                        isColumnA: isA===1,  // Assume Column A, adjust based on context
                         destinationAddr: this.multySigChannelData.address,
                     });
                 } else{
