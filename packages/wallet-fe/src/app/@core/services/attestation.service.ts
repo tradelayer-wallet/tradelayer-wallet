@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
 import { AuthService } from "./auth.service";
 import { RpcService } from "./rpc.service";
+import { ApiService } from "./api.service";
 import axios from 'axios'
 
 @Injectable({
@@ -13,12 +14,16 @@ export class AttestationService {
     constructor(
         private authService: AuthService,
         private rpcService: RpcService,
+        private apiService: ApiService,
         private toastrService: ToastrService,
     ) { }
 
     private readonly CRIMINAL_IP_API_KEY = "RKohp7pZw3LsXBtbmU3vcaBByraHPzDGrDnE0w1vI0qTEredJnMPfXMRS7Rk";
     private readonly IPINFO_TOKEN = "5992daa04f9275";
 
+    get tlApi() {
+        return this.apiService.newTlApi;
+    }
 
     onInit() {
         this.authService.updateAddressesSubs$
@@ -41,21 +46,39 @@ export class AttestationService {
         }
     }
 
-    async checkAttAddress(address: string): Promise<boolean> {
-        try {
-            const aRes = await this.rpcService.rpc('tl_check_kyc', [address]);
-            if (aRes.error || !aRes.data) throw new Error(aRes.error);
-            const isAttested = aRes.data['result: '] === 'enabled(kyc_0)';
-            const existing = this.attestations.find(a => a.address === address);
-            existing
-                ? existing.isAttested = isAttested
-                : this.attestations.push({ address, isAttested });
-            return isAttested;
-        } catch (error: any) {
-            this.toastrService.error(error.messagokee, `Checking Attestations Error, Adress: ${address}`);
-            return false;
-        }
-    }
+   async checkAttAddress(address: string): Promise<boolean> {
+      try {
+          // Call the backend to fetch attestations for the address
+          const aRes = await this.tlApi.rpc('getAttestations', [address, 0]).toPromise();
+
+          // Check for errors or missing data
+          if (aRes.error || !aRes) {
+              throw new Error(aRes.error || 'No response from attestations API');
+          }
+
+          // Filter for attestations with listId 0 and a valid status (e.g., 'active')
+          const attestationData = aRes.find(
+              (entry: any) => entry.data?.listId === 0 && entry.data?.status === 'active'
+          );
+
+          const isAttested = !!attestationData; // Returns true if attestation exists
+
+          // Update the local attestation cache
+          const existing = this.attestations.find(a => a.address === address);
+          if (existing) {
+              existing.isAttested = isAttested;
+          } else {
+              this.attestations.push({ address, isAttested });
+          }
+
+          return isAttested;
+      } catch (error: any) {
+          // Handle errors gracefully and show a toast message
+          this.toastrService.error(error.message, `Checking Attestations Error for Address: ${address}`);
+          return false;
+      }
+  }
+
 
     private removeAll() {
         this.attestations = [];

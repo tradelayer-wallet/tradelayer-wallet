@@ -113,6 +113,7 @@ export class PortfolioPageComponent implements OnInit {
   }
 
   getAddressAttestationStatus(address: string) {
+  
      return this.attestationService.getAttByAddress(address);
   }
 

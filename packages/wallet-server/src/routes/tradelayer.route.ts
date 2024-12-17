@@ -154,6 +154,16 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
 
+    fastify.post('/getAttestations', async (request, reply) => {
+        try {
+            const { address, id } = request.body; // Destructure correctly
+            const res = await axios.post(baseURL + 'tl_getAttestations', { address, id });
+            reply.status(200).send(res.data || []);
+        } catch (error) {
+            console.error('Backend attestation error:', error.message);
+            reply.status(500).send({ error: 'Error fetching attestations: ' + error.message });
+        }
+    });
 
     done();
 }
