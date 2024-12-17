@@ -54,7 +54,7 @@ export class PortfolioPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
-      this.authService.listOfallAddresses //getAddressesFromWallet();
+      this.authService.getAddressesFromWallet();
   }
 
   shouldShowVesting(propertyId: number): boolean {
