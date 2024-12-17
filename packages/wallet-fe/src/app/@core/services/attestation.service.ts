@@ -137,7 +137,7 @@ export class AttestationService {
           issues.is_anonymous_vpn ||
           whois.data.some((entry: { org_country_code: string }) => bannedCountries.includes(entry.org_country_code))
         ) {
-          throw new Error("Suspicious IP detected or originating from a sanctioned country.");
+          this.toastrService.error("Suspicious IP detected or originating from a banned country.");
         }
 
 
@@ -152,7 +152,7 @@ export class AttestationService {
           },
         };
       } else {
-        throw new Error("No response or invalid response from Criminal IP API.");
+        this.toastrService.error("No response or invalid response from IP API.");
       }
     } catch (error: any) {
       console.error("Primary API failed:", error.message);
@@ -180,7 +180,7 @@ export class AttestationService {
             },
           };
         } else {
-          throw new Error("No response from fallback API.");
+          this.toastrService.error("No response from fallback API.");
         }
       } catch (fallbackError: any) {
         console.error("Fallback API failed:", fallbackError.message);

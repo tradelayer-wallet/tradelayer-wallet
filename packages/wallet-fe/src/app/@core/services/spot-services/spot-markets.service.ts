@@ -89,6 +89,7 @@ export class SpotMarketsService {
     getMarkets() {
         this.apiService.marketApi.getSpotMarkets()
             .subscribe((marketTypes: ISpotMarketType[]) => {
+            console.log('showing market types'+JSON.stringify(marketTypes))
                 this._spotMarketsTypes = marketTypes;
                 this.selectedMarketType = marketTypes.find(e => !e.disabled) || marketTypes[0];
             });
