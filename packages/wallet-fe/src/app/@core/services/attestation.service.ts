@@ -46,24 +46,21 @@ export class AttestationService {
         }
     }
 
-   async checkAttAddress(address: string): Promise<boolean> {
+    async checkAttAddress(address: string): Promise<boolean> {
       try {
-          // Call the backend to fetch attestations for the address
           const aRes = await this.tlApi.rpc('getAttestations', [address, 0]).toPromise();
 
-          // Check for errors or missing data
-          if (aRes.error || !aRes) {
-              throw new Error(aRes.error || 'No response from attestations API');
-          }
+          // Ensure response is an array
+          const attestationArray = Array.isArray(aRes) ? aRes : [aRes];
 
-          // Filter for attestations with listId 0 and a valid status (e.g., 'active')
-          const attestationData = aRes.find(
-              (entry: any) => entry.data?.listId === 0 && entry.data?.status === 'active'
+          // Check for the most recent 'active' attestation
+          const attestationData = attestationArray.find(
+              (entry: any) => entry.data?.status === 'active'
           );
 
-          const isAttested = !!attestationData; // Returns true if attestation exists
+          const isAttested = !!attestationData;
 
-          // Update the local attestation cache
+          // Update attestation cache
           const existing = this.attestations.find(a => a.address === address);
           if (existing) {
               existing.isAttested = isAttested;
@@ -73,11 +70,11 @@ export class AttestationService {
 
           return isAttested;
       } catch (error: any) {
-          // Handle errors gracefully and show a toast message
           this.toastrService.error(error.message, `Checking Attestations Error for Address: ${address}`);
           return false;
       }
   }
+
 
 
     private removeAll() {
