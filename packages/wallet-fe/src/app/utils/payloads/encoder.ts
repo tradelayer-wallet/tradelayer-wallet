@@ -1,4 +1,4 @@
-const BigNumber = require('bignumber.js'); // Make sure BigNumber is imported
+import BigNumber from 'bignumber.js'; // Make sure BigNumber is imported
 
 const marker = 'tl';
 
@@ -31,7 +31,7 @@ type TradeTokensChannelParams = {
     propertyId2: number;
     amountOffered1: number;
     amountDesired2: number;
-    columnAIsOfferer: boolean;
+    columnAIsOfferer: number;
     expiryBlock: number;
 };
 
@@ -72,7 +72,7 @@ const encodeCommit = (params: EncodeCommitParams): string => {
 type EncodeTradeTokenForUTXOParams = {
     propertyId: number;
     amount: number;
-    columnA: number;
+    columnA: boolean;
     satsExpected: number;
     tokenOutput: number;
     payToAddress: number;
@@ -82,7 +82,7 @@ const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string 
     const payload = [
         params.propertyId.toString(36),
         new BigNumber(params.amount).times(1e8).toString(36), // Updated to use BigNumber
-        params.columnA,
+        params.columnA ? 1:0,
         new BigNumber(params.satsExpected).times(1e8).toString(36),
         params.tokenOutput.toString(36),
         params.payToAddress.toString(36)
@@ -113,6 +113,26 @@ const encodeTransfer = (params: EncodeTransferParams): string => {
     return [propertyId, amounts, isColumnA, destinationAddr].join(',');
 };
 
+// Encode Attestation Transaction
+type EncodeAttestationParams = {
+  revoke: number;
+  id: number;
+  targetAddress: string;
+  metaData: string; // Usually a country code or similar metadata
+};
+
+const encodeAttestation = (params: EncodeAttestationParams): string => {
+  const payload = [
+    params.revoke.toString(36),      // Revoke flag (0 or 1)
+    params.id.toString(36),         // ID (usually 0 for whitelist)
+    params.targetAddress,           // Address being attested
+    params.metaData                 // Metadata such as the country code
+  ];
+  const txNumber = 21; // Assuming attestation transaction is type 21
+  const txNumber36 = txNumber.toString(36);
+  const payloadString = payload.join(',');
+  return marker + txNumber36 + payloadString;
+};
 
 
 export const ENCODER = { 
@@ -122,5 +142,6 @@ export const ENCODER = {
     // encodeTradeContractChannel,  
     encodeTradeTokenForUTXO, 
     encodeCommit,
-    encodeTransfer 
+    encodeTransfer,
+    encodeAttestation
 };
