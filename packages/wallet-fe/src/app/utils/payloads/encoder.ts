@@ -128,7 +128,7 @@ const encodeAttestation = (params: EncodeAttestationParams): string => {
     params.targetAddress,           // Address being attested
     params.metaData                 // Metadata such as the country code
   ];
-  const txNumber = 21; // Assuming attestation transaction is type 21
+  const txNumber = 9; // Assuming attestation transaction is type 9
   const txNumber36 = txNumber.toString(36);
   const payloadString = payload.join(',');
   return marker + txNumber36 + payloadString;

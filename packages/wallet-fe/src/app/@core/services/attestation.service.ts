@@ -49,7 +49,7 @@ export class AttestationService {
     async checkAttAddress(address: string): Promise<boolean> {
       try {
           const aRes = await this.tlApi.rpc('getAttestations', [address, 0]).toPromise();
-
+          console.log('checking attestation for address '+address+' '+JSON.stringify(aRes))
           // Ensure response is an array
           const attestationArray = Array.isArray(aRes) ? aRes : [aRes];
 

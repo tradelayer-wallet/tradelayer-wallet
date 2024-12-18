@@ -7,21 +7,30 @@
         <button mat-raised-button (click)='newAddress()' class='new-address-buttton' [disabled]="!isAbleToRpc">New Address</button>
         <mat-card-content>
             <mat-table [dataSource]="coinBalance" *ngIf='coinBalance'> 
-              <ng-container matColumnDef="attestation">
-                <mat-header-cell *matHeaderCellDef>Attestation</mat-header-cell>
-                <mat-cell *matCellDef="let element">
-                  <mat-icon
-                    (click)="selfAttestate(element.address)"
-                    *ngIf="getAddressAttestationStatus(element.address) === false"
-                  >fingerprint</mat-icon>
-                  <mat-icon
-                    *ngIf="getAddressAttestationStatus(element.address) === true"
-                  >check</mat-icon>
-                  <mat-icon
-                    *ngIf="getAddressAttestationStatus(element.address) === 'PENDING'"
-                  >timelapse</mat-icon>
-                </mat-cell>
-              </ng-container>
+              
+            <ng-container matColumnDef="attestation">
+              <mat-header-cell *matHeaderCellDef>Attestation</mat-header-cell>
+              <mat-cell *matCellDef="let element">
+                <ng-container [ngSwitch]="getAddressAttestationStatus(element.address)">
+                  <mat-icon 
+                    *ngSwitchCase="true" 
+                    (click)="selfAttestate(element.address)">
+                    check
+                  </mat-icon>
+                  <mat-icon 
+                    *ngSwitchCase="false" 
+                    (click)="selfAttestate(element.address)">
+                    fingerprint
+                  </mat-icon>
+                  <mat-icon 
+                    *ngSwitchCase="'PENDING'" 
+                    (click)="selfAttestate(element.address)">
+                    timelapse
+                  </mat-icon>
+                </ng-container>
+              </mat-cell>
+            </ng-container>
+
                 <ng-container matColumnDef="address">
                     <mat-header-cell *matHeaderCellDef>Address</mat-header-cell>
                     <mat-cell

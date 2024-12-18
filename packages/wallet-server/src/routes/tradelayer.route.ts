@@ -16,6 +16,11 @@ interface GetChannelRequestBody {
     params: string[];
 }
 
+interface AttestationRequestBody {
+    address: string;
+    id: number;
+}
+
 
 
 export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
@@ -154,16 +159,27 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
 
-    fastify.post('/getAttestations', async (request, reply) => {
-        try {
-            const { address, id } = request.body; // Destructure correctly
-            const res = await axios.post(baseURL + 'tl_getAttestations', { address, id });
-            reply.status(200).send(res.data || []);
-        } catch (error) {
-            console.error('Backend attestation error:', error.message);
-            reply.status(500).send({ error: 'Error fetching attestations: ' + error.message });
+    
+    fastify.post(
+        '/getAttestations',
+        async (
+            request: FastifyRequest<{ Body: AttestationRequestBody }>, // Properly type the request body
+            reply: FastifyReply
+        ) => {
+            try {
+                const { address, id } = request.body; // Correctly typed
+                console.log('Attestation Request Body:', address, id);
+
+                // Make the API call to the external listener endpoint
+                const res = await axios.post(baseURL + 'tl_getAttestations', { address, id });
+
+                reply.status(200).send(res.data || []); // Send back the data
+            } catch (error) {
+                console.error('Error in getAttestations:', error.message);
+                reply.status(500).send({ error: 'Error fetching attestations: ' + error.message });
+            }
         }
-    });
+    );
 
     done();
 }

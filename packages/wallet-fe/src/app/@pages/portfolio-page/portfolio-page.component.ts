@@ -18,7 +18,7 @@ import { ENCODER } from 'src/app/utils/payloads/encoder'
   styleUrls: ['./portfolio-page.component.scss']
 })
 export class PortfolioPageComponent implements OnInit {
-  cryptoBalanceColumns: string[] = ['address', 'confirmed', 'unconfirmed', 'actions'];
+  cryptoBalanceColumns: string[] = ['attestation', 'address', 'confirmed', 'unconfirmed', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'channel', 'actions'];
   selectedAddress: string = '';
 
@@ -55,7 +55,32 @@ export class PortfolioPageComponent implements OnInit {
 
   ngOnInit(): void {
       this.authService.getAddressesFromWallet();
+          this.startAttestationUpdateInterval();
   }
+
+  startAttestationUpdateInterval() {
+    this.updateAttestationStatuses(); // Call once immediately
+    setInterval(() => this.updateAttestationStatuses(), 20000); // Update every 20 seconds
+  }
+
+
+  // Fetch and update attestation statuses for wallet addresses
+  async updateAttestationStatuses() {
+    const addresses = this.authService.listOfallAddresses.map(({ address }) => address);
+
+    for (const address of addresses) {
+      const status = await this.attestationService.checkAttAddress(address);
+      this.attestations[address] = status ? true : false; // Update local state
+    }
+  }
+
+
+  getAddressAttestationStatus(address: string) {
+    const attestation = this.attestationService.getAttByAddress(address);
+    console.log(`Status for address ${address}:`, attestation || 'No data found');
+    return attestation !== undefined ? attestation : false;
+  }
+
 
   shouldShowVesting(propertyId: number): boolean {
     // Show vesting column only for propertyId 2 and 3
@@ -112,10 +137,6 @@ export class PortfolioPageComponent implements OnInit {
     this.toastrService.info('Address Copied to clipboard', 'Copied');
   }
 
-  getAddressAttestationStatus(address: string) {
-  
-     return this.attestationService.getAttByAddress(address);
-  }
 
     async selfAttestate(address: string) {
       try {
@@ -127,7 +148,7 @@ export class PortfolioPageComponent implements OnInit {
 
           const bannedCountries = ["US", "KP", "SY", "SD", "RU", "IR"];
           
-          if (bannedCountries.includes(countryCode)) {
+          if (bannedCountries.includes(countryCode.toUpperCase())) {
             this.toastrService.error('Cannot attest addresses originating from a sanctioned country.', `Address: ${address}`);
             return;
           }
