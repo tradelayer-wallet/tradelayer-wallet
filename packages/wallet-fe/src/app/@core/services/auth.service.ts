@@ -127,8 +127,7 @@ export class AuthService {
 
     get listOfallAddresses() {
         //console.log('inside list of addresses checking keys '+JSON.stringify(this.walletKeys))
-        return (Object.values(this.walletKeys) as any)
-            .flat() as IKeyPair[];
+        return this.walletAddresses
     }
 
     get walletAddresses() {
@@ -142,10 +141,6 @@ export class AuthService {
 
     get isAbleToRpc() {
         return this.rpcService.isAbleToRpc;
-    }
-
-    getWifByAddress(address: string) {
-        return this.listOfallAddresses?.find(e => e.address === address)?.wif || null;
     }
 
     async getAddressesFromWallet() {

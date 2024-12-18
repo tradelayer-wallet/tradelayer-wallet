@@ -46,11 +46,11 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     ) {}
 
     get futureKeyPair() {
-      return this.authService.walletKeys?.futures?.[0];
+      return this.authService.walletAddresses[0];
     }
 
     get futureAddress() {
-      return this.futureKeyPair?.address;
+      return this.futureKeyPair;
     }
 
     get isLoading(): boolean {
@@ -160,6 +160,10 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         const leverage = contractInfo.leverage || 10; // Fetch leverage from contractInfo, default to 10 if not provided
         const initialMargin = this.calculateInitialMargin(isInverse, amount, price, leverage, notional);
 
+        const pubkeyRes = await this.rpcService.rpc("getaddressinfo", [this.futureKeyPair]);
+        if (pubkeyRes.error || !pubkeyRes.data?.pubkey) throw new Error(pubkeyRes.error || "No Pubkey Found");
+        const pubkey = pubkeyRes.data.pubkey;
+
         // Get the available and channel amounts
         const tokenBalance = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
             ?.find((t: any) => t.propertyid === collateral);
@@ -188,8 +192,8 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
         const order: IFuturesTradeConf = { 
           keypair: {
-            address: this.futureKeyPair?.address,
-            pubkey: this.futureKeyPair?.pubkey,
+            address: this.futureKeyPair,
+            pubkey: pubkey,
           },
           action: isBuy ? "BUY" : "SELL",
           type: "FUTURES",
@@ -307,9 +311,17 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
   
     isFutureAddressSelfAtt() {
-      const isKYC = this.attestationService.getAttByAddress(this.futureAddress);
-      return isKYC === true ? "YES" : "NO";
+        const attestationStatus = this.attestationService.getAttByAddress(this.futureAddress);
+        switch (attestationStatus) {
+            case 'active':
+                return "YES";
+            case 'inactive':
+                return "REVOKED";
+            default:
+                return "NO";
+        }
     }
+
 
     ngOnDestroy() {
       this.destroyed$.next(true);

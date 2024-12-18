@@ -163,11 +163,11 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
     fastify.post(
         '/getAttestations',
         async (
-            request: FastifyRequest<{ Body: AttestationRequestBody }>, // Properly type the request body
+            request: FastifyRequest<{ Body: { params: any[] } }>, // Properly type the request body
             reply: FastifyReply
         ) => {
             try {
-                const { address, id } = request.body; // Correctly typed
+                const [address, id] = request.body.params; // Extract params as an array
                 console.log('Attestation Request Body:', address, id);
 
                 // Make the API call to the external listener endpoint
@@ -180,6 +180,7 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             }
         }
     );
+
 
     done();
 }

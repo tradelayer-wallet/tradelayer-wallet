@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnInit,ChangeDetectorRef } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { first } from 'rxjs/operators';
@@ -34,6 +34,7 @@ export class PortfolioPageComponent implements OnInit {
     private txsService: TxsService,
     private attestationService: AttestationService,
     private loadingService: LoadingService,
+    private cdr: ChangeDetectorRef // Inject ChangeDetectorRef
   ) {}
 
   get coinBalance() {
@@ -58,28 +59,40 @@ export class PortfolioPageComponent implements OnInit {
           this.startAttestationUpdateInterval();
   }
 
+    // Start periodic updates for attestation statuses
   startAttestationUpdateInterval() {
-    this.updateAttestationStatuses(); // Call once immediately
-    setInterval(() => this.updateAttestationStatuses(), 20000); // Update every 20 seconds
+    this.updateAttestationStatuses(); // Run once on init
+    setInterval(() => {
+      this.updateAttestationStatuses(); 
+      this.cdr.detectChanges(); // Force Angular to update the view
+    }, 20000); // Update every 20 seconds
   }
 
-
-  // Fetch and update attestation statuses for wallet addresses
+  // Fetch and update attestation statuses for all wallet addresses
   async updateAttestationStatuses() {
-    const addresses = this.authService.listOfallAddresses.map(({ address }) => address);
-
+    const addresses = this.authService.listOfallAddresses
     for (const address of addresses) {
-      const status = await this.attestationService.checkAttAddress(address);
-      this.attestations[address] = status ? true : false; // Update local state
+      await this.attestationService.checkAttAddress(address);
     }
   }
 
+  getAddressAttestationStatus(address: string): string | boolean {
+      const attestation = this.attestationService.getAttByAddress(address);
+      console.log(`Status for address ${address}:`, attestation || 'No data found');
 
-  getAddressAttestationStatus(address: string) {
-    const attestation = this.attestationService.getAttByAddress(address);
-    console.log(`Status for address ${address}:`, attestation || 'No data found');
-    return attestation !== undefined ? attestation : false;
+      if (attestation === 'PENDING') {
+          return 'PENDING';
+      }
+
+      // If attestation status is 'active', return true
+      if (attestation === 'active') {
+          return true;
+      }
+
+      // For any other status or false, return false
+      return false;
   }
+
 
 
   shouldShowVesting(propertyId: number): boolean {

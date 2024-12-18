@@ -10,7 +10,12 @@ import axios from 'axios'
 })
 
 export class AttestationService {
-    private attestations: {address: string, isAttested: boolean | 'PENDING' }[] = [];
+    private attestations: { 
+      address: string; 
+      isAttested: boolean | 'PENDING'; 
+      data?: { status: string; [key: string]: any }; // Optional data field
+    }[] = [];
+
     constructor(
         private authService: AuthService,
         private rpcService: RpcService,
@@ -34,46 +39,67 @@ export class AttestationService {
 
         this.rpcService.blockSubs$
             .subscribe(() => this.checkPending());
+        console.log('initializing attestation loop')    
+        this.startAttestationUpdateInterval();
+    }
+
+    startAttestationUpdateInterval() {
+        this.checkAllAtt(); // Call immediately to fetch fresh data
+        setInterval(() => this.checkAllAtt(), 20000); // Update every 20 seconds
     }
 
     private async checkAllAtt() {
+      console.log('list of all addresses '+this.authService.listOfallAddresses)
         const addressesList = this.authService.listOfallAddresses
-            .map(({ address }) => address)
-            .filter(a => !this.attestations.map(e => e.address).includes(a));
+            
         for (let i = 0; i < addressesList.length; i++) {
+            console.log('updating attestations? '+JSON.stringify(this.attestations))
             const address = addressesList[i];
             await this.checkAttAddress(address);
         }
     }
 
-    async checkAttAddress(address: string): Promise<boolean> {
-      try {
-          const aRes = await this.tlApi.rpc('getAttestations', [address, 0]).toPromise();
-          console.log('checking attestation for address '+address+' '+JSON.stringify(aRes))
-          // Ensure response is an array
-          const attestationArray = Array.isArray(aRes) ? aRes : [aRes];
+      async checkAttAddress(address: string): Promise<boolean> {
+        console.log('Checking attestation for address: ' + address);
+        try {
+            const aRes = await this.tlApi.rpc('getAttestations', [address, 0]).toPromise();
+            console.log('Raw attestation response:', JSON.stringify(aRes));
 
-          // Check for the most recent 'active' attestation
-          const attestationData = attestationArray.find(
-              (entry: any) => entry.data?.status === 'active'
-          );
+            // Extract and flatten the 'data' array
+            const attestationArray = aRes?.data || [];
+            
+            // Find the most recent 'active' attestation
+            const attestationData = attestationArray.find(
+                (entry: any) => entry?.data?.status === 'active'
+            );
 
-          const isAttested = !!attestationData;
+            const isAttested = !!attestationData;
 
-          // Update attestation cache
-          const existing = this.attestations.find(a => a.address === address);
-          if (existing) {
-              existing.isAttested = isAttested;
-          } else {
-              this.attestations.push({ address, isAttested });
-          }
+            // Update attestation cache
+            const existing = this.attestations.find(a => a.address === address);
 
-          return isAttested;
-      } catch (error: any) {
-          this.toastrService.error(error.message, `Checking Attestations Error for Address: ${address}`);
-          return false;
-      }
-  }
+            if (existing) {
+                existing.isAttested = isAttested;
+                existing.data = attestationData?.data || null; // Store the full attestation data
+            } else {
+                this.attestations.push({ 
+                    address, 
+                    isAttested, 
+                    data: attestationData?.data || null 
+                });
+            }
+
+            console.log(`Attestation updated for ${address}: ${isAttested}`);
+            return isAttested;
+
+        } catch (error: any) {
+            console.error('Error fetching attestations:', error.message);
+            this.toastrService.error(error.message, `Error fetching attestation for ${address}`);
+            return false;
+        }
+    }
+
+
 
 
 
@@ -82,25 +108,40 @@ export class AttestationService {
     }
     
     private async checkPending() {
-        const pendingList = this.attestations.filter(a => a.isAttested === 'PENDING');
-        for (let i = 0; i < pendingList.length; i++) {
-            const address = pendingList[i].address;
-            const isAttested = await this.checkAttAddress(address);
-            const existing = this.attestations.find(a => a.address === address);
-            existing
-                ? existing.isAttested = isAttested
-                : this.attestations.push({ address, isAttested });
+        for (const attestation of this.attestations.filter(a => a.isAttested === 'PENDING')) {
+            const isAttested = await this.checkAttAddress(attestation.address);
+            attestation.isAttested = isAttested || 'PENDING'; // Update to 'true' if attested, else remain 'PENDING'
         }
     }
+
     
-    getAttByAddress(address: string) {
-        return this.attestations
-            .find(e => e.address === address)?.isAttested || false;
+    getAttByAddress(address: string): string | 'PENDING' | false {
+        const attestation = this.attestations.find(e => e.address === address);
+
+        console.log('Attestation object:', JSON.stringify(attestation));
+
+        // If attestation is undefined, return false
+        if (!attestation) {
+            return false;
+        }
+
+        // Explicitly check if the attestation is marked as 'PENDING'
+        if (attestation.isAttested === 'PENDING') {
+            return 'PENDING';
+        }
+
+        // Return the status if attestation data exists
+        return attestation.data?.status || false;
     }
+
 
     setPendingAtt(address: string) {
         const existing = this.attestations.find(a => a.address === address);
-        if (existing) existing.isAttested = 'PENDING';
+        if (existing) {
+            existing.isAttested = 'PENDING';
+        } else {
+            this.attestations.push({ address, isAttested: 'PENDING' });
+        }
     }
 
    async checkIP(): Promise<any> {

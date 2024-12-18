@@ -371,8 +371,15 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
   
     isSpotAddressSelfAtt() {
-      const isKYC = this.attestationService.getAttByAddress(this.spotAddress);
-      return isKYC === true ? "YES" : "NO";
+        const attestationStatus = this.attestationService.getAttByAddress(this.spotAddress);
+        switch (attestationStatus) {
+            case 'active':
+                return "YES";
+            case 'inactive':
+                return "REVOKED";
+            default:
+                return "NO";
+        }
     }
 
     ngOnDestroy() {

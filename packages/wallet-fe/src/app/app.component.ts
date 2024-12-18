@@ -64,6 +64,7 @@ export class AppComponent {
   }
 
   handleInits() {
+    console.log('initializing services ')
     this.connectionService.onInit();
     this.rpcService.onInit();
     this.balanceService.onInit();
