@@ -12,12 +12,14 @@ import { TxsService } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { ENCODER } from 'src/app/utils/payloads/encoder'
 
+
 @Component({
   selector: 'tl-portoflio-page',
   templateUrl: './portfolio-page.component.html',
   styleUrls: ['./portfolio-page.component.scss']
 })
 export class PortfolioPageComponent implements OnInit {
+  walletAddresses: string[] = []; 
   cryptoBalanceColumns: string[] = ['attestation', 'address', 'confirmed', 'unconfirmed', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'channel', 'actions'];
   selectedAddress: string = '';
@@ -54,10 +56,15 @@ export class PortfolioPageComponent implements OnInit {
     return this.rpcService.isSynced;
   }
 
-  ngOnInit(): void {
-      this.authService.getAddressesFromWallet();
-          this.startAttestationUpdateInterval();
-  }
+ ngOnInit(): void {
+    this.authService.getAddressesFromWallet().then(() => {
+        this.walletAddresses = this.authService.walletAddresses; // Ensure this happens after addresses are fetched
+        this.startAttestationUpdateInterval();
+    }).catch(error => {
+        console.error('Error fetching wallet addresses:', error);
+    });
+}
+
 
     // Start periodic updates for attestation statuses
   startAttestationUpdateInterval() {
@@ -123,19 +130,38 @@ export class PortfolioPageComponent implements OnInit {
   }
 
   async newAddress() {
-    // if (this.authService.walletKeys.main.length > 2) {
-    //   this.toastrService.error('The Limit of Main Addresses is Reached');
-    //   return;
-    // }
-    // const passDialog = this.matDialog.open(PasswordDialog);
-    // const password = await passDialog.afterClosed()
-    //     .pipe(first())
-    //     .toPromise();
+      try {
+          // Call the RPC service to generate a new address
+          const newAddressRes = await this.authService.rpcService.rpc('getnewaddress', [this.authService.walletLabel]);
 
-    // if (!password) return;
-    //await this.authService.addKeyPair();
-    return
+          // Check for errors in the RPC response
+          if (newAddressRes.error) {
+              this.toastrService.error('Failed to generate a new address', 'Error');
+              console.error('Error from getnewaddress:', newAddressRes.error);
+              return;
+          }
+
+          const newAddress = newAddressRes.data;
+
+          if (!newAddress) {
+              this.toastrService.error('No new address generated', 'Error');
+              console.error('RPC response did not return an address:', newAddressRes);
+              return;
+          }
+
+          // Add the new address to the AuthService wallet
+          this.authService.walletAddresses = [...this.authService.walletAddresses, newAddress];
+
+          // Notify the user
+          this.toastrService.success('New address created successfully', 'Success');
+          console.log('New Address:', newAddress);
+
+      } catch (error) {
+          this.toastrService.error('Failed to generate a new address', 'Error');
+          console.error('Error while generating a new address:', error);
+      }
   }
+
 
   showTokens(address: string) {
     this.selectedAddress = address;

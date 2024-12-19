@@ -10,6 +10,7 @@ import { CommingSoonDialog } from "src/app/@shared/dialogs/comming-soon/comming-
 import { TransferDialog } from 'src/app/@shared/dialogs/transfer/transfer.component';
 import { PasswordPromptDialog } from 'src/app/@shared/dialogs/password-prompt/password-prompt.component';
 import { RpcService } from 'src/app/@core/services/rpc.service';
+import { ToastrService } from "ngx-toastr";
 
 export enum DialogTypes {
     SELECT_NETOWRK = "SELECT_NETOWRK",
@@ -43,7 +44,8 @@ export class DialogService {
     
     constructor(
         private matDialogService: MatDialog,
-        private rpcService: RpcService
+        private rpcService: RpcService,
+        private toastrService: ToastrService
     ) {}
 
     openEncKeyDialog(encKey: string) {
@@ -51,30 +53,75 @@ export class DialogService {
         return this.openDialog(DialogTypes.ENC_KEY, dialogOpts);
     }
 
+async triggerWalletEncryption(walletInfo: any) {
+    try {
+        if (walletInfo.error) {
+            console.error("Error retrieving wallet info:", walletInfo.error);
+            return;
+        }
 
-    openPasswordPromptDialog(): any {
         const dialogOpts: MatDialogConfig = { disableClose: true };
-        const dialogRef = this.openDialog(DialogTypes.PASSWORD_PROMPT, dialogOpts);
 
-        dialogRef.afterClosed().subscribe(async (password: string | null) => {
-            if (password) {
+        if ('unlocked_until' in walletInfo) {
+            // Wallet is encrypted
+            console.log("Wallet is encrypted. Prompting for decryption.");
+            const dialogRef = this.openDialog(DialogTypes.PASSWORD_PROMPT, dialogOpts);
+
+            if (!dialogRef) {
+            this.toastrService.error("Dialog ref not defined in decrypt wallet.");
+                return;
+            }
+
+            dialogRef.afterClosed().subscribe(async (password: string | null) => {
+                if (!password) {
+                       this.toastrService.error("Password prompt cancelled or no input provided.");
+                    return;
+                }
+
+                try {
+                    const decryptRes = await this.rpcService.rpc('walletpassphrase', [password, 300]);
+                    if (decryptRes.error) {
+                          this.toastrService.error("Error decrypting wallet:", decryptRes.error);
+                        return;
+                    }
+                   this.toastrService.info("Wallet decrypted successfully.");
+                } catch (error) {
+                    console.error("Error during RPC call:", error);
+                }
+            });
+        } else {
+            // Wallet is not encrypted
+            console.log("Wallet is not encrypted. Prompting for encryption.");
+            const dialogRef = this.openDialog(DialogTypes.PASSWORD_PROMPT, dialogOpts);
+
+            if (!dialogRef) {
+                console.error("Dialog ref not defined in encrypt wallet.");
+                return;
+            }
+
+            dialogRef.afterClosed().subscribe(async (password: string | null) => {
+                if (!password) {
+                    console.log("Password prompt cancelled or no input provided.");
+                    return;
+                }
+
                 try {
                     const encryptRes = await this.rpcService.rpc('encryptwallet', [password]);
                     if (encryptRes.error) {
                         console.error("Error encrypting wallet:", encryptRes.error);
                         return;
                     }
-                    console.log("Wallet encrypted successfully. Restart required.");
+                    this.toastrService.info("Wallet encrypted successfully. Restart required.");
                 } catch (error) {
-                    console.error("RPC call failed:", error);
+                    console.error("Error during RPC call:", error);
                 }
-            } else {
-                console.log("Password prompt cancelled or no input provided.");
-            }
-        });
-
-        return dialogRef;
+            });
+        }
+    } catch (error) {
+        console.error("Failed to check wallet encryption status:", error);
     }
+}
+
 
     openDialog(dialogType: DialogTypes, opts: MatDialogConfig = { disableClose: true }) {
         const dialog = dialogs[dialogType];

@@ -176,7 +176,7 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
                 reply.status(200).send(res.data || []); // Send back the data
             } catch (error) {
                 console.error('Error in getAttestations:', error.message);
-                reply.status(500).send({ error: 'Error fetching attestations: ' + error.message });
+                //reply.status(500).send({ error: 'Error fetching attestations: ' + error.message });
             }
         }
     );

@@ -77,6 +77,8 @@ export class AuthService {
     private _activeSpotKey: IKeyPair  = this.walletKeys.spot?.[0] || null;
     private _activeFuturesKey: IKeyPair  = this.walletKeys.futures?.[0] || null;
     private walletInitInProgress: boolean = false;
+    public walletLoaded: boolean = false;
+
 
     public encKey: string = '';
     savedFromUrl: string = '';
@@ -159,7 +161,7 @@ export class AuthService {
             console.log("Wallet loaded successfully.");
 
             // Trigger encryption or decryption prompt if needed
-            await this.triggerWalletEncryption(walletInfo.data);
+            await this.dialogService.triggerWalletEncryption(walletInfo.data);
         } catch (error) {
             console.error("Failed to load wallet:", error);
         }
@@ -180,11 +182,11 @@ export class AuthService {
 	        const loadedWallets = await this.rpcService.rpc('listwallets');
 	        if (loadedWallets?.data?.includes(this.walletLabel)) {
 	            console.log(`Wallet ${this.walletLabel} already loaded.`);
-	            return;
+	            //return;
 	        }
 
 	        if (!this.isAbleToRpc) return;
-	        const res = await this.rpcService.rpc('getaddressesbylabel', '');
+	        const res = await this.rpcService.rpc('getaddressesbylabel', [this.walletLabel]);
 
 	        if (res.EECode === -18) { // Wallet not found
 	            console.log("Wallet not found, attempting to create/load...");
@@ -206,46 +208,6 @@ export class AuthService {
 	        this.walletInitInProgress = false;
 	    }
 	}
-
- async triggerWalletEncryption() {
-        try {
-            const walletInfo = await this.rpcService.rpc('getwalletinfo');
-
-            if (walletInfo.error) {
-                console.error("Error retrieving wallet info:", walletInfo.error);
-                return;
-            }
-
-            if ('unlocked_until' in walletInfo.data) {
-                console.log("Wallet is encrypted. Prompting for decryption.");
-                const dialogOpts: MatDialogConfig = { disableClose: true };
-                const dialogRef = this.openDialog(DialogTypes.PASSWORD_PROMPT, dialogOpts);
-
-                dialogRef.afterClosed().subscribe(async (password: string | null) => {
-                    if (password) {
-                        try {
-                            const decryptRes = await this.rpcService.rpc('walletpassphrase', [password, 300]);
-                            if (decryptRes.error) {
-                                console.error("Error decrypting wallet:", decryptRes.error);
-                                return;
-                            }
-                            console.log("Wallet decrypted successfully.");
-                        } catch (error) {
-                            console.error("RPC call failed:", error);
-                        }
-                    } else {
-                        console.log("Password prompt cancelled or no input provided.");
-                    }
-                });
-            } else {
-                console.log("Wallet is not encrypted. Prompting for encryption.");
-                this.openPasswordPromptDialog();
-            }
-        } catch (error) {
-            console.error("Failed to check wallet encryption status:", error);
-        }
-    }
-
 
 
     async addKeyPair(): Promise<boolean> {

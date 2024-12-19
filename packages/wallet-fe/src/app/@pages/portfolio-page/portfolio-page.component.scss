@@ -97,3 +97,11 @@
   .mat-column-actions {
     min-width: 16rem;
   }
+
+  .address-list-container {
+    max-height: 300px; /* Adjust height as needed */
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+  }
+  

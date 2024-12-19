@@ -38,6 +38,8 @@ import { DepositDialog } from './dialogs/deposit/deposit.component';
 import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
 import { ServersDialog } from './dialogs/servers/servers.component';
 import { TransferDialog } from './dialogs/transfer/transfer.component';
+import { PasswordPromptDialog } from './dialogs/password-prompt/password-prompt.component';
+
 
 const NG_MODULES = [
     CommonModule,
@@ -71,6 +73,7 @@ const DIALOGS = [
     PasswordDialog,
     WithdrawDialog,
     DepositDialog,
+    PasswordPromptDialog, // Use consistent naming
     CommingSoonDialog,
     ServersDialog,
     TransferDialog,
