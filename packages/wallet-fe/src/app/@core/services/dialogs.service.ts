@@ -8,6 +8,8 @@ import { DepositDialog } from "src/app/@shared/dialogs/deposit/deposit.component
 import { WithdrawDialog } from "src/app/@shared/dialogs/withdraw/withdraw.component";
 import { CommingSoonDialog } from "src/app/@shared/dialogs/comming-soon/comming-soon.componet";
 import { TransferDialog } from 'src/app/@shared/dialogs/transfer/transfer.component';
+import { PasswordPromptDialog } from 'src/app/@shared/dialogs/password-prompt/password-prompt.component';
+import { RpcService } from 'src/app/@core/services/rpc.service';
 
 export enum DialogTypes {
     SELECT_NETOWRK = "SELECT_NETOWRK",
@@ -18,6 +20,7 @@ export enum DialogTypes {
     WITHDRAW = 'WITHDRAW',
     DEPOSIT = 'DEPOSIT',
     TRANSFER = 'TRANSFER',
+    PASSWORD_PROMPT = 'PASSWORD_PROMPT',
 };
 
 const dialogs: { [key: string]: any; } = {
@@ -29,6 +32,7 @@ const dialogs: { [key: string]: any; } = {
     'WITHDRAW': WithdrawDialog,
     'DEPOSIT': DepositDialog,
     'TRANSFER': TransferDialog,
+    'PASSWORD_PROMPT': PasswordPromptDialog,
 };
 
 @Injectable({
@@ -39,11 +43,37 @@ export class DialogService {
     
     constructor(
         private matDialogService: MatDialog,
+        private rpcService: RpcService
     ) {}
 
     openEncKeyDialog(encKey: string) {
         const dialogOpts: MatDialogConfig = { disableClose: true, data: encKey };
-        return this.openDialog(DialogTypes.ENC_KEY, dialogOpts)
+        return this.openDialog(DialogTypes.ENC_KEY, dialogOpts);
+    }
+
+
+    openPasswordPromptDialog(): any {
+        const dialogOpts: MatDialogConfig = { disableClose: true };
+        const dialogRef = this.openDialog(DialogTypes.PASSWORD_PROMPT, dialogOpts);
+
+        dialogRef.afterClosed().subscribe(async (password: string | null) => {
+            if (password) {
+                try {
+                    const encryptRes = await this.rpcService.rpc('encryptwallet', [password]);
+                    if (encryptRes.error) {
+                        console.error("Error encrypting wallet:", encryptRes.error);
+                        return;
+                    }
+                    console.log("Wallet encrypted successfully. Restart required.");
+                } catch (error) {
+                    console.error("RPC call failed:", error);
+                }
+            } else {
+                console.log("Password prompt cancelled or no input provided.");
+            }
+        });
+
+        return dialogRef;
     }
 
     openDialog(dialogType: DialogTypes, opts: MatDialogConfig = { disableClose: true }) {
@@ -55,4 +85,4 @@ export class DialogService {
     closeAllDialogs() {
         this.matDialogService.closeAll();
     }
-  }
+}

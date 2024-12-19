@@ -136,7 +136,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
                 const result = await this.apiService.mainApi.initTradeLayer().toPromise();
                 console.log('TL Wallet Listener init result: '+JSON.stringify(result))
                  // Adding a delay of 10 seconds between initTradeLayer and the next call
-                await new Promise(resolve => setTimeout(resolve, 3000));  // 3-second delay
+                await new Promise(resolve => setTimeout(resolve, 5000));  // 5-second delay
 
                 if (result &&result.result==true&&!this.rpcService.isTLStarted) {
                     console.log('Initialization of listener succeeded');
