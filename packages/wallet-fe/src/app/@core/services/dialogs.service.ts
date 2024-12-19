@@ -11,6 +11,7 @@ import { TransferDialog } from 'src/app/@shared/dialogs/transfer/transfer.compon
 import { PasswordPromptDialog } from 'src/app/@shared/dialogs/password-prompt/password-prompt.component';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { ToastrService } from "ngx-toastr";
+import {AuthService} from 'src/app/@core/services/auth.service'
 
 export enum DialogTypes {
     SELECT_NETOWRK = "SELECT_NETOWRK",
@@ -45,7 +46,8 @@ export class DialogService {
     constructor(
         private matDialogService: MatDialog,
         private rpcService: RpcService,
-        private toastrService: ToastrService
+        private toastrService: ToastrService,
+        private authService: AuthService
     ) {}
 
     openEncKeyDialog(encKey: string) {
@@ -55,6 +57,13 @@ export class DialogService {
 
 async triggerWalletEncryption(walletInfo: any) {
     try {
+        console.log('is wallet decryptoed in trigger password dialogue '+this.authService.isWalletDecrypted)
+        if (this.authService.isWalletDecrypted) {
+            console.log("Wallet already decrypted for this session.");
+            return; // Skip if already decrypted
+        }
+
+        
         if (walletInfo.error) {
             console.error("Error retrieving wallet info:", walletInfo.error);
             return;
@@ -80,10 +89,13 @@ async triggerWalletEncryption(walletInfo: any) {
 
                 try {
                     const decryptRes = await this.rpcService.rpc('walletpassphrase', [password, 300]);
+                    console.log('decrypt rpc response '+JSON.stringify(decryptRes))
                     if (decryptRes.error) {
                           this.toastrService.error("Error decrypting wallet:", decryptRes.error);
                         return;
                     }
+                        this.authService.isWalletDecrypted = true; // Set flag after successful decryption
+           
                    this.toastrService.info("Wallet decrypted successfully.");
                 } catch (error) {
                     console.error("Error during RPC call:", error);

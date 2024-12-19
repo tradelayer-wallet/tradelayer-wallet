@@ -170,19 +170,20 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const market = this.selectedMarket;
       const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
-
+      console.log('properties of trade '+propIdForSale +' '+propIdDesired+' '+price+' '+this.isLimitSelected+' '+amount)
       if (propIdForSale === undefined || propIdForSale === null || 
             propIdDesired === undefined || propIdDesired === null || 
             (!price && this.isLimitSelected) || !amount) {
             return console.log('missing parameters for trade ' + propIdForSale + ' ' + propIdDesired + ' ' + price + ' ' + amount);
       }
 
-
+      console.log('spot key pair '+this.spotKeyPair)
       if (!this.spotKeyPair){
         return console.log('missing key pair');
       }
 
       const pubkeyRes = await this.rpcService.rpc("getaddressinfo", [this.spotKeyPair]);
+      console.log('pubkey Res '+JSON.stringify(pubkeyRes))
       if (pubkeyRes.error || !pubkeyRes.data?.pubkey) throw new Error(pubkeyRes.error || "No Pubkey Found");
       const pubkey = pubkeyRes.data.pubkey;
 

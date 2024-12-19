@@ -78,6 +78,7 @@ export class AuthService {
     private _activeFuturesKey: IKeyPair  = this.walletKeys.futures?.[0] || null;
     private walletInitInProgress: boolean = false;
     public walletLoaded: boolean = false;
+	public isWalletDecrypted: boolean = false;
 
 
     public encKey: string = '';
@@ -94,6 +95,12 @@ export class AuthService {
         private rpcService: RpcService,
         private windowsService: WindowsService,
     ) {}
+
+
+	public resetDecryptionFlag() {
+	    this.isWalletDecrypted = false;
+	    console.log("Decryption flag reset to false on app startup.");
+	}
 
     get isLoggedIn() {
         //console.log('inside isLoggedIn '+this.walletKeys.main.length)
@@ -168,6 +175,8 @@ export class AuthService {
     }
 
 	async getAddressesFromWallet() {
+	 this.resetDecryptionFlag(); // Reset decryption status on startup
+	    console.log('get address wallet init in progress?? '+this.walletInitInProgress)
 	    if (this.walletInitInProgress) {
 	        console.log("Wallet initialization in progress, skipping...");
 	        return;

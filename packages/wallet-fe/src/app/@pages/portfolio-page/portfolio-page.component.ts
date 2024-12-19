@@ -57,7 +57,8 @@ export class PortfolioPageComponent implements OnInit {
   }
 
  ngOnInit(): void {
-    this.authService.getAddressesFromWallet().then(() => {
+        this.authService.getAddressesFromWallet().then(() => {
+          this.cdr.detectChanges(); // Ensure change detection is triggered after wallet addresses are fetched
         this.walletAddresses = this.authService.walletAddresses; // Ensure this happens after addresses are fetched
         this.startAttestationUpdateInterval();
     }).catch(error => {
@@ -132,7 +133,7 @@ export class PortfolioPageComponent implements OnInit {
   async newAddress() {
       try {
           // Call the RPC service to generate a new address
-          const newAddressRes = await this.authService.rpcService.rpc('getnewaddress', [this.authService.walletLabel]);
+          const newAddressRes = await this.rpcService.rpc('getnewaddress', ['tl-wallet']);
 
           // Check for errors in the RPC response
           if (newAddressRes.error) {

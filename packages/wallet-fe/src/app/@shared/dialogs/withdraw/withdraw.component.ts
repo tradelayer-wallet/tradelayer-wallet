@@ -134,33 +134,78 @@ export class WithdrawDialog {
             }
     }
 
-    async withdraw() {
-        try {
-            this.loadingService.isLoading = true;
-            if (this.fromAddress === this.toAddress) throw new Error('Both addresses are the same');
-            if (!this.amount || !this.fromAddress || !this.toAddress || !this.propId) throw new Error('Fill all required data');
-            
-            const txOptionsRes = await this.getTxOptions(this.fromAddress, this.toAddress, this.amount, this.propId);
-            if (txOptionsRes.error || !txOptionsRes.data)  {
-                this.toastrService.error(txOptionsRes.error, 'Transaction Options Error');
-                return;
-            }
-            
-            const res = await this.txsService.buildSingSendTx(txOptionsRes.data);
-            if (res.error || !res.data) {
-                this.toastrService.error(res.error, 'Transaction Error');
-                return;
-            }
-            
-            this.toastrService.success(`Withdraw TX: ${res.data}`, 'Success');
-        } catch (error: any) {
-            console.log('issue in withdraw function')
-            this.toastrService.error(error.message || `Error with Withdraw`, 'Error');
-        } finally {
-            this.loadingService.isLoading = false;
-            this.clearForm();
+ async withdraw() {
+    const TIMEOUT_MS = 10000; // 10 seconds
+
+    try {
+        this.loadingService.isLoading = true;
+
+        // Validate the input data
+        if (this.fromAddress === this.toAddress) {
+            throw new Error('Both addresses are the same');
         }
+        if (!this.fromAddress || !this.toAddress || this.amount === null || this.amount === undefined || !this.propId) {
+            throw new Error('Fill all required data');
+        }
+
+        // Ensure `amount` is a number before passing it
+        const validatedAmount = Number(this.amount);
+
+        // Race between the actual withdraw process and a timeout
+        await Promise.race([
+            this.executeWithdraw(validatedAmount), // Pass validated amount
+            this.createTimeout(TIMEOUT_MS) // Timeout
+        ]);
+
+    } catch (error: any) {
+        console.error('Issue in withdraw function:', error);
+
+        const knownErrors = [
+            'Both addresses are the same',
+            'Fill all required data',
+            'Transaction Options Error',
+            'Transaction Error',
+            'Transaction timed out'
+        ];
+
+        const message = knownErrors.includes(error.message)
+            ? error.message
+            : 'An unexpected error occurred. Please try again.';
+
+        this.toastrService.error(message, 'Error');
+    } finally {
+        this.loadingService.isLoading = false;
+        this.clearForm();
     }
+}
+
+
+private createTimeout(ms: number): Promise<void> {
+    return new Promise((_, reject) => {
+        setTimeout(() => {
+            this.toastrService.error('Transaction is taking too long. Please try again.', 'Timeout');
+            reject(new Error('Transaction timed out'));
+        }, ms);
+    });
+}
+
+private async executeWithdraw(amount: number) {
+    const txOptionsRes = await this.getTxOptions(this.fromAddress, this.toAddress, amount, this.propId);
+
+    if (!txOptionsRes.data) {
+        throw new Error(txOptionsRes.error || 'Transaction Options Error');
+    }
+
+    const res = await this.txsService.buildSingSendTx(txOptionsRes.data);
+
+    if (!res.data) {
+        throw new Error(res.error || 'Transaction Error');
+    }
+
+    this.toastrService.success(`Withdraw TX: ${res.data}`, 'Success');
+}
+
+
 
 
     private clearForm() {

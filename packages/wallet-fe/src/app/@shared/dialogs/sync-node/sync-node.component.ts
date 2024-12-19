@@ -214,6 +214,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             this.toastrService.warning('Please first logout');
             return;
         }
+        this.authService.resetDecryptionFlag()
         if (!this.isAbleToRpc) return;
         this.loadingService.isLoading = true;
         const terminateRes = await this.rpcService.terminateNode();
