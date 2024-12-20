@@ -132,7 +132,7 @@ export class PortfolioPageComponent implements OnInit {
   async newAddress() {
       try {
           // Call the RPC service to generate a new address
-          const newAddressRes = await this.authService.rpcService.rpc('getnewaddress', [this.authService.walletLabel]);
+          const newAddressRes = await this.rpcService.rpc('getnewaddress', [this.authService.walletLabel]);
 
           // Check for errors in the RPC response
           if (newAddressRes.error) {

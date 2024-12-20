@@ -84,7 +84,7 @@ export class AuthService {
     savedFromUrl: string = '';
     mnemonic: string = '';
 
-    private walletLabel: string = 'tl-wallet';
+    public walletLabel: string = 'tl-wallet';
     private _walletAddresses: string[] = [];
     constructor(
         private router: Router,
