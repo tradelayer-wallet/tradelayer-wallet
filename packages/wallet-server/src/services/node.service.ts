@@ -49,22 +49,34 @@ export const createConfigFile = async (options: {
         const directoryExist = existsSync(directory);
         if (!directoryExist) {
             if (path) {
-                throw('Provided Directory Dont exist');
+                throw('Provided Directory Does Not Exist');
             } else {
-                mkdirSync(defaultDirObj)
+                mkdirSync(defaultDirObj);
             }
         }
         const filePath = join(directory, 'litecoin.conf');
         const fileExist = existsSync(filePath);
-        if (fileExist) throw('litecoin.conf file Already exist in provided directory!');
-        // const fileData = `rpcuser=${username}\nrpcpassword=${password}\nrpcport=${port}\ntxindex=1`;
-        const fileData = `rpcuser=${username}\nrpcpassword=${password}\ntxindex=1\n[test]\nrpcport=18332`;
-        writeFileSync(filePath, fileData);
+        if (fileExist) throw('litecoin.conf file Already Exists in the Provided Directory!');
+
+        const fileData = `
+rpcuser=${username}
+rpcpassword=${password}
+txindex=1
+
+[main]
+rpcport=8332
+
+[test]
+rpcport=18332
+`;
+
+        writeFileSync(filePath, fileData.trim());
         return { data: `litecoin.conf file was created` };
     } catch (error) {
         return { error: error || 'Creating Config File Undefined Error' };
     }
 };
+
 
 export const startWalletNode = async (walletNodeOptions: any) => {
     try {
