@@ -96,6 +96,7 @@ export const startWalletNode = async (walletNodeOptions: any) => {
         const flagsString = convertFlagsObjectToString(flagsObject);
         const filePath = `"${coreFilePathObj.LTC}"`;
         const filePathWithFlags = `${filePath}${flagsString}`;
+        console.log('cli equivalent command '+filePathWithFlags)
         if (!filePathWithFlags) throw(`Error with Starting Node. Code 1`);
         return await checkIsCoreStarted(filePathWithFlags, configObj, isTestnet);;
     } catch(error) {
@@ -145,8 +146,8 @@ const checkIsCoreStarted = async (
     ) => {
     return new Promise(async (resolve) => {
         const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
-        const port = rpcport ? rpcport : isTestnet ? 18332 : 8332;
-
+        const port = isTestnet ? 18332 : 8332;
+        console.log('port? '+port+' '+isTestnet)
         const rpcClientOptions = {
             username: rpcuser,
             password: rpcpassword,
@@ -187,6 +188,7 @@ const checkIsCoreStarted = async (
         if (!isTradelayerStarted) return;*/
 
         exec(filePathWithFlags, (error, stdout, stderr) => {
+            console.log('inside exec '+error+' '+stdout)
             fasitfyServer.mainSocketService.currentSocket
                 .emit("core-error", stderr || error?.message || error || stdout);
             fasitfyServer.rpcClient = null;

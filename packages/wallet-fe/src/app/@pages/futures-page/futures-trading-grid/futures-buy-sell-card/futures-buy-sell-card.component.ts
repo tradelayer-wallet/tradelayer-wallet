@@ -112,7 +112,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       let tokenBalanceObj = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
         ?.find((t: any) => t.propertyid === propId);
 
-      let availableBalance = 0;
+      let availableBalance = 0; 
       let channelBalance = 0;
 
       if (tokenBalanceObj) {
