@@ -59,7 +59,7 @@ export class SellSwapper extends Swap {
 
     private async initTrade() {
         try {
-            const pubKeys = [this.myInfo.keypair.pubkey, this.cpInfo.keypair.pubkey];
+            let pubKeys = [this.myInfo.keypair.pubkey, this.cpInfo.keypair.pubkey];
         if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
             let { propIdDesired, propIdForSale} = this.tradeInfo
             if(propIdDesired==0||propIdForSale==0){
