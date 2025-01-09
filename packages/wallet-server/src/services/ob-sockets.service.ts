@@ -61,6 +61,7 @@ export class OBSocketService {
 
         this.socket.on('new-channel', (d) => {
             const cpSocketId = d.isBuyer ? d.tradeInfo.seller.socketId : d.tradeInfo.buyer.socketId;
+            console.log('inside ob socket service new channel '+cpSocketId)
             this.socket.removeAllListeners(`${cpSocketId}::${swapEventName}`);
             this.socket.on(`${cpSocketId}::${swapEventName}`, (data) => {
                 this.walletSocket.emit(`${cpSocketId}::${swapEventName}`, data);

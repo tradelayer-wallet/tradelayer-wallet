@@ -38,6 +38,8 @@ export class SwapService {
 
     onInit() {
         this.socket.on(`${obEventPrefix}::new-channel`, async (swapConfig: IChannelSwapData) => {
+            console.log('inside new channel in swap service '+JSON.stringify(swapConfig))
+
             this.loadingService.tradesLoading = false;
             const res = await this.channelSwap(swapConfig.tradeInfo, swapConfig.isBuyer);
             
@@ -52,7 +54,7 @@ export class SwapService {
 
     private async channelSwap(tradeInfo: ITradeInfo<any>, isBuyer: boolean) {
         const { buyer, seller, props, type } = tradeInfo;
-
+        console.log('inside channel swap '+JSON.stringify(tradeInfo))
         if (type === "SPOT") {
             const { transfer } = props as ISpotTradeProps;
 
