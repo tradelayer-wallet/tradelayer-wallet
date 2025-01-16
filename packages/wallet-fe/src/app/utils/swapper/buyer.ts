@@ -67,6 +67,7 @@ export class BuySwapper extends Swap {
             if (amaRes.error || !amaRes.data) throw new Error(`addmultisigaddress: ${amaRes.error}`);
             if (amaRes.data.redeemScript !== msData.redeemScript) throw new Error(`redeemScript of Multysig is not matching`);
             this.multySigChannelData = msData;
+            console.log('this multisig '+JSON.stringify(this.multySigChannelData))
             const swapEvent = new SwapEvent('BUYER:STEP2', this.myInfo.socketId);
             this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
         } catch (error: any) {
@@ -131,6 +132,7 @@ export class BuySwapper extends Swap {
                     amount: amountForSale,
                 };
 
+                console.log('build options in LTC trade '+JSON.stringify(buildOptions))
                 const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
                 if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
                 const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
@@ -207,6 +209,7 @@ export class BuySwapper extends Swap {
                         payload: cpitRes.data,
                         amount: 0,
                     };
+                    console.log('build options in ltc trade step 3 '+JSON.stringify(buildOptions))
                     const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
                     if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
 

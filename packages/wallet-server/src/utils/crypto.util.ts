@@ -165,6 +165,7 @@ export const buildPsbt = (buildPsbtOptions: { rawtx: string, inputs: IInput[], n
             psbt.addInput(inputObj);
         });
         psbt.addOutputs(tx.outs);
+        console.log('produced psbt in crypto utils '+JSON.stringify(psbt))
         const psbtHex = psbt.toHex();
         return { data: psbtHex};
     } catch (error) {

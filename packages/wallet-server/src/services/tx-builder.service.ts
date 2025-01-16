@@ -123,7 +123,7 @@ export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode:
         if (!finalInputs.length) throw new Error("Not Enough coins for paying fees. Code 3");
         const _insForRawTx = finalInputs.map(({txid, vout }) => ({ txid, vout }));
         const _outsForRawTx = { [buyerAddress]: changeBuyerLtcAmount, [sellerAddress]: sellerLtcAmount };
-
+        console.log('inputs and outputs in ltc trade builder '+JSON.stringify(_insForRawTx)+' '+JSON.stringify(_outsForRawTx))
         const crtRes = await smartRpc('createrawtransaction', [_insForRawTx, _outsForRawTx], isApiMode);
         if (crtRes.error || !crtRes.data) throw new Error(`createrawtransaction: ${crtRes.error}`);
         const crtxoprRes = await jsTlApi('tl_createrawtx_opreturn', [crtRes.data, payload]);
