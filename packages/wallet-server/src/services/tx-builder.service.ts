@@ -92,6 +92,7 @@ export const jsTlApi: TClient = async (method: string, params: any[] = []) => {
 export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode: boolean) => {
     try {
         const { buyerKeyPair, sellerKeyPair, amount, payload, commitUTXOs, network } = txConfig;
+        console.log('tx config in build LTC insta'+JSON.stringify(txConfig))
         const buyerAddress = buyerKeyPair.address;
         const sellerAddress = sellerKeyPair.address;
         const vaRes1 = await smartRpc('validateaddress', [buyerAddress], isApiMode);

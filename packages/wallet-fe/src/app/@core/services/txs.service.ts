@@ -200,9 +200,11 @@ export class TxsService {
             finalHex?: string;
         },
         error?: string,
+        debug?: string
     }> {
         try {
             const network = this.rpcService.NETWORK;
+            console.log('network in sign psbt '+network+' '+JSON.stringify(network))
             const result = await this.mainApi.signPsbt(signPsbtConfig, network).toPromise();
             return result
         } catch (error: any) {

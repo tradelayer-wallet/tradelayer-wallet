@@ -63,8 +63,12 @@ export class BuySwapper extends Swap {
                 pubKeys = [this.myInfo.keypair.pubkey,this.cpInfo.keypair.pubkey]
             }
         }
-            const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
-            if (amaRes.error || !amaRes.data) throw new Error(`addmultisigaddress: ${amaRes.error}`);
+            let amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
+              let amaRes = await this.walletService.addMultisig(2, pubKeys)
+            if(!amaRes||amaRes==undefined){
+                amaRes = await this.walletService.addMultisig(2, pubKeys)
+            }
+            if (amaRes.error) throw new Error(`addmultisigaddress: ${amaRes.error}`);
             if (amaRes.data.redeemScript !== msData.redeemScript) throw new Error(`redeemScript of Multysig is not matching`);
             this.multySigChannelData = msData;
             console.log('this multisig '+JSON.stringify(this.multySigChannelData))

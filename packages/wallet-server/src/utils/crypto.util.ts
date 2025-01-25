@@ -64,10 +64,15 @@ export const signPsbtRawtTx = (signOptions: {
     network: string;
     psbtHex: string;
 }) => {
+    let debugData: string | undefined; // Declare debugData at the top
     try {
         const { wif, network, psbtHex } = signOptions;
         console.log('checking network in sign psbt '+networks[network])
-        const _network = networks[network.toLowerCase()] || networks.LTCTEST; // Ensure the correct network is chosen
+        const _network = networks[network] || networks.LTC; // Ensure the correct network is chosen
+
+        const debugData = network
+    
+
         const keyPair = ECPair.fromWIF(wif, _network);  // Create keypair from WIF
         const psbt = Psbt.fromHex(psbtHex);
         psbt.signAllInputs(keyPair);
@@ -76,12 +81,12 @@ export const signPsbtRawtTx = (signOptions: {
         try {
             psbt.finalizeAllInputs();
             const finalHex = psbt.extractTransaction().toHex();
-            return { data: { psbtHex: newPsbtHex, isFinished: true, finalHex } };
+            return { data: { psbtHex: newPsbtHex, isFinished: true, finalHex,debug: debugData } };
         } catch (err) {
-            return { data: { psbtHex: newPsbtHex, isFinished: false } };
+            return { data: { psbtHex: newPsbtHex, isFinished: false,debug: debugData } };
         }
     } catch (error) {
-        return { error: error.message };
+        return { error: error.message,debug: debugData };
     }
 };
 

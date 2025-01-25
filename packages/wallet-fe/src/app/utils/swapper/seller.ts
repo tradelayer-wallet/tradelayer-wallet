@@ -183,7 +183,7 @@ export class SellSwapper extends Swap {
             if (wifRes.error || !wifRes.data) return console.log(`WIF not found: ${this.myInfo.keypair.address}`);
             console.log('inside step 4 '+JSON.stringify(wifRes))
             const signRes = await this.txsService.signPsbt({ wif: wifRes.data, psbtHex });
-            if (signRes.error || !signRes.data?.psbtHex) return console.log(`Sign Tx: ${signRes.error}`);
+            if (signRes.error || !signRes.data?.psbtHex) return console.log(`Sign Tx: ${signRes.error} and ${signRes.debug}`);
             console.log('sign res '+JSON.stringify(signRes))
             const swapEvent = new SwapEvent(`SELLER:STEP5`, this.myInfo.socketId, signRes.data.psbtHex);
             this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent); 
