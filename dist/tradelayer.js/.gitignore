@@ -1,0 +1,16 @@
+node_modules
+nedb-data
+*.ldb
+*.log
+.db
+dbPath/CURRENT
+dbPath/LOCK
+dbPath/LOG
+*.old
+dbPath/MANIFEST-000319
+oldTests/dbDiag.js
+*.db
+*.db
+nedb-data/txIndex.db
+/nedb-data
+*.db

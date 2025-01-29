@@ -1,23 +1,33 @@
 import BigNumber from 'bignumber.js'; // Make sure BigNumber is imported
 
 const marker = 'tl';
+const encodeSend = (params: { sendAll: boolean, address: string, propertyId: number | number[], amount: number | number[] }) => {
+    if (params.sendAll) return `1;${params.address}`;
 
-const encodeSend = (params: { sendAll: boolean, address: string, propertyId: number | number[], amount: number | number[]}) => {
-    if (params.sendAll)  return `1;${params.address}`;
+    const encodeAmount = (amt: number) => {
+        const scaledAmt = new BigNumber(amt).times(1e8);
+        const isWholeNumber = Boolean(amt%1==0); // Check if it's an integer
+
+        return isWholeNumber
+            ? scaledAmt.integerValue().toString(36) // Normal encoding
+            : scaledAmt.integerValue().toString(36) + '~'; // Add 'd' flag for decimal mode
+    };
+
     if (Array.isArray(params.propertyId) && Array.isArray(params.amount)) {
         const payload = [
             '0',
             '',
             params.propertyId.map(id => id.toString(36)).join(','),
-            params.amount.map(amt => amt.toString(36)).join(',') 
+            params.amount.map(encodeAmount).join(',') // Use the bimodal encoding function
         ];
         return payload.join(';');
     } else {
+        const amountValue = Array.isArray(params.amount) ? params.amount[0] : params.amount;
         const payload = [
             '0',
             params.address,
             params.propertyId.toString(36),
-            params.amount.toString(36) // Updated to use BigNumber
+            encodeAmount(amountValue) // Apply bimodal encoding
         ];
         const txNumber = 2;
         const txNumber36 = txNumber.toString(36);
@@ -25,6 +35,7 @@ const encodeSend = (params: { sendAll: boolean, address: string, propertyId: num
         return marker + txNumber36 + payloadString;
     }
 };
+
 
 type TradeTokensChannelParams = {
     propertyId1: number;

@@ -4,6 +4,7 @@ import { IMSChannelData, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProp
 import { Swap } from "./swap";
 import { ENCODER } from '../payloads/encoder';
 import { ToastrService } from "ngx-toastr";
+import { WalletService} from "src/app/@core/services/wallet.service"
 
 export class BuySwapper extends Swap {
     private tradeStartTime: number; // Add this declaration for tradeStartTime
@@ -64,10 +65,6 @@ export class BuySwapper extends Swap {
             }
         }
             let amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
-              let amaRes = await this.walletService.addMultisig(2, pubKeys)
-            if(!amaRes||amaRes==undefined){
-                amaRes = await this.walletService.addMultisig(2, pubKeys)
-            }
             if (amaRes.error) throw new Error(`addmultisigaddress: ${amaRes.error}`);
             if (amaRes.data.redeemScript !== msData.redeemScript) throw new Error(`redeemScript of Multysig is not matching`);
             this.multySigChannelData = msData;
