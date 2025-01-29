@@ -4,7 +4,6 @@ import { IMSChannelData, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProp
 import { Swap } from "./swap";
 import { ENCODER } from '../payloads/encoder';
 import { ToastrService } from "ngx-toastr";
-import { WalletService} from "src/app/@core/services/wallet.service"
 
 export class BuySwapper extends Swap {
     private tradeStartTime: number; // Add this declaration for tradeStartTime
