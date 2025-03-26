@@ -276,8 +276,9 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     async getContractInfo(contractId: number): Promise<any> {
+    console.log('fetching contract with id '+contractId)
       try {
-        const response = await axios.get(`http://localhost:port/tl_listContractSeries?contractId=${contractId}`);
+        const response = await axios.post('http://localhost:3000/tl_listContractSeries', { contractId });
         return response.data;
       } catch (error) {
         console.error('Failed to fetch contract info:', error);
