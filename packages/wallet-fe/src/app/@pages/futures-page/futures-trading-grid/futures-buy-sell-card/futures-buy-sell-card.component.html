@@ -71,11 +71,6 @@
       </div>
     </div>
     <div class="address">
-      <button
-        *ngIf="!futureAddress"
-        class="blueButton"
-        (click)='newFutureAddress()'
-      >Create Futures Address</button>
       <div class="address-info" *ngIf="futureAddress">
         <div class="key-value-pair">
           <div class="key">Address:</div>
