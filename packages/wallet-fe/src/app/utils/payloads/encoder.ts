@@ -1,6 +1,18 @@
 import BigNumber from 'bignumber.js'; // Make sure BigNumber is imported
 
 const marker = 'tl';
+
+
+const encodeAmount = (amt: number | string): string =>{
+  const bigAmt = new BigNumber(amt);
+  const scaledAmt = bigAmt.times(1e8);
+  const isWholeNumber = bigAmt.mod(1).isZero();
+
+  return isWholeNumber
+    ? bigAmt.integerValue().toNumber().toString(36)  // Base36 encoding for whole numbers
+    : scaledAmt.integerValue().toNumber().toString(36) + '~';  // Base36 with `~` for decimals
+}
+
 const encodeSend = (params: { sendAll: boolean, address: string, propertyId: number | number[], amount: number | number[] }) => {
     if (params.sendAll) return `1;${params.address}`;
 
@@ -105,6 +117,32 @@ const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string 
     return marker + txNumber36 + payloadString;
 };
 
+type EncodeTradeContractParams = {
+  contractId: number;
+  price: number;
+  amount: number;
+  columnAIsSeller: boolean;
+  expiryBlock: number;
+  insurance: boolean;
+};
+
+
+const encodeTradeContractChannel = (params: EncodeTradeContractParams): string => {
+  const payload = [
+    params.contractId.toString(36),
+    encodeAmount(params.price),
+    params.amount.toString(36),
+    params.columnAIsSeller ? '1' : '0',
+    params.expiryBlock.toString(36),
+    params.insurance ? '1' : '0',
+  ];
+
+  const type = 19;
+  const typeStr = type.toString(36);
+
+  return marker + typeStr + payload.join(',');
+};
+
 type EncodeTransferParams = {
     propertyId: number;
     amount: number;
@@ -150,7 +188,7 @@ export const ENCODER = {
     encodeSend, 
     encodeTradeTokensChannel,
     // encodeWithdrawal, 
-    // encodeTradeContractChannel,  
+    encodeTradeContractChannel,  
     encodeTradeTokenForUTXO, 
     encodeCommit,
     encodeTransfer,

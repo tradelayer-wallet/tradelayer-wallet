@@ -98,21 +98,21 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       this.buySellGroup?.controls?.['amount'].setValue(value2);
     }
 
-    getMaxAmount(isBuy: boolean) {
+    async getMaxAmount(isBuy: boolean): Promise<number> {
       if (!this.futureAddress) return 0;
       if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
 
-      const _price = this.isLimitSelected 
-        ? this.buySellGroup.value['price'] 
+      const _price = this.isLimitSelected
+        ? this.buySellGroup.value['price']
         : this.currentPrice;
       const price = safeNumber(_price);
 
       const propId = this.selectedMarket.collateral.propertyId;
 
-      let tokenBalanceObj = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
+      const tokenBalanceObj = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
         ?.find((t: any) => t.propertyid === propId);
 
-      let availableBalance = 0; 
+      let availableBalance = 0;
       let channelBalance = 0;
 
       if (tokenBalanceObj) {
@@ -120,14 +120,20 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         channelBalance = safeNumber(tokenBalanceObj.channel || 0);
       }
 
-      const tokenBalance = safeNumber(Math.max(availableBalance, channelBalance));
-      const inOrderBalance = this.getInOrderAmount(propId);
-      const available = safeNumber((tokenBalance || 0) - inOrderBalance);
+      const tokenBalance = Math.max(availableBalance, channelBalance);
+      const inOrderBalance = await this.getInOrderAmount(propId);
+      const available = safeNumber(tokenBalance - inOrderBalance);
 
-      if (!available || ((available / price) <= 0)) return 0;
+      if (!available || (available / price <= 0)) return 0;
 
-      const _max = isBuy ? (available / price) : available;
-      return safeNumber(_max);
+      // 🧩 Fetch contract info (leverage, notional)
+      const contractInfo = await this.getContractInfo(this.selectedMarket.contract_id);
+      const leverage = contractInfo?.leverage || 10;
+      const notional = contractInfo?.notional || 1;
+
+      // 🧠 Max = (available * leverage) / (price * notional)
+      const max = safeNumber((available * leverage) / (price * notional));
+      return max;
     }
 
     async handleBuySell(isBuy: boolean) {
@@ -265,12 +271,12 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     // }
     }
 
-    getNameBalanceInfo(token: IToken) {
+    async getNameBalanceInfo(token: IToken) {
       const _balance = token.propertyId === -1
         ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
         : this.balanceService.getTokensBalancesByAddress(this.futureAddress)
           ?.find(e => e.propertyid === token.propertyId)?.available;
-      const inOrderBalance = this.getInOrderAmount(token.propertyId);
+      const inOrderBalance = await this.getInOrderAmount(token.propertyId);
       const balance = safeNumber((_balance  || 0) - inOrderBalance);
       return [token.fullName, `${ balance > 0 ? balance : 0 } ${token.shortName}`];
     }
@@ -301,16 +307,25 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
       return safeNumber(margin);
     }
+  
+    async getInOrderAmount(propertyId: number): Promise<number> {
+      let num = 0;
 
-    private getInOrderAmount(propertyId: number) {
-      const num = this.futuresOrdersService.openedOrders.map(o => {
-        const { amount, price, collateral } = o.props;
-        if (collateral === propertyId) return safeNumber(amount * price);
-        return 0;
-      }).reduce((a, b) => a + b, 0);
+      for (const o of this.futuresOrdersService.openedOrders) {
+        const { amount, price, collateral, contract_id } = o.props;
+        if (collateral === propertyId) {
+          const contractInfo = await this.getContractInfo(contract_id);
+          const leverage = contractInfo?.leverage || 10;
+          const notional = contractInfo?.notional || 1;
+          const marginRequired = (amount * price * notional) / leverage;
+          num += safeNumber(marginRequired);
+        }
+      }
+
       return safeNumber(num);
     }
-  
+
+
     isFutureAddressSelfAtt() {
         const attestationStatus = this.attestationService.getAttByAddress(this.futureAddress);
         switch (attestationStatus) {

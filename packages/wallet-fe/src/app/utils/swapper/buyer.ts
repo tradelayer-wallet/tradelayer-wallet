@@ -9,7 +9,7 @@ export class BuySwapper extends Swap {
     private tradeStartTime: number; // Add this declaration for tradeStartTime
     constructor(
         typeTrade: ETradeType,
-        tradeInfo: ISpotTradeProps,//IFuturesTradeProps |, 
+        tradeInfo: IFuturesTradeProps | ISpotTradeProps, 
         buyerInfo: IBuyerSellerInfo,
         sellerInfo: IBuyerSellerInfo,
         client: TClient,
@@ -223,62 +223,62 @@ export class BuySwapper extends Swap {
             // Preserved commented-out code related to futures
             
                     // The following is the commented-out block related to futures that is preserved as is
-                    /*
-                    // const { contract_id, amount, price, } = this.tradeInfo;
-                    // const ctcpParams = [contract_id, (amount).toString()];
-                    // const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
-                    // if (cpctcRes.error || !cpctcRes.data) throw new Error(`tl_createpayload_commit_tochannel: ${cpctcRes.error}`);
                     
-                    // const fromKeyPair = { address: this.myInfo.keypair.address };
-                    // const toKeyPair = { address: this.multySigChannelData.address };
-                    // const payload = cpctcRes.data;
-                    // const commitTxConfig: IBuildTxConfig = { fromKeyPair, toKeyPair, payload };
+                    const { contract_id, amount, price, } = this.tradeInfo;
+                    const ctcpParams = [contract_id, (amount).toString()];
+                    const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
+                     if (cpctcRes.error || !cpctcRes.data) throw new Error(`tl_createpayload_commit_tochannel: ${cpctcRes.error}`);
+                    
+                     const fromKeyPair = { address: this.myInfo.keypair.address };
+                     const toKeyPair = { address: this.multySigChannelData.address };
+                     const payload = cpctcRes.data;
+                     const commitTxConfig: IBuildTxConfig = { fromKeyPair, toKeyPair, payload };
             
-                    // // build Commit Tx
-                    // const commitTxRes = await this.txsService.buildTx(commitTxConfig);
-                    // if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
-                    // const { inputs, rawtx } = commitTxRes.data;
-                    // const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
-                    // if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
+                    // build Commit Tx
+                    const commitTxRes = await this.txsService.buildTx(commitTxConfig);
+                    if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
+                    const { inputs, rawtx } = commitTxRes.data;
+                    const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
+                    if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
                     
-                    // // sign Commit Tx
-                    // const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
-                    // if (cimmitTxSignRes.error || !cimmitTxSignRes.data) throw new Error(`Sign Commit TX: ${cimmitTxSignRes.error}`);
-                    // const { isValid, signedHex } = cimmitTxSignRes.data;
-                    // if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
+                    //sign Commit Tx
+                    const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
+                    if (cimmitTxSignRes.error || !cimmitTxSignRes.data) throw new Error(`Sign Commit TX: ${cimmitTxSignRes.error}`);
+                    const { isValid, signedHex } = cimmitTxSignRes.data;
+                    if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
 
-                    // // send Commit Tx
-                    // const commiTxSendRes = await this.txsService.sendTx(signedHex);
-                    // if (commiTxSendRes.error || !commiTxSendRes.data) throw new Error(`Send Commit TX: ${commiTxSendRes.error}`);
+                    //  send Commit Tx
+                    const commiTxSendRes = await this.txsService.sendTx(signedHex);
+                    if (commiTxSendRes.error || !commiTxSendRes.data) throw new Error(`Send Commit TX: ${commiTxSendRes.error}`);
 
-                    // //
-                    // const drtRes = await this.client("decoderawtransaction", [rawtx]);
-                    // if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
-                    // const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
-                    // if (!vout) throw new Error(`decoderawtransaction (2): ${drtRes.error}`);
-                    // const utxoData = {
-                    //     amount: vout.value,
-                    //     vout: vout.n,
-                    //     txid: commiTxSendRes.data,
-                    //     scriptPubKey: this.multySigChannelData.scriptPubKey,
-                    //     redeemScript: this.multySigChannelData.redeemScript,
-                    // } as IUTXO;
+                    //
+                    const drtRes = await this.client("decoderawtransaction", [rawtx]);
+                    if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
+                    const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
+                    if (!vout) throw new Error(`decoderawtransaction (2): ${drtRes.error}`);
+                    const utxoData = {
+                         amount: vout.value,
+                         vout: vout.n,
+                         txid: commiTxSendRes.data,
+                         scriptPubKey: this.multySigChannelData.scriptPubKey,
+                         redeemScript: this.multySigChannelData.redeemScript,
+                     } as IUTXO;
                     // // contractid, amount, height, price, action(buy), leverage
-                    // const cpcitOptions = [ contract_id, (amount).toString(), bbData, (price).toString(), 1, "1" ];
-                    // const cpcitRes = await this.client('tl_createpayload_contract_instant_trade', cpcitOptions);
-                    // if (cpcitRes.error || !cpcitRes.data) throw new Error(`tl_createpayload_contract_instant_trade: ${cpcitRes.error}`);
-                    // const buildOptions: IBuildLTCITTxConfig = {
-                    //     buyerKeyPair: this.myInfo.keypair,
-                    //     sellerKeyPair: this.cpInfo.keypair,
-                    //     commitUTXOs: [commitUTXO, utxoData],
-                    //     payload: cpcitRes.data,
-                    //     amount: 0,
-                    // };
-                    // const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
-                    // if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
-                    // const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
-                    // this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
-                    */
+                    const cpcitOptions = [ contract_id, (amount).toString(), bbData, (price).toString(), 1, "1" ];
+                    const cpcitRes = await this.client('tl_createpayload_contract_instant_trade', cpcitOptions);
+                    if (cpcitRes.error || !cpcitRes.data) throw new Error(`tl_createpayload_contract_instant_trade: ${cpcitRes.error}`);
+                    const buildOptions: IBuildLTCITTxConfig = {
+                         buyerKeyPair: this.myInfo.keypair,
+                         sellerKeyPair: this.cpInfo.keypair,
+                         commitUTXOs: [commitUTXO, utxoData],
+                         payload: cpcitRes.data,
+                         amount: 0,
+                     };
+                     const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
+                     if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
+                     const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
+                     this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+                    
         } else {
             throw new Error(`Unrecognized Trade Type: ${this.typeTrade}`);
         }
