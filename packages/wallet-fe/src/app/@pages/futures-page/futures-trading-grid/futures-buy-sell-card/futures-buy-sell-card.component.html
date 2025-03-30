@@ -40,10 +40,10 @@
     </div>
     <div class="buy-sell-info max" *ngIf="futureAddress">
       <div class="column" (click)="fillMax(true)">
-        <span>Max: {{ maxBuyAmount.toFixed(6) }} {{ selectedMarket.collateral.shortName }}</span>
+        <span>Max: {{ maxBuyAmount$ | async | number:'1.6-6' }} {{ selectedMarket.collateral.shortName }}</span>
       </div>
       <div class="column" (click)="fillMax(false)">
-        <span>Max: {{ maxSellAmount.toFixed(6) }} {{ selectedMarket.collateral.shortName }}</span>
+        <span>Max: {{ maxSellAmount$ | async | number:'1.6-6' }} {{ selectedMarket.collateral.shortName }}</span>
       </div>
     </div>
     <div class="address">
@@ -53,8 +53,8 @@
           <div class="value">{{ futureAddress | shortAddress }}</div>
         </div>
         <div class="key-value-pair">
-          <div class="key">{{ (getNameBalanceInfo(selectedMarket.collateral) | async)?.[0] }}:</div>
-          <div class="value">{{ (getNameBalanceInfo(selectedMarket.collateral) | async)?.[1] }}</div>
+          <div class="key">{{ (balanceInfo$ | async)?.[0] }}:</div>
+          <div class="value">{{ (balanceInfo$ | async)?.[1] }}</div>
         </div>
         <div class="key-value-pair">
           <div class="key">Attestation:</div>
