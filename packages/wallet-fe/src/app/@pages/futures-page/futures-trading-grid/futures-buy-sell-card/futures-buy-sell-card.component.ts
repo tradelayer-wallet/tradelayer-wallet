@@ -3,7 +3,7 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { ReplaySubject } from 'rxjs';
-import { of } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { first, takeUntil } from 'rxjs/operators';
 import { ApiService } from 'src/app/@core/services/api.service';
@@ -26,6 +26,7 @@ const minVOutAmount = 0.000036;
   selector: 'tl-futures-buy-sell-card',
   templateUrl: './futures-buy-sell-card.component.html',
   styleUrls: ['../../../spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component.scss'],
+
 })
 export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
@@ -33,6 +34,8 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   public buySellGroup: FormGroup = new FormGroup({});
   public maxBuyAmount: number = 0;
   public maxSellAmount: number = 0;
+  public cachedInOrderAmounts: Record<number, number> = {};
+
 
   constructor(
     private futuresMarketService: FuturesMarketService,
@@ -292,16 +295,6 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     //         this.toastrService.success(`${this.authService.activeFuturesKey?.address} was Fund with small amount tLTC`, 'Testnet Faucet')
     //     }
     // }
-    }
-
-    async getNameBalanceInfo(token: IToken) {
-      const _balance = token.propertyId === -1
-        ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
-        : this.balanceService.getTokensBalancesByAddress(this.futureAddress)
-          ?.find(e => e.propertyid === token.propertyId)?.available;
-      const inOrderBalance = await this.getInOrderAmount(token.propertyId);
-      const balance = safeNumber((_balance  || 0) - inOrderBalance);
-      return [token.fullName, `${ balance > 0 ? balance : 0 } ${token.shortName}`];
     }
 
     async getContractInfo(contractId: number): Promise<any> {
