@@ -3,6 +3,8 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { ReplaySubject } from 'rxjs';
+import { of } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { first, takeUntil } from 'rxjs/operators';
 import { ApiService } from 'src/app/@core/services/api.service';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
@@ -141,6 +143,21 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
     const max = safeNumber((available * leverage) / (price * notional));
     return max;
+  }
+
+  getNameBalanceInfo(token: IToken): Observable<[string, string]> {
+    return of(token).pipe(
+      map(token => {
+        const _balance = token.propertyId === -1
+          ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
+          : this.balanceService.getTokensBalancesByAddress(this.futureAddress)
+            ?.find(e => e.propertyid === token.propertyId)?.available;
+
+        const inOrderBalance = this.cachedInOrderAmounts[token.propertyId] || 0;
+        const balance = safeNumber((_balance || 0) - inOrderBalance);
+        return [token.fullName, `${balance > 0 ? balance : 0} ${token.shortName}`];
+      })
+    );
   }
 
   async handleBuySell(isBuy: boolean) {

@@ -5,29 +5,13 @@
         <span>Buy/Sell</span>
         <span class='contract'> - </span>
       </div>
-      <div class="icons">
-        <!-- <mat-icon svgIcon="resize"></mat-icon>
-        <mat-icon svgIcon="close"></mat-icon> -->
-        <!-- <div class="on-chain">
-          <mat-slide-toggle
-            color='primary'
-            labelPosition="before"
-          >On-Chain</mat-slide-toggle>
-        </div> -->
-      </div>
     </div>
   </mat-card-title>
   <mat-card-content>
     <div class="order-type">
       <div class="order-type-buttons">
-        <p
-          [ngClass]="{ selected: isLimitSelected }"
-          (click)="isLimitSelected = true"
-        >Limit</p>
-        <p
-          [ngClass]="{ selected: !isLimitSelected }"
-          (click)="isLimitSelected = false"
-        >Market</p>
+        <p [ngClass]="{ selected: isLimitSelected }" (click)="isLimitSelected = true">Limit</p>
+        <p [ngClass]="{ selected: !isLimitSelected }" (click)="isLimitSelected = false">Market</p>
       </div>
     </div>
     <div class="buy-sell-form" [formGroup]='buySellGroup'>
@@ -51,23 +35,15 @@
       </div>
     </div>
     <div class="buttons">
-      <button
-        class='buy-button'
-        (click)='handleBuySell(true)'
-        [disabled]='getButtonDisabled(true)'
-      >Long</button>
-      <button
-        class='sell-button'
-        (click)='handleBuySell(false)'
-        [disabled]='getButtonDisabled(false)'
-      >Short</button>
+      <button class='buy-button' (click)='handleBuySell(true)' [disabled]='getButtonDisabled(true)'>Long</button>
+      <button class='sell-button' (click)='handleBuySell(false)' [disabled]='getButtonDisabled(false)'>Short</button>
     </div>
     <div class="buy-sell-info max" *ngIf="futureAddress">
       <div class="column" (click)="fillMax(true)">
-        <span>Max: {{ getMaxAmount(true).toFixed(6) }} {{ this.selectedMarket.collateral.shortName }} </span>
+        <span>Max: {{ maxBuyAmount.toFixed(6) }} {{ selectedMarket.collateral.shortName }}</span>
       </div>
       <div class="column" (click)="fillMax(false)">
-        <span>Max: {{ getMaxAmount(false).toFixed(6) }} {{ this.selectedMarket.collateral.shortName }} </span>
+        <span>Max: {{ maxSellAmount.toFixed(6) }} {{ selectedMarket.collateral.shortName }}</span>
       </div>
     </div>
     <div class="address">
@@ -77,21 +53,17 @@
           <div class="value">{{ futureAddress | shortAddress }}</div>
         </div>
         <div class="key-value-pair">
-          <div class="key">{{ getNameBalanceInfo(selectedMarket.collateral)[0] }}:</div>
-          <div class="value">{{ getNameBalanceInfo(selectedMarket.collateral)[1] }}</div>
+          <div class="key">{{ (getNameBalanceInfo(selectedMarket.collateral) | async)?.[0] }}:</div>
+          <div class="value">{{ (getNameBalanceInfo(selectedMarket.collateral) | async)?.[1] }}</div>
         </div>
         <div class="key-value-pair">
           <div class="key">Attestation:</div>
           <div class="value">{{ isFutureAddressSelfAtt() }}</div>
         </div>
-        <div class="key-value-pair"></div>
       </div>
     </div>
     <div class="additional-info" *ngIf="futureAddress">
-      <button
-        class="blueButton"
-        (click)='closeAll()'
-      >Close All Orders</button>
+      <button class="blueButton" (click)='closeAll()'>Close All Orders</button>
     </div>
     <div class="liquidity">
       <div class="custom-form-field">
@@ -102,25 +74,15 @@
       <div class="custom-form-field">
         <div class="prefix">Number Buy/Sell Orders</div>
         <input type='number' #liquidity_orders>
-        <div class="suffix"> </div>
       </div>
       <div class="custom-form-field">
         <div class="prefix">Max. Price Range</div>
         <input type='number' #liquidity_range>
         <div class="suffix">%</div>
       </div>
-      <!--<button
-        class="blueButton"
-        (click)='addLiquidity(liquidity_amount.value, liquidity_orders.value, liquidity_range.value)'
-      >Add Liquidity</button>
-      <button
-        class="redButton"
-        (click)='stopLiquidity()'
-      >Stop Liquidity</button>-->
     </div>
   </mat-card-content>
+  <div class="overlay-loading" *ngIf='isLoading'>
+    <mat-spinner></mat-spinner>
+  </div>
 </mat-card>
-
-<div class="overlay-loading" *ngIf='isLoading'>
-  <mat-spinner></mat-spinner>
-</div>
