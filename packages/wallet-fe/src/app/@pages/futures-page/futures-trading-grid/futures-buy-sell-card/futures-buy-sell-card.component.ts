@@ -86,12 +86,41 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     this.buildForms();
     this.trackPriceHandler();
-    this.updateMaxAmounts();
+    await this.preloadContractInfoSet();
+    await this.updateMaxAmounts();
     if (this.futureAddress && this.selectedMarket?.collateral) {
       this.nameBalanceInfo = await this.getNameBalanceInfo(this.selectedMarket.collateral);
       this.attestationStatus = this.getAttestationStatus(this.futureAddress);
     }
   }
+
+  private async preloadContractInfoSet(): Promise<void> {
+    const markets = this.futuresMarketService.allMarkets || [];
+    const uniqueContractIds = Array.from(new Set(markets.map(m => m.contract_id)));
+
+    for (const contractId of uniqueContractIds) {
+      if (!this.contractInfoCache[contractId]) {
+        const info = await this.fetchContractInfo(contractId);
+        if (info) this.contractInfoCache[contractId] = info;
+      }
+    }
+  }
+
+  private async fetchContractInfo(contractId: number): Promise<any> {
+    try {
+      const response = await axios.post('http://localhost:3000/tl_listContractSeries', { contractId });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch contract info:', error);
+      this.toastrService.error('Error fetching contract information.');
+      return null;
+    }
+  }
+
+  async getContractInfo(contractId: number): Promise<any> {
+    return this.contractInfoCache[contractId] || null;
+  }
+
 
   private async updateMaxAmounts() {
     this.maxBuyAmount = await this.getMaxAmount(true);
