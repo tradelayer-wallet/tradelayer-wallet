@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, Injectable } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
@@ -8,7 +8,7 @@ import { ApiService } from 'src/app/@core/services/api.service';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
 import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
-import { FuturesMarketService, IFutureMarket, IToken } from 'src/app/@core/services/futures-services/futures-markets.service';
+import { IFutureMarket, IToken } from 'src/app/@core/services/futures-services/futures-markets.service';
 import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
 import { FuturesOrdersService, IFuturesTradeConf } from 'src/app/@core/services/futures-services/futures-orders.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
@@ -19,6 +19,21 @@ import axios from 'axios';
 
 const minFeeLtcPerKb = 0.002;
 const minVOutAmount = 0.000036;
+
+export interface IFuturesMarketService {
+  selectedMarket: IFutureMarket;
+  getAllMarkets(): IFutureMarket[];
+}
+
+@Injectable({ providedIn: 'root' })
+export class FuturesMarketService implements IFuturesMarketService {
+  public selectedMarket: IFutureMarket;
+  private markets: IFutureMarket[] = [];
+
+  public getAllMarkets(): IFutureMarket[] {
+    return this.markets;
+  }
+}
 
 @Component({
   selector: 'tl-futures-buy-sell-card',
@@ -86,25 +101,61 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     this.buildForms();
     this.trackPriceHandler();
+
+    // Wait for selectedMarket to be ready
+    await this.waitForMarketToBeReady();
+
     await this.preloadContractInfoSet();
     await this.updateMaxAmounts();
+
     if (this.futureAddress && this.selectedMarket?.collateral) {
       this.nameBalanceInfo = await this.getNameBalanceInfo(this.selectedMarket.collateral);
       this.attestationStatus = this.getAttestationStatus(this.futureAddress);
     }
   }
 
-  private async preloadContractInfoSet(): Promise<void> {
-    const markets = this.futuresMarketService.allMarkets || [];
-    const uniqueContractIds = Array.from(new Set(markets.map(m => m.contract_id)));
+  private async waitForMarketToBeReady(): Promise<void> {
+    return new Promise(resolve => {
+      const check = () => {
+        if (this.selectedMarket) resolve();
+        else setTimeout(check, 50);
+      };
+      check();
+    });
+  }
 
-    for (const contractId of uniqueContractIds) {
-      if (!this.contractInfoCache[contractId]) {
-        const info = await this.fetchContractInfo(contractId);
-        if (info) this.contractInfoCache[contractId] = info;
+  getMarketByContractId(contractId: number): IFutureMarket | null {
+  for (const marketType of this.futuresMarketService.futuresMarketsTypes) {
+    const match = marketType.markets.find(m => m.contract_id === contractId);
+    if (match) return match;
+  }
+  return null;
+}
+
+
+
+  private async preloadContractInfoSet(): Promise<void> {
+  const marketTypes = this.futuresMarketService.futuresMarketsTypes;
+
+  const allMarkets = marketTypes.flatMap(mt => mt.markets);
+  const uniqueContractIds = Array.from(new Set(allMarkets.map(m => m.contract_id)));
+
+  for (const contractId of uniqueContractIds) {
+    if (!this.contractInfoCache[contractId]) {
+      const info = await this.fetchContractInfo(contractId);
+      if (info) {
+        this.contractInfoCache[contractId] = info;
+
+        // Optionally: bind this info to its market object if needed
+        const market = allMarkets.find(m => m.contract_id === contractId);
+        if (market) {
+          (market as any).contractInfo = info;
+        }
       }
     }
   }
+}
+
 
   private async fetchContractInfo(contractId: number): Promise<any> {
     try {
@@ -120,13 +171,32 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   async getContractInfo(contractId: number): Promise<any> {
     return this.contractInfoCache[contractId] || null;
   }
-
-
   private async updateMaxAmounts() {
     this.maxBuyAmount = await this.getMaxAmount(true);
     this.maxSellAmount = await this.getMaxAmount(false);
     await this.updateNameBalanceInfo(); // ← Add this
   }
+
+  private async initializeMarketsFromOrderbook(): Promise<void> {
+  try {
+   const res = await this.apiService.tlApi.get('/futures_markets').toPromise();
+    const markets = res?.data || [];
+
+    if (!markets.length) {
+      console.warn('No futures markets returned from orderbook server.');
+      return;
+    }
+
+    // Hydrate FuturesMarketService manually
+    (this.futuresMarketService as any).markets = markets;
+    this.futuresMarketService.selectedMarket = markets[0]; // default selection
+
+  } catch (err) {
+    console.error('Error loading markets from orderbook service:', err);
+    this.toastrService.error('Failed to load Futures markets.');
+  }
+}
+
 
   private setAttestationStatus() {
   const status = this.attestationService.getAttByAddress(this.futureAddress);
@@ -350,21 +420,6 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       const balance = safeNumber((_balance  || 0) - inOrderBalance);
       return [token.fullName, `${ balance > 0 ? balance : 0 } ${token.shortName}`];
     }
-
-    async getContractInfo(contractId: number): Promise<any> {
-      if (this.contractInfoCache[contractId]) return this.contractInfoCache[contractId];
-      
-      try {
-        const response = await axios.post('http://localhost:3000/tl_listContractSeries', { contractId });
-        this.contractInfoCache[contractId] = response.data; // cache result
-        return response.data;
-      } catch (error) {
-        console.error('Failed to fetch contract info:', error);
-        this.toastrService.error('Error fetching contract information.');
-        return null;
-      }
-    }
-
 
     // Example of initial margin calculation based on inverse contract type
     calculateInitialMargin(isInverse: boolean, amount: number, price: number, leverage: number, notional:number){
