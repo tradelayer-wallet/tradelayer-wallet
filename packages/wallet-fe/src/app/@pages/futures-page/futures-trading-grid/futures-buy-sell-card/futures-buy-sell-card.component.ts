@@ -3,8 +3,6 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { ReplaySubject } from 'rxjs';
-import { of } from 'rxjs';
-import { map } from 'rxjs/operators';
 import { first, takeUntil } from 'rxjs/operators';
 import { ApiService } from 'src/app/@core/services/api.service';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
@@ -33,6 +31,9 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   public buySellGroup: FormGroup = new FormGroup({});
   public maxBuyAmount: number = 0;
   public maxSellAmount: number = 0;
+  private contractInfoCache: Record<number, any> = {};
+  public nameBalanceInfo: string[] | null = null;
+  public attestationStatus: string = '';
 
   constructor(
     private futuresMarketService: FuturesMarketService,
@@ -82,25 +83,40 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     return this.apiService.tlApi;
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     this.buildForms();
     this.trackPriceHandler();
     this.updateMaxAmounts();
+    if (this.futureAddress && this.selectedMarket?.collateral) {
+      this.nameBalanceInfo = await this.getNameBalanceInfo(this.selectedMarket.collateral);
+      this.attestationStatus = this.getAttestationStatus(this.futureAddress);
+    }
   }
 
   private async updateMaxAmounts() {
     this.maxBuyAmount = await this.getMaxAmount(true);
     this.maxSellAmount = await this.getMaxAmount(false);
+    await this.updateNameBalanceInfo(); // ← Add this
   }
+
+  private setAttestationStatus() {
+  const status = this.attestationService.getAttByAddress(this.futureAddress);
+  switch (status) {
+    case 'active':
+      this.attestationStatus = 'YES';
+      break;
+    case 'inactive':
+      this.attestationStatus = 'REVOKED';
+      break;
+    default:
+      this.attestationStatus = 'NO';
+  }
+}
 
   private buildForms() {
     this.buySellGroup = this.fb.group({
       price: [null, [Validators.required, Validators.min(0.01)]],
       amount: [null, [Validators.required, Validators.min(0.01)]],
-    });
-
-    this.buySellGroup.valueChanges.pipe(takeUntil(this.destroyed$)).subscribe(() => {
-      this.updateMaxAmounts();
     });
   }
 
@@ -143,21 +159,6 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
     const max = safeNumber((available * leverage) / (price * notional));
     return max;
-  }
-
-  getNameBalanceInfo(token: IToken): Observable<[string, string]> {
-    return of(token).pipe(
-      map(token => {
-        const _balance = token.propertyId === -1
-          ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
-          : this.balanceService.getTokensBalancesByAddress(this.futureAddress)
-            ?.find(e => e.propertyid === token.propertyId)?.available;
-
-        const inOrderBalance = this.cachedInOrderAmounts[token.propertyId] || 0;
-        const balance = safeNumber((_balance || 0) - inOrderBalance);
-        return [token.fullName, `${balance > 0 ? balance : 0} ${token.shortName}`];
-      })
-    );
   }
 
   async handleBuySell(isBuy: boolean) {
@@ -294,6 +295,23 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     // }
     }
 
+    private async updateNameBalanceInfo() {
+      if (!this.futureAddress || !this.selectedMarket?.collateral) {
+        this.nameBalanceInfo = null;
+        return;
+      }
+
+      try {
+        const token = this.selectedMarket.collateral;
+        const info = await this.getNameBalanceInfo(token);
+        this.nameBalanceInfo = info;
+      } catch (err) {
+        console.error('Failed to load balance info:', err);
+        this.nameBalanceInfo = null;
+      }
+    }
+
+
     async getNameBalanceInfo(token: IToken) {
       const _balance = token.propertyId === -1
         ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
@@ -305,9 +323,11 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     async getContractInfo(contractId: number): Promise<any> {
-    console.log('fetching contract with id '+contractId)
+      if (this.contractInfoCache[contractId]) return this.contractInfoCache[contractId];
+      
       try {
         const response = await axios.post('http://localhost:3000/tl_listContractSeries', { contractId });
+        this.contractInfoCache[contractId] = response.data; // cache result
         return response.data;
       } catch (error) {
         console.error('Failed to fetch contract info:', error);
@@ -315,6 +335,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         return null;
       }
     }
+
 
     // Example of initial margin calculation based on inverse contract type
     calculateInitialMargin(isInverse: boolean, amount: number, price: number, leverage: number, notional:number){
@@ -344,17 +365,15 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       return safeNumber(num);
     }
 
-    isFutureAddressSelfAtt() {
-        const attestationStatus = this.attestationService.getAttByAddress(this.futureAddress);
-        switch (attestationStatus) {
-            case 'active':
-                return "YES";
-            case 'inactive':
-                return "REVOKED";
-            default:
-                return "NO";
-        }
+    getAttestationStatus(address: string): string {
+      const status = this.attestationService.getAttByAddress(address);
+      switch (status) {
+        case 'active': return 'YES';
+        case 'inactive': return 'REVOKED';
+        default: return 'NO';
+      }
     }
+
 
     ngOnDestroy() {
       this.destroyed$.next(true);

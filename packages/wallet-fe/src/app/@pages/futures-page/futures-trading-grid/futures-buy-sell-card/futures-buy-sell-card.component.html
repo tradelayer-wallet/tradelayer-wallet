@@ -18,12 +18,12 @@
       <div class="custom-form-field" *ngIf='isLimitSelected'>
         <div class="prefix">Price</div>
         <input type='number' formControlName="price">
-        <div class="suffix">{{ selectedMarket.second_token.shortName }}</div>
+        <div class="suffix">{{ selectedMarket.second_token?.shortName || '-' }}</div>
       </div>
       <div class="custom-form-field">
         <div class="prefix">Amount</div>
         <input type='number' formControlName="amount">
-        <div class="suffix">{{ selectedMarket.first_token.shortName }}</div>
+        <div class="suffix">{{ selectedMarket.first_token?.shortName || '-' }}</div>
       </div>
     </div>
     <div class="buy-sell-info">
@@ -40,10 +40,10 @@
     </div>
     <div class="buy-sell-info max" *ngIf="futureAddress">
       <div class="column" (click)="fillMax(true)">
-        <span>Max: {{ maxBuyAmount.toFixed(6) }} {{ selectedMarket.collateral.shortName }}</span>
+        <span>Max: {{ maxBuyAmount.toFixed(6) }} {{ selectedMarket.collateral?.shortName || '-' }}</span>
       </div>
       <div class="column" (click)="fillMax(false)">
-        <span>Max: {{ maxSellAmount.toFixed(6) }} {{ selectedMarket.collateral.shortName }}</span>
+        <span>Max: {{ maxSellAmount.toFixed(6) }} {{ selectedMarket.collateral?.shortName || '-' }}</span>
       </div>
     </div>
     <div class="address">
@@ -52,13 +52,13 @@
           <div class="key">Address:</div>
           <div class="value">{{ futureAddress | shortAddress }}</div>
         </div>
-        <div class="key-value-pair">
-          <div class="key">{{ (getNameBalanceInfo(selectedMarket.collateral) | async)?.[0] }}:</div>
-          <div class="value">{{ (getNameBalanceInfo(selectedMarket.collateral) | async)?.[1] }}</div>
+        <div class="key-value-pair" *ngIf="nameBalanceInfo">
+          <div class="key">{{ nameBalanceInfo[0] }}</div>
+          <div class="value">{{ nameBalanceInfo[1] }}</div>
         </div>
-        <div class="key-value-pair">
+        <div class="key-value-pair" *ngIf="attestationStatus">
           <div class="key">Attestation:</div>
-          <div class="value">{{ isFutureAddressSelfAtt() }}</div>
+          <div class="value">{{ attestationStatus }}</div>
         </div>
       </div>
     </div>
@@ -69,7 +69,7 @@
       <div class="custom-form-field">
         <div class="prefix">Amount</div>
         <input type='number' #liquidity_amount>
-        <div class="suffix">{{ selectedMarket.first_token.shortName }} / {{ selectedMarket.second_token.shortName }}</div>
+        <div class="suffix">{{ selectedMarket.first_token?.shortName || '-' }} / {{ selectedMarket.second_token?.shortName || '-' }}</div>
       </div>
       <div class="custom-form-field">
         <div class="prefix">Number Buy/Sell Orders</div>
