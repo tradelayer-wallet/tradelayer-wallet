@@ -39,8 +39,8 @@
         </div>
       </div>
     <div class="buttons">
-      <button class='buy-button' (click)='handleBuySell(true)' [disabled]='getButtonDisabled(true)'>Long</button>
-      <button class='sell-button' (click)='handleBuySell(false)' [disabled]='getButtonDisabled(false)'>Short</button>
+      <button class="buy-button" (click)="handleBuySellBuy()" [disabled]="getButtonDisabled()">Long</button>
+      <button class="sell-button" (click)="handleBuySellSell()" [disabled]="getButtonDisabled()">Short</button>
     </div>
     <div class="buy-sell-info max" *ngIf="futureAddress">
       <div class="column" (click)="fillMax(true)">
