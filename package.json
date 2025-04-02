@@ -46,6 +46,7 @@
     "fs": "*",
     "kill-port": "^1.6.1",
     "litecoin": "^2.0.5",
+    "mathjs": "^11.8.0",
     "moment": "^2.29.4",
     "nedb": "^1.8.0",
     "node-fetch": "^2.7.0",
