@@ -28,10 +28,10 @@
     </div>
     <div class="buy-sell-info">
       <div class="column">
-        <span>Fee: {{ getFees(true).toFixed(6) }} LTC </span>
+        <span *ngIf="buySellGroup.valid">Fee: {{ getFees(true).toFixed(6) }} LTC</span>
       </div>
       <div class="column">
-        <span>Fee: {{ getFees(false).toFixed(6) }} LTC </span>
+        <span *ngIf="buySellGroup.valid">Fee: {{ getFees(true).toFixed(6) }} LTC</span>
       </div>
     </div>
     <div class="buttons">

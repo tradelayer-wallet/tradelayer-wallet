@@ -1,39 +1,22 @@
-import { Component, OnDestroy, OnInit, Injectable } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { ReplaySubject } from 'rxjs';
-import { first, takeUntil } from 'rxjs/operators';
+import { takeUntil } from 'rxjs/operators';
 import { ApiService } from 'src/app/@core/services/api.service';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
 import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
-import { IFutureMarket, IToken } from 'src/app/@core/services/futures-services/futures-markets.service';
+import { FuturesMarketService, IFutureMarket, IToken } from 'src/app/@core/services/futures-services/futures-markets.service';
 import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
 import { FuturesOrdersService, IFuturesTradeConf } from 'src/app/@core/services/futures-services/futures-orders.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
-import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
-import axios from 'axios';
 
 const minFeeLtcPerKb = 0.002;
 const minVOutAmount = 0.000036;
-
-export interface IFuturesMarketService {
-  selectedMarket: IFutureMarket;
-  getAllMarkets(): IFutureMarket[];
-}
-
-@Injectable({ providedIn: 'root' })
-export class FuturesMarketService implements IFuturesMarketService {
-  public selectedMarket: IFutureMarket;
-  private markets: IFutureMarket[] = [];
-
-  public getAllMarkets(): IFutureMarket[] {
-    return this.markets;
-  }
-}
 
 @Component({
   selector: 'tl-futures-buy-sell-card',
@@ -46,7 +29,6 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   public buySellGroup: FormGroup = new FormGroup({});
   public maxBuyAmount: number = 0;
   public maxSellAmount: number = 0;
-  private contractInfoCache: Record<number, any> = {};
   public nameBalanceInfo: string[] | null = null;
   public attestationStatus: string = '';
 
@@ -94,18 +76,16 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     this.buySellGroup.controls.price.setValue(this.currentPrice);
   }
 
-  get reLayerApi() {
-    return this.apiService.tlApi;
-  }
-
   async ngOnInit() {
     this.buildForms();
     this.trackPriceHandler();
 
-    // Wait for selectedMarket to be ready
-    await this.waitForMarketToBeReady();
+    this.buySellGroup.valueChanges
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe(() => {
+        this.updateMaxAmounts();
+      });
 
-    await this.preloadContractInfoSet();
     await this.updateMaxAmounts();
 
     if (this.futureAddress && this.selectedMarket?.collateral) {
@@ -114,104 +94,6 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async waitForMarketToBeReady(): Promise<void> {
-    return new Promise(resolve => {
-      const check = () => {
-        if (this.selectedMarket) resolve();
-        else setTimeout(check, 50);
-      };
-      check();
-    });
-  }
-
-  getMarketByContractId(contractId: number): IFutureMarket | null {
-  for (const marketType of this.futuresMarketService.futuresMarketsTypes) {
-    const match = marketType.markets.find(m => m.contract_id === contractId);
-    if (match) return match;
-  }
-  return null;
-}
-
-
-
-  private async preloadContractInfoSet(): Promise<void> {
-  const marketTypes = this.futuresMarketService.futuresMarketsTypes;
-
-  const allMarkets = marketTypes.flatMap(mt => mt.markets);
-  const uniqueContractIds = Array.from(new Set(allMarkets.map(m => m.contract_id)));
-
-  for (const contractId of uniqueContractIds) {
-    if (!this.contractInfoCache[contractId]) {
-      const info = await this.fetchContractInfo(contractId);
-      if (info) {
-        this.contractInfoCache[contractId] = info;
-
-        // Optionally: bind this info to its market object if needed
-        const market = allMarkets.find(m => m.contract_id === contractId);
-        if (market) {
-          (market as any).contractInfo = info;
-        }
-      }
-    }
-  }
-}
-
-
-  private async fetchContractInfo(contractId: number): Promise<any> {
-    try {
-      const response = await axios.post('http://localhost:3000/tl_listContractSeries', { contractId });
-      return response.data;
-    } catch (error) {
-      console.error('Failed to fetch contract info:', error);
-      this.toastrService.error('Error fetching contract information.');
-      return null;
-    }
-  }
-
-  async getContractInfo(contractId: number): Promise<any> {
-    return this.contractInfoCache[contractId] || null;
-  }
-  private async updateMaxAmounts() {
-    this.maxBuyAmount = await this.getMaxAmount(true);
-    this.maxSellAmount = await this.getMaxAmount(false);
-    await this.updateNameBalanceInfo(); // ← Add this
-  }
-
-  private async initializeMarketsFromOrderbook(): Promise<void> {
-  try {
-   const res = await this.apiService.tlApi.get('/futures_markets').toPromise();
-    const markets = res?.data || [];
-
-    if (!markets.length) {
-      console.warn('No futures markets returned from orderbook server.');
-      return;
-    }
-
-    // Hydrate FuturesMarketService manually
-    (this.futuresMarketService as any).markets = markets;
-    this.futuresMarketService.selectedMarket = markets[0]; // default selection
-
-  } catch (err) {
-    console.error('Error loading markets from orderbook service:', err);
-    this.toastrService.error('Failed to load Futures markets.');
-  }
-}
-
-
-  private setAttestationStatus() {
-  const status = this.attestationService.getAttByAddress(this.futureAddress);
-  switch (status) {
-    case 'active':
-      this.attestationStatus = 'YES';
-      break;
-    case 'inactive':
-      this.attestationStatus = 'REVOKED';
-      break;
-    default:
-      this.attestationStatus = 'NO';
-  }
-}
-
   private buildForms() {
     this.buySellGroup = this.fb.group({
       price: [null, [Validators.required, Validators.min(0.01)]],
@@ -219,9 +101,53 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     });
   }
 
-  fillMax(isBuy: boolean) {
-    const value = isBuy ? this.maxBuyAmount : this.maxSellAmount;
-    this.buySellGroup?.controls?.['amount'].setValue(value);
+  private async updateMaxAmounts() {
+    this.maxBuyAmount = await this.getMaxAmount(true);
+    this.maxSellAmount = await this.getMaxAmount(false);
+    await this.updateNameBalanceInfo();
+  }
+
+  private async updateNameBalanceInfo() {
+    if (!this.futureAddress || !this.selectedMarket?.collateral) {
+      this.nameBalanceInfo = null;
+      return;
+    }
+
+    try {
+      const token = this.selectedMarket.collateral;
+      const info = await this.getNameBalanceInfo(token);
+      this.nameBalanceInfo = info;
+    } catch (err) {
+      console.error('Failed to load balance info:', err);
+      this.nameBalanceInfo = null;
+    }
+  }
+
+  private trackPriceHandler() {
+    this.futuresOrderbookService.outsidePriceHandler
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe(price => {
+        this.buySellGroup.controls['price'].setValue(price);
+      });
+  }
+
+  async getNameBalanceInfo(token: IToken) {
+    const _balance = token.propertyId === -1
+      ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
+      : this.balanceService.getTokensBalancesByAddress(this.futureAddress)
+        ?.find(e => e.propertyid === token.propertyId)?.available;
+    const inOrderBalance = await this.getInOrderAmount(token.propertyId);
+    const balance = safeNumber((_balance  || 0) - inOrderBalance);
+    return [token.fullName, `${ balance > 0 ? balance : 0 } ${token.shortName}`];
+  }
+
+  getAttestationStatus(address: string): string {
+    const status = this.attestationService.getAttByAddress(address);
+    switch (status) {
+      case 'active': return 'YES';
+      case 'inactive': return 'REVOKED';
+      default: return 'NO';
+    }
   }
 
   async getMaxAmount(isBuy: boolean): Promise<number> {
@@ -234,7 +160,6 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     const price = safeNumber(_price);
 
     const propId = this.selectedMarket.collateral.propertyId;
-
     const tokenBalanceObj = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
       ?.find((t: any) => t.propertyid === propId);
 
@@ -252,12 +177,32 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
     if (!available || (available / price <= 0)) return 0;
 
-    const contractInfo = await this.getContractInfo(this.selectedMarket.contract_id);
-    const leverage = contractInfo?.leverage || 10;
-    const notional = contractInfo?.notional || 1;
+    const leverage = this.selectedMarket?.leverage || 10;
+    const notional = (this.selectedMarket as any)?.notional || 1;
 
     const max = safeNumber((available * leverage) / (price * notional));
     return max;
+  }
+
+  async getInOrderAmount(propertyId: number): Promise<number> {
+    let num = 0;
+    for (const o of this.futuresOrdersService.openedOrders) {
+      const { amount, price, collateral, contract_id } = o.props;
+      if (collateral === propertyId) {
+        const market = this.futuresMarketService.getMarketByContractId(contract_id);
+        const leverage = market?.leverage || 10;
+        const notional = (market as any)?.notional || 1;
+        const marginRequired = (amount * price * notional) / leverage;
+        num += safeNumber(marginRequired);
+      }
+    }
+    return safeNumber(num);
+  }
+
+  calculateInitialMargin(isInverse: boolean, amount: number, price: number, leverage: number, notional:number) {
+    return isInverse
+      ? safeNumber(((amount / price)/leverage)*notional)
+      : safeNumber(((amount * price)/leverage)*notional);
   }
 
   async handleBuySell(isBuy: boolean) {
@@ -267,222 +212,105 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
       return;
     }
-    
+
     const amount = this.buySellGroup.value.amount;
     const _price = this.buySellGroup.value.price;
     const price = this.isLimitSelected ? _price : this.currentPrice;
-    const leverage = 10;
+
     const market = this.selectedMarket;
-    const collateral = market.collateral.propertyId;
-    const contract_id = market.contract_id;
+    const leverage = market.leverage || 10;
+    const notional = (market as any).notional || 1;
+    const isInverse = (market as any).inverse || false;
+    const initialMargin = this.calculateInitialMargin(isInverse, amount, price, leverage, notional);
 
-    try {
-        // Fetch contract information
-        const contractInfo = await this.getContractInfo(contract_id);
-
-        if (!contractInfo) {
-          this.toastrService.error('Contract information could not be retrieved.');
-          return;
-        }
-
-        const isInverse = contractInfo.inverse || false; // Assuming the contractInfo has an "inverse" property
-        const notional = contractInfo.notional || 1;
-        const leverage = contractInfo.leverage || 10; // Fetch leverage from contractInfo, default to 10 if not provided
-        const initialMargin = this.calculateInitialMargin(isInverse, amount, price, leverage, notional);
-
-        const pubkeyRes = await this.rpcService.rpc("getaddressinfo", [this.futureKeyPair]);
-        if (pubkeyRes.error || !pubkeyRes.data?.pubkey) throw new Error(pubkeyRes.error || "No Pubkey Found");
-        const pubkey = pubkeyRes.data.pubkey;
-
-        // Get the available and channel amounts
-        const tokenBalance = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
-            ?.find((t: any) => t.propertyid === collateral);
-
-        let availableBalance = 0;
-        let channelBalance = 0;
-
-        if (tokenBalance) {
-          availableBalance = safeNumber(tokenBalance.available || 0);
-          channelBalance = safeNumber(tokenBalance.channel || 0);
-        }
-
-        let transfer = false;
-
-        if (initialMargin <= channelBalance) {
-          transfer = true;
-        } else if (initialMargin <= availableBalance) {
-          transfer = false; // Use available balance, no need for transfer from channel
-        } else {
-          this.toastrService.error(`Insufficient collateral for this trade.`);
-          return;
-        }
-
-        if (!contract_id || (!price && this.isLimitSelected) || !amount) return;
-        if (!this.futureKeyPair) return;
-
-        const order: IFuturesTradeConf = { 
-          keypair: {
-            address: this.futureKeyPair,
-            pubkey: pubkey,
-          },
-          action: isBuy ? "BUY" : "SELL",
-          type: "FUTURES",
-          props: {
-            contract_id: contract_id,
-            amount: amount,
-            price: price,
-            collateral: collateral,
-            levarage: leverage,
-            transfer: transfer
-          },
-          isLimitOrder: this.isLimitSelected,
-          marketName: this.selectedMarket.pairString,
-        };
-        this.futuresOrdersService.newOrder(order);
-        this.buySellGroup.reset();
-    } catch (error) {
-        console.error('Error in buy/sell process:', error);
-        this.toastrService.error('An error occurred during the trade.');
-    }  // This is the missing closing brace for the try block
-}
-
-    stopLiquidity() {
-      console.log(`Stop Liquidity`);
-    }
-
-    /*addLiquidity(_amount: string, _orders_number: string, _range: string) {
-      const amount = parseFloat(_amount);
-      const orders_number = parseFloat(_orders_number);
-      const range = parseFloat(_range);
-      console.log({ amount, orders_number, range });
+    const pubkeyRes = await this.rpcService.rpc("getaddressinfo", [this.futureKeyPair]);
+    if (pubkeyRes.error || !pubkeyRes.data?.pubkey) {
+      this.toastrService.error(pubkeyRes.error || "No Pubkey Found");
       return;
-    }*/
+    }
+    const pubkey = pubkeyRes.data.pubkey;
 
-    getButtonDisabled(isBuy: boolean) {
-      const v = this.buySellGroup.value.amount <= this.getMaxAmount(isBuy);
-      return !this.buySellGroup.valid || !v;
+    const tokenBalance = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
+      ?.find((t: any) => t.propertyid === market.collateral.propertyId);
+
+    let availableBalance = 0;
+    let channelBalance = 0;
+
+    if (tokenBalance) {
+      availableBalance = safeNumber(tokenBalance.available || 0);
+      channelBalance = safeNumber(tokenBalance.channel || 0);
     }
 
-    private trackPriceHandler() {
-      this.futuresOrderbookService.outsidePriceHandler
-        .pipe(takeUntil(this.destroyed$))
-        .subscribe(price => {
-          this.buySellGroup.controls['price'].setValue(price);
-        });
+    const transfer = initialMargin <= channelBalance ? true : initialMargin <= availableBalance ? false : null;
+
+    if (transfer === null) {
+      this.toastrService.error(`Insufficient collateral for this trade.`);
+      return;
     }
 
-    async newFutureAddress() {
-    //   if (this.authService.walletKeys.futures.length) {
-    //     this.toastrService.error('The Limit of Futures Addresses is Reached');
-    //     return;
-    //   }
-    //   const passDialog = this.matDialog.open(PasswordDialog);
-    //   const password = await passDialog.afterClosed()
-    //       .pipe(first())
-    //       .toPromise();
-  
-    //   if (!password) return;
-    //   await this.authService.addKeyPair(EAddress.FUTURES, password);
+    const order: IFuturesTradeConf = {
+      keypair: {
+        address: this.futureKeyPair,
+        pubkey,
+      },
+      action: isBuy ? "BUY" : "SELL",
+      type: "FUTURES",
+      props: {
+        contract_id: market.contract_id,
+        amount,
+        price,
+        collateral: market.collateral.propertyId,
+        levarage: leverage,
+        transfer,
+      },
+      isLimitOrder: this.isLimitSelected,
+      marketName: market.pairString,
+    };
+    this.futuresOrdersService.newOrder(order);
+    this.buySellGroup.reset();
+  }
 
-    //   if (this.rpcService.NETWORK?.endsWith('TEST') && this.authService.activeFuturesKey?.address) {
-    //     const fundRes = await this.reLayerApi.fundTestnetAddress(this.authService.activeFuturesKey.address).toPromise();
-    //     if (fundRes.error || !fundRes.data) {
-    //         this.toastrService.warning(fundRes.error, 'Faucet Error');
-    //     } else {
-    //         this.toastrService.success(`${this.authService.activeFuturesKey?.address} was Fund with small amount tLTC`, 'Testnet Faucet')
-    //     }
-    // }
+  getButtonDisabled(isBuy: boolean) {
+    return !this.buySellGroup.valid || this.buySellGroup.value.amount > this.getMaxAmount(isBuy);
+  }
+
+  getFees(isBuy: boolean): number {
+    const { amount, price } = this.buySellGroup.value;
+
+    const amt = safeNumber(amount);
+    const prc = safeNumber(price);
+
+    if (!amt || !prc || isNaN(amt) || isNaN(prc) || amt <= 0 || prc <= 0) {
+      return 0;
     }
 
-    private async updateNameBalanceInfo() {
-      if (!this.futureAddress || !this.selectedMarket?.collateral) {
-        this.nameBalanceInfo = null;
-        return;
-      }
+    const finalInputs: number[] = [];
+    const _amount = safeNumber((amt * prc) + minVOutAmount);
+    const _allAmounts = this.balanceService.getCoinBalancesByAddress(this.futureAddress)?.utxos
+      ?.map(r => r.amount)
+      ?.sort((a, b) => b - a) || [];
 
-      try {
-        const token = this.selectedMarket.collateral;
-        const info = await this.getNameBalanceInfo(token);
-        this.nameBalanceInfo = info;
-      } catch (err) {
-        console.error('Failed to load balance info:', err);
-        this.nameBalanceInfo = null;
-      }
-    }
+    const allAmounts = [minVOutAmount, ..._allAmounts];
 
+    allAmounts.forEach(u => {
+      const amountSum = safeNumber(finalInputs.reduce((a, b) => a + b, 0));
+      const _fee = safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length + 1));
+      if (amountSum < safeNumber(_amount + _fee)) finalInputs.push(u);
+    });
 
-    async getNameBalanceInfo(token: IToken) {
-      const _balance = token.propertyId === -1
-        ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
-        : this.balanceService.getTokensBalancesByAddress(this.futureAddress)
-          ?.find(e => e.propertyid === token.propertyId)?.available;
-      const inOrderBalance = await this.getInOrderAmount(token.propertyId);
-      const balance = safeNumber((_balance  || 0) - inOrderBalance);
-      return [token.fullName, `${ balance > 0 ? balance : 0 } ${token.shortName}`];
-    }
+    return safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length));
+  }
 
-    // Example of initial margin calculation based on inverse contract type
-    calculateInitialMargin(isInverse: boolean, amount: number, price: number, leverage: number, notional:number){
-      let margin = 0;
-      if (isInverse) {
-        // Logic for inverse margin calculation
-        margin = safeNumber(((amount / price)/leverage)*notional);  // Simplified example for inverse
-      } else {
-        // Logic for standard margin calculation
-        margin = safeNumber(((amount * price)/leverage)*notional);  // Simplified example for standard
-      }
-      return safeNumber(margin);
-    }
-  
-    async getInOrderAmount(propertyId: number): Promise<number> {
-      let num = 0;
-      for (const o of this.futuresOrdersService.openedOrders) {
-        const { amount, price, collateral, contract_id } = o.props;
-        if (collateral === propertyId) {
-          const contractInfo = await this.getContractInfo(contract_id);
-          const leverage = contractInfo?.leverage || 10;
-          const notional = contractInfo?.notional || 1;
-          const marginRequired = (amount * price * notional) / leverage;
-          num += safeNumber(marginRequired);
-        }
-      }
-      return safeNumber(num);
-    }
+  stopLiquidity() {
+    console.log(`Stop Liquidity`);
+  }
 
-    getAttestationStatus(address: string): string {
-      const status = this.attestationService.getAttByAddress(address);
-      switch (status) {
-        case 'active': return 'YES';
-        case 'inactive': return 'REVOKED';
-        default: return 'NO';
-      }
-    }
+  closeAll() {
+    this.futuresOrdersService.closeAllOrders();
+  }
 
-
-    ngOnDestroy() {
-      this.destroyed$.next(true);
-      this.destroyed$.complete();
-    }
-
-    getFees(isBuy: boolean) {
-      const { amount, price } = this.buySellGroup.value;
-      if (!amount || !price) return 0;
-      const finalInputs: number[] = [];
-      const _amount = safeNumber((amount * price) + minVOutAmount);
-      const _allAmounts = this.balanceService.getCoinBalancesByAddress(this.futureAddress).utxos
-        .map(r => r.amount)
-        .sort((a, b) => b - a);
-      const allAmounts = [minVOutAmount, ..._allAmounts]
-      allAmounts.forEach(u => {
-        const _amountSum: number = finalInputs.reduce((a, b) => a + b, 0);
-        const amountSum = safeNumber(_amountSum);
-        const _fee = safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length + 1));
-        if (amountSum < safeNumber(_amount + _fee)) finalInputs.push(u);
-      });
-      return safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length));
-    }
-
-    closeAll() {
-      this.futuresOrdersService.closeAllOrders();
-    }
+  ngOnDestroy() {
+    this.destroyed$.next(true);
+    this.destroyed$.complete();
+  }
 }
