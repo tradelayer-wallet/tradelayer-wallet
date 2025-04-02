@@ -81,15 +81,6 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     this.buildForms();
     this.trackPriceHandler();
-
-    this.buySellGroup.valueChanges
-      .pipe(takeUntil(this.destroyed$))
-      .subscribe(() => {
-        this.updateMaxAmounts();
-        this.buyFee = this.calculateFee(true);
-        this.sellFee = this.calculateFee(false);
-      });
-
     await this.updateMaxAmounts();
 
     if (this.futureAddress && this.selectedMarket?.collateral) {
