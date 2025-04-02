@@ -36,8 +36,8 @@ export interface IToken {
 export class FuturesMarketService {
 
     private _futuresMarketsTypes: IFuturesMarketType[] = [];
-    private _selectedMarketType: IFuturesMarketType = this.futuresMarketsTypes[0] || null;
-    private _selectedMarket: IFutureMarket = this.selectedMarketType?.markets[0] || null;
+    private _selectedMarketType: IFuturesMarketType = null;
+    private _selectedMarket: IFutureMarket = null;
 
     constructor(
         private apiService: ApiService,
@@ -64,19 +64,21 @@ export class FuturesMarketService {
     }
 
     get marketsFromSelectedMarketType(): IFutureMarket[] {
-        if (!this.futuresMarketsTypes.length) return [];
-        return this.selectedMarketType.markets;
+        if (!this._selectedMarketType || !this._selectedMarketType.markets) return [];
+        return this._selectedMarketType.markets;
     }
 
     get selectedMarket(): IFutureMarket {
-        return this._selectedMarket;
+        return this._selectedMarket || this.marketsFromSelectedMarketType[0] || null;
     }
 
     set selectedMarket(value: IFutureMarket) {
         this._selectedMarket = value;
         this.changeOrderbookMarketFilter();
-        this.futuresPositionsService.selectedContractId = (this.selectedMarket.contract_id).toString()
-        this.futuresPositionsService.updatePositions();
+        if (this.selectedMarket) {
+            this.futuresPositionsService.selectedContractId = (this.selectedMarket.contract_id).toString();
+            this.futuresPositionsService.updatePositions();
+        }
     }
 
     get selectedMarketIndex() {
@@ -90,7 +92,7 @@ export class FuturesMarketService {
     get marketFilter() {
         return {
             type: 'FUTURES',
-            contract_id: this.selectedMarket.contract_id,
+            contract_id: this.selectedMarket?.contract_id,
         };
     };
 
@@ -122,14 +124,15 @@ export class FuturesMarketService {
     }
 
     getMarketByContractId(contractId: number): IFutureMarket | null {
-          const allMarkets = this._futuresMarketsTypes
+        const allMarkets = this._futuresMarketsTypes
             .map((type: IFuturesMarketType) => type.markets)
             .reduce((acc, val) => acc.concat(val), []);
-          return allMarkets.find(m => m.contract_id === contractId) || null;
-        }
-
+        return allMarkets.find(m => m.contract_id === contractId) || null;
+    }
 
     private changeOrderbookMarketFilter() {
-        this.socket.emit('update-orderbook', this.marketFilter);
+        if (this.selectedMarket) {
+            this.socket.emit('update-orderbook', this.marketFilter);
+        }
     }
 }
