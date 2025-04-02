@@ -26,124 +26,117 @@ const minVOutAmount = 0.000036;
   styleUrls: ['../../../spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component.scss'],
 })
 export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
-  private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
-  private _isLimitSelected: boolean = true;
-  public buySellGroup: FormGroup = new FormGroup({});
-  public maxBuyAmount: number = 0;
-  public maxSellAmount: number = 0;
+    private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
+    private _isLimitSelected: boolean = true;
+    public buySellGroup: FormGroup = new FormGroup({});
 
-  constructor(
-    private futuresMarketService: FuturesMarketService,
-    private balanceService: BalanceService,
-    private fb: FormBuilder,
-    private authService: AuthService,
-    private toastrService: ToastrService,
-    private attestationService: AttestationService,
-    private loadingService: LoadingService,
-    private rpcService: RpcService,
-    private apiService: ApiService,
-    private futuresOrdersService: FuturesOrdersService,
-    private futuresOrderbookService: FuturesOrderbookService,
-    public matDialog: MatDialog,
-  ) {}
+    constructor(
+      private futuresMarketService: FuturesMarketService,
+      private balanceService: BalanceService,
+      private fb: FormBuilder,
+      private authService: AuthService,
+      private toastrService: ToastrService,
+      private attestationService: AttestationService,
+      private loadingService: LoadingService,
+      private rpcService: RpcService,
+      private apiService: ApiService,
+      private futuresOrdersService: FuturesOrdersService,
+      private futuresOrderbookService: FuturesOrderbookService,
+      public matDialog: MatDialog,
+    ) {}
 
-  get futureKeyPair() {
-    return this.authService.walletAddresses[0];
-  }
-
-  get futureAddress() {
-    return this.futureKeyPair;
-  }
-
-  get isLoading(): boolean {
-    return this.loadingService.tradesLoading;
-  }
-
-  get selectedMarket(): IFutureMarket {
-    return this.futuresMarketService.selectedMarket;
-  }
-
-  get currentPrice() {
-    return this.futuresOrderbookService.currentPrice;
-  }
-
-  get isLimitSelected() {
-    return this._isLimitSelected;
-  }
-
-  set isLimitSelected(value: boolean) {
-    this._isLimitSelected = value;
-    this.buySellGroup.controls.price.setValue(this.currentPrice);
-  }
-
-  get reLayerApi() {
-    return this.apiService.tlApi;
-  }
-
-  ngOnInit() {
-    this.buildForms();
-    this.trackPriceHandler();
-    this.updateMaxAmounts();
-  }
-
-  private async updateMaxAmounts() {
-    this.maxBuyAmount = await this.getMaxAmount(true);
-    this.maxSellAmount = await this.getMaxAmount(false);
-  }
-
-  private buildForms() {
-    this.buySellGroup = this.fb.group({
-      price: [null, [Validators.required, Validators.min(0.01)]],
-      amount: [null, [Validators.required, Validators.min(0.01)]],
-    });
-
-    this.buySellGroup.valueChanges.pipe(takeUntil(this.destroyed$)).subscribe(() => {
-      this.updateMaxAmounts();
-    });
-  }
-
-  fillMax(isBuy: boolean) {
-    const value = isBuy ? this.maxBuyAmount : this.maxSellAmount;
-    this.buySellGroup?.controls?.['amount'].setValue(value);
-  }
-
-  async getMaxAmount(isBuy: boolean): Promise<number> {
-    if (!this.futureAddress) return 0;
-    if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
-
-    const _price = this.isLimitSelected
-      ? this.buySellGroup.value['price']
-      : this.currentPrice;
-    const price = safeNumber(_price);
-
-    const propId = this.selectedMarket.collateral.propertyId;
-
-    const tokenBalanceObj = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
-      ?.find((t: any) => t.propertyid === propId);
-
-    let availableBalance = 0;
-    let channelBalance = 0;
-
-    if (tokenBalanceObj) {
-      availableBalance = safeNumber(tokenBalanceObj.available || 0);
-      channelBalance = safeNumber(tokenBalanceObj.channel || 0);
+    get futureKeyPair() {
+      return this.authService.walletAddresses[0];
     }
 
-    const tokenBalance = Math.max(availableBalance, channelBalance);
-    const inOrderBalance = await this.getInOrderAmount(propId);
-    const available = safeNumber(tokenBalance - inOrderBalance);
+    get futureAddress() {
+      return this.futureKeyPair;
+    }
 
-    if (!available || (available / price <= 0)) return 0;
+    get isLoading(): boolean {
+      return this.loadingService.tradesLoading;
+    }
 
-    const contractInfo = await this.getContractInfo(this.selectedMarket.contract_id);
-    const leverage = contractInfo?.leverage || 10;
-    const notional = contractInfo?.notional || 1;
+    get selectedMarket(): IFutureMarket {
+      return this.futuresMarketService.selectedMarket
+    }
 
-    const max = safeNumber((available * leverage) / (price * notional));
-    return max;
-  }
+    get currentPrice() {
+      return this.futuresOrderbookService.currentPrice;
+    }
 
-  async handleBuySell(isBuy: boolean) {
+    get isLimitSelected() {
+      return this._isLimitSelected;
+    }
+
+    set isLimitSelected(value: boolean) {
+      this._isLimitSelected = value;
+      this.buySellGroup.controls.price.setValue(this.currentPrice);
+    }
+
+    get reLayerApi() {
+      return this.apiService.tlApi;
+    }
+
+    ngOnInit() {
+      this.buildForms();
+      this.trackPriceHandler();
+    }
+
+    private buildForms() {
+      this.buySellGroup = this.fb.group({
+        price: [null, [Validators.required, Validators.min(0.01)]],
+        amount: [null, [Validators.required, Validators.min(0.01)]],
+      })
+    }
+
+    fillMax(isBuy: boolean) {
+      const value = this.getMaxAmount(isBuy);
+      this.buySellGroup?.controls?.['amount'].setValue(value);
+      // tricky update the Max Amount 
+      const value2 = this.getMaxAmount(isBuy);
+      this.buySellGroup?.controls?.['amount'].setValue(value2);
+    }
+
+    async getMaxAmount(isBuy: boolean): Promise<number> {
+      if (!this.futureAddress) return 0;
+      if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
+
+      const _price = this.isLimitSelected
+        ? this.buySellGroup.value['price']
+        : this.currentPrice;
+      const price = safeNumber(_price);
+
+      const propId = this.selectedMarket.collateral.propertyId;
+
+      const tokenBalanceObj = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
+        ?.find((t: any) => t.propertyid === propId);
+
+      let availableBalance = 0;
+      let channelBalance = 0;
+
+      if (tokenBalanceObj) {
+        availableBalance = safeNumber(tokenBalanceObj.available || 0);
+        channelBalance = safeNumber(tokenBalanceObj.channel || 0);
+      }
+
+      const tokenBalance = Math.max(availableBalance, channelBalance);
+      const inOrderBalance = await this.getInOrderAmount(propId);
+      const available = safeNumber(tokenBalance - inOrderBalance);
+
+      if (!available || (available / price <= 0)) return 0;
+
+      // 🧩 Fetch contract info (leverage, notional)
+      const contractInfo = await this.getContractInfo(this.selectedMarket.contract_id);
+      const leverage = contractInfo?.leverage || 10;
+      const notional = contractInfo?.notional || 1;
+
+      // 🧠 Max = (available * leverage) / (price * notional)
+      const max = safeNumber((available * leverage) / (price * notional));
+      return max;
+    }
+
+    async handleBuySell(isBuy: boolean) {
     const fee = this.getFees(isBuy);
     const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.futureAddress)?.confirmed || 0) - fee);
     if (available < 0) {
@@ -229,6 +222,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }  // This is the missing closing brace for the try block
 }
 
+
     stopLiquidity() {
       console.log(`Stop Liquidity`);
     }
@@ -302,6 +296,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     // Example of initial margin calculation based on inverse contract type
     calculateInitialMargin(isInverse: boolean, amount: number, price: number, leverage: number, notional:number){
       let margin = 0;
+
       if (isInverse) {
         // Logic for inverse margin calculation
         margin = safeNumber(((amount / price)/leverage)*notional);  // Simplified example for inverse
@@ -309,11 +304,13 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         // Logic for standard margin calculation
         margin = safeNumber(((amount * price)/leverage)*notional);  // Simplified example for standard
       }
+
       return safeNumber(margin);
     }
   
     async getInOrderAmount(propertyId: number): Promise<number> {
       let num = 0;
+
       for (const o of this.futuresOrdersService.openedOrders) {
         const { amount, price, collateral, contract_id } = o.props;
         if (collateral === propertyId) {
@@ -324,8 +321,10 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
           num += safeNumber(marginRequired);
         }
       }
+
       return safeNumber(num);
     }
+
 
     isFutureAddressSelfAtt() {
         const attestationStatus = this.attestationService.getAttByAddress(this.futureAddress);
@@ -338,6 +337,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
                 return "NO";
         }
     }
+
 
     ngOnDestroy() {
       this.destroyed$.next(true);
