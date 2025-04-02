@@ -95,13 +95,21 @@ export class FuturesMarketService {
     };
 
     getMarkets() {
-        this.apiService.marketApi.getFuturesMarkets()
-            .subscribe(async (marketTypes: IFuturesMarketType[]) => {
-                this._futuresMarketsTypes = marketTypes;
-                await this.enrichWithContractInfo();
-                this.selectedMarketType = marketTypes.find(e => !e.disabled) || marketTypes[0];
+          this.apiService.marketApi.getFuturesMarkets()
+            .subscribe((marketTypes: IFuturesMarketType[]) => {
+              this._futuresMarketsTypes = marketTypes;
+              this._selectedMarketType = marketTypes.find(e => !e.disabled) || marketTypes[0];
+              this._selectedMarket = this._selectedMarketType.markets.find(m => !m.disabled) || this._selectedMarketType.markets[0];
+
+              this.futuresPositionsService.selectedContractId = this._selectedMarket.contract_id.toString();
+              this.futuresPositionsService.updatePositions();
+              this.changeOrderbookMarketFilter();
+
+              // Enrich in background, *after* things are stable
+              this.enrichWithContractInfo(); 
             });
-    }
+        }
+
 
     private async enrichWithContractInfo() {
         const allMarkets = this._futuresMarketsTypes

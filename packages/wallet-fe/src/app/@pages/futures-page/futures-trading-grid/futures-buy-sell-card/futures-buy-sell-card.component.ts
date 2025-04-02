@@ -181,20 +181,22 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     return max;
   }
 
-  async getInOrderAmount(propertyId: number): Promise<number> {
-    let num = 0;
-    for (const o of this.futuresOrdersService.openedOrders) {
-      const { amount, price, collateral, contract_id } = o.props;
-      if (collateral === propertyId) {
-        const market = this.futuresMarketService.getMarketByContractId(contract_id);
-        const leverage = market?.leverage || 10;
-        const notional = (market as any)?.notional || 1;
-        const marginRequired = (amount * price * notional) / leverage;
-        num += safeNumber(marginRequired);
-      }
+ async getInOrderAmount(propertyId: number): Promise<number> {
+  let num = 0;
+  const market = this.selectedMarket;
+  const leverage = market?.leverage || 10;
+  const notional = market?.notional || 1;
+
+  for (const o of this.futuresOrdersService.openedOrders) {
+    const { amount, price, collateral, contract_id } = o.props;
+    if (collateral === propertyId && contract_id === market.contract_id) {
+      const marginRequired = (amount * price * notional) / leverage;
+      num += safeNumber(marginRequired);
     }
-    return safeNumber(num);
   }
+  return safeNumber(num);
+}
+
 
   calculateInitialMargin(isInverse: boolean, amount: number, price: number, leverage: number, notional:number) {
     return isInverse
