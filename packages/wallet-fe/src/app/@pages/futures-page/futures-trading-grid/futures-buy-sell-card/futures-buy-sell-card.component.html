@@ -26,14 +26,18 @@
         <div class="suffix">{{ selectedMarket.first_token?.shortName || '-' }}</div>
       </div>
     </div>
-    <div class="buy-sell-info">
-      <div class="column">
-        <span *ngIf="buySellGroup.valid">Fee: {{ getFees(true).toFixed(6) }} LTC</span>
+   <div class="buy-sell-info">
+        <div class="column">
+          <span *ngIf="buySellGroup.valid && buySellGroup.value.amount && buySellGroup.value.price">
+            Fee: {{ buyFee.toFixed(6) }} LTC
+          </span>
+        </div>
+        <div class="column">
+          <span *ngIf="buySellGroup.valid && buySellGroup.value.amount && buySellGroup.value.price">
+            Fee: {{ sellFee.toFixed(6) }} LTC
+          </span>
+        </div>
       </div>
-      <div class="column">
-        <span *ngIf="buySellGroup.valid">Fee: {{ getFees(true).toFixed(6) }} LTC</span>
-      </div>
-    </div>
     <div class="buttons">
       <button class='buy-button' (click)='handleBuySell(true)' [disabled]='getButtonDisabled(true)'>Long</button>
       <button class='sell-button' (click)='handleBuySell(false)' [disabled]='getButtonDisabled(false)'>Short</button>

@@ -31,6 +31,8 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   public maxSellAmount: number = 0;
   public nameBalanceInfo: string[] | null = null;
   public attestationStatus: string = '';
+  public buyFee: number = 0;
+  public sellFee: number = 0;
 
   constructor(
     private futuresMarketService: FuturesMarketService,
@@ -84,6 +86,8 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroyed$))
       .subscribe(() => {
         this.updateMaxAmounts();
+        this.buyFee = this.calculateFee(true);
+        this.sellFee = this.calculateFee(false);
       });
 
     await this.updateMaxAmounts();
@@ -205,8 +209,37 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       : safeNumber(((amount * price)/leverage)*notional);
   }
 
+  calculateFee(isBuy: boolean): number {
+    try {
+      const { amount, price } = this.buySellGroup.value;
+
+      const amt = safeNumber(amount);
+      const prc = safeNumber(price);
+
+      if (!amt || !prc || isNaN(amt) || isNaN(prc) || amt <= 0 || prc <= 0) return 0;
+
+      const finalInputs: number[] = [];
+      const _amount = (amt * prc) + minVOutAmount;
+
+      const coinBalances = this.balanceService.getCoinBalancesByAddress(this.futureAddress);
+      if (!coinBalances || !Array.isArray(coinBalances.utxos)) return 0;
+
+      const allAmounts = [minVOutAmount, ...coinBalances.utxos.map(u => u.amount).sort((a, b) => b - a)];
+      allAmounts.forEach(u => {
+        const amountSum = safeNumber(finalInputs.reduce((a, b) => a + b, 0));
+        const _fee = (0.3 * minFeeLtcPerKb) * (finalInputs.length + 1);
+        if (amountSum < (_amount + _fee)) finalInputs.push(u);
+      });
+
+      return (0.3 * minFeeLtcPerKb) * (finalInputs.length);
+    } catch (err) {
+      console.error('Error in calculateFee:', err);
+      return 0;
+    }
+  }
+
   async handleBuySell(isBuy: boolean) {
-    const fee = this.getFees(isBuy);
+    const fee = this.calculateFee(isBuy);
     const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.futureAddress)?.confirmed || 0) - fee);
     if (available < 0) {
       this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
@@ -272,33 +305,6 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
   getButtonDisabled(isBuy: boolean) {
     return !this.buySellGroup.valid || this.buySellGroup.value.amount > this.getMaxAmount(isBuy);
-  }
-
-  getFees(isBuy: boolean): number {
-    const { amount, price } = this.buySellGroup.value;
-
-    const amt = safeNumber(amount);
-    const prc = safeNumber(price);
-
-    if (!amt || !prc || isNaN(amt) || isNaN(prc) || amt <= 0 || prc <= 0) {
-      return 0;
-    }
-
-    const finalInputs: number[] = [];
-    const _amount = safeNumber((amt * prc) + minVOutAmount);
-    const _allAmounts = this.balanceService.getCoinBalancesByAddress(this.futureAddress)?.utxos
-      ?.map(r => r.amount)
-      ?.sort((a, b) => b - a) || [];
-
-    const allAmounts = [minVOutAmount, ..._allAmounts];
-
-    allAmounts.forEach(u => {
-      const amountSum = safeNumber(finalInputs.reduce((a, b) => a + b, 0));
-      const _fee = safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length + 1));
-      if (amountSum < safeNumber(_amount + _fee)) finalInputs.push(u);
-    });
-
-    return safeNumber((0.3 * minFeeLtcPerKb) * (finalInputs.length));
   }
 
   stopLiquidity() {
