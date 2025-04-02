@@ -29,12 +29,12 @@
    <div class="buy-sell-info">
         <div class="column">
           <span *ngIf="buySellGroup.valid && buySellGroup.value.amount && buySellGroup.value.price">
-            Fee: {{ buyFee.toFixed(6) }} LTC
+            Fee: {{ buyFee | number: '1.4-4' }} LTC
           </span>
         </div>
         <div class="column">
           <span *ngIf="buySellGroup.valid && buySellGroup.value.amount && buySellGroup.value.price">
-            Fee: {{ sellFee.toFixed(6) }} LTC
+            Fee: {{ sellFee | number: '1.4-4' }} LTC
           </span>
         </div>
       </div>

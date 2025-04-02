@@ -163,7 +163,9 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       : this.currentPrice;
     const price = safeNumber(_price);
 
-    const propId = this.selectedMarket.collateral.propertyId;
+    const propId = this.selectedMarket?.collateral?.propertyId;
+    if (!propId) return 0;
+
     const tokenBalanceObj = this.balanceService.getTokensBalancesByAddress(this.futureAddress)
       ?.find((t: any) => t.propertyid === propId);
 
