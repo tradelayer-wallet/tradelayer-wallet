@@ -27,7 +27,12 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
   private _isLimitSelected: boolean = true;
   public buySellGroup: FormGroup = new FormGroup({});
-  public isBuyAction: boolean = true;
+  public buyFee: number = 0;
+  public sellFee: number = 0;
+  public maxBuyAmount: number = 0;
+  public maxSellAmount: number = 0;
+  public nameBalanceInfo: string[] = [];
+  public attestationStatus: string = '';
 
   constructor(
     private futuresMarketService: FuturesMarketService,
@@ -76,6 +81,16 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.buildForms();
     this.trackPriceHandler();
+
+    this.buySellGroup.valueChanges.pipe(takeUntil(this.destroyed$)).subscribe(() => {
+      this.maxBuyAmount = this.getMaxAmount();
+      this.maxSellAmount = this.getMaxAmount();
+      this.buyFee = this.calculateFee();
+      this.sellFee = this.calculateFee();
+    });
+
+    this.nameBalanceInfo = this.getNameBalanceInfo(this.selectedMarket.collateral);
+    this.attestationStatus = this.getAttestationStatus(this.futureAddress);
   }
 
   private buildForms() {
@@ -91,6 +106,24 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       .subscribe(price => {
         this.buySellGroup.controls['price'].setValue(price);
       });
+  }
+
+  getNameBalanceInfo(token: IToken): string[] {
+    const rawBalance = token.propertyId === -1
+      ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
+      : this.balanceService.getTokensBalancesByAddress(this.futureAddress)?.find(e => e.propertyid === token.propertyId)?.available;
+
+    const balance = safeNumber(rawBalance ?? 0);
+    return [token.fullName, `${balance.toFixed(6)} ${token.shortName}`];
+  }
+
+  getAttestationStatus(address: string): string {
+    const status = this.attestationService.getAttByAddress(address);
+    switch (status) {
+      case 'active': return 'YES';
+      case 'inactive': return 'REVOKED';
+      default: return 'NO';
+    }
   }
 
   calculateInitialMargin(isInverse: boolean, amount: number, price: number, leverage: number, notional: number) {
