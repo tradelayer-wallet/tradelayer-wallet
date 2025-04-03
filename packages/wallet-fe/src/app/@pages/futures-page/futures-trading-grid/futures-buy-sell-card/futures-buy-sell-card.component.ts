@@ -201,47 +201,52 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     const isInverse = market.inverse || false;
     const initialMargin = this.calculateInitialMargin(isInverse, amount, price, leverage, notional);
 
-    const pubkey = this.authService.activeFuturesKey?.pubkey;
-    if (!pubkey) {
-      this.toastrService.error('Missing pubkey');
-      return;
-    }
+    this.rpcService.rpc("getaddressinfo", [this.futureAddress]).then(pubkeyRes => {
+      if (pubkeyRes.error || !pubkeyRes.data?.pubkey) {
+        this.toastrService.error(pubkeyRes.error || 'Missing pubkey');
+        return;
+      }
 
-    const tokenBalance = this.balanceService.getTokensBalancesByAddress(this.futureAddress)?.find((t: any) => t.propertyid === market.collateral.propertyId);
-    let availableBalance = 0;
-    let channelBalance = 0;
-    if (tokenBalance) {
-      availableBalance = safeNumber(tokenBalance.available || 0);
-      channelBalance = safeNumber(tokenBalance.channel || 0);
-    }
+      const pubkey = pubkeyRes.data.pubkey;
+      const tokenBalance = this.balanceService.getTokensBalancesByAddress(this.futureAddress)?.find((t: any) => t.propertyid === market.collateral.propertyId);
+      let availableBalance = 0;
+      let channelBalance = 0;
+      if (tokenBalance) {
+        availableBalance = safeNumber(tokenBalance.available || 0);
+        channelBalance = safeNumber(tokenBalance.channel || 0);
+      }
 
-    const transfer = initialMargin <= channelBalance ? true : initialMargin <= availableBalance ? false : null;
-    if (transfer === null) {
-      this.toastrService.error(`Insufficient collateral for this trade.`);
-      return;
-    }
+      const transfer = initialMargin <= channelBalance ? true : initialMargin <= availableBalance ? false : null;
+      if (transfer === null) {
+        this.toastrService.error(`Insufficient collateral for this trade.`);
+        return;
+      }
 
-    const order: IFuturesTradeConf = {
-      keypair: {
-        address: this.futureKeyPair,
-        pubkey,
-      },
-      action: isBuy ? 'BUY' : 'SELL',
-      type: 'FUTURES',
-      props: {
-        contract_id: market.contract_id,
-        amount,
-        price,
-        collateral: market.collateral.propertyId,
-        levarage: leverage,
-        transfer,
-      },
-      isLimitOrder: this.isLimitSelected,
-      marketName: market.pairString,
-    };
+      const order: IFuturesTradeConf = {
+        keypair: {
+          address: this.futureKeyPair,
+          pubkey,
+        },
+        action: isBuy ? 'BUY' : 'SELL',
+        type: 'FUTURES',
+        props: {
+          contract_id: market.contract_id,
+          amount,
+          price,
+          collateral: market.collateral.propertyId,
+          levarage: leverage,
+          transfer,
+        },
+        isLimitOrder: this.isLimitSelected,
+        marketName: market.pairString,
+      };
 
-    this.futuresOrdersService.newOrder(order);
-    this.buySellGroup.reset();
+      this.futuresOrdersService.newOrder(order);
+      this.buySellGroup.reset();
+    }).catch(err => {
+      console.error('Pubkey fetch failed', err);
+      this.toastrService.error('Failed to fetch pubkey');
+    });
   }
 
   getButtonDisabled(): boolean {
