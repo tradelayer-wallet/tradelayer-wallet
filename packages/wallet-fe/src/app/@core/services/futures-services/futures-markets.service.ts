@@ -84,7 +84,7 @@ export class FuturesMarketService {
     }
 
     get socket() {
-        return this.socketService.socket;
+      return this.socketService.socket;
     }
 
     get marketFilter() {
@@ -93,22 +93,27 @@ export class FuturesMarketService {
             contract_id: this.selectedMarket.contract_id,
         };
     };
+public isContractDataReady = false; // ← new flag
 
-    getMarkets() {
-          this.apiService.marketApi.getFuturesMarkets()
-            .subscribe((marketTypes: IFuturesMarketType[]) => {
-              this._futuresMarketsTypes = marketTypes;
-              this._selectedMarketType = marketTypes.find(e => !e.disabled) || marketTypes[0];
-              this._selectedMarket = this._selectedMarketType.markets.find(m => !m.disabled) || this._selectedMarketType.markets[0];
+getMarkets() {
+  this.apiService.marketApi.getFuturesMarkets()
+    .subscribe(async (marketTypes: IFuturesMarketType[]) => {
+      this._futuresMarketsTypes = marketTypes;
+      this._selectedMarketType = marketTypes.find(e => !e.disabled) || marketTypes[0];
+      this._selectedMarket = this._selectedMarketType.markets.find(m => !m.disabled) || this._selectedMarketType.markets[0];
 
-              this.futuresPositionsService.selectedContractId = this._selectedMarket.contract_id.toString();
-              this.futuresPositionsService.updatePositions();
-              this.changeOrderbookMarketFilter();
+      this.futuresPositionsService.selectedContractId = this._selectedMarket.contract_id.toString();
+      this.futuresPositionsService.updatePositions();
+      this.changeOrderbookMarketFilter();
 
-              // Enrich in background, *after* things are stable
-              this.enrichWithContractInfo(); 
-            });
-        }
+      // Enrich contract info
+      this.enrichWithContractInfo();
+
+      // ✅ Mark as ready
+      this.isContractDataReady = true;
+    });
+}
+
 
 
     private async enrichWithContractInfo() {
@@ -135,7 +140,6 @@ export class FuturesMarketService {
             .reduce((acc, val) => acc.concat(val), []);
           return allMarkets.find(m => m.contract_id === contractId) || null;
         }
-
 
     private changeOrderbookMarketFilter() {
         this.socket.emit('update-orderbook', this.marketFilter);
