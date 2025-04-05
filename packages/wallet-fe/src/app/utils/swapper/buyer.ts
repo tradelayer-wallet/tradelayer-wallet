@@ -222,9 +222,9 @@ export class BuySwapper extends Swap {
 
         } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {
 
-         const { contract_id, amount, price, collateral,levarage, transfer} = this.tradeInfo as IFuturesTradeProps;
+         let { contract_id, amount, price, collateral,levarage, transfer} = this.tradeInfo as IFuturesTradeProps;
 
-
+         if(collateral==0){collateral=1} //make sure LTC contract defaults to TL
       const column = await this.txsService.predictColumn(this.myInfo.keypair.address, this.cpInfo.keypair.address);
       const isA = column === 'A' ? 1 : 0;
       const initMargin = new BigNumber(amount || 0)
