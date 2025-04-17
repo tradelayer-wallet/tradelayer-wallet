@@ -2,6 +2,8 @@ import { Injectable } from "@angular/core";
 import { ToastrService } from "ngx-toastr";
 import { AuthService } from "../auth.service";
 import { RpcService } from "../rpc.service";
+import { ApiService } from "../api.service";
+
 import { Subscription } from 'rxjs';  
 
 export interface IPosition {
@@ -24,6 +26,7 @@ export class FuturesPositionsService {
         private rpcService: RpcService,
         private authService: AuthService,
         private toastrService: ToastrService,
+        private apiService: ApiService,
     ) {}
 
     get selectedContractId() {
@@ -36,6 +39,10 @@ export class FuturesPositionsService {
 
     get activeFutureAddress() {
         return this.authService.activeFuturesKey?.address;
+    }
+
+     get tlApi() {
+        return this.apiService.newTlApi;
     }
 
     get openedPosition() {
