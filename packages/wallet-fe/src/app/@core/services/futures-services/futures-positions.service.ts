@@ -57,16 +57,32 @@ export class FuturesPositionsService {
 
     async updatePositions() {
         if (!this.activeFutureAddress || !this.selectedContractId) return;
-        const params = [this.activeFutureAddress, this.selectedContractId];
-        const res = await this.rpcService.rpc('tl_getfullposition', params);
-        if (res.error || !res.data) {
-            this.toastrService.error(res.error || 'Error with getting Opened positions', 'Error');
-            return;
-        }
-        if (parseFloat(res.data?.['position'] || "0")) {
-            this.openedPosition = res.data;
-        } else {
-            this.openedPosition = null;
+
+        const params = {
+            address: this.activeFutureAddress,
+            contractId: this.selectedContractId
+        };
+
+        try {
+            const res = await this.tlApi.rpc('contractPosition', params).toPromise();
+            console.log('position update '+JSON.stringify(res.data))
+            if (res.error || !res.data) {
+                this.toastrService.error(res.error || 'Error getting opened position', 'Error');
+                this.openedPosition = null;
+                return;
+            }
+
+            const positionValue = parseFloat(res.data?.['position'] || "0");
+
+            if (positionValue) {
+                this.openedPosition = res.data;
+            } else {
+                this.openedPosition = null;
+            }
+
+        } catch (err) {
+            console.error('❌ RPC error in updatePositions:', err);
+            this.toastrService.error('Network error fetching position', 'Error');
         }
     }
 }
