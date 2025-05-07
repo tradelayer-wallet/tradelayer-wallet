@@ -23,6 +23,7 @@ const minVOutAmount = 0.000036;
   templateUrl: './futures-buy-sell-card.component.html',
   styleUrls: ['../../../spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component.scss'],
 })
+
 export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
   private _isLimitSelected: boolean = true;
@@ -267,3 +268,4 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     this.destroyed$.complete();
   }
 }
+
