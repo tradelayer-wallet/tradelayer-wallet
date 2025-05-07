@@ -18,6 +18,7 @@ export interface IFuturesTradeConf extends ITradeConf {
     props: {
         contract_id: number,
         amount: number,
+        margin?: number,
         price: number,
         levarage: number;
         collateral: number;

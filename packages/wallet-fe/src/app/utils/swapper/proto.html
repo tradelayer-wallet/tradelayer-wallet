@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blighted Galaxy Prototype</title>
+  <style>
+    body, html { margin:0; padding:0; overflow:hidden; background:#000; }
+    canvas { display:block; }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<script>
+// --- Canvas Setup ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- Utility Vector Class ---
+class Vec {
+  constructor(x=0, y=0) { this.x = x; this.y = y; }
+  add(v) { this.x += v.x; this.y += v.y; return this; }
+  sub(v) { this.x -= v.x; this.y -= v.y; return this; }
+  mul(s) { this.x *= s; this.y *= s; return this; }
+  length() { return Math.hypot(this.x, this.y); }
+  copy() { return new Vec(this.x, this.y); }
+}
+
+// --- Orbital Body ---
+class Body {
+  constructor(pos, vel, mass, radius, color) {
+    this.pos = pos;
+    this.vel = vel;
+    this.mass = mass;
+    this.radius = radius;
+    this.color = color;
+  }
+  applyForce(f) {
+    // f: Vec, acceleration = f/m
+    this.vel.add(f.copy().mul(1 / this.mass));
+  }
+  update(dt) {
+    this.pos.add(this.vel.copy().mul(dt));
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+  }
+}
+
+// --- Particle for Explosions ---
+class Particle {
+  constructor(pos, vel, life, color) {
+    this.pos = pos;
+    this.vel = vel;
+    this.life = life;
+    this.color = color;
+  }
+  update(dt) {
+    this.pos.add(this.vel.copy().mul(dt));
+    this.life -= dt;
+  }
+  draw() {
+    const alpha = Math.max(this.life / 1.0, 0);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.pos.x, this.pos.y, 2, 2);
+    ctx.globalAlpha = 1.0;
+  }
+}
+
+// --- Particle System ---
+class ParticleSystem {
+  constructor() {
+    this.particles = [];
+  }
+  emit(x, y, count=100) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 50 + Math.random() * 100;
+      const vel = new Vec(Math.cos(angle) * speed, Math.sin(angle) * speed);
+      const life = 0.5 + Math.random() * 0.5;
+      this.particles.push(new Particle(new Vec(x, y), vel, life, 'orange'));
+    }
+  }
+  update(dt) {
+    this.particles.forEach(p => p.update(dt));
+    this.particles = this.particles.filter(p => p.life > 0);
+  }
+  draw() {
+    this.particles.forEach(p => p.draw());
+  }
+}
+
+// --- Simulation Setup ---
+const bodies = [];
+const particles = new ParticleSystem();
+const G = 100; // gravitational constant (tune for scale)
+
+// Central star
+const star = new Body(new Vec(canvas.width/2, canvas.height/2), new Vec(), 1e6, 20, 'yellow');
+bodies.push(star);
+
+// Dyson swarm: populate circular orbit
+const swarmCount = 200;
+for (let i = 0; i < swarmCount; i++) {
+  const angle = (i / swarmCount) * Math.PI * 2;
+  const r = 200 + Math.random() * 50;
+  const pos = new Vec(
+    star.pos.x + Math.cos(angle) * r,
+    star.pos.y + Math.sin(angle) * r
+  );
+  // circular orbital velocity v = sqrt(G*M/r)
+  const speed = Math.sqrt(G * star.mass / r);
+  const vel = new Vec(
+    -Math.sin(angle) * speed,
+    Math.cos(angle) * speed
+  );
+  bodies.push(new Body(pos, vel, 1, 3, 'cyan'));
+}
+
+// --- Input: click to explode ---
+canvas.addEventListener('click', e => {
+  particles.emit(e.clientX, e.clientY, 200);
+});
+
+// --- Main Loop ---
+let last = performance.now();
+function loop(now) {
+  const dt = (now - last) / 1000;
+  last = now;
+
+  // Update physics
+  // Reset forces by pairwise gravity
+  for (let i = 0; i < bodies.length; i++) {
+    for (let j = i + 1; j < bodies.length; j++) {
+      const A = bodies[i], B = bodies[j];
+      const dir = B.pos.copy().sub(A.pos);
+      const dist2 = Math.max(dir.x*dir.x + dir.y*dir.y, 100);
+      const forceMag = G * A.mass * B.mass / dist2;
+      dir.mul(forceMag / Math.sqrt(dist2));
+      A.applyForce(dir);
+      B.applyForce(dir.copy().mul(-1));
+    }
+  }
+  bodies.forEach(b => b.update(dt));
+  particles.update(dt);
+
+  // Render
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  bodies.forEach(b => b.draw());
+  particles.draw();
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

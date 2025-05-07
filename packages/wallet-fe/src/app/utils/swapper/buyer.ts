@@ -278,6 +278,16 @@ export class BuySwapper extends Swap {
     const signData = cimmitTxSignRes.data!;
     console.log('commit build and sign '+JSON.stringify(commitTxData)+' '+JSON.stringify(signData))
     const { isValid: finalValid, signedHex: finalSignedHex } = signData;
+
+    const decodeSigned = await this.client("decoderawtransaction", [finalSignedHex]);
+    if (decodeSigned.error || !decodeSigned.data?.vin) throw new Error(`decodeSigned error: ${decodeSigned.error}`);
+
+    const isRBF = decodeSigned.data.vin.some((input: any) => input.sequence < 0xfffffffe);
+    if (isRBF) {
+        throw new Error("RBF-enabled commit transaction detected on buyer side. Rejecting to protect atomicity.");
+    }
+
+
     if (!finalValid || !finalSignedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
     
     if (!finalSignedHex) throw new Error('Signed hex is undefined');

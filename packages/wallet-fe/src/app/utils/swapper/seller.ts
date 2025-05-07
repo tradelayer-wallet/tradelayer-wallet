@@ -4,12 +4,13 @@ import { IMSChannelData, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProp
 import { Swap } from "./swap";
 import { ENCODER } from '../payloads/encoder';
 import { ToastrService } from "ngx-toastr";
+import BigNumber from 'bignumber.js';
 
 export class SellSwapper extends Swap {
         private tradeStartTime: number; // Add this declaration for tradeStartTime
     constructor(
         typeTrade: ETradeType,
-        tradeInfo: ISpotTradeProps, // IFuturesTradeProps can be added if needed for futures
+        tradeInfo: ISpotTradeProps | IFuturesTradeProps,
         sellerInfo: IBuyerSellerInfo,
         buyerInfo: IBuyerSellerInfo,
         client: TClient,
@@ -98,24 +99,59 @@ export class SellSwapper extends Swap {
             let propIdDesired: number = 0;
             let amountDesired: number = 0;
             let transfer = false;
+            let margin: number = 0;
+            let collateral: number = 0;
 
             const ctcpParams = [];
             if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
                 ({ propIdDesired, amountDesired, transfer = false } = this.tradeInfo as ISpotTradeProps);
                 console.log('imported transfer', transfer);
                 ctcpParams.push(propIdDesired, amountDesired.toString());
-            }
-
-              // Check if `propIdDesired` and `amountDesired` are assigned before usage
+                 // Check if `propIdDesired` and `amountDesired` are assigned before usage
                 if (propIdDesired === undefined || amountDesired === undefined) {
                     throw new Error('propIdDesired or amountDesired is undefined');
                 }
+            }} else if (this.typeTrade === ETradeType.FUTURES && 'collateral' in this.tradeInfo) {
+    const {
+        contract_id,
+        amount,
+        price,
+        collateral,
+        levarage,
+        transfer
+    } = this.tradeInfo as IFuturesTradeProps;
+
+    console.log('Parsed FUTURES tradeInfo:', {
+        contract_id,
+        amount,
+        price,
+        collateral,
+        leverage: levarage,
+        transfer
+    });
+
+    margin = new BigNumber(amount || 0)
+        .times(price || 0)
+        .dividedBy(levarage || 1)
+        .decimalPlaces(8)
+        .toNumber();
+
+    console.log('Calculated margin:', margin);
+    console.log('Collateral:', collateral);
+
+    if (collateral === undefined || margin === undefined) {
+        throw new Error('collateral or margin is undefined');
+    }
+}
+
+
+             
 
             const column = await this.txsService.predictColumn(this.myInfo.keypair.address, this.cpInfo.keypair.address);
             const isColumnA = column === 'A';
 
             let payload;
-            if (transfer) {
+            if (transfer && this.typeTrade === ETradeType.SPOT) {
                 console.log('Using channel balance for transfer');
 
                 payload = ENCODER.encodeTransfer({
@@ -124,12 +160,25 @@ export class SellSwapper extends Swap {
                     isColumnA: isColumnA,
                     destinationAddr: this.multySigChannelData.address,
                 });
-            } else {
+            } else if(this.typeTrade === ETradeType.SPOT){
                 console.log('Using available balance for trade');
 
                 payload = ENCODER.encodeCommit({
                     amount: amountDesired,
                     propertyId: propIdDesired,
+                    channelAddress: this.multySigChannelData.address,
+                });
+            }else if(transfer && this.typeTrade===ETradeType.FUTURES){
+                 payload = ENCODER.encodeTransfer({
+                    propertyId: collateral,
+                    amount: margin,
+                    isColumnA: isColumnA,
+                    destinationAddr: this.multySigChannelData.address,
+                });
+            }else{
+                payload = ENCODER.encodeCommit({
+                    amount: margin,
+                    propertyId: collateral,
                     channelAddress: this.multySigChannelData.address,
                 });
             }
