@@ -225,7 +225,7 @@ export class BuySwapper extends Swap {
                     eventName: 'BUYER:STEP4',
                     socketId:  this.myInfo.socketId,
                     data: {
-                      psbtHex:   channelPsbt.data.psbtHex,
+                      psbtHex: rawHexRes.data.psbtHex,
                       commitHex: signedHex,
                       commitTxId
                     }
@@ -234,7 +234,7 @@ export class BuySwapper extends Swap {
             }
        } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {
   // 1) unpack your tradeInfo
-  const { contract_id, amount, price, leverage, transfer = false } =
+  const { contract_id, amount, price, levarage, collateral, transfer = false } =
     this.tradeInfo as IFuturesTradeProps;
 
   // 2) compute initial margin
@@ -245,39 +245,25 @@ export class BuySwapper extends Swap {
   const isA = column === 'A' ? 1 : 0;
   const initMargin = new BigNumber(amount)
     .times(price)
-    .dividedBy(leverage)
+    .dividedBy(levarage)
     .decimalPlaces(8)
     .toNumber();
 
-  // 3) fetch the contract spec from your TL node
-  const ctcpRes = await this.client('tl_listcontractseries', [contract_id]);
-  if (ctcpRes.error || !ctcpRes.data) {
-    throw new Error(`tl_listcontractseries RPC failed: ${ctcpRes.error}`);
-  }
-
-  // 4) pull the real collateral propertyId out of that response
-  //    (the exact field name depends on your TL version; adjust as needed)
-  const collateralPropId: number =
-    ctcpRes.data.collateral     // or ctcpRes.data.collateralPropertyId
-    ?? (() => { throw new Error('No collateral field in contract spec'); })();
-
-  console.log('[FUTURES] contract_id=', contract_id, '→ collateral=', collateralPropId);
-
-  // 5) build the 'commit' or 'transfer' payload with the true propertyId
+  // 2) build the 'commit' or 'transfer' payload with the true propertyId
   const payload = transfer
     ? ENCODER.encodeTransfer({
-        propertyId:      collateralPropId,
+        propertyId:      collateral,
         amount:          initMargin,
         isColumnA:       isA === 1,
         destinationAddr: this.multySigChannelData.address
       })
     : ENCODER.encodeCommit({
-        propertyId:      collateralPropId,
+        propertyId:      collateral,
         amount:          initMargin,
         channelAddress:  this.multySigChannelData.address
       });
 
-  // 6) carry on with your normal buildTx / sign / send / psbt flow…
+  // 3) carry on with your normal buildTx / sign / send / psbt flow…
   const commitRes = await this.txsService.buildTx({
     fromKeyPair: { address: this.myInfo.keypair.address },
     toKeyPair:   { address: this.multySigChannelData.address },
@@ -298,10 +284,10 @@ export class BuySwapper extends Swap {
     }
 
 
-   private async onStep5(cpId: string, psbtHex: string) {
+    private async onStep5(cpId: string, psbtHex: string) {
         this.logTime('Step 5 Start');
 
-       w iwf (cpId !== this.cpInfo.socketId) return this.terminateTrade('Step 5: Error with p2p connection: code 4');
+        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Step 5: Error with p2p connection: code 4');
         if (!psbtHex) return this.terminateTrade('Step 5: PsbtHex Not Provided');
 
         const wifRes = await this.txsService.getWifByAddress(this.myInfo.keypair.address);
@@ -309,12 +295,11 @@ export class BuySwapper extends Swap {
 
         const wif = wifRes.data;
         if (typeof wif !== 'string') return this.terminateTrade(`Step 5: Invalid WIF type`);
-
         if (!wif) return this.terminateTrade(`Step 5: getWifByAddress: WIF not found: ${this.myInfo.keypair.address}`);
 
         const signRes = await this.txsService.signPsbt({ wif, psbtHex });
         if (signRes.error || !signRes.data) return this.terminateTrade(`Step 5: signPsbt: ${signRes.error}`);
-        if (!signRes.data.isFinished || !signRes.data.finalHex) return wwthis.terminateTrade(`Step 5: Transaction not Fully Synced`);
+        if (!signRes.data?.isFinished || !signRes.data?.finalHex) return this.terminateTrade(`Step 5: Transaction not Fully Synced`);
 
         const currentTime = Date.now();
         this.toastrService.info(`Signed! ${currentTime - this.tradeStartTime} ms`);

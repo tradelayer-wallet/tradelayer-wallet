@@ -184,10 +184,35 @@ const encodeAttestation = (params: EncodeAttestationParams): string => {
 };
 
 
+
+type EncodeWithdrawalParams = {
+  withdrawAll: number; // 1 for true, 0 for false
+  propertyId: number;
+  amountOffered: number;
+  column: number; // 0 for A, 1 for B
+  channelAddress: string;
+};
+
+const encodeWithdrawal = (params: EncodeWithdrawalParams): string => {
+  const amounts = new BigNumber(params.amountOffered).times(1e8).toString();
+  const propertyIds = params.propertyId.toString(36);
+  const payload = [
+    params.withdrawAll,
+    propertyIds,
+    amounts,
+    params.column,
+    params.channelAddress
+  ].join(',');
+  const type = 21;
+  const typeStr = type.toString(36);
+  return marker + typeStr + payload;
+};
+
+
 export const ENCODER = { 
     encodeSend, 
     encodeTradeTokensChannel,
-    // encodeWithdrawal, 
+    encodeWithdrawal, 
     encodeTradeContractChannel,  
     encodeTradeTokenForUTXO, 
     encodeCommit,

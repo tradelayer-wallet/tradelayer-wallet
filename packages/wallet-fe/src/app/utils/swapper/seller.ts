@@ -133,35 +133,22 @@ export class SellSwapper extends Swap {
         contract_id,
         amount,
         price,
-        leverage,
+        levarage,
+        collateral,
         transfer = false
       } = this.tradeInfo as IFuturesTradeProps;
 
       // 1) compute initial margin
       const initMargin = new BigNumber(amount)
         .times(price)
-        .dividedBy(leverage)
+        .dividedBy(levarage)
         .decimalPlaces(8)
         .toNumber();
 
-      // 2) fetch contract spec from TL node
-      const ctr = await this.client('tl_listcontractseries', [contract_id]);
-      if (ctr.error || !ctr.data) {
-        throw new Error(`tl_listcontractseries RPC failed: ${ctr.error}`);
-      }
-
-      // 3) extract collateral propertyId
-      //    adjust field name if your RPC returns e.g. .collateralPropertyId
-      const collateralPropId: number = ctr.data.collateral
-        ?? ctr.data.collateralPropertyId
-        ?? (() => { throw new Error('No collateral in contract spec'); })();
-
-      console.log(`[STEP2][FUTURES] contract=${contract_id} collateral=${collateralPropId} margin=${initMargin}`);
-
-      // 4) build appropriate payload
+      // 2) build appropriate payload
       payload = transfer
         ? ENCODER.encodeTransfer({
-            propertyId:      collateralPropId,
+            propertyId:      collateral,
             amount:          initMargin,
             isColumnA:       await this.txsService.predictColumn(
                                 this.myInfo.keypair.address,
@@ -170,7 +157,7 @@ export class SellSwapper extends Swap {
             destinationAddr: this.multySigChannelData.address,
           })
         : ENCODER.encodeCommit({
-            propertyId:     collateralPropId,
+            propertyId:     collateral,
             amount:         initMargin,
             channelAddress: this.multySigChannelData.address,
           });
@@ -200,7 +187,7 @@ export class SellSwapper extends Swap {
       throw new Error(`decoderawtransaction: ${drt.error}`);
     }
     const vout = drt.data.vout.find((o: any) =>
-      o.scriptPubKey?.addresses?.[0] === this.multySigChannelData.address
+      o?.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address
     );
     if (!vout) {
       throw new Error('No matching vout for commit UTXO');
@@ -210,8 +197,9 @@ export class SellSwapper extends Swap {
       txid:         sendRes.data,
       vout:         vout.n,
       amount:       vout.value,
-      scriptPubKey: this.multySigChannelData.scriptPubKey,
+      scriptPubKey: this.multySigChannelData.scriptPubKey ?? '',
       redeemScript: this.multySigChannelData.redeemScript,
+      confirmations: 0
     };
 
     // ── emit SELLER:STEP3 with the new UTXO ─────────────────────────
