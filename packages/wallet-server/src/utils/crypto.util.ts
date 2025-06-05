@@ -67,7 +67,7 @@ export const signPsbtRawtTx = (signOptions: {
     let debugData: string | undefined; // Declare debugData at the top
     try {
         const { wif, network, psbtHex } = signOptions;
-        console.log('checking network in sign psbt '+networks[network])
+        console.log('checking network in sign psbt '+network+' '+psbtHex)
         const _network = networks[network] || networks.LTC; // Ensure the correct network is chosen
 
         const debugData = network
@@ -75,6 +75,8 @@ export const signPsbtRawtTx = (signOptions: {
 
         const keyPair = ECPair.fromWIF(wif, _network);  // Create keypair from WIF
         const psbt = Psbt.fromHex(psbtHex);
+
+        console.log('flaiven '+JSON.stringify(psbt.data.inputs, null, 2));
         psbt.signAllInputs(keyPair);
         const newPsbtHex = psbt.toHex();
 
@@ -96,6 +98,7 @@ export const signRawTransction = (signOptions: {
     network: string;
     inputs: IInput[];
 }) => {
+    console.log('inside sign raw transaction '+JSON.stringify(signOptions))
     try {
         const { rawtx, wif, inputs, network } = signOptions;
         const _network = networks[network];
@@ -125,6 +128,7 @@ export const signRawTransction = (signOptions: {
         });
         psbt.addOutputs(tx.outs);
         psbt.signAllInputs(keyPair);
+        console.log('psbt post sign '+JSON.stringify(psbt)+' '+keyPair)
         const isValid = psbt.validateSignaturesOfAllInputs(validator);
         try {
             psbt.finalizeAllInputs();

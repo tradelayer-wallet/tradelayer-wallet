@@ -89,7 +89,7 @@ export class SellSwapper extends Swap {
 
    private async onStep2(cpId: string) {
   this.logTime('Step 2 Start');
-  try {
+  //try {
     if (!this.multySigChannelData?.address) {
       throw new Error(`Error with finding Multisig Address`);
     }
@@ -138,12 +138,16 @@ export class SellSwapper extends Swap {
         transfer = false
       } = this.tradeInfo as IFuturesTradeProps;
 
+      console.log('checking params for commit '+amount + ' '+collateral)
+
       // 1) compute initial margin
       const initMargin = new BigNumber(amount)
         .times(price)
         .dividedBy(levarage)
         .decimalPlaces(8)
         .toNumber();
+
+      console.log('initMargin calc '+initMargin+' '+price+' '+levarage)
 
       // 2) build appropriate payload
       payload = transfer
@@ -208,9 +212,9 @@ export class SellSwapper extends Swap {
       new SwapEvent('SELLER:STEP3', this.myInfo.socketId, utxoData)
     );
 
-  } catch (error: any) {
-    this.terminateTrade(`Step 2: ${error.message}`);
-  }
+  //} catch (error: any) {
+  //  this.terminateTrade(`Step 2: ${error.message}`);
+  //}
 }
 
 
@@ -223,6 +227,7 @@ private async onStep4(
   commitTxId?: string   // note: optional, LTC-only branches won’t supply it
 ) {
   this.logTime('Step 4 Start');
+  console.log(psbtHex)
   try {
     // 1) Basic sanity
     if (cpId !== this.cpInfo.socketId) {
@@ -254,6 +259,7 @@ private async onStep4(
 
     // 4) Sign the PSBT
     const signRes = await this.txsService.signPsbt({ wif: wifRes.data, psbtHex });
+    console.log('signRes '+JSON.stringify(signRes)+' '+wifRes.data+' '+psbtHex)
     if (signRes.error || !signRes.data?.psbtHex) {
       throw new Error(`signPsbt failed: ${signRes.error}`);
     }
