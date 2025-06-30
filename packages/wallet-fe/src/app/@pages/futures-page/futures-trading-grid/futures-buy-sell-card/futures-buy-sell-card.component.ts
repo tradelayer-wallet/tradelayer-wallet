@@ -199,7 +199,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     const price = this.isLimitSelected ? _price : this.currentPrice;
     const market = this.selectedMarket;
     const leverage = market.leverage || 10;
-    const notional = market.notional || 1;
+    const notional = 1; //this is a bit misleading, keeping it 1 here to get generic init margin and fee irrespective of contract unit bias
     const isInverse = market.inverse || false;
     const initialMargin = this.calculateInitialMargin(isInverse, amount, price, leverage, notional);
 
@@ -223,6 +223,8 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         this.toastrService.error(`Insufficient collateral for this trade.`);
         return;
       }
+      const sterilizedNotional = market.notional || 1
+      const adjustedAmount = Math.floor(amount/sterilizedNotional)
 
       const order: IFuturesTradeConf = {
         keypair: {
@@ -233,7 +235,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         type: 'FUTURES',
         props: {
           contract_id: market.contract_id,
-          amount,
+          amount: adjustedAmount,
           price,
           collateral: market.collateral.propertyId,
           levarage: leverage,
