@@ -38,7 +38,7 @@ export class FuturesPositionsService {
     }
 
     get activeFutureAddress() {
-        return this.authService.activeFuturesKey?.address;
+        return this.authService.walletAddresses[0];
     }
 
      get tlApi() {
@@ -54,9 +54,10 @@ export class FuturesPositionsService {
     }
 
     onInit(){
+        console.log('this sub '+this.subs$)
         if (this.subs$) return;
         this.subs$ = this.rpcService.blockSubs$.subscribe(block => {
-            if (block.type === "LOCAL") return;
+            console.log("BLOCK RECEIVED, activeFutureAddress:", this.activeFutureAddress, "selectedContractId:", this.selectedContractId);
             if (!this.activeFutureAddress || !this.selectedContractId) return;
             this.updatePositions();
         });
