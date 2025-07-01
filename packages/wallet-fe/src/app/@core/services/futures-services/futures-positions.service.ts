@@ -62,7 +62,7 @@ export class FuturesPositionsService {
             this.updatePositions();
         });
     }
-
+    
     async updatePositions() {
         if (!this.activeFutureAddress || !this.selectedContractId) return;
 
@@ -73,17 +73,26 @@ export class FuturesPositionsService {
 
         try {
             const res = await this.tlApi.rpc('contractPosition', params).toPromise();
-            console.log('position update '+JSON.stringify(res.data))
+            console.log('position update ' + JSON.stringify(res.data));
             if (res.error || !res.data) {
                 this.toastrService.error(res.error || 'Error getting opened position', 'Error');
                 this.openedPosition = null;
                 return;
             }
 
-            const positionValue = parseFloat(res.data?.['position'] || "0");
+            const raw = res.data;
+
+            // Change here: map backend keys to what the UI expects
+            const positionValue = parseFloat(raw.contracts || "0");
 
             if (positionValue) {
-                this.openedPosition = res.data;
+                this.openedPosition = {
+                    position: raw.contracts,
+                    entry_price: raw.avgPrice,
+                    BANKRUPTCY_PRICE: raw.bankruptcyPrice,
+                    position_margin: raw.margin,
+                    upnl: raw.unrealizedPNL,
+                };
             } else {
                 this.openedPosition = null;
             }

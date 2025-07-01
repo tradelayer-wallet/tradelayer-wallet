@@ -21,8 +21,6 @@ interface AttestationRequestBody {
     id: number;
 }
 
-
-
 export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
     
     fastify.post('/init', async (request, reply) => {
@@ -149,6 +147,29 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             //reply.status(500).send('Error: ' + error.message);
         }
     });
+
+    fastify.post('/contractPosition', async (request, reply) => {
+        try {
+            // Extract params from request body
+            // Angular's .rpc() call sends { params: { address, contractId } }
+            const { params } = request.body as any;
+            const { address, contractId } = params;
+
+            // Proxy the request to the backend server (port 3000), 
+            // using the GET query pattern since that's how your backend expects it.
+            const url = `${baseURL}tl_contractPosition?address=${encodeURIComponent(address)}&contractId=${encodeURIComponent(contractId)}`;
+
+            const res = await axios.get(url);
+
+            // Send the backend's response directly
+            reply.status(200).send(res.data);
+
+        } catch (error) {
+            console.error('Error in /contractPosition:', error.message);
+            reply.status(500).send({ error: error.message || 'Undefined Error' });
+        }
+    });
+
 
     fastify.post('/loadWallet', async (request, reply) => {
         try {
