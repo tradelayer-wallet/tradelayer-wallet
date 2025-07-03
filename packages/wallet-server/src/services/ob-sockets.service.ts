@@ -1,71 +1,90 @@
-import { io, Socket as SocketClient } from 'socket.io-client';
-import { fasitfyServer } from '..';
+import WebSocket from 'ws';
+import { fasitfyServer } from '..';   // same import the old file used
 
 export interface IOBSocketServiceOptions {
-    url: string;
+  url: string;
 }
 
-const eventPrefix = 'OB_SOCKET'
+const eventPrefix = 'OB_SOCKET';
+
 export class OBSocketService {
-    public socket: SocketClient;
+  private ws: WebSocket;
+  private reconnectAttempts = 0;
+  private clientId: string | null = null;
 
-    constructor(
-        private options: IOBSocketServiceOptions,
-    ) {
-        this.socket = io(this.options.url, { reconnection: false });
-        const mainEvents = ['connect', 'disconnect', 'connect_error'];
+  constructor(private options: IOBSocketServiceOptions) {
+    this.connect();
+  }
 
-        mainEvents.forEach(event => {
-            this.socket.on(event, () => {
-                if (event === 'connect') this.handleEvents();
-                const fullEventName = `${eventPrefix}::${event}`;
-                this.walletSocket.emit(fullEventName);
-            });
-        });
+  /* Fastify-hosted Socket.IO connection that the renderer is already using */
+  private get walletSocket() {
+    return fasitfyServer.mainSocketService.currentSocket;
+  }
+
+  // ────────────────────────────────────────────  WS connect / retry
+  private connect() {
+    this.ws = new WebSocket(this.options.url);
+
+    this.ws.on('open', () => {
+      this.reconnectAttempts = 0;
+      this.walletSocket?.emit(`${eventPrefix}::connect`);
+      this.bridgeWalletToServer();           // set up listeners once
+    });
+
+    this.ws.on('message', (buf) => this.handleServer(JSON.parse(buf.toString())));
+    this.ws.on('close', () =>  this.scheduleReconnect('disconnect'));
+    this.ws.on('error', () =>  this.scheduleReconnect('connect_error'));
+  }
+
+  private scheduleReconnect(event: string) {
+    this.walletSocket?.emit(`${eventPrefix}::${event}`);
+    this.reconnectAttempts += 1;
+    const delay = Math.min(1_000 * this.reconnectAttempts ** 2, 30_000);
+    setTimeout(() => this.connect(), delay);
+  }
+
+  // ───────────────────────────────────────────────  keep-alive
+  private heartbeat = setInterval(() => {
+    if (this.ws?.readyState === WebSocket.OPEN)
+      this.ws.send(JSON.stringify({ event: 'ping' }));
+  }, 15_000);
+
+  // ───────────────────────────────────────────────  Server → Wallet
+  private handleServer(msg: any) {
+    if (!msg?.event) return;
+
+    /* capture our own id if the server sends it once */
+    if (!this.clientId && msg.socketId) this.clientId = msg.socketId;
+
+    this.walletSocket?.emit(`${eventPrefix}::${msg.event}`, msg);
+
+    // special “new-channel” handling (mirrors the old logic)
+    if (msg.event === 'new-channel') {
+      const cpId = msg.isBuyer
+        ? msg.tradeInfo.seller.socketId
+        : msg.tradeInfo.buyer.socketId;
+      this.rebindSwapChannel(cpId);
     }
+  }
 
-    get walletSocket() {
-        return fasitfyServer.mainSocketService.currentSocket
-    }
+  // ───────────────────────────────────────────────  Wallet → Server
+  private bridgeWalletToServer() {
+    ['update-orderbook', 'new-order', 'close-order', 'many-orders'].forEach((ev) => {
+      this.walletSocket?.on(ev, (data: any) => this.emitToServer(ev, data));
+    });
 
-    private handleEvents() {
-        // from Server To wallet;
-        const orderEvents = [
-            'order:error',
-            'order:saved',
-            'placed-orders',
-            'orderbook-data',
-            'update-orders-request',
-            'new-channel',
-        ];
+    /* start listening for our own swap namespace once we know the id */
+    if (this.clientId) this.rebindSwapChannel(this.clientId);
+  }
 
-        [...orderEvents].forEach(eventName => {
-            this.socket.on(eventName, (data: any) => {
-                const fullEventName = `${eventPrefix}::${eventName}`;
-                this.walletSocket.emit(fullEventName, data);
-            });
-        });
+  private rebindSwapChannel(socketId: string) {
+    const swapEvt = `${socketId}::swap`;
+    this.walletSocket?.off(swapEvt);  // clear any stale listener
+    this.walletSocket?.on(swapEvt, (data: any) => this.emitToServer(swapEvt, data));
+  }
 
-        //from Wallet ToServer;
-        ["update-orderbook", "new-order", "close-order", 'many-orders'].forEach(eventName => {
-            this.walletSocket.on(eventName, (data: any) => {
-                this.socket.emit(eventName, data);
-            });
-        });
-
-
-        const swapEventName = 'swap';
-        this.walletSocket.on(`${this.socket.id}::${swapEventName}`, (data) => {
-            this.socket.emit(`${this.socket.id}::${swapEventName}`, data);
-        });
-
-        this.socket.on('new-channel', (d) => {
-            const cpSocketId = d.isBuyer ? d.tradeInfo.seller.socketId : d.tradeInfo.buyer.socketId;
-            console.log('inside ob socket service new channel '+cpSocketId)
-            this.socket.removeAllListeners(`${cpSocketId}::${swapEventName}`);
-            this.socket.on(`${cpSocketId}::${swapEventName}`, (data) => {
-                this.walletSocket.emit(`${cpSocketId}::${swapEventName}`, data);
-            });
-        });
-    }
+  private emitToServer(event: string, payload: any = {}) {
+    if (this.ws?.readyState === WebSocket.OPEN)
+      this.ws.send(JSON.stringify({ event, ...payload }));
+  }
 }
