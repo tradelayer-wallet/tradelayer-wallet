@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import { fasitfyServer } from '..';   // same import the old file used
 
+
 export interface IOBSocketServiceOptions {
   url: string;
 }
@@ -8,18 +9,27 @@ export interface IOBSocketServiceOptions {
 const eventPrefix = 'OB_SOCKET';
 
 export class OBSocketService {
-  private ws: WebSocket;
+  private ws!: WebSocket;
   private reconnectAttempts = 0;
   private clientId: string | null = null;
 
-  constructor(private options: IOBSocketServiceOptions) {
-    this.connect();
-  }
+    constructor(private options: IOBSocketServiceOptions) {
+       this.connect();
+    }
 
-  /* Fastify-hosted Socket.IO connection that the renderer is already using */
-  private get walletSocket() {
-    return fasitfyServer.mainSocketService.currentSocket;
-  }
+    public get socket(): any {
+    if (!this.ws) return null;
+    const sock: any = this.ws;
+    // no-ops so old code compiles & runs
+    sock.offAny     ??= () => {};
+    sock.disconnect ??= () => this.ws.close();
+    return sock;
+   }
+
+    /* Fastify-hosted Socket.IO connection that the renderer is already using */
+    private get walletSocket() {
+      return fasitfyServer.mainSocketService.currentSocket;
+    }
 
   // ────────────────────────────────────────────  WS connect / retry
   private connect() {
@@ -78,8 +88,9 @@ export class OBSocketService {
   }
 
   private rebindSwapChannel(socketId: string) {
-    const swapEvt = `${socketId}::swap`;
-    this.walletSocket?.off(swapEvt);  // clear any stale listener
+   const swapEvt = `${socketId}::swap`;
+    // Node/EventEmitter wants both args; easiest is to wipe all listeners:
+    this.walletSocket?.removeAllListeners?.(swapEvt);
     this.walletSocket?.on(swapEvt, (data: any) => this.emitToServer(swapEvt, data));
   }
 
