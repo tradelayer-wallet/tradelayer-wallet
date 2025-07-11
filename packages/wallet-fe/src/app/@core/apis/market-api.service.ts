@@ -16,19 +16,27 @@ export class MarketApiService {
         private http: HttpClient,
     ) {}
 
-    private wsToHttp(url: string | null): string | null {
+  private wsToHttp(url: string | null): string | null {
     if (!url) return null;
-    if (url.startsWith('ws://')) return url.replace(/^ws:/, 'http:');
-    if (url.startsWith('wss://')) return url.replace(/^wss:/, 'https:');
-    return url;
-    }
+
+    // Drop /ws if present
+    let cleanUrl = url.replace(/\/ws$/, '');
+
+    // Replace protocol
+    if (cleanUrl.startsWith('ws://')) return cleanUrl.replace(/^ws:/, 'http:');
+    if (cleanUrl.startsWith('wss://')) return cleanUrl.replace(/^wss:/, 'https:');
+
+    return cleanUrl;
+}
+
 
 
     private get apiUrl() {
         console.log('loading markets '+this.orderbookUrl + '/markets/')
         // if (!this.NETWORK) return null;
         if (!this.orderbookUrl) return null;
-        return this.orderbookUrl + '/markets/';
+        const modUri = this.wsToHttp(this.orderbookUrl)
+        return modUri + '/markets/';
     }
 
     setOrderbookUrl(value: string | null) {

@@ -14,7 +14,10 @@ export class OBSocketService {
   private clientId: string | null = null;
 
     constructor(private options: IOBSocketServiceOptions) {
-       this.connect();
+        console.log('[OB WS] constructor — options:', options);
+        this.bridgeWalletToServer();
+        console.log('[OB WS] calling connect() now');
+        this.connect();
     }
 
     public get socket(): any {
@@ -33,18 +36,36 @@ export class OBSocketService {
 
   // ────────────────────────────────────────────  WS connect / retry
   private connect() {
-    this.ws = new WebSocket(this.options.url);
+  this.ws = new WebSocket(this.options.url);
 
-    this.ws.on('open', () => {
-      this.reconnectAttempts = 0;
-      this.walletSocket?.emit(`${eventPrefix}::connect`);
-      this.bridgeWalletToServer();           // set up listeners once
-    });
+  this.ws.on('open', () => {
+    console.log('[OB WS] connected to', this.options.url, 'readyState=', this.ws.readyState);
+    this.reconnectAttempts = 0;
+    this.walletSocket?.emit(`${eventPrefix}::connect`);
+  });
 
-    this.ws.on('message', (buf) => this.handleServer(JSON.parse(buf.toString())));
-    this.ws.on('close', () =>  this.scheduleReconnect('disconnect'));
-    this.ws.on('error', () =>  this.scheduleReconnect('connect_error'));
-  }
+  this.ws.on('message', (buf) => {
+    console.log('[OB WS] raw message:', buf.toString());
+    let msg;
+    try {
+      msg = JSON.parse(buf.toString());
+    } catch (e) {
+      console.error('[OB WS] JSON parse error:', e);
+      return;
+    }
+    this.handleServer(msg);
+  });
+
+  this.ws.on('close', (code, reason) => {
+    console.log('[OB WS] closed:', code, reason.toString());
+    this.scheduleReconnect('disconnect');
+  });
+
+  this.ws.on('error', (err) => {
+    console.error('[OB WS] error:', err);
+    this.scheduleReconnect('connect_error');
+  });
+}
 
   private scheduleReconnect(event: string) {
     this.walletSocket?.emit(`${eventPrefix}::${event}`);
@@ -62,7 +83,7 @@ export class OBSocketService {
   // ───────────────────────────────────────────────  Server → Wallet
   private handleServer(msg: any) {
     if (!msg?.event) return;
-
+    console.log('[OB WS ← Server] got:', msg);
     /* capture our own id if the server sends it once */
     if (!this.clientId && msg.socketId) this.clientId = msg.socketId;
 
