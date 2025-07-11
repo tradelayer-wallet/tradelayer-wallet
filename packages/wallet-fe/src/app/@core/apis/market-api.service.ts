@@ -3,6 +3,7 @@ import { Injectable } from "@angular/core";
 import { map } from 'rxjs/operators';
 // import { TNETWORK } from "../services/rpc.service";
 
+
 @Injectable({
     providedIn: 'root',
 })
@@ -15,6 +16,14 @@ export class MarketApiService {
         private http: HttpClient,
     ) {}
 
+    private wsToHttp(url: string | null): string | null {
+    if (!url) return null;
+    if (url.startsWith('ws://')) return url.replace(/^ws:/, 'http:');
+    if (url.startsWith('wss://')) return url.replace(/^wss:/, 'https:');
+    return url;
+    }
+
+
     private get apiUrl() {
         console.log('loading markets '+this.orderbookUrl + '/markets/')
         // if (!this.NETWORK) return null;
@@ -23,7 +32,7 @@ export class MarketApiService {
     }
 
     setOrderbookUrl(value: string | null) {
-        this.orderbookUrl = value;
+        this.orderbookUrl = this.wsToHttp(value);
     }
 
     // _setNETWORK(value: TNETWORK) {
