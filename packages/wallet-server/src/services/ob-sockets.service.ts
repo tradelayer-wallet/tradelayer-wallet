@@ -1,6 +1,5 @@
 import WebSocket from 'ws';
-import { fasitfyServer } from '..';   // same import the old file used
-
+import { fasitfyServer } from '..';
 
 export interface IOBSocketServiceOptions {
   url: string;
@@ -13,59 +12,56 @@ export class OBSocketService {
   private reconnectAttempts = 0;
   private clientId: string | null = null;
 
-    constructor(private options: IOBSocketServiceOptions) {
-        console.log('[OB WS] constructor — options:', options);
-        this.bridgeWalletToServer();
-        console.log('[OB WS] calling connect() now');
-        this.connect();
-    }
+  constructor(private options: IOBSocketServiceOptions) {
+    console.log('[OB WS] constructor — options:', options);
+    this.bridgeWalletToServer();
+    console.log('[OB WS] calling connect() now');
+    this.connect();
+  }
 
-    public get socket(): any {
+  public get socket(): any {
     if (!this.ws) return null;
     const sock: any = this.ws;
-    // no-ops so old code compiles & runs
-    sock.offAny     ??= () => {};
+    sock.offAny ??= () => {};
     sock.disconnect ??= () => this.ws.close();
     return sock;
-   }
+  }
 
-    /* Fastify-hosted Socket.IO connection that the renderer is already using */
-    private get walletSocket() {
-      return fasitfyServer.mainSocketService.currentSocket;
-    }
+  private get walletSocket() {
+    return fasitfyServer.mainSocketService.currentSocket;
+  }
 
-  // ────────────────────────────────────────────  WS connect / retry
   private connect() {
-  this.ws = new WebSocket(this.options.url);
+    this.ws = new WebSocket(this.options.url);
 
-  this.ws.on('open', () => {
-    console.log('[OB WS] connected to', this.options.url, 'readyState=', this.ws.readyState);
-    this.reconnectAttempts = 0;
-    this.walletSocket?.emit(`${eventPrefix}::connect`);
-  });
+    this.ws.on('open', () => {
+      console.log('[OB WS] connected to', this.options.url, 'readyState=', this.ws.readyState);
+      this.reconnectAttempts = 0;
+      this.walletSocket?.emit(`${eventPrefix}::connect`);
+    });
 
-  this.ws.on('message', (buf) => {
-    console.log('[OB WS] raw message:', buf.toString());
-    let msg;
-    try {
-      msg = JSON.parse(buf.toString());
-    } catch (e) {
-      console.error('[OB WS] JSON parse error:', e);
-      return;
-    }
-    this.handleServer(msg);
-  });
+    this.ws.on('message', (buf) => {
+      console.log('[OB WS] raw message:', buf.toString());
+      let msg;
+      try {
+        msg = JSON.parse(buf.toString());
+      } catch (e) {
+        console.error('[OB WS] JSON parse error:', e);
+        return;
+      }
+      this.handleServer(msg);
+    });
 
-  this.ws.on('close', (code, reason) => {
-    console.log('[OB WS] closed:', code, reason.toString());
-    this.scheduleReconnect('disconnect');
-  });
+    this.ws.on('close', (code, reason) => {
+      console.log('[OB WS] closed:', code, reason.toString());
+      this.scheduleReconnect('disconnect');
+    });
 
-  this.ws.on('error', (err) => {
-    console.error('[OB WS] error:', err);
-    this.scheduleReconnect('connect_error');
-  });
-}
+    this.ws.on('error', (err) => {
+      console.error('[OB WS] error:', err);
+      this.scheduleReconnect('connect_error');
+    });
+  }
 
   private scheduleReconnect(event: string) {
     this.walletSocket?.emit(`${eventPrefix}::${event}`);
@@ -74,22 +70,41 @@ export class OBSocketService {
     setTimeout(() => this.connect(), delay);
   }
 
-  // ───────────────────────────────────────────────  keep-alive
   private heartbeat = setInterval(() => {
     if (this.ws?.readyState === WebSocket.OPEN)
       this.ws.send(JSON.stringify({ event: 'ping' }));
   }, 15_000);
 
-  // ───────────────────────────────────────────────  Server → Wallet
+  // ───────────────────────────── Server → Wallet (universal handler)
   private handleServer(msg: any) {
     if (!msg?.event) return;
     console.log('[OB WS ← Server] got:', msg);
-    /* capture our own id if the server sends it once */
-    if (!this.clientId && msg.socketId) this.clientId = msg.socketId;
 
+    // Universal switch for debugging, notifications, or further hooks
+    switch (msg.event) {
+      case 'orderbook-data':
+        console.log('[OB] Full orderbook:', msg.orders);
+        break;
+      case 'placed-orders':
+        console.log('[OB] User orders:', msg.openedOrders, msg.orderHistory);
+        break;
+      case 'update-orders-request':
+        console.log('[OB] Orderbook refresh requested');
+        break;
+      case 'order:saved':
+        console.log('[OB] Order saved:', msg.orderUuid);
+        break;
+      case 'order:error':
+        console.warn('[OB] Order error:', msg.error || msg);
+        break;
+      default:
+        console.log('[OB] Unhandled event:', msg.event, msg);
+    }
+
+    // Always relay to FE
     this.walletSocket?.emit(`${eventPrefix}::${msg.event}`, msg);
 
-    // special “new-channel” handling (mirrors the old logic)
+    // Special “new-channel” handling (mirrors old logic)
     if (msg.event === 'new-channel') {
       const cpId = msg.isBuyer
         ? msg.tradeInfo.seller.socketId
@@ -98,19 +113,18 @@ export class OBSocketService {
     }
   }
 
-  // ───────────────────────────────────────────────  Wallet → Server
+  // ───────────────────────────── Wallet → Server
   private bridgeWalletToServer() {
     ['update-orderbook', 'new-order', 'close-order', 'many-orders'].forEach((ev) => {
       this.walletSocket?.on(ev, (data: any) => this.emitToServer(ev, data));
     });
 
-    /* start listening for our own swap namespace once we know the id */
+    // Listen for own swap namespace once ID is set
     if (this.clientId) this.rebindSwapChannel(this.clientId);
   }
 
   private rebindSwapChannel(socketId: string) {
-   const swapEvt = `${socketId}::swap`;
-    // Node/EventEmitter wants both args; easiest is to wipe all listeners:
+    const swapEvt = `${socketId}::swap`;
     this.walletSocket?.removeAllListeners?.(swapEvt);
     this.walletSocket?.on(swapEvt, (data: any) => this.emitToServer(swapEvt, data));
   }
