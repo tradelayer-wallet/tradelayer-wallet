@@ -41,7 +41,7 @@ export class FuturesOrdersComponent implements OnInit, OnDestroy {
      private subscribe() {
        this.socket.on(`${obEventPrefix}::placed-orders`, (orders: { openedOrders: IFuturesOrder[], orderHistory: IFuturesOrder[] }) => {
          const { openedOrders, orderHistory } = orders;
-
+          console.log('[FE] placed-orders payload:', JSON.stringify(orders)); 
          this.futuresOrdersService.orderHistory = orderHistory
            .filter(q => q.type === "FUTURES" && q.keypair.pubkey === this.authService.activeFuturesKey?.pubkey && q.state);
          this.futuresOrdersService.openedOrders = openedOrders.filter(q => q.type === "FUTURES");
