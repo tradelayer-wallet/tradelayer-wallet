@@ -80,6 +80,12 @@ export class OBSocketService {
     if (!msg?.event) return;
     console.log('[OB WS ← Server] got:', msg);
 
+ if (msg.event && msg.event.endsWith('::swap')) {
+    // Just forward to the FE with the same event name
+    this.walletSocket?.emit(msg.event, msg.data);
+    return; // Don't fall through to other cases
+  }
+
     // Universal switch for debugging, notifications, or further hooks
     switch (msg.event) {
       case 'orderbook-data':
@@ -100,17 +106,26 @@ export class OBSocketService {
       default:
         console.log('[OB] Unhandled event:', msg.event, msg);
     }
+    // Special “new-channel” handling (mirrors old logic)
+     if (msg.event === 'new-channel') {
+
+        const data = msg.data || msg; // handle both new (.data) and legacy (flat)
+        console.log('new channel msg '+JSON.stringify(msg))
+        if (!data.tradeInfo || !data.tradeInfo.seller || !data.tradeInfo.buyer) {
+          console.warn('[OB WS] Malformed new-channel message:', msg);
+          return;
+        }
+        this.walletSocket?.emit(`${eventPrefix}::new-channel`, data);
+        const cpId = data.isBuyer
+          ? data.tradeInfo.seller.socketId
+          : data.tradeInfo.buyer.socketId;
+        this.rebindSwapChannel(cpId);
+        return
+    }
 
     // Always relay to FE
     this.walletSocket?.emit(`${eventPrefix}::${msg.event}`, msg);
-
-    // Special “new-channel” handling (mirrors old logic)
-    if (msg.event === 'new-channel') {
-      const cpId = msg.isBuyer
-        ? msg.tradeInfo.seller.socketId
-        : msg.tradeInfo.buyer.socketId;
-      this.rebindSwapChannel(cpId);
-    }
+    return
   }
 
   // ───────────────────────────── Wallet → Server

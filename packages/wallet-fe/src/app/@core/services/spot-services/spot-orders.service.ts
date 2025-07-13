@@ -69,7 +69,7 @@ export class SpotOrdersService {
 
     closeOpenedOrder(uuid: string) {
         console.log('closing order '+uuid)
-        this.socket.emit('close-order', uuid);
+        this.socket.emit('close-order', { orderUUID: uuid });
     }
 
     closeAllOrders() {

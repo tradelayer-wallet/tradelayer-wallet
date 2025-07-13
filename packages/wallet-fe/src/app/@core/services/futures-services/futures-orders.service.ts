@@ -70,7 +70,7 @@ export class FuturesOrdersService {
     }
 
     closeOpenedOrder(uuid: string) {
-        this.socket.emit('close-order', uuid);
+        this.socket.emit('close-order', { orderUUID: uuid });
     }
 
     closeAllOrders() {
