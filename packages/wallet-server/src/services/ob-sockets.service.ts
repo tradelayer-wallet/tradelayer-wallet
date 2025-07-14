@@ -76,11 +76,12 @@ export class OBSocketService {
   // -------------------- SERVER → WALLET (universal handler) --------------------
   private handleServer(msg: any) {
     if (!msg?.event) return;
-
+    console.log('incoming message from OB '+JSON.stringify(msg))
     // Relay ::swap (always send through as-is)
     if (msg.event.includes('::swap')) {
       // msg.data should contain the actual SwapEvent object
-      this.walletSocket?.emit(msg.event, msg.data ?? msg);
+
+      this.walletSocket?.emit(msg.event, msg.data);
       return;
     }
 
@@ -129,6 +130,7 @@ export class OBSocketService {
     // Relay any ::swap (multi-trade safe) from FE to server, with the correct ids
     this.walletSocket?.onAny?.((event: string, data: any) => {
       if (event.endsWith('::swap')) {
+        console.log('emiting swap step '+JSON.stringify(event)+JSON.stringify(data))
         // If you want to sanitize/patch the socketId, do it here:
         // data.socketId = this.canonicalizeId(data.socketId) // if needed
         this.emitToServer(event, data);

@@ -35,6 +35,7 @@ export class BuySwapper extends Swap {
         this.removePreviuesListeners();
         const _eventName = `${this.cpInfo.socketId}::swap`;
         this.socket.on(_eventName, (eventData: SwapEvent) => {
+            console.log('event name '+_eventName+' swap event '+JSON.stringify(eventData))
             const { socketId, data } = eventData;
             this.eventSubs$.next(eventData);
 
