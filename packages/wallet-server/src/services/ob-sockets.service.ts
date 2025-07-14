@@ -10,12 +10,12 @@ const eventPrefix = 'OB_SOCKET';
 export class OBSocketService {
   private ws!: WebSocket;
   private reconnectAttempts = 0;
-  private clientId: string | null = null;
+  // This is a canonical client id for *this* wallet server instance, not per trade/channel.
+  private clientId: string = this.generateClientId();
+  private activeSwapListeners: Map<string, (...args: any[]) => void> = new Map();
 
   constructor(private options: IOBSocketServiceOptions) {
-    console.log('[OB WS] constructor — options:', options);
     this.bridgeWalletToServer();
-    console.log('[OB WS] calling connect() now');
     this.connect();
   }
 
@@ -35,13 +35,13 @@ export class OBSocketService {
     this.ws = new WebSocket(this.options.url);
 
     this.ws.on('open', () => {
-      console.log('[OB WS] connected to', this.options.url, 'readyState=', this.ws.readyState);
       this.reconnectAttempts = 0;
       this.walletSocket?.emit(`${eventPrefix}::connect`);
+      // (Optionally) emit client id to FE if needed:
+      // this.walletSocket?.emit(`${eventPrefix}::client-id`, this.clientId);
     });
 
     this.ws.on('message', (buf) => {
-      console.log('[OB WS] raw message:', buf.toString());
       let msg;
       try {
         msg = JSON.parse(buf.toString());
@@ -52,15 +52,8 @@ export class OBSocketService {
       this.handleServer(msg);
     });
 
-    this.ws.on('close', (code, reason) => {
-      console.log('[OB WS] closed:', code, reason.toString());
-      this.scheduleReconnect('disconnect');
-    });
-
-    this.ws.on('error', (err) => {
-      console.error('[OB WS] error:', err);
-      this.scheduleReconnect('connect_error');
-    });
+    this.ws.on('close', () => this.scheduleReconnect('disconnect'));
+    this.ws.on('error', () => this.scheduleReconnect('connect_error'));
   }
 
   private scheduleReconnect(event: string) {
@@ -75,77 +68,79 @@ export class OBSocketService {
       this.ws.send(JSON.stringify({ event: 'ping' }));
   }, 15_000);
 
-  // ───────────────────────────── Server → Wallet (universal handler)
+  // Helper for unique ID per wallet session
+  private generateClientId(): string {
+    return Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+  }
+
+  // -------------------- SERVER → WALLET (universal handler) --------------------
   private handleServer(msg: any) {
     if (!msg?.event) return;
-    console.log('[OB WS ← Server] got:', msg);
 
- if (msg.event && msg.event.endsWith('::swap')) {
-    // Just forward to the FE with the same event name
-    this.walletSocket?.emit(msg.event, msg.data);
-    return; // Don't fall through to other cases
-  }
-
-    // Universal switch for debugging, notifications, or further hooks
-    switch (msg.event) {
-      case 'orderbook-data':
-        console.log('[OB] Full orderbook:', msg.orders);
-        break;
-      case 'placed-orders':
-        console.log('[OB] User orders:', msg.openedOrders, msg.orderHistory);
-        break;
-      case 'update-orders-request':
-        console.log('[OB] Orderbook refresh requested');
-        break;
-      case 'order:saved':
-        console.log('[OB] Order saved:', msg.orderUuid);
-        break;
-      case 'order:error':
-        console.warn('[OB] Order error:', msg.error || msg);
-        break;
-      default:
-        console.log('[OB] Unhandled event:', msg.event, msg);
-    }
-    // Special “new-channel” handling (mirrors old logic)
-     if (msg.event === 'new-channel') {
-
-        const data = msg.data || msg; // handle both new (.data) and legacy (flat)
-        console.log('new channel msg '+JSON.stringify(msg))
-        if (!data.tradeInfo || !data.tradeInfo.seller || !data.tradeInfo.buyer) {
-          console.warn('[OB WS] Malformed new-channel message:', msg);
-          return;
-        }
-        this.walletSocket?.emit(`${eventPrefix}::new-channel`, data);
-        const cpId = data.isBuyer
-          ? data.tradeInfo.seller.socketId
-          : data.tradeInfo.buyer.socketId;
-        this.rebindSwapChannel(cpId);
-        return
+    // Relay ::swap (always send through as-is)
+    if (msg.event.includes('::swap')) {
+      // msg.data should contain the actual SwapEvent object
+      this.walletSocket?.emit(msg.event, msg.data ?? msg);
+      return;
     }
 
-    // Always relay to FE
+    // Handle new-channel event for swap/CP id cleanup
+    if (msg.event === 'new-channel') {
+      this.handleNewChannel(msg);
+      return;
+    }
+
+    // Relay all other events as OB_SOCKET::<event>
     this.walletSocket?.emit(`${eventPrefix}::${msg.event}`, msg);
-    return
   }
 
-  // ───────────────────────────── Wallet → Server
+  private handleNewChannel(msg: any) {
+    const data = msg.data || msg;
+
+    // Clean up listeners for both relevant swap parties (by socketId)
+    if (data.tradeInfo) {
+      [data.tradeInfo.seller?.socketId, data.tradeInfo.buyer?.socketId].forEach(socketId => {
+        if (socketId) {
+          const swapEvt = `${socketId}::swap`;
+          const handler = this.activeSwapListeners.get(swapEvt);
+          if (handler) {
+            this.walletSocket?.off(swapEvt, handler);
+            this.activeSwapListeners.delete(swapEvt);
+          }
+        }
+      });
+    }
+    // Pass canonical new-channel event to FE (Angular)
+    this.walletSocket?.emit(`${eventPrefix}::new-channel`, data);
+  }
+
+  // -------------------- WALLET → SERVER (bridge, including new-channel) --------------------
   private bridgeWalletToServer() {
+    // Relay all standard OB events
     ['update-orderbook', 'new-order', 'close-order', 'many-orders'].forEach((ev) => {
       this.walletSocket?.on(ev, (data: any) => this.emitToServer(ev, data));
     });
 
-    // Listen for own swap namespace once ID is set
-    if (this.clientId) this.rebindSwapChannel(this.clientId);
+    // Relay new-channel event from FE to server as well
+    this.walletSocket?.on(`${eventPrefix}::new-channel`, (data: any) => {
+      this.emitToServer('new-channel', data);
+    });
+
+    // Relay any ::swap (multi-trade safe) from FE to server, with the correct ids
+    this.walletSocket?.onAny?.((event: string, data: any) => {
+      if (event.endsWith('::swap')) {
+        // If you want to sanitize/patch the socketId, do it here:
+        // data.socketId = this.canonicalizeId(data.socketId) // if needed
+        this.emitToServer(event, data);
+      }
+    });
   }
 
-  private rebindSwapChannel(socketId: string) {
-    const swapEvt = `${socketId}::swap`;
-    this.walletSocket?.removeAllListeners?.(swapEvt);
-    this.walletSocket?.on(swapEvt, (data: any) => this.emitToServer(swapEvt, data));
-  }
+  // (If you need id patching logic, write it here, e.g. canonicalizeId(id: string): string {...})
 
   private emitToServer(event: string, payload: any = {}) {
-    if (this.ws?.readyState === WebSocket.OPEN)
+    if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ event, ...payload }));
+    }
   }
 }
