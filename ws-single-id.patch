@@ -1,0 +1,40 @@
+diff --git a/packages/wallet-server/src/services/ob-sockets.service.ts b/packages/wallet-server/src/services/ob-sockets.service.ts
+@@
+-  private connect() {
+-    this.ws = new WebSocket(this.options.url);
++  private connect() {
++    /* Already connected? → reuse to stop “shotgun” ids               */
++    if (this.ws?.readyState === WebSocket.OPEN) return;
++
++    this.ws = new WebSocket(this.options.url);
+
+@@
+-    this.ws.on('open', () => {
+-      this.reconnectAttempts = 0;
+-      this.walletSocket?.emit(`${eventPrefix}::connect`);
+-    });
++    this.ws.on('open', () => {
++      this.reconnectAttempts = 0;
++      /* send canonical id once */
++      this.walletSocket?.emit(`${eventPrefix}::connect`, { socketId: this.clientId });
++    });
+
+@@
+-    // Relay all ::swap (and composite) events, and record handler for targeted cleanup
+-    this.walletSocket?.onAny?.((event: string, data: any) => {
++    const uiAnyHandler = (event: string, data: any) => {
+       if (event.includes('::swap')) {
+         this.emitToServer(event, data);
+       }
+       if (event === `${eventPrefix}::new-channel` || event === 'new-channel') {
+         this.emitToServer('new-channel', data);
+       }
+-    });
++    };
++
++    /* attach exactly once */
++    if (!(this.walletSocket as any)._obAnyAttached) {
++      (this.walletSocket as any)._obAnyAttached = true;
++      this.walletSocket.onAny(uiAnyHandler);
++    }
+   }

@@ -32,13 +32,12 @@ export class OBSocketService {
   }
 
   private connect() {
+    if (this.ws?.readyState === WebSocket.OPEN) return;
     this.ws = new WebSocket(this.options.url);
 
     this.ws.on('open', () => {
       this.reconnectAttempts = 0;
-      this.walletSocket?.emit(`${eventPrefix}::connect`);
-      // (Optionally) emit client id to FE if needed:
-      // this.walletSocket?.emit(`${eventPrefix}::client-id`, this.clientId);
+      this.walletSocket?.emit(`${eventPrefix}::connect`, { socketId: this.clientId });
     });
 
     this.ws.on('message', (buf) => {
@@ -76,7 +75,9 @@ export class OBSocketService {
   // -------------------- SERVER → WALLET (universal handler) --------------------
   private handleServer(msg: any) {
     if (!msg?.event) return;
-    console.log('incoming message from OB '+JSON.stringify(msg))
+    if(msg.event!='orderbook-data'){
+        console.log('incoming message from OB '+JSON.stringify(msg))
+    }
     // Relay ::swap (always send through as-is)
     if (msg.event.includes('::swap')) {
       // msg.data should contain the actual SwapEvent object
@@ -115,28 +116,31 @@ export class OBSocketService {
     this.walletSocket?.emit(`${eventPrefix}::new-channel`, data);
   }
 
-  // -------------------- WALLET → SERVER (bridge, including new-channel) --------------------
-  private bridgeWalletToServer() {
-    // Relay all standard OB events
-    ['update-orderbook', 'new-order', 'close-order', 'many-orders'].forEach((ev) => {
-      this.walletSocket?.on(ev, (data: any) => this.emitToServer(ev, data));
-    });
+  // -------------------- WALLET → SERVER (bridge, including new-channel) -
+        private bridgeWalletToServer() {
+          // Relay all standard OB events
+          ['update-orderbook', 'new-order', 'close-order', 'many-orders'].forEach((ev) => {
+            this.walletSocket?.on(ev, (data: any) => this.emitToServer(ev, data));
+          });
 
-    // Relay new-channel event from FE to server as well
-    this.walletSocket?.on(`${eventPrefix}::new-channel`, (data: any) => {
-      this.emitToServer('new-channel', data);
-    });
+          // Relay new-channel event from FE to server
+          this.walletSocket?.on(`${eventPrefix}::new-channel`, (data: any) => {
+            this.emitToServer('new-channel', data);
+          });
 
-    // Relay any ::swap (multi-trade safe) from FE to server, with the correct ids
-    this.walletSocket?.onAny?.((event: string, data: any) => {
-      if (event.endsWith('::swap')) {
-        console.log('emiting swap step '+JSON.stringify(event)+JSON.stringify(data))
-        // If you want to sanitize/patch the socketId, do it here:
-        // data.socketId = this.canonicalizeId(data.socketId) // if needed
-        this.emitToServer(event, data);
-      }
-    });
-  }
+          // Relay any ::swap (multi-trade safe) from FE to server
+          if (!(this.walletSocket as any)._obAnyAttached) {
+            (this.walletSocket as any)._obAnyAttached = true;
+
+            this.walletSocket.onAny((event: string, data: any) => {
+              if (event.endsWith('::swap')) {
+                console.log('emitting swap step ' + JSON.stringify(event) + JSON.stringify(data));
+                // Optionally patch socketId here
+                this.emitToServer(event, data);
+              }
+            });
+          }
+        }
 
   // (If you need id patching logic, write it here, e.g. canonicalizeId(id: string): string {...})
 
