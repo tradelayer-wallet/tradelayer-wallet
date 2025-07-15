@@ -98,6 +98,12 @@ export class FuturesOrderbookService {
 
     subscribeForOrderbook() {
         this.endOrderbookSbuscription();
+
+        this.socket.on(`${obEventPrefix}::connect`, () => {
+        // Clear local orderbook data immediately
+        this.rawOrderbookData = [];
+        });
+
         this.socket.on(`${obEventPrefix}::order:error`, (message: string) => {
             this.toastrService.error(message || `Undefined Error`, 'Orderbook Error');
             this.loadingService.tradesLoading = false;
