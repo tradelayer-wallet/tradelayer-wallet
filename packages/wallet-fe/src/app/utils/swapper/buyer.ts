@@ -237,12 +237,13 @@ export class BuySwapper extends Swap {
   // 1) unpack your tradeInfo
   const { contract_id, amount, price, levarage, collateral, transfer = false } =
     this.tradeInfo as IFuturesTradeProps;
-
+    //console.log('step 3 futures trade info '+JSON.stringify(this.tradeInfo))
   // 2) compute initial margin
   const column = await this.txsService.predictColumn(
     this.myInfo.keypair.address,
     this.cpInfo.keypair.address
   );
+
   const isA = column === 'A' ? 1 : 0;
   const initMargin = new BigNumber(amount)
     .times(price)

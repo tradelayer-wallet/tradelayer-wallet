@@ -136,7 +136,7 @@ export class OBSocketService {
               if (event.endsWith('::swap')) {
                 console.log('emitting swap step ' + JSON.stringify(event) + JSON.stringify(data));
                 // Optionally patch socketId here
-                this.emitToServer(event, data);
+                this.emitToServer(event, {eventName:data.eventName,socketId:data.socketId,data:data.data});
               }
             });
           }
