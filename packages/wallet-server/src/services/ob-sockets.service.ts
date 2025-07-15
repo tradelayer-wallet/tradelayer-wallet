@@ -9,9 +9,10 @@ const eventPrefix = 'OB_SOCKET';
 
 export class OBSocketService {
   private ws!: WebSocket;
+  private isConnecting = false;
   private reconnectAttempts = 0;
-  // This is a canonical client id for *this* wallet server instance, not per trade/channel.
-  private clientId: string = this.generateClientId();
+  // Canonical id received from server after connection
+  private _clientId: string | null = null;
   private activeSwapListeners: Map<string, (...args: any[]) => void> = new Map();
 
   constructor(private options: IOBSocketServiceOptions) {
@@ -27,17 +28,33 @@ export class OBSocketService {
     return sock;
   }
 
+  public get clientId(): string | null {
+    return this._clientId;
+  }
+
   private get walletSocket() {
     return fasitfyServer.mainSocketService.currentSocket;
   }
 
+  /** Establish (or re‑establish) the WebSocket connection to the OB server. */
   private connect() {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (
+      this.ws &&
+      (this.ws.readyState === WebSocket.OPEN ||
+        this.ws.readyState === WebSocket.CONNECTING) ||
+      this.isConnecting
+    ) {
+      return;
+    }
+
+    this.isConnecting = true;
     this.ws = new WebSocket(this.options.url);
 
     this.ws.on('open', () => {
+      this.isConnecting = false;
       this.reconnectAttempts = 0;
-      this.walletSocket?.emit(`${eventPrefix}::connect`, { socketId: this.clientId });
+      // No longer emit socketId here! Just signal connect event.
+      this.walletSocket?.emit(`${eventPrefix}::connect`);
     });
 
     this.ws.on('message', (buf) => {
@@ -58,6 +75,18 @@ export class OBSocketService {
   private scheduleReconnect(event: string) {
     this.walletSocket?.emit(`${eventPrefix}::${event}`);
     this.reconnectAttempts += 1;
+
+    // Clean up every listener on the old socket instance and mark it dead.
+    if (this.ws) {
+      this.ws.removeAllListeners?.();
+      try {
+        this.ws.terminate?.();
+      } catch {}
+    }
+    this.ws = undefined as any;
+    this.isConnecting = false;
+
+    // Quadratic back‑off: 1 s, 4 s, 9 s … capped at 30 s.
     const delay = Math.min(1_000 * this.reconnectAttempts ** 2, 30_000);
     setTimeout(() => this.connect(), delay);
   }
@@ -67,21 +96,30 @@ export class OBSocketService {
       this.ws.send(JSON.stringify({ event: 'ping' }));
   }, 15_000);
 
-  // Helper for unique ID per wallet session
-  private generateClientId(): string {
-    return Date.now() + '-' + Math.random().toString(36).slice(2, 10);
-  }
-
   // -------------------- SERVER → WALLET (universal handler) --------------------
   private handleServer(msg: any) {
     if (!msg?.event) return;
-    if(msg.event!='orderbook-data'){
-        console.log('incoming message from OB '+JSON.stringify(msg))
+
+    // Handle id assignment from server, dedupe here.
+    if (msg.event === 'connected' && msg.id) {
+      if (this._clientId && this._clientId !== msg.id) {
+        // If id changed, clean up listeners or state as needed
+        // (optional: e.g. disconnect, warn, etc.)
+        // For now just log
+        console.log('[OB WS] Re-assigned id, old:', this._clientId, 'new:', msg.id);
+      }
+      this._clientId = msg.id;
+      console.log('Connected to OB, got id:', msg.id);
+      // Could emit to FE or trigger further actions here if desired
+      return;
     }
+
+    if (msg.event != 'orderbook-data') {
+      console.log('incoming message from OB ' + JSON.stringify(msg));
+    }
+
     // Relay ::swap (always send through as-is)
     if (msg.event.includes('::swap')) {
-      // msg.data should contain the actual SwapEvent object
-
       this.walletSocket?.emit(msg.event, msg.data);
       return;
     }
@@ -101,46 +139,53 @@ export class OBSocketService {
 
     // Clean up listeners for both relevant swap parties (by socketId)
     if (data.tradeInfo) {
-      [data.tradeInfo.seller?.socketId, data.tradeInfo.buyer?.socketId].forEach(socketId => {
-        if (socketId) {
-          const swapEvt = `${socketId}::swap`;
-          const handler = this.activeSwapListeners.get(swapEvt);
-          if (handler) {
-            this.walletSocket?.off(swapEvt, handler);
-            this.activeSwapListeners.delete(swapEvt);
+      [data.tradeInfo.seller?.socketId, data.tradeInfo.buyer?.socketId].forEach(
+        (socketId) => {
+          if (socketId) {
+            const swapEvt = `${socketId}::swap`;
+            const handler = this.activeSwapListeners.get(swapEvt);
+            if (handler) {
+              this.walletSocket?.off(swapEvt, handler);
+              this.activeSwapListeners.delete(swapEvt);
+            }
           }
         }
-      });
+      );
     }
     // Pass canonical new-channel event to FE (Angular)
     this.walletSocket?.emit(`${eventPrefix}::new-channel`, data);
   }
 
   // -------------------- WALLET → SERVER (bridge, including new-channel) -
-        private bridgeWalletToServer() {
-          // Relay all standard OB events
-          ['update-orderbook', 'new-order', 'close-order', 'many-orders'].forEach((ev) => {
-            this.walletSocket?.on(ev, (data: any) => this.emitToServer(ev, data));
-          });
+  /** Attaches wallet‑side socket listeners (only once per socket instance). */
+  private bridgeWalletToServer() {
+    if (!this.walletSocket || (this.walletSocket as any)._obBridgeInstalled) return;
+    (this.walletSocket as any)._obBridgeInstalled = true;
 
-          // Relay new-channel event from FE to server
-          this.walletSocket?.on(`${eventPrefix}::new-channel`, (data: any) => {
-            this.emitToServer('new-channel', data);
-          });
+    // Relay the standard order‑book events upstream.
+    ['update-orderbook', 'new-order', 'close-order', 'many-orders'].forEach(
+      (ev) => {
+        this.walletSocket.on(ev, (data: any) => this.emitToServer(ev, data));
+      }
+    );
 
-          // Relay any ::swap (multi-trade safe) from FE to server
-          if (!(this.walletSocket as any)._obAnyAttached) {
-            (this.walletSocket as any)._obAnyAttached = true;
+    // Pass new‑channel events upstream.
+    this.walletSocket.on(`${eventPrefix}::new-channel`, (data: any) => {
+      this.emitToServer('new-channel', data);
+    });
 
-            this.walletSocket.onAny((event: string, data: any) => {
-              if (event.endsWith('::swap')) {
-                console.log('emitting swap step ' + JSON.stringify(event) + JSON.stringify(data));
-                // Optionally patch socketId here
-                this.emitToServer(event, {eventName:data.eventName,socketId:data.socketId,data:data.data});
-              }
-            });
-          }
-        }
+    // Forward every ::swap event verbatim.
+    this.walletSocket.onAny((event: string, data: any) => {
+      if (event.endsWith('::swap')) {
+        console.log('[OB WS] forwarding swap', event, data);
+        this.emitToServer(event, {
+          eventName: data.eventName,
+          socketId: data.socketId,
+          data: data.data,
+        });
+      }
+    });
+  }
 
   // (If you need id patching logic, write it here, e.g. canonicalizeId(id: string): string {...})
 
