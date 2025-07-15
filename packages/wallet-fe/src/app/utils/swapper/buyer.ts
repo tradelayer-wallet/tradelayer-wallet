@@ -230,107 +230,109 @@ export class BuySwapper extends Swap {
                   } as any
                 );
             }
-       } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {
-  // 1) unpack your tradeInfo
-  const { contract_id, amount, price, levarage, collateral, transfer = false } =
-    this.tradeInfo as IFuturesTradeProps;
-    //console.log('step 3 futures trade info '+JSON.stringify(this.tradeInfo))
-  // 2) compute initial margin
-  const column = await this.txsService.predictColumn(
-    this.myInfo.keypair.address,
-    this.cpInfo.keypair.address
-  );
+       } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {// 1) Unpack your trade info
+        const { contract_id, amount, price, levarage, collateral, transfer = false } =
+          this.tradeInfo as IFuturesTradeProps;
 
-  const isA = column === 'A' ? 1 : 0;
-  const initMargin = new BigNumber(amount)
-    .times(price)
-    .dividedBy(levarage)
-    .decimalPlaces(8)
-    .toNumber();
+        // 2) Compute initial margin
+        const column = await this.txsService.predictColumn(
+          this.myInfo.keypair.address,
+          this.cpInfo.keypair.address
+        );
+        const isA = column === 'A' ? 1 : 0;
+        const initMargin = new BigNumber(amount)
+          .times(price)
+          .dividedBy(levarage)
+          .decimalPlaces(8)
+          .toNumber();
 
-  // 2) build the 'commit' or 'transfer' payload with the true propertyId
-  const payload = transfer
-    ? ENCODER.encodeTransfer({
-        propertyId:      collateral,
-        amount:          initMargin,
-        isColumnA:       isA === 1,
-        destinationAddr: this.multySigChannelData.address
-      })
-    : ENCODER.encodeCommit({
-        propertyId:      collateral,
-        amount:          initMargin,
-        channelAddress:  this.multySigChannelData.address
-      });
-
-  // 3) carry on with your normal buildTx / sign / send / psbt flow…
-  const commitRes = await this.txsService.buildTx({
-    fromKeyPair: { address: this.myInfo.keypair.address },
-    toKeyPair:   { address: this.multySigChannelData.address },
-    payload
-  });
-  if (commitRes.error || !commitRes.data) {
-    throw new Error(`Build Commit TX: ${commitRes.error}`);
-  }
-  // … sign, send, decode UTXO, build channel-locked PSBT, emit BUYER:STEP4 …
-
-    const { rawtx } = commitTxRes.data;
-                    const commitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
-                    if (commitTxSignRes.error || !commitTxSignRes.data) throw new Error(`Sign Commit TX: ${commitTxSignRes.error}`);
-
-                    const signedHex = commitTxSignRes.data?.signedHex;
-                    if (!signedHex) throw new Error(`Failed to sign transaction`);
-
-                    const commitTxSendRes = await this.txsService.sendTx(signedHex);
-                    if (commitTxSendRes.error || !commitTxSendRes.data) throw new Error(`Failed to send transaction`);
-
-                     // Handle UTXO creation for the next step
-                    const drtRes = await this.client("decoderawtransaction", [rawtx]);
-                    if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
-
-                    const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
-                    if (!vout) throw new Error(`decoderawtransaction (2): ${drtRes.error}`);
-
-                    const utxoData = {
-                        amount: vout.value,
-                        vout: vout.n,
-                        txid: commitTxSendRes.data,
-                        scriptPubKey: this.multySigChannelData.scriptPubKey,
-                        redeemScript: this.multySigChannelData.redeemScript,
-                    } as IUTXO;
-                    
-                    
-            const channelPayload = ENCODER.encodeTradeContractChannel({
-                contractId: this.tradeInfo.contract_id,
-                amount: this.tradeInfo.amount,
-                expiryBlock: bbData,
-                price: this.tradeInfo.price,
-                action: 1, // BUY
-                columnAIsSeller: column === 'A',
-                leverage: this.tradeInfo.levarage,
-                insurance: false
+        // 3) Build the commit or transfer payload
+        const payload = transfer
+          ? ENCODER.encodeTransfer({
+              propertyId: collateral,
+              amount: initMargin,
+              isColumnA: isA === 1,
+              destinationAddr: this.multySigChannelData.address
+            })
+          : ENCODER.encodeCommit({
+              propertyId: collateral,
+              amount: initMargin,
+              channelAddress: this.multySigChannelData.address
             });
 
+        // 4) Build the commit TX
+        const commitRes = await this.txsService.buildTx({
+          fromKeyPair: { address: this.myInfo.keypair.address },
+          toKeyPair: { address: this.multySigChannelData.address },
+          payload
+        });
+        if (commitRes.error || !commitRes.data) {
+          throw new Error(`Build Commit TX: ${commitRes.error}`);
+        }
+        const { rawtx } = commitRes.data;
 
-            // Step 6: Build channel PSBT tx
-            const tradeBuildRes = await buildTx({
-                fromKeyPair: this.myInfo.keypair,
-                toKeyPair: this.cpInfo.keypair,
-                payload: channelPayload,
-                inputs: [utxoData],
-                addPsbt: true,
-                amount: 0,
-                network: this.network
-            }, false);
-            if (tradeBuildRes.error || !tradeBuildRes.data?.psbtHex) throw new Error(Build Channel Trade TX: ${tradeBuildRes.error});
+        // 5) Sign and send the commit TX
+        const commitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
+        if (commitTxSignRes.error || !commitTxSignRes.data) {
+          throw new Error(`Sign Commit TX: ${commitTxSignRes.error}`);
+        }
+        const signedHex = commitTxSignRes.data.signedHex;
+        if (!signedHex) throw new Error(`Failed to sign transaction`);
 
-            const { psbtHex } = tradeBuildRes.data;
+        const commitTxSendRes = await this.txsService.sendTx(signedHex);
+        if (commitTxSendRes.error || !commitTxSendRes.data) {
+          throw new Error(`Failed to send transaction`);
+        }
+        const commitTxid = commitTxSendRes.data;
 
-            // Step 7: Emit BUYER:STEP4
-            const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, {
-                psbtHex,
-                commitTxId: commitTxid
-            });
-            this.socket.emit(${this.myInfo.socketId}::swap, swapEvent);
+        // 6) Decode raw TX to extract channel-locked UTXO
+        const drtRes = await this.client("decoderawtransaction", [rawtx]);
+        if (drtRes.error || !drtRes.data?.vout) {
+          throw new Error(`decoderawtransaction: ${drtRes.error}`);
+        }
+        const vout = drtRes.data.vout.find((o: any) =>
+          o.scriptPubKey?.addresses?.includes(this.multySigChannelData?.address || '')
+        );
+        if (!vout) {
+          throw new Error(`decoderawtransaction (2): ${drtRes.error}`);
+        }
+        const commitUTXO: IUTXO = {
+          amount: vout.value,
+          vout: vout.n,
+          txid: commitTxid,
+          scriptPubKey: this.multySigChannelData.scriptPubKey || "",
+          redeemScript: this.multySigChannelData.redeemScript,
+          confirmations:0
+        };
+
+        // 7) Encode trade payload
+        const channelPayload = ENCODER.encodeTradeContractChannel({
+          contractId: contract_id,
+          amount,
+          expiryBlock: bbData,
+          price,
+          columnAIsSeller: column === 'A',
+          insurance: false
+        });
+
+        // 8) Build PSBT channel trade TX
+         const buildOptions: IBuildLTCITTxConfig = {
+                        buyerKeyPair: this.myInfo.keypair,
+                        sellerKeyPair: this.cpInfo.keypair,
+                        commitUTXOs: [commitUTXO],
+                        payload: channelPayload,
+                        amount: 0,
+                    };
+                    console.log('build options in ltc trade step 3 '+JSON.stringify(buildOptions))
+                    const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
+        const psbtHex = rawHexRes.data?.psbtHex;
+
+        // 9) Emit BUYER:STEP4 with psbt + commit txid
+        const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, {
+          psbtHex,
+          commitTxId: commitTxid
+        });
+        this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
     
     } else {
                 throw new Error(`Unrecognized Trade Type: ${this.typeTrade}`);
