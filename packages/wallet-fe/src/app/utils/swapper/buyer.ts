@@ -193,10 +193,7 @@ export class BuySwapper extends Swap {
                         redeemScript: this.multySigChannelData.redeemScript,
                     } as IUTXO;
 
-                    
-                    // const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), propIdForSale, (amountForSale).toString(), bbData ];
-                    // const cpitRes = await this.client('tl_createpayload_instant_trade', cpitLTCOptions);
-
+              
                     const cpitLTCOptions = {
                         propertyId1: propIdForSale,
                         propertyId2: propIdDesired,
@@ -275,6 +272,65 @@ export class BuySwapper extends Swap {
     throw new Error(`Build Commit TX: ${commitRes.error}`);
   }
   // … sign, send, decode UTXO, build channel-locked PSBT, emit BUYER:STEP4 …
+
+    const { rawtx } = commitTxRes.data;
+                    const commitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
+                    if (commitTxSignRes.error || !commitTxSignRes.data) throw new Error(`Sign Commit TX: ${commitTxSignRes.error}`);
+
+                    const signedHex = commitTxSignRes.data?.signedHex;
+                    if (!signedHex) throw new Error(`Failed to sign transaction`);
+
+                    const commitTxSendRes = await this.txsService.sendTx(signedHex);
+                    if (commitTxSendRes.error || !commitTxSendRes.data) throw new Error(`Failed to send transaction`);
+
+                     // Handle UTXO creation for the next step
+                    const drtRes = await this.client("decoderawtransaction", [rawtx]);
+                    if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
+
+                    const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
+                    if (!vout) throw new Error(`decoderawtransaction (2): ${drtRes.error}`);
+
+                    const utxoData = {
+                        amount: vout.value,
+                        vout: vout.n,
+                        txid: commitTxSendRes.data,
+                        scriptPubKey: this.multySigChannelData.scriptPubKey,
+                        redeemScript: this.multySigChannelData.redeemScript,
+                    } as IUTXO;
+                    
+                    
+            const channelPayload = ENCODER.encodeTradeContractChannel({
+                contractId: this.tradeInfo.contract_id,
+                amount: this.tradeInfo.amount,
+                expiryBlock: bbData,
+                price: this.tradeInfo.price,
+                action: 1, // BUY
+                columnAIsSeller: column === 'A',
+                leverage: this.tradeInfo.levarage,
+                insurance: false
+            });
+
+
+            // Step 6: Build channel PSBT tx
+            const tradeBuildRes = await buildTx({
+                fromKeyPair: this.myInfo.keypair,
+                toKeyPair: this.cpInfo.keypair,
+                payload: channelPayload,
+                inputs: [utxoData],
+                addPsbt: true,
+                amount: 0,
+                network: this.network
+            }, false);
+            if (tradeBuildRes.error || !tradeBuildRes.data?.psbtHex) throw new Error(Build Channel Trade TX: ${tradeBuildRes.error});
+
+            const { psbtHex } = tradeBuildRes.data;
+
+            // Step 7: Emit BUYER:STEP4
+            const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, {
+                psbtHex,
+                commitTxId: commitTxid
+            });
+            this.socket.emit(${this.myInfo.socketId}::swap, swapEvent);
     
     } else {
                 throw new Error(`Unrecognized Trade Type: ${this.typeTrade}`);
