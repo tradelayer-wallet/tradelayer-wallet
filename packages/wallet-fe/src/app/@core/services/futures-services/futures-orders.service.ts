@@ -61,7 +61,7 @@ export class FuturesOrdersService {
 
 
     newOrder(orderConf: IFuturesTradeConf) {
-        this.loadingService.tradesLoading = true;
+        //this.loadingService.tradesLoading = true;
         this.socket.emit('new-order', orderConf);
     }
 
