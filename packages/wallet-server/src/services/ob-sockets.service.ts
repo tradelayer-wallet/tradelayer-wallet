@@ -114,9 +114,7 @@ export class OBSocketService {
       return;
     }
 
-    if (msg.event != 'orderbook-data') {
-      console.log('incoming message from OB ' + JSON.stringify(msg));
-    }
+      console.log('incoming message from OB ' + Date.now() +' '+JSON.stringify(msg));
 
     // Relay ::swap (always send through as-is)
     if (msg.event.includes('::swap')) {
@@ -165,6 +163,7 @@ export class OBSocketService {
     // Relay the standard order‑book events upstream.
     ['update-orderbook', 'new-order', 'close-order', 'many-orders'].forEach(
       (ev) => {
+        console.log('[time]', Date.now(), 'Bridge installed');
         this.walletSocket.on(ev, (data: any) => this.emitToServer(ev, data));
       }
     );

@@ -7,6 +7,8 @@ import { AuthService } from "../auth.service";
 import { FuturesMarketService } from "./futures-markets.service";
 import { ITradeInfo } from "src/app/utils/swapper";
 import { IFuturesTradeProps } from "src/app/utils/swapper/common";
+import { BehaviorSubject } from 'rxjs';
+
 
 interface IFuturesOrderbookData {
     orders: IFuturesOrder[],
@@ -36,7 +38,7 @@ export interface IFuturesOrder {
     timestamp: number;
     type: "FUTURES";
     uuid: string;
-    state?: "CANCALED" | "FILLED";
+    state?: "CANCELED" | "FILLED";
 }
 
 @Injectable({
@@ -46,8 +48,8 @@ export interface IFuturesOrder {
 export class FuturesOrderbookService {
     private _rawOrderbookData: IFuturesOrder[] = [];
     outsidePriceHandler: Subject<number> = new Subject();
-    buyOrderbooks: { amount: number, price: number }[] = [];
-    sellOrderbooks: { amount: number, price: number }[] = [];
+buyOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
+sellOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
     tradeHistory: IFuturesHistoryTrade[] = [];
     currentPrice: number = 1;
     lastPrice: number = 1;
@@ -97,12 +99,7 @@ export class FuturesOrderbookService {
     };
 
     subscribeForOrderbook() {
-        this.endOrderbookSbuscription();
-
-        this.socket.on(`${obEventPrefix}::connect`, () => {
-        // Clear local orderbook data immediately
-        this.rawOrderbookData = [];
-        });
+        this.endOrderbookSubscription();
 
         this.socket.on(`${obEventPrefix}::order:error`, (message: string) => {
             this.toastrService.error(message || `Undefined Error`, 'Orderbook Error');
@@ -118,7 +115,9 @@ export class FuturesOrderbookService {
             this.socket.emit('update-orderbook', this.marketFilter)
         });
 
+             console.log('[time]', Date.now(), 'set up listener for orderbook-data');
         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: IFuturesOrderbookData) => {
+            console.log('ob data in FE '+JSON.stringify(orderbookData.orders))
             this.rawOrderbookData = orderbookData.orders;
             this.tradeHistory = orderbookData.history;
             const lastTrade = this.tradeHistory[0];
@@ -126,18 +125,17 @@ export class FuturesOrderbookService {
             this.currentPrice = lastTrade?.props?.price || 1;
             return;
         });
-
-        this.socket.emit('update-orderbook', this.marketFilter);
     }
 
-    endOrderbookSbuscription() {
+    endOrderbookSubscription() {
         ['update-orders-request', 'orderbook-data', 'order:error', 'order:saved']
             .forEach(m => this.socket.off(`${obEventPrefix}::${m}`));
     }
 
     private structureOrderBook() {
-        this.buyOrderbooks = this._structureOrderbook(true);
-        this.sellOrderbooks = this._structureOrderbook(false);
+        console.log('structuring the book')
+        this.buyOrderbooks$ = this._structureOrderbook(true);
+        this.sellOrderbooks$ = this._structureOrderbook(false);
     }
 
     private _structureOrderbook(isBuy: boolean) {

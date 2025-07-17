@@ -35,7 +35,7 @@ export interface ISpotOrder {
     timestamp: number;
     type: "SPOT";
     uuid: string;
-    state?: "CANCALED" | "FILLED"
+    state?: "CANCELED" | "FILLED"
 }
 
 @Injectable({
@@ -121,8 +121,6 @@ export class SpotOrderbookService {
             this.currentPrice = price;
             return;
         });
-
-        this.socket.emit('update-orderbook', this.marketFilter);
     }
 
     endOrderbookSbuscription() {

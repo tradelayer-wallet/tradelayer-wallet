@@ -18,6 +18,8 @@ export interface PeriodicElement {
 export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     @ViewChild('sellOrdersContainer') sellOrdersContainer: any;
 
+    buyOrderbooks$ = this.futuresOrderbookService.buyOrderbooks$;
+    sellOrderbooks$ = this.futuresOrderbookService.sellOrderbooks$;
     displayedColumns: string[] = ['price', 'amount', 'total'];
     clickedRows = new Set<PeriodicElement>();
     constructor(
@@ -25,6 +27,10 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
       private futuresOrdersService: FuturesOrdersService,
       private futuresMarketService: FuturesMarketService,
     ) {}
+
+    ngOnInit() {
+      this.futuresOrderbookService.subscribeForOrderbook();
+    }
 
     get upTrend() {
       return this.lastPrice > this.marketPrice;
@@ -59,21 +65,17 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
       });
     }
 
-    get buyOrderbooks() {
+    /*get buyOrderbooks() {
       return this.futuresOrderbookService.buyOrderbooks;
     }
 
     get sellOrderbooks() {
       this.scrollToBottom();
       return this.futuresOrderbookService.sellOrderbooks;
-    }
+    }*/
 
     get selectedMarket() {
       return this.futuresMarketService.selectedMarket;
-    }
-  
-    ngOnInit() {
-      this.futuresOrderbookService.subscribeForOrderbook();
     }
 
     scrollToBottom() {
@@ -82,8 +84,12 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
       }
     }
 
+    ngAfterViewChecked() {
+      this.scrollToBottom();
+    }
+
     ngOnDestroy() {
-      this.futuresOrderbookService.endOrderbookSbuscription()
+      this.futuresOrderbookService.endOrderbookSubscription()
     }
 
     fillBuySellPrice(price: number) {

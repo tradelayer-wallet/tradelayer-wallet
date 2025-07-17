@@ -9,6 +9,9 @@ import { RpcService } from './@core/services/rpc.service';
 import { SocketService } from './@core/services/socket.service';
 import { SwapService } from './@core/services/swap.service';
 import { WindowsService } from './@core/services/windows.service';
+import { SpotOrderbookService }    from './@core/services/spot-services/spot-orderbook.service';
+import { FuturesOrderbookService } from './@core/services/futures-services/futures-orderbook.service';
+
 
 @Component({
   selector: 'tl-root',
@@ -29,6 +32,8 @@ export class AppComponent {
     private socketService: SocketService,
     private swapService: SwapService,
     private nodeRewardService: NodeRewardService,
+    private spotObSvc: SpotOrderbookService,
+    private futuresObSvc: FuturesOrderbookService,
   ) {
     this.handleInits();
     this.handleConnections();
@@ -71,6 +76,10 @@ export class AppComponent {
     this.attestationService.onInit();
     this.swapService.onInit();
     this.nodeRewardService.onInit();
+      /* 🔑  eager‑register the WS listeners */
+    this.spotObSvc.subscribeForOrderbook();
+    this.futuresObSvc.subscribeForOrderbook();
+
   }
 
   handleConnections() {
