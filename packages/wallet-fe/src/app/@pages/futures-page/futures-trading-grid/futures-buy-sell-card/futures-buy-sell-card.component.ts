@@ -199,9 +199,9 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     const price = this.isLimitSelected ? _price : this.currentPrice;
     const market = this.selectedMarket;
     const leverage = market.leverage || 10;
-    const notional = 1; //this is a bit misleading, keeping it 1 here to get generic init margin and fee irrespective of contract unit bias
+    const sterilizedNotional = market.notional || 1
     const isInverse = market.inverse || false;
-    const initialMargin = this.calculateInitialMargin(isInverse, amount, price, leverage, notional);
+    const initialMargin = this.calculateInitialMargin(isInverse, amount, price, leverage, sterilizedNotional);
 
     this.rpcService.rpc("getaddressinfo", [this.futureAddress]).then(pubkeyRes => {
       if (pubkeyRes.error || !pubkeyRes.data?.pubkey) {
@@ -223,8 +223,15 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         this.toastrService.error(`Insufficient collateral for this trade.`);
         return;
       }
-      const sterilizedNotional = market.notional || 1
-      const adjustedAmount = Math.floor(amount/sterilizedNotional)
+      
+      let adjustedAmount = 0;
+
+      if (isInverse) {
+        // Inverse: contracts = LTC_amount / sterilizedNotional, or TL_amount / (notional * price)
+          adjustedAmount = Math.floor(amount / (sterilizedNotional * price));
+      } else {
+        adjustedAmount = Math.floor(amount / sterilizedNotional)
+      }
 
       const order: IFuturesTradeConf = {
         keypair: {
