@@ -134,8 +134,8 @@ sellOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
 
     private structureOrderBook() {
         console.log('structuring the book')
-        this.buyOrderbooks$ = this._structureOrderbook(true);
-        this.sellOrderbooks$ = this._structureOrderbook(false);
+        this.buyOrderbooks$.next(this._structureOrderbook(true));
+        this.sellOrderbooks$.next(this._structureOrderbook(false));
     }
 
     private _structureOrderbook(isBuy: boolean) {

@@ -11,7 +11,7 @@ export interface PeriodicElement {
 
 @Component({
   selector: 'tl-futures-orderbook-card',
-  templateUrl: '../../../spot-page/spot-trading-grid/spot-orderbook-card/orderbook-card.component.html',
+  templateUrl: './futures-orderbook-card.component.html',
   styleUrls: ['../../../spot-page/spot-trading-grid/spot-orderbook-card/orderbook-card.component.scss']
 })
 

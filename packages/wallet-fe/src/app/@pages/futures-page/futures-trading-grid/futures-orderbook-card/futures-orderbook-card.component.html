@@ -14,7 +14,7 @@
   </mat-card-title>
     <mat-card-content>
         <div class="sell" #sellOrdersContainer>
-          <table mat-table [dataSource]="sellOrderbooks">
+          <table mat-table [dataSource]="sellOrderbooks$ | async">
             <ng-container matColumnDef="price">
               <th mat-header-cell *matHeaderCellDef>Price</th>
               <td mat-cell *matCellDef="let el"> {{el.price.toFixed(4)}} </td>
@@ -41,7 +41,7 @@
           <mat-icon [ngStyle]='{"color": upTrend ? "green" : "red"}'>{{ upTrend ? "arrow_upward" : "arrow_downward" }}</mat-icon>
          </div>
          <div class="buy">
-          <table mat-table [dataSource]="buyOrderbooks">
+          <table mat-table [dataSource]="buyOrderbooks$ | async">
             <ng-container matColumnDef="price">
               <th mat-header-cell *matHeaderCellDef>Price</th>
               <td mat-cell *matCellDef="let el"> {{el.price.toFixed(4)}} </td>
