@@ -91,8 +91,8 @@ export class BuySwapper extends Swap {
         const bbData = parseFloat(gbcRes.data) + 10;
         console.log('examing this.tradeInfo object '+JSON.stringify(this.tradeInfo))
         // Preserve the ctcpParams logic based on trade type
-        if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
-            let { propIdDesired, amountDesired, amountForSale, propIdForSale, transfer } = this.tradeInfo
+        if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo){
+            let { propIdDesired, amountDesired, amountForSale, propIdForSale, transfer} = this.tradeInfo
             
             const column = await this.txsService.predictColumn(this.myInfo.keypair.address, this.cpInfo.keypair.address);
                     let isA = column === 'A' ? 1 : 0;
@@ -231,7 +231,7 @@ export class BuySwapper extends Swap {
                 );
             }
        } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {// 1) Unpack your trade info
-        const { contract_id, amount, price, levarage, collateral, transfer = false } =
+        const { contract_id, amount, price, initMargin, collateral, transfer = false } =
           this.tradeInfo as IFuturesTradeProps;
 
         // 2) Compute initial margin
@@ -240,11 +240,6 @@ export class BuySwapper extends Swap {
           this.cpInfo.keypair.address
         );
         const isA = column === 'A' ? 1 : 0;
-        const initMargin = new BigNumber(amount)
-          .times(price)
-          .dividedBy(levarage)
-          .decimalPlaces(8)
-          .toNumber();
 
         // 3) Build the commit or transfer payload
         const payload = transfer

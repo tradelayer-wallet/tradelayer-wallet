@@ -245,7 +245,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
           amount: adjustedAmount,
           price,
           collateral: market.collateral.propertyId,
-          levarage: leverage,
+          initMargin: initialMargin,
           transfer,
         },
         isLimitOrder: this.isLimitSelected,

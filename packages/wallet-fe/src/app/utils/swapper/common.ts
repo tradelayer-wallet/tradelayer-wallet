@@ -28,7 +28,7 @@ export interface IFuturesTradeProps {
     amount: number;
     contract_id: number;
     price: number;
-    levarage: number;
+    initMargin: number;
     collateral: number;
     transfer?: boolean;
 };

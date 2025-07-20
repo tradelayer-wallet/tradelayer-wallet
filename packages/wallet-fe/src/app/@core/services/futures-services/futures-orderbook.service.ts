@@ -111,6 +111,15 @@ sellOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
             this.toastrService.success(`The Order is Saved in Orderbook`, "Success");
         });
 
+        this.socket.on('disconnect', () => {
+            // Clear ALL local orderbook state
+            this._rawOrderbookData = [];
+            this.structureOrderBook();
+            // Optionally: notify the user
+            this.toastrService.info('Disconnected from orderbook server. Orders cleared.');
+        });
+
+
         this.socket.on(`${obEventPrefix}::update-orders-request`, () => {
             this.socket.emit('update-orderbook', this.marketFilter)
         });

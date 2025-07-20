@@ -102,6 +102,14 @@ export class SpotOrderbookService {
             this.loadingService.tradesLoading = false;
         });
 
+        this.socket.on('disconnect', () => {
+            // Clear ALL local orderbook state
+            this._rawOrderbookData = [];
+            this.structureOrderBook();
+            // Optionally: notify the user
+            this.toastrService.info('Disconnected from orderbook server. Orders cleared.');
+        });
+
         this.socket.on(`${obEventPrefix}::order:saved`, (data: any) => {
             this.loadingService.tradesLoading = false;
             this.toastrService.success(`The Order is Saved in Orderbook`, "Success");

@@ -68,7 +68,7 @@ export class OBSocketService {
       this.handleServer(msg);
     });
 
-    this.ws.on('close', () => this.scheduleReconnect('disconnect'));
+    this.ws.on('close', () => this.walletSocket?.emit('disconnect'));
     this.ws.on('error', () => this.scheduleReconnect('connect_error'));
   }
 
