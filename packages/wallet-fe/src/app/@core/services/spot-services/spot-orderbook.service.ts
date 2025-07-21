@@ -102,7 +102,7 @@ export class SpotOrderbookService {
             this.loadingService.tradesLoading = false;
         });
 
-        this.socket.on('disconnect', () => {
+        this.socket.on(`${obEventPrefix}::disconnect`, () => {
             // Clear ALL local orderbook state
             this._rawOrderbookData = [];
             this.structureOrderBook();

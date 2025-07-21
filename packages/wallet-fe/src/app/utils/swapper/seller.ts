@@ -133,21 +133,12 @@ export class SellSwapper extends Swap {
         contract_id,
         amount,
         price,
-        levarage,
+        initMargin,
         collateral,
         transfer = false
       } = this.tradeInfo as IFuturesTradeProps;
 
-      console.log('checking params for commit '+amount + ' '+collateral)
-
-      // 1) compute initial margin
-      const initMargin = new BigNumber(amount)
-        .times(price)
-        .dividedBy(levarage)
-        .decimalPlaces(8)
-        .toNumber();
-
-      console.log('initMargin calc '+initMargin+' '+price+' '+levarage)
+      console.log('checking params for commit '+amount + ' '+collateral+' '+initMargin)
 
       // 2) build appropriate payload
       payload = transfer

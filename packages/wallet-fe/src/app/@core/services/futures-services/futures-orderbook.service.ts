@@ -48,8 +48,8 @@ export interface IFuturesOrder {
 export class FuturesOrderbookService {
     private _rawOrderbookData: IFuturesOrder[] = [];
     outsidePriceHandler: Subject<number> = new Subject();
-buyOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
-sellOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
+    buyOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
+    sellOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
     tradeHistory: IFuturesHistoryTrade[] = [];
     currentPrice: number = 1;
     lastPrice: number = 1;
@@ -98,6 +98,19 @@ sellOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
         return this.futuresMarketService.marketFilter;
     };
 
+   getContractMeta(contract_id: number) {
+        // Use FuturesMarketService.getMarketByContractId()
+        const market = this.futuresMarketService.getMarketByContractId(contract_id);
+        if (!market) return { contractSize: 1, isInverse: false };
+        // Note: Derive contractSize, isInverse from your market model
+        return {
+            contractSize: market.notional || 1,           // <-- Use .notional for contract size
+            isInverse: !!market.inverse                   // <-- Use .inverse for inverse contracts
+        };
+    }
+
+
+
     subscribeForOrderbook() {
         this.endOrderbookSubscription();
 
@@ -111,7 +124,7 @@ sellOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
             this.toastrService.success(`The Order is Saved in Orderbook`, "Success");
         });
 
-        this.socket.on('disconnect', () => {
+        this.socket.on(`${obEventPrefix}::disconnect`, () => {
             // Clear ALL local orderbook state
             this._rawOrderbookData = [];
             this.structureOrderBook();
@@ -149,17 +162,21 @@ sellOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
 
     private _structureOrderbook(isBuy: boolean) {
         const contract_id = this.selectedMarket.contract_id;
+        const { contractSize, isInverse } = this.getContractMeta(contract_id);
         const filteredOrderbook = this.rawOrderbookData.filter(o => o.props.contract_id === contract_id && o.action === (isBuy ? "BUY" : "SELL"));
         const range = 1000;
         const result: {price: number, amount: number}[] = [];
         filteredOrderbook.forEach(o => {
           const _price = Math.trunc(o.props.price*range)
+          const normalizedAmount = isInverse
+          ? parseFloat((o.props.amount * o.props.price * contractSize).toFixed(8))
+          : parseFloat((o.props.amount * contractSize).toFixed(8));
           const existing = result.find(_o =>  Math.trunc(_o.price*range) === _price);
           existing
             ? existing.amount += o.props.amount
             : result.push({
                 price: parseFloat(o.props.price.toFixed(4)),
-                amount: o.props.amount,
+                amount: parseFloat(normalizedAmount.toFixed(8)),
             });
         });
         if (!isBuy) this.lastPrice = result.sort((a, b) => b.price - a.price)?.[result.length - 1]?.price || this.currentPrice || 1;

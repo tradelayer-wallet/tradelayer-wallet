@@ -202,6 +202,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     const sterilizedNotional = market.notional || 1
     const isInverse = market.inverse || false;
     const initialMargin = this.calculateInitialMargin(isInverse, amount, price, leverage, sterilizedNotional);
+    console.log('calculated init margin '+isInverse, amount, price, leverage, sterilizedNotional)
 
     this.rpcService.rpc("getaddressinfo", [this.futureAddress]).then(pubkeyRes => {
       if (pubkeyRes.error || !pubkeyRes.data?.pubkey) {
