@@ -127,6 +127,7 @@ export class FuturesOrderbookService {
         this.socket.on(`${obEventPrefix}::disconnect`, () => {
             // Clear ALL local orderbook state
             this._rawOrderbookData = [];
+            console.log('cleared ob after disconnect '+JSON.stringify(this._rawOrderbookData))
             this.structureOrderBook();
             // Optionally: notify the user
             this.toastrService.info('Disconnected from orderbook server. Orders cleared.');

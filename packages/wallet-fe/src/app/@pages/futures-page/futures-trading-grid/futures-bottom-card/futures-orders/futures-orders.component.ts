@@ -49,6 +49,7 @@ export class FuturesOrdersComponent implements OnInit, OnDestroy {
        this.futuresOrdersService.closeOpenedOrder('test-for-update');
        this.socket.on(`${obEventPrefix}::disconnect`, () => {
          this.futuresOrdersService.openedOrders = [];
+         console.log('closing opened orders in UI from disconnect' +JSON.stringify(this.futuresOrdersService.openedOrders))
        });
 
        const subs = this.authService.updateAddressesSubs$
