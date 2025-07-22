@@ -10,10 +10,11 @@
       "buildResources": "dist"
     },
     "asar": false,
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
+   "nsis": {
+  "oneClick": false,
+  "allowToChangeInstallationDirectory": true,
+  "include": "builder/installer.nsh"
+},
     "win": {
       "target": [
         "nsis"

@@ -60,7 +60,8 @@ export class FastifyServer {
         this.clearMainSocketConnection();
     }
 
-    initOBSocketConnection(options: IOBSocketServiceOptions) {
+    initOBSocketConnection(options: IOBSocketServiceOptions){
+        console.log('initializing ob socket')
         this.clearOBSocketConnection();
         this.obSocketService = new OBSocketService(options);
     }
