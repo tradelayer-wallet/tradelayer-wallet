@@ -23,6 +23,8 @@ interface IChannelSwapData {
 })
 
 export class SwapService {
+    private activeSwaps = new Set<string>();
+
     constructor(
         private socketService: SocketService,
         private rpcService: RpcService,
@@ -55,6 +57,17 @@ export class SwapService {
     private async channelSwap(tradeInfo: ITradeInfo<any>, isBuyer: boolean) {
         const { buyer, seller, props, type } = tradeInfo;
         console.log('inside channel swap '+JSON.stringify(tradeInfo))
+
+    // Compose a unique key for the trade.
+    const key = [buyer?.uuid, seller?.uuid].join('-');
+    // GUARD: If already in progress, skip!
+    if (this.activeSwaps.has(key)) {
+        console.warn('Duplicate swap detected, skipping:', key);
+        return { error: "Duplicate swap attempt." };
+    }
+    // Mark as in-progress
+    this.activeSwaps.add(key);
+     try {    
         if (type === "SPOT") {
             const { transfer } = props as ISpotTradeProps;
 
@@ -86,5 +99,9 @@ export class SwapService {
         } else {
             throw new Error(`Unsupported trade type: ${type}`);
         }
+      }finally{
+         // Always clean up, even on error!
+        this.activeSwaps.delete(key);
+      }
     }
 }
