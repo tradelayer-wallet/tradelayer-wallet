@@ -47,6 +47,7 @@ export interface IBuyerSellerKeyPair {
 export interface IBuyerSellerInfo {
     keypair: IBuyerSellerKeyPair;
     socketId: string;
+    uuid?: string;
 };
 
 export interface ITradeInfo<IProps = IFuturesTradeProps | ISpotTradeProps> {
