@@ -44,6 +44,7 @@ export class FuturesOrdersComponent implements OnInit, OnDestroy {
           console.log('[FE] placed-orders payload:', JSON.stringify(orders)); 
          this.futuresOrdersService.orderHistory = orderHistory
            .filter(q => q.type === "FUTURES" && q.keypair.pubkey === this.authService.activeFuturesKey?.pubkey && q.state);
+           console.log('what we are setting openedOrders to '+JSON.stringify(this.futuresOrdersService.openedOrders)+' '+JSON.stringify(openedOrders.filter(q => q.type === "FUTURES")))
          this.futuresOrdersService.openedOrders = openedOrders.filter(q => q.type === "FUTURES");
        });
        this.futuresOrdersService.closeOpenedOrder('test-for-update');

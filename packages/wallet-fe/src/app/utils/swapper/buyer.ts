@@ -231,8 +231,9 @@ export class BuySwapper extends Swap {
                 );
             }
        } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {// 1) Unpack your trade info
-        const { contract_id, amount, price, initMargin, collateral, transfer = false } =
-          this.tradeInfo as IFuturesTradeProps;
+        const { contract_id, amount, price, initMargin, collateral, transfer = false } = this.tradeInfo as IFuturesTradeProps;
+
+        console.log(' futures trade props '+contract_id +' '+ amount+' '+price+' '+ initMargin+' '+collateral+' '+transfer)
 
         // 2) Compute initial margin
         const column = await this.txsService.predictColumn(

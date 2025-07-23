@@ -7,11 +7,11 @@ type TEnpoint = {
 
 export const ENDPOINTS: TEnpoint = {
     LTC: {
-        orderbookApiUrl: "http://172.81.181.19:9191",
+        orderbookApiUrl: "ws://172.81.181.19:3002/ws",
         relayerUrl: "http://172.81.181.19:9191",
     },
     LTCTEST: {
-        orderbookApiUrl: "http://172.81.181.19:9191",
+        orderbookApiUrl: "ws://172.81.181.19:3001/ws",
         relayerUrl: "http://172.81.181.19:8191",
     },
 };
