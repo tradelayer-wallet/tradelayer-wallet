@@ -94,9 +94,10 @@ export class BuySwapper extends Swap {
         if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo){
             let { propIdDesired, amountDesired, amountForSale, propIdForSale, transfer} = this.tradeInfo
             
-            const column = await this.txsService.predictColumn(this.myInfo.keypair.address, this.cpInfo.keypair.address);
+            const column = await this.txsService.predictColumn(this.multySigChannelData.address,this.myInfo.keypair.address, this.cpInfo.keypair.address);
                     let isA = column === 'A' ? 1 : 0;
 
+            console.log('column isA'+isA +' '+column)
             //let { transfer } = this.tradeInfo as ITradeInfo<ISpotTradeProps>;
             console.log('importing transfer '+transfer)
             if (transfer == undefined) {
@@ -237,11 +238,12 @@ export class BuySwapper extends Swap {
 
         // 2) Compute initial margin
         const column = await this.txsService.predictColumn(
+          this.multySigChannelData.address,
           this.myInfo.keypair.address,
           this.cpInfo.keypair.address
         );
         const isA = column === 'A' ? 1 : 0;
-
+        console.log('column isA'+isA +' '+column)
         // 3) Build the commit or transfer payload
         const payload = transfer
           ? ENCODER.encodeTransfer({

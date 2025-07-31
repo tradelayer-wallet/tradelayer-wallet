@@ -116,6 +116,7 @@ export class SellSwapper extends Swap {
             propertyId:      propIdDesired,
             amount:          amountDesired,
             isColumnA:       await this.txsService.predictColumn(
+                                this.multySigChannelData.address,
                                 this.myInfo.keypair.address,
                                 this.cpInfo.keypair.address
                               ) === 'A',
@@ -146,6 +147,7 @@ export class SellSwapper extends Swap {
             propertyId:      collateral,
             amount:          initMargin,
             isColumnA:       await this.txsService.predictColumn(
+                                this.multySigChannelData.address,
                                 this.myInfo.keypair.address,
                                 this.cpInfo.keypair.address
                               ) === 'A',

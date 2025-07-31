@@ -5,6 +5,7 @@ import { AuthService } from "./auth.service";
 import { BalanceService } from "./balance.service";
 import { LoadingService } from "./loading.service";
 import { RpcService, TNETWORK } from "./rpc.service";
+import axios from 'axios'
 
 export interface IUTXO {
     amount: number;
@@ -247,9 +248,9 @@ export class TxsService {
         }
     }
 
-    async predictColumn(channel: string, cpAddress: string) {
+    async predictColumn(channelAddress: string, buyerAddress: string, cpAddress: string) {
         try {
-            const column = await this.tlApi.rpc('getChannelColumn', [channel, cpAddress]).toPromise();  // Pass parameters as an array
+            const column = await axios.post('http://localhost:3000/tl_getChannelColumn', { channelAddress, buyerAddress, cpAddress });
             console.log('column prediction fetch in tx service ' + JSON.stringify(column))
 
             return column.data;
