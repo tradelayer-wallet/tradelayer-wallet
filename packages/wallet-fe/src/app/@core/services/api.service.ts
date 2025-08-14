@@ -31,6 +31,7 @@ export class ApiService {
     set network(value: TNETWORK) {
         this._network = value;
         this.keysApiService._setNETWORK(value);
+        this.marketApiService.setNetwork(value);
         console.log(`NETWORK: ${value}`);
     }
 

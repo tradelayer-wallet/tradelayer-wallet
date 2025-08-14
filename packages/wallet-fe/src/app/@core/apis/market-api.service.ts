@@ -1,7 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { map } from 'rxjs/operators';
-// import { TNETWORK } from "../services/rpc.service";
+import { TNETWORK } from "../services/rpc.service";
 
 
 @Injectable({
@@ -9,11 +9,11 @@ import { map } from 'rxjs/operators';
 })
 
 export class MarketApiService {
-    // private NETWORK: TNETWORK = null;
+    private network: TNETWORK = null;
     private orderbookUrl: string | null = null;
 
     constructor(
-        private http: HttpClient,
+        private http: HttpClient
     ) {}
 
   private wsToHttp(url: string | null): string | null {
@@ -29,14 +29,21 @@ export class MarketApiService {
     return cleanUrl;
 }
 
+    
+setNetwork(value: TNETWORK) {
+    this.network = value;
+}
 
+getNetwork(): TNETWORK {
+    return this.network;
+}
 
     private get apiUrl() {
         console.log('loading markets '+this.orderbookUrl + '/markets/')
         // if (!this.NETWORK) return null;
         if (!this.orderbookUrl) return null;
         const modUri = this.wsToHttp(this.orderbookUrl)
-        return modUri + '/markets/';
+        return `${modUri}/markets/`;
     }
 
     setOrderbookUrl(value: string | null) {
@@ -48,16 +55,18 @@ export class MarketApiService {
     // }
 
     getSpotMarkets() {
-        console.log('spot markets '+this.apiUrl + 'spot')
         if (!this.apiUrl) throw new Error("No Api Url found");
-        return this.http.get(this.apiUrl + 'spot')
+        const url = this.apiUrl+'spot/'+this.network
+    console.log('spot markets ' + url);
+        return this.http.get(url)
             .pipe(map((res: any) => res.data));
     }
 
     getFuturesMarkets() {    
-        console.log('futures markets '+this.apiUrl + 'futures')
         if (!this.apiUrl) throw new Error("No Api Url found");
-        return this.http.get(this.apiUrl + 'futures')
+        const url = this.apiUrl+'futures/'+this.network
+        console.log('futures markets ' + url);
+        return this.http.get(url)
             .pipe(map((res: any) => res.data));
     }
 }

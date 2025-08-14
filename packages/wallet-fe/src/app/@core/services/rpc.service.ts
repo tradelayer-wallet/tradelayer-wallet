@@ -6,10 +6,11 @@ import { DialogService } from "./dialogs.service";
 import { LoadingService } from "./loading.service";
 import { BehaviorSubject } from "rxjs";
 
-export type TNETWORK = 'LTC' | 'LTCTEST' | null;
+export type TNETWORK = 'LTC' | 'LTCTEST' | 'BTC' | null;
 export enum ENetwork {
   LTC = 'LTC',
   LTCTEST = 'LTCTEST',
+  BTC = 'BTC'
 };
 
 export interface IBlockSubsObj {

@@ -162,28 +162,44 @@ export class FuturesOrderbookService {
     }
 
     private _structureOrderbook(isBuy: boolean) {
-        const contract_id = this.selectedMarket.contract_id;
-        const { contractSize, isInverse } = this.getContractMeta(contract_id);
-        const filteredOrderbook = this.rawOrderbookData.filter(o => o.props.contract_id === contract_id && o.action === (isBuy ? "BUY" : "SELL"));
-        const range = 1000;
-        const result: {price: number, amount: number}[] = [];
-        filteredOrderbook.forEach(o => {
-          const _price = Math.trunc(o.props.price*range)
-          const normalizedAmount = isInverse
+         const contract_id = this.selectedMarket.contract_id;
+      const { contractSize, isInverse } = this.getContractMeta(contract_id);
+
+      const filteredOrderbook = this.rawOrderbookData.filter(
+        (o) => o.props.contract_id === contract_id && o.action === (isBuy ? "BUY" : "SELL")
+      );
+
+      const range = 1000;
+      const result: { price: number; amount: number }[] = [];
+
+      filteredOrderbook.forEach((o) => {
+        const _price = Math.trunc(o.props.price * range);
+
+        // Convert amount to notional quote value
+        const normalizedAmount = isInverse
           ? parseFloat((o.props.amount * o.props.price * contractSize).toFixed(8))
           : parseFloat((o.props.amount * contractSize).toFixed(8));
-          const existing = result.find(_o =>  Math.trunc(_o.price*range) === _price);
-          existing
-            ? existing.amount += o.props.amount
-            : result.push({
-                price: parseFloat(o.props.price.toFixed(4)),
-                amount: parseFloat(normalizedAmount.toFixed(8)),
-            });
-        });
-        if (!isBuy) this.lastPrice = result.sort((a, b) => b.price - a.price)?.[result.length - 1]?.price || this.currentPrice || 1;
 
-        return isBuy
-            ? result.sort((a, b) => b.price - a.price).slice(0, 9)
-            : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
+        const existing = result.find((_o) => Math.trunc(_o.price * range) === _price);
+        if (existing) {
+          existing.amount += normalizedAmount;
+        } else {
+          result.push({
+            price: parseFloat(o.props.price.toFixed(4)),
+            amount: normalizedAmount,
+          });
+        }
+      });
+
+      if (!isBuy) {
+        this.lastPrice =
+          result.sort((a, b) => b.price - a.price)?.[result.length - 1]?.price ||
+          this.currentPrice ||
+          1;
+      }
+
+      return isBuy
+        ? result.sort((a, b) => b.price - a.price).slice(0, 9)
+        : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
     }
 }
