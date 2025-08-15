@@ -210,9 +210,18 @@ export class SellSwapper extends Swap {
   //}
 }
 
+private isSpotZeroTrade(): boolean {
+  if (this.typeTrade !== ETradeType.SPOT) return false;
 
-    
-  // … in BuySwapper class …
+  // Prefer the top-level shape you showed
+  if ('propIdDesired' in (this.tradeInfo as any) && 'propIdForSale' in (this.tradeInfo as any)) {
+    const { propIdDesired, propIdForSale } = this.tradeInfo as any;
+    return Number(propIdDesired) === 0 || Number(propIdForSale) === 0;
+  }
+  return false
+}
+
+
 
 private async onStep4(
   cpId: string,
@@ -231,7 +240,8 @@ private async onStep4(
     }
 
     // 2) If we have a commitTxId, pull and decode it from the node:
-    if (commitTxId) {
+    const skipRbf = this.isSpotZeroTrade();
+    if (commitTxId && !skipRbf) {
       // RPC: getrawtransaction with verbose=true to get vin[] & sequence
       const txRes = await this.client('getrawtransaction', [commitTxId, true]);
       if (txRes.error || !txRes.data?.vin) {
