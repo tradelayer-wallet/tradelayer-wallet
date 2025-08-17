@@ -52,3 +52,41 @@ table {
         }
     }
 }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+
+  .total-label { font-weight: 600; }
+  .flex-spacer { flex: 1 1 auto; }
+}
+
+.btn-all {
+  padding: 8px 16px;
+  font-weight: 600;
+  min-width: 150px;
+}
+
+.status { padding: 8px; }
+.status.error { color: #b00020; }
+
+.copyable {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  user-select: text;
+  white-space: nowrap;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+
+  // smaller per-row buttons
+  .mat-icon-button {
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+  }
+}

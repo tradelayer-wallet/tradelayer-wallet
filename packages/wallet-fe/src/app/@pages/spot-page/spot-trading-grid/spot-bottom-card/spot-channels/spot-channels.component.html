@@ -1,40 +1,62 @@
-<table mat-table [dataSource]="activeChannelsCommits">
-    <ng-container matColumnDef="property">
-        <th mat-header-cell *matHeaderCellDef> Token/property ID </th>
-        <td mat-cell *matCellDef="let element"> {{ element.tokenName }} / {{ element.propertyId }} </td>
-    </ng-container>
-    
-    <ng-container matColumnDef="sender">
-        <th mat-header-cell *matHeaderCellDef> Sender </th>
-        <td mat-cell *matCellDef="let element">
-          <span (click)="copy(element.sender)">{{ element.sender | shortAddress }}</span>
-        </td>
-    </ng-container>
+<div class="toolbar">
+  <div class="total-label">Total:</div>
+  <div class="total-value">{{ total }}</div>
+  <span class="flex-spacer"></span>
+  <button class="btn-all" mat-stroked-button color="primary" (click)="withdrawAll()">Withdraw All</button>
+  <button class="btn-all" mat-stroked-button color="accent" (click)="transferAll()">Transfer All</button>
+</div>
 
-    <ng-container matColumnDef="channel" >
-        <th mat-header-cell *matHeaderCellDef> Channel </th>
-        <td mat-cell *matCellDef="let element"> 
-          <span (click)="copy(element.channel)">{{ element.channel | shortAddress }}</span>
-        </td>
-    </ng-container>
+<div *ngIf="loading" class="status">Loading…</div>
+<div *ngIf="error" class="status error">{{ error }}</div>
 
-    <ng-container matColumnDef="amount" >
-      <th mat-header-cell *matHeaderCellDef> Amount </th>
-      <td mat-cell *matCellDef="let element"> {{ element.amount }} </td>
-    </ng-container>
-  
-    <ng-container matColumnDef="block" >
-      <th mat-header-cell *matHeaderCellDef> Block </th>
-      <td mat-cell *matCellDef="let element"> {{ element.block }} </td>
-    </ng-container>
+<table mat-table [dataSource]="activeChannelsCommits" *ngIf="!loading">
 
-    <ng-container matColumnDef="actions" >
-      <th mat-header-cell *matHeaderCellDef> Close </th>
-      <td mat-cell  *matCellDef="let element">
-        <mat-icon class='close-icon' (click)='closeCommit(element)'> close </mat-icon> 
-      </td>
-    </ng-container>
+  <ng-container matColumnDef="property">
+    <th mat-header-cell *matHeaderCellDef> Property </th>
+    <td mat-cell *matCellDef="let el"> {{ el.propertyId }} </td>
+  </ng-container>
 
-    <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-  </table>
+  <ng-container matColumnDef="column">
+    <th mat-header-cell *matHeaderCellDef> Column </th>
+    <td mat-cell *matCellDef="let el"> {{ el.column }} </td>
+  </ng-container>
+
+  <ng-container matColumnDef="channel">
+    <th mat-header-cell *matHeaderCellDef> Channel </th>
+    <td mat-cell *matCellDef="let el">
+      <span class="copyable" (click)="copy(el.channel)">{{ el.channel }}</span>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="counterparty">
+    <th mat-header-cell *matHeaderCellDef> Counterparty </th>
+    <td mat-cell *matCellDef="let el">
+      <span class="copyable" (click)="copy(el.counterparty)">{{ el.counterparty || '—' }}</span>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="amount">
+    <th mat-header-cell *matHeaderCellDef> Amount </th>
+    <td mat-cell *matCellDef="let el"> {{ el.amount }} </td>
+  </ng-container>
+
+  <ng-container matColumnDef="block">
+    <th mat-header-cell *matHeaderCellDef> Block </th>
+    <td mat-cell *matCellDef="let el"> {{ el.lastCommitmentBlock || '—' }} </td>
+  </ng-container>
+
+  <ng-container matColumnDef="actions">
+    <th mat-header-cell *matHeaderCellDef> Actions </th>
+    <td mat-cell *matCellDef="let el" class="row-actions">
+      <button mat-icon-button matTooltip="Withdraw" (click)="withdraw(el)">
+        <mat-icon>call_made</mat-icon>
+      </button>
+      <button mat-icon-button matTooltip="Transfer" (click)="transfer(el)">
+        <mat-icon>sync_alt</mat-icon>
+      </button>
+    </td>
+  </ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns; trackBy: trackByChan"></tr>
+</table>
