@@ -10,6 +10,8 @@ import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { TxsService } from 'src/app/@core/services/txs.service';
 import { ENCODER } from 'src/app/utils/payloads/encoder';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
+import { Observable, forkJoin, of } from 'rxjs';
+import { catchError, finalize, map } from 'rxjs/operators';
 
 interface ChannelBalanceRow {
   channel: string;
@@ -72,38 +74,43 @@ export class SpotChannelsComponent implements OnInit {
     );
   }
 
-  refresh(): void {
-    const address = this.resolveAddress();
-    const propertyId = this.resolvePropertyId();
+ refresh(): void {
+  const pid1 = this.spotMkts?.selectedMarket.first_token.propertyId
+  const pid2 = this.spotMkts?.selectedMarket.second_token.propertyId
+  const address = this.resolveAddress();
 
-    if (!address || propertyId == null) {
-      this.rows = [];
-      this.total = 0;
-      return;
-    }
-
-    this.loading = true;
-    this.sub?.unsubscribe();
-    this.sub = this.spotSvc
-      .getChannelBalances(address, propertyId)
-        .subscribe({
-          next: (res: { total: number; rows: ChannelBalanceRow[] }) => {
-          this.total = res?.total ?? 0;
-          this.rows = res?.rows ?? [];
-          this.activeChannelsCommits = this.rows.map(r => ({
-            ...r,
-            // derive counterparty if not provided
-            counterparty: r.counterparty ?? (r.column === 'A' ? r.participants?.B : r.participants?.A)
-          }));
-        },
-        error: (err: any) => {
-          console.error('spot channels load failed', err);
-          this.rows = [];
-          this.total = 0;
-          this.loading = false;
-        },
-      });
+  if (!pid1 || !pid2) {
+    this.activeChannelsCommits = [];
+    this.total = 0;
+    return;
   }
+
+  this.loading = true;
+  this.error = '';
+
+  forkJoin({
+  r1: this.spotSvc.getChannelBalances(address, pid1),
+  r2: this.spotSvc.getChannelBalances(address, pid2),
+})
+.pipe(
+  map(({ r1, r2 }) => {
+    const a = this._extractCommits(r1);
+    const b = this._extractCommits(r2);
+    return this._mergeCommits(a, b);
+  }),
+  map(rows => this._sortByBlockDesc(rows)),
+  catchError((e) => {
+    this.error = e?.message || 'Failed to load channels';
+    return of<any[]>([]);
+  }),
+  finalize(() => { this.loading = false; })
+)
+.subscribe((rows) => {
+  this.activeChannelsCommits = rows;
+  this.total = rows.reduce((s, r) => s + (Number.isFinite(r?.amount) ? Number(r.amount) : 0), 0);
+});
+
+}
 
   copy(value?: string | null) {
     if (!value) return;
@@ -242,4 +249,48 @@ export class SpotChannelsComponent implements OnInit {
   }
 
   trackByChan = (_: number, r: ChannelBalanceRow) => `${r.channel}:${r.propertyId}:${r.column}`;
+
+  
+private _mergeCommits(a?: any[], b?: any[]): any[] {
+  const rows = ([] as any[]).concat(a || [], b || []);
+  const keyOf = (n: any) => `${n?.propertyId}|${n?.column}|${n?.channel}`;
+  const seen = new Set<string>();
+  const out: any[] = [];
+  for (const r of rows) {
+    const k = keyOf(r);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(r);
+  }
+  return out;
+}
+
+private _sortByBlockDesc(rows: any[]): any[] {
+  return [...(rows || [])].sort((x, y) =>
+    (Number(y?.lastCommitmentBlock ?? 0) - Number(x?.lastCommitmentBlock ?? 0))
+  );
+}
+
+private _extractCommits(resp: any): any[] {
+  if (!resp) return [];
+  if (Array.isArray(resp)) return resp;
+
+  // Common shapes from APIs
+  const arr =
+    resp.commits ??
+    resp.channels ??
+    resp.activeChannelsCommits ??
+    resp.rows ??
+    resp.data ??
+    resp.items;
+
+  if (Array.isArray(arr)) return arr;
+
+  // Last resort: first array field in the object
+  for (const k of Object.keys(resp)) {
+    if (Array.isArray((resp as any)[k])) return (resp as any)[k];
+  }
+  return [];
+}
+
 }

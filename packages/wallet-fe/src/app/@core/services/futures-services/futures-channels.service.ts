@@ -48,10 +48,13 @@ export class FuturesChannelsService {
     ) { }
 
     getChannelBalances(address: string, propertyId?: number): Observable<ChannelBalancesResponse> {
+    
     let params = new HttpParams().set('address', address);
+    
     if (propertyId !== undefined && propertyId !== null) {
       params = params.set('propertyId', String(propertyId));
     }
+
     return this.http.get<ChannelBalancesResponse>(
       '/tl_channelBalanceForCommiter',
       { params }
