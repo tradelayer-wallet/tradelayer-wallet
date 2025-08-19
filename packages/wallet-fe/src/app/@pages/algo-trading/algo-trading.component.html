@@ -1,0 +1,192 @@
+<div class="algo-page">
+  <header class="header">
+    <h1 class="title">Algo Trading</h1>
+    <span class="badge">Updated hourly</span>
+    <div class="spacer"></div>
+    <label class="upload-btn">
+      <input #fileInput type="file" accept=".js,.mjs,.ts" (change)="onUploadFile(fileInput)" />
+      Upload Strategy
+    </label>
+  </header>
+
+  <nav class="tabs">
+    <button *ngFor="let t of tabs"
+            [class.active]="activeTab===t.key"
+            (click)="setTab(t.key)">{{ t.label }}</button>
+  </nav>
+
+  <!-- RUNNING SYSTEMS TAB -->
+  <section class="running" *ngIf="activeTab==='running'">
+    <div class="running-head">
+      <h2>Running Systems</h2>
+    </div>
+    <div class="table">
+      <div class="thead">
+        <div>Strategy</div>
+        <div>Allocated</div>
+        <div>P&amp;L</div>
+        <div>Started</div>
+        <div>Counter Venue %</div>
+        <div class="action-col">Action</div>
+      </div>
+      <div class="tbody">
+        <div class="row" *ngFor="let s of running">
+          <div class="strat">{{ s.name }}</div>
+          <div class="alloc">{{ s.allocated | number:'1.2-2' }}</div>
+          <div class="pnl" [class.positive]="s.pnl>=0" [class.negative]="s.pnl<0">{{ s.pnl | number:'1.2-2' }}</div>
+          <div class="started">{{ s.startedAt | date:'short' }}</div>
+          <div class="venue">{{ s.counterVenuePct ?? 0 }}%</div>
+          <div class="action">
+            <button class="withdraw" (click)="openWithdraw(s)">Withdraw</button>
+          </div>
+        </div>
+        <div class="empty" *ngIf="running.length===0">No systems running yet.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DISCOVERY TABS (existing table) -->
+  <ng-container *ngIf="activeTab!=='running'">
+    <section class="filters">
+      <div class="row">
+        <label>
+          <span>Market:</span>
+          <select [formControl]="filters.controls.market">
+            <option>All</option>
+            <option>BTC</option>
+            <option>ETH</option>
+            <option>LTC</option>
+            <option>Others</option>
+          </select>
+        </label>
+        <label>
+          <span>Running Time:</span>
+          <select [formControl]="filters.controls.runningTime">
+            <option>All</option>
+            <option>1–7 days</option>
+            <option>7–30 days</option>
+            <option>&gt; 30 days</option>
+          </select>
+        </label>
+        <label>
+          <span>ROI:</span>
+          <select [formControl]="filters.controls.roi">
+            <option>All</option>
+            <option>&gt; 100%</option>
+            <option>10% – 100%</option>
+            <option>&lt; 10%</option>
+          </select>
+        </label>
+        <label>
+          <span>Categories:</span>
+          <select [formControl]="filters.controls.category">
+            <option>All</option>
+            <option>Grid</option>
+            <option>Martingale</option>
+            <option>Combo</option>
+          </select>
+        </label>
+        <button class="reset" type="button" (click)="filters.reset({market:'All',runningTime:'All',roi:'All',category:'All',sort:filters.value.sort||'Recommended'})">Reset</button>
+        <div class="sort">
+          <span>Rank by:</span>
+          <select [formControl]="filters.controls.sort">
+            <option>Recommended</option>
+            <option>ROI</option>
+            <option>P&amp;L</option>
+            <option>Copiers</option>
+            <option>Running Time</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="table">
+      <div class="thead">
+        <div>Ranking</div>
+        <div>Market</div>
+        <div>ROI</div>
+        <div>P&amp;L (USD)</div>
+        <div>Copiers</div>
+        <div>Running Time</div>
+        <div class="action-col">Action</div>
+      </div>
+
+      <div class="tbody">
+        <div class="row" *ngFor="let r of rows">
+          <div class="rank">
+            <span class="medal" [class.gold]="r.rank===1" [class.silver]="r.rank===2" [class.bronze]="r.rank===3">{{ r.rank }}</span>
+          </div>
+          <div class="market">
+            <div class="pair">{{ r.market }}</div>
+            <div class="mode">{{ r.mode }} <span *ngIf="r.leverage" class="lev">{{ r.leverage }}</span></div>
+          </div>
+          <div class="roi" [class.positive]="r.roiPct>=0" [class.negative]="r.roiPct<0">{{ r.roiPct | number:'1.2-2' }}%</div>
+          <div class="pnl">{{ r.pnlUsd | number:'1.2-2' }}</div>
+          <div class="copiers">{{ r.copiers | number }}</div>
+          <div class="runtime">{{ r.runtime }}</div>
+          <div class="action">
+            <button class="copy" (click)="onCopy(r)">Allocate</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </ng-container>
+
+  <!-- ALLOCATE DIALOG -->
+  <div class="dialog-backdrop" *ngIf="showAllocate" (click)="closeAllocate()"></div>
+  <div class="dialog" *ngIf="showAllocate">
+    <div class="notice">The same strategy can yield different results depending on entry price.</div>
+
+    <div class="card specs" *ngIf="selectedMeta as m">
+      <div class="row head">
+        <div class="label">Contract</div>
+        <div class="value contract">{{ m.contract }}</div>
+      </div>
+      <div class="row" *ngFor="let f of m.fields">
+        <div class="label">{{ f.label }}</div>
+        <div class="value">{{ f.value }}</div>
+      </div>
+    </div>
+
+    <div class="card invest" *ngIf="selectedMeta as m">
+      <div class="section-title">Investment</div>
+      <div class="min">Min. {{ m.minInvestment | number:'1.4-4' }}</div>
+
+      <label class="input-row">
+        <input type="number" placeholder="Enter amount" [formControl]="allocationForm.controls.amount" />
+        <span class="unit">USDT</span>
+      </label>
+
+      <div class="counter-venue" *ngIf="m.counterVenue as v">
+        <div class="section-title">Counter Venue</div>
+        <div class="venue-name">{{ v.name }}</div>
+
+        <div class="api" *ngIf="v.needsApiKey">
+          <label>API Key <input type="text" [formControl]="allocationForm.controls.apiKey" placeholder="Paste API key" /></label>
+          <label>API Secret <input type="password" [formControl]="allocationForm.controls.apiSecret" placeholder="Paste API secret" /></label>
+          <div class="hint">Stored securely (desktop: .env via bridge; web: server-side vault).</div>
+        </div>
+      </div>
+
+      <button class="primary full" (click)="allocateConfirm()">Create Now</button>
+      <button class="ghost full" (click)="closeAllocate()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- WITHDRAW DIALOG -->
+  <div class="dialog-backdrop" *ngIf="showWithdraw" (click)="closeWithdraw()"></div>
+  <div class="dialog" *ngIf="showWithdraw">
+    <div class="card invest">
+      <div class="section-title">Withdraw</div>
+      <div class="min">From: {{ withdrawFor?.name }}</div>
+
+      <label class="input-row">
+        <input type="number" placeholder="Amount" [formControl]="withdrawForm.controls.amount" />
+        <span class="unit">USDT</span>
+      </label>
+
+      <button class="primary full" (click)="confirmWithdraw()">Confirm</button>
+      <button class="ghost full" (click)="closeWithdraw()">Cancel</button>
+    </div>
+  </div>
+</div>

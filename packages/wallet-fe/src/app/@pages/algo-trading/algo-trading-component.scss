@@ -1,109 +1,75 @@
-.algo-page {
-  padding: 24px;
-  color: var(--tl-fg, #101014);
-}
+.algo-page { padding: 24px; color: var(--tl-fg, #101014); }
 
-.header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+.header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.header .title { font-size: 28px; font-weight: 700; }
+.header .badge { color: #76808f; font-size: 12px; }
+.header .spacer { flex: 1; }
+.header .upload-btn { position: relative; display: inline-flex; align-items: center; padding: 8px 12px; border-radius: 8px; background: #f5f7fb; border: 1px solid #e6e9ef; font-weight: 600; cursor: pointer; }
+.header .upload-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
-  .title { font-size: 28px; font-weight: 700; }
-  .badge { color: #76808f; font-size: 12px; }
-  .spacer { flex: 1; }
-  .upload-btn {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-radius: 8px;
-    background: #f5f7fb;
-    border: 1px solid #e6e9ef;
-    font-weight: 600;
-    cursor: pointer;
+.tabs { display: flex; gap: 16px; border-bottom: 1px solid #eef1f6; margin-bottom: 12px; }
+.tabs button { padding: 10px 4px; border: none; background: transparent; color: #6b7280; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
+.tabs button.active { color: #111827; border-color: #f0b90b; }
 
-    input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  }
-}
+.filters { background: #fafbfe; border: 1px solid #eef1f6; padding: 12px; border-radius: 10px; margin-bottom: 16px; }
+.filters .row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)) auto; gap: 12px; align-items: center; }
+.filters label span { display: block; font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+.filters select { width: 100%; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+.filters .reset { justify-self: start; background: transparent; border: none; color: #64748b; cursor: pointer; }
+.filters .sort { justify-self: end; display: flex; align-items: center; gap: 8px; }
 
-.tabs {
-  display: flex;
-  gap: 16px;
-  border-bottom: 1px solid #eef1f6;
-  margin-bottom: 12px;
+.table { border: 1px solid #eef1f6; border-radius: 10px; overflow: hidden; }
+.table .thead, .table .row { display: grid; grid-template-columns: 120px 1.4fr 1fr 1fr 1fr 1fr 160px; align-items: center; }
+.table .thead { background: #fafbfe; padding: 12px 16px; font-weight: 700; color: #4b5563; }
+.table .tbody .row { padding: 14px 16px; border-top: 1px solid #f2f3f7; }
+.table .rank { font-weight: 700; }
+.table .medal { display: inline-flex; width: 32px; height: 32px; border-radius: 50%; align-items: center; justify-content: center; background: #e5e7eb; }
+.table .medal.gold { background: #ffe99a; }
+.table .medal.silver { background: #e7ecf8; }
+.table .medal.bronze { background: #f4e1cc; }
+.table .market .pair { font-weight: 700; }
+.table .market .mode { color: #6b7280; font-size: 12px; }
+.table .lev { margin-left: 6px; color: #0b65f0; font-weight: 700; }
+.table .roi.positive { color: #059669; font-weight: 700; }
+.table .roi.negative { color: #dc2626; font-weight: 700; }
+.table .action { text-align: right; }
+.table .action .copy { background: #f0b90b; color: #111; border: none; padding: 8px 12px; font-weight: 700; border-radius: 8px; cursor: pointer; }
+.table .action .copy:hover { filter: brightness(0.95); }
 
-  button {
-    padding: 10px 4px;
-    border: none;
-    background: transparent;
-    color: #6b7280;
-    font-weight: 600;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-  }
-  button.active { color: #111827; border-color: #f0b90b; }
-}
+/* Running systems table tweaks */
+.running .table .thead, .running .table .row { grid-template-columns: 2fr 1fr 1fr 1.2fr 1fr 160px; }
+.running .withdraw { background: #111827; color: #fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
 
-.filters {
-  background: #fafbfe;
-  border: 1px solid #eef1f6;
-  padding: 12px;
-  border-radius: 10px;
-  margin-bottom: 16px;
+/* Dialog styles */
+.dialog-backdrop { position: fixed; inset: 0; background: rgba(16,16,20,0.45); z-index: 30; }
+.dialog { position: fixed; right: 24px; top: 24px; bottom: 24px; width: 380px; background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 16px; z-index: 31; overflow: auto; }
+.dialog .notice { background: #fff6e6; color: #6b4e00; border: 1px solid #ffe2a8; border-radius: 8px; padding: 10px 12px; font-size: 12px; margin-bottom: 12px; }
+.card { border: 1px solid #eef1f6; border-radius: 10px; padding: 12px; background: #fafbfe; margin-bottom: 12px; }
+.card .row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #e7e9f0; }
+.card .row:last-child { border-bottom: 0; }
+.card .head .contract { font-weight: 700; }
+.section-title { font-weight: 700; margin-bottom: 8px; }
+.min { color: #6b7280; margin-bottom: 8px; font-size: 12px; }
+.input-row { position: relative; display: flex; align-items: center; }
+.input-row input { width: 100%; padding: 10px 44px 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+.input-row .unit { position: absolute; right: 10px; font-weight: 700; color: #6b7280; }
+.counter-venue .venue-name { font-weight: 700; margin: 8px 0; }
+.counter-venue .api label { display: block; font-size: 12px; color: #374151; margin: 6px 0; }
+.counter-venue .api input { width: 100%; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; }
+.counter-venue .hint { font-size: 11px; color: #6b7280; margin-top: 6px; }
+.primary { background: #f0b90b; color: #111; border: none; padding: 10px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+.ghost { background: transparent; border: 1px solid #e5e7eb; padding: 10px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+.full { width: 100%; margin-top: 8px; }
 
-  .row {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
-    gap: 12px;
-    align-items: center;
-  }
-
-  label span { display: block; font-size: 12px; color: #6b7280; margin-bottom: 6px; }
-  select { width: 100%; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
-
-  .reset { justify-self: start; background: transparent; border: none; color: #64748b; cursor: pointer; }
-  .sort { justify-self: end; display: flex; align-items: center; gap: 8px; }
-}
-
-.table {
-  border: 1px solid #eef1f6;
-  border-radius: 10px;
-  overflow: hidden;
-
-  .thead, .row {
-    display: grid;
-    grid-template-columns: 120px 1.4fr 1fr 1fr 1fr 1fr 160px;
-    align-items: center;
-  }
-
-  .thead { background: #fafbfe; padding: 12px 16px; font-weight: 700; color: #4b5563; }
-  .tbody .row { padding: 14px 16px; border-top: 1px solid #f2f3f7; }
-
-  .rank { font-weight: 700; }
-  .medal { display: inline-flex; width: 32px; height: 32px; border-radius: 50%; align-items: center; justify-content: center; background: #e5e7eb; }
-  .medal.gold { background: #ffe99a; }
-  .medal.silver { background: #e7ecf8; }
-  .medal.bronze { background: #f4e1cc; }
-
-  .market .pair { font-weight: 700; }
-  .market .mode { color: #6b7280; font-size: 12px; }
-  .lev { margin-left: 6px; color: #0b65f0; font-weight: 700; }
-
-  .roi.positive { color: #059669; font-weight: 700; }
-  .roi.negative { color: #dc2626; font-weight: 700; }
-
-  .action { text-align: right; }
-  .action .copy { background: #f0b90b; color: #111; border: none; padding: 8px 12px; font-weight: 700; border-radius: 8px; cursor: pointer; }
-  .action .copy:hover { filter: brightness(0.95); }
-}
-
-/* Dark mode friendliness */
+/* Dark mode */
 @media (prefers-color-scheme: dark) {
   .algo-page { color: #e5e7eb; }
-  .filters, .table .thead { background: #0f1520; border-color: #1f2937; }
+  .filters, .table .thead, .card { background: #0f1520; border-color: #1f2937; }
   .table { border-color: #1f2937; }
   .tbody .row { border-top-color: #1f2937; }
   .tabs { border-color: #1f2937; }
   .tabs button.active { color: #fff; }
+  .dialog { background: #0f1520; }
+  .dialog .notice { background: #3a2d16; color: #f5d083; border-color: #6b4e00; }
+  .primary { color: #0b0b0b; }
 }

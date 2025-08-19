@@ -15,11 +15,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogModule } from '@angular/material/dialog';
 
-
 import { LoginPageComponent } from './login-page/login-page.component';
 import { PortfolioPageComponent } from './portfolio-page/portfolio-page.component';
 import { SpotPageComponent } from './spot-page/spot-page.component';
 import { TxBuilderPageComponent } from './tx-builder-page/tx-builder-page.component';
+import {AlgoTradingPageComponent} from './algo-trading/algo-trading.component'
 
 import { SpotMarketsToolbarComponent } from './spot-page/spot-markets-toolbar/spot-markets-toolbar.component'; 
 import { SpotTradingGridComponent } from './spot-page/spot-trading-grid/spot-trading-grid.component';

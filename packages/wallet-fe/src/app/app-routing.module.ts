@@ -11,7 +11,7 @@ import { NodeRewardPageComponent } from './@pages/node-reward/node-reward-page.c
 import { PortfolioPageComponent } from './@pages/portfolio-page/portfolio-page.component';
 import { SpotPageComponent } from './@pages/spot-page/spot-page.component';
 import { TxBuilderPageComponent } from './@pages/tx-builder-page/tx-builder-page.component';
-import {AlgoTradingPageComponent } from './@pages/algo-trading/algo-trading-page.component'
+import {AlgoTradingPageComponent } from './@pages/algo-trading/algo-trading.component'
 export const routes: Routes = [
   {
     path: '',
