@@ -92,6 +92,7 @@ const PAGE_COMPONENTS = [
     SignTxTabComponent,
     SendTxTabComponent,
     DecodeTxTabComponent,
+    AlgoTradingComponent
 ];
 
 const SPOT_COMPONENTS = [
