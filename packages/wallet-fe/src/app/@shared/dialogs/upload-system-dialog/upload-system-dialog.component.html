@@ -1,0 +1,36 @@
+<h2 mat-dialog-title>Upload your system</h2>
+
+<div mat-dialog-content class="content">
+  <mat-form-field appearance="outline" class="w-100">
+    <mat-label>Name (optional)</mat-label>
+    <input matInput formControlName="name" placeholder="e.g. Mean Reversion v2" />
+  </mat-form-field>
+
+  <div
+    class="dropzone"
+    [class.drag-over]="dragOver"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)"
+  >
+    <div>
+      <mat-icon>upload_file</mat-icon>
+      <div>Drag & drop your file here</div>
+      <div>or</div>
+      <button mat-stroked-button color="primary" (click)="fileInput.click()">Choose file</button>
+      <input #fileInput type="file" hidden (change)="onFileSelected($event)" />
+      <div class="file-name" *ngIf="selectedFile">{{ selectedFile.name }}</div>
+    </div>
+  </div>
+
+  <mat-checkbox formControlName="isPublic">
+    Make this system public
+  </mat-checkbox>
+</div>
+
+<div mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">Cancel</button>
+  <button mat-raised-button color="primary" (click)="submit()" [disabled]="!selectedFile">
+    Upload
+  </button>
+</div>

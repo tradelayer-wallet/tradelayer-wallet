@@ -1,9 +1,8 @@
 import { NgModule } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { ClipboardModule } from '@angular/cdk/clipboard'; 
-
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogModule } from '@angular/material/dialog'; 
 import { MatButtonModule } from '@angular/material/button'; 
 import { MatInputModule } from '@angular/material/input'; 
@@ -17,7 +16,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select'; 
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatSliderModule } from '@angular/material/slider';
-
+import { MatFormFieldModule } from '@angular/material/form-field';
 
 import { SideNavComponent } from './components/side-nav/side-nav.component';
 import { InfoLineComponent } from '../@shared/components/info-line/info-line.component';
@@ -39,12 +38,13 @@ import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet'
 import { ServersDialog } from './dialogs/servers/servers.component';
 import { TransferDialog } from './dialogs/transfer/transfer.component';
 import { PasswordPromptDialog } from './dialogs/password-prompt/password-prompt.component';
-
+import { UploadSystemDialogComponent } from './dialogs/upload-system-dialog/upload-system-dialog.component';
 
 const NG_MODULES = [
     CommonModule,
     FormsModule,
     ClipboardModule,
+    ReactiveFormsModule
 ];
 
 const MAT_MODULES = [
@@ -61,6 +61,7 @@ const MAT_MODULES = [
     MatIconModule,
     MatSelectModule,
     MatSliderModule,
+    MatFormFieldModule
 ];
 
 const DIALOGS = [
@@ -77,6 +78,7 @@ const DIALOGS = [
     CommingSoonDialog,
     ServersDialog,
     TransferDialog,
+    UploadSystemDialogComponent
 ];
 
 const COMPONENTS = [

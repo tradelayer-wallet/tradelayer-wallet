@@ -13,6 +13,9 @@
     <button *ngFor="let t of tabs"
             [class.active]="activeTab===t.key"
             (click)="setTab(t.key)">{{ t.label }}</button>
+    <button mat-raised-button color="primary" (click)="openUploadSystemDialog()">
+      Upload system
+    </button>
   </nav>
 
   <!-- RUNNING SYSTEMS TAB -->

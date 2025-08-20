@@ -1,5 +1,6 @@
 import { NgModule } from '@angular/core';
 
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -76,7 +77,8 @@ const MAT_MODULES = [
     MatTooltipModule,
     MatSlideToggleModule,
     MatSelectModule,
-    MatDialogModule
+    MatDialogModule,
+    MatSnackBarModule
 ];
 
 const PAGE_COMPONENTS = [
@@ -92,7 +94,7 @@ const PAGE_COMPONENTS = [
     SignTxTabComponent,
     SendTxTabComponent,
     DecodeTxTabComponent,
-    AlgoTradingComponent
+    AlgoTradingPageComponent
 ];
 
 const SPOT_COMPONENTS = [
