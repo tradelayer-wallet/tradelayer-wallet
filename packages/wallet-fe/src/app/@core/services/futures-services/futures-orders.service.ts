@@ -59,7 +59,6 @@ export class FuturesOrdersService {
         this._orderHistory = value;
     }
 
-
     newOrder(orderConf: IFuturesTradeConf) {
         //this.loadingService.tradesLoading = true;
         console.log('emitting new order '+JSON.stringify(orderConf))

@@ -6,6 +6,9 @@ import { RpcClient } from 'tl-rpc';
 import { fasitfyServer } from "..";
 import { FastifyServer } from "../fastify-server";
 import fastify from "fastify";
+import { loadEnvIntoProcess } from '../utils/env.util';
+loadEnvIntoProcess();
+
 
 interface IFlagsObject {
     testnet: number;
@@ -79,30 +82,44 @@ rpcport=18332
 
 
 export const startWalletNode = async (walletNodeOptions: any) => {
-    try {
-        const isTestnet = walletNodeOptions.testnet;
-        // if (isTestnet) walletNodeOptions.connect = "178.62.46.195:19333";
-        const flagsObject = new FlagsObject(walletNodeOptions);
-        // Read config File
-        const path = join(flagsObject.datadir || defaultDirObj);
-        const configFilePath = join(path, `litecoin.conf`);
-        const isConfFileExist = existsSync(configFilePath);
-        if (!isConfFileExist) throw(`Config file (litecoin.conf) doesn't exist in: ${path}`);
-        const confFile = readFileSync(configFilePath, { encoding: 'utf8' });
-        const configObj: any = structureConfFile(confFile);
-        if (!configObj.rpcuser || !configObj.rpcpassword) throw(`Incorrect Config File ${path}`);
+  try {
+    const isTestnet = walletNodeOptions.testnet;
 
-        // Run The core
-        const flagsString = convertFlagsObjectToString(flagsObject);
-        const filePath = `"${coreFilePathObj.LTC}"`;
-        const filePathWithFlags = `${filePath}${flagsString}`;
-        console.log('cli equivalent command '+filePathWithFlags)
-        if (!filePathWithFlags) throw(`Error with Starting Node. Code 1`);
-        return await checkIsCoreStarted(filePathWithFlags, configObj, isTestnet);;
-    } catch(error) {
-        return { error: error.message || error || 'Undefined Error' };
-    }
+    // 🔒 Ensure expected LTC RPC port is set even if caller forgot
+    const expectedRpcPort = walletNodeOptions.rpcport ??
+      (isTestnet ? 19332 : 9332); // LTC defaults
+
+    walletNodeOptions.rpcport = expectedRpcPort; // ensure flag builder sees it
+
+    const flagsObject = new FlagsObject(walletNodeOptions);
+
+    // Read config File
+    const path = join(flagsObject.datadir || defaultDirObj);
+    const configFilePath = join(path, `litecoin.conf`);
+    const isConfFileExist = existsSync(configFilePath);
+    if (!isConfFileExist) throw(`Config file (litecoin.conf) doesn't exist in: ${path}`);
+    const confFile = readFileSync(configFilePath, { encoding: 'utf8' });
+    const configObj: any = structureConfFile(confFile);
+    if (!configObj.rpcuser || !configObj.rpcpassword) throw(`Incorrect Config File ${path}`);
+
+    // 🛟 If conf has a mismatched rpcport, normalize what we pass downstream
+    configObj.rpcport = Number(configObj.rpcport || expectedRpcPort) || expectedRpcPort;
+
+    // Run The core
+    const flagsString = convertFlagsObjectToString(flagsObject);
+    const filePath = `"${coreFilePathObj.LTC}"`;
+    const filePathWithFlags = `${filePath}${flagsString}`;
+
+    console.log('cli equivalent command '+filePathWithFlags);
+    console.log(`[rpc] isTestnet=${isTestnet} rpcport=${expectedRpcPort} datadir=${path}`);
+
+    if (!filePathWithFlags) throw(`Error with Starting Node. Code 1`);
+    return await checkIsCoreStarted(filePathWithFlags, configObj, isTestnet);
+  } catch(error: any) {
+    return { error: error.message || error || 'Undefined Error' };
+  }
 };
+
 
 export const stopWalletNode = async () => {
         const stopRes = await fasitfyServer.rpcClient?.call('stop');

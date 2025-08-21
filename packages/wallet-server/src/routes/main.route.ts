@@ -5,6 +5,7 @@ import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPs
 import { signPsbtRawtTx } from "../utils/crypto.util";
 import { backOff, BackoffOptions } from "exponential-backoff";
 import { TradeLayerService } from '../services/tradelayer.service';  // Correctly import the named export
+import { parseDefaultChain, defaultRpcPort, writeEnvKVs } from '../utils/env.util'; // adjust path
 
 const tradeLayerService = new TradeLayerService();
 
@@ -26,27 +27,41 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
 
-    fastify.post('start-wallet-node', async (request, reply) => {
-        try {
-            const { network, startclean, reindex, path } = request.body as {
-                network: string;
-                startclean: boolean;
-                reindex: boolean;
-                path: string;
-            };
-            const _isTestNetBool = network.endsWith('TEST');
-            const walletNodeOptions = {
-                testnet: _isTestNetBool,
-                datadir: path,
-                reindex,
-                startclean,
-            };
-            const result = await startWalletNode(walletNodeOptions);
-            reply.status(200).send(result);
-        } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
-        }
+    
+fastify.post('start-wallet-node', async (request, reply) => {
+  try {
+    const { network, startclean, reindex, path } = request.body as {
+      network: string; startclean: boolean; reindex: boolean; path: string;
+    };
+
+    // derive chain/network & rpcPort from the label you already pass (e.g. 'LTCLIVE'|'LTCTEST')
+    const { chain, network: net } = parseDefaultChain(network);
+    const rpcPort = defaultRpcPort(chain, net);
+
+    // persist for both desktop + backend
+    writeEnvKVs({
+      DEFAULT_CHAIN: network, // keep your label
+      CHAIN: chain,
+      NETWORK: net,
+      DATADIR: path,
+      RPC_PORT: rpcPort,
     });
+
+    const _isTestNetBool = network.endsWith('TEST');
+    const walletNodeOptions = {
+      testnet: _isTestNetBool,
+      datadir: path,
+      reindex,
+      startclean,
+      rpcport: rpcPort,          // 👈 pin the port we expect
+    };
+
+    const result = await startWalletNode(walletNodeOptions);
+    reply.status(200).send(result);
+  } catch (error: any) {
+    reply.status(500).send({ error: error.message || 'Undefined Error' });
+  }
+});
 
     fastify.post('stop-wallet-node', async (request, reply) => {
         try {
