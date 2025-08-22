@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { SpotChannelsService } from 'src/app/@core/services/spot-services/spot-channels.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
+import {SpotTradeHistoryService} from 'src/app/@core/services/spot-services/spot-trade-history.service'
 
 @Component({
   selector: 'tl-spot-bottom-card',
@@ -14,6 +15,7 @@ export class SpotBottomCardComponent {
       private spotOrdersService: SpotOrdersService,
       private spotChannelsService: SpotChannelsService,
       private spotOrderbookService: SpotOrderbookService,
+      private spotHistory: SpotTradeHistoryService
     ) {}
 
     get orderHistory() {
@@ -29,6 +31,6 @@ export class SpotBottomCardComponent {
     }
 
     get tradeHistory() {
-      return this.spotOrderbookService.relatedHistoryTrades.length || 0;
+      return this.spotHistory.rows?.length || 0;
     }
 }

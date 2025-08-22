@@ -67,10 +67,10 @@ rpcpassword=${password}
 txindex=1
 
 [main]
-rpcport=8332
+rpcport=9332
 
 [test]
-rpcport=18332
+rpcport=19332
 `;
 
         writeFileSync(filePath, fileData.trim());
@@ -80,16 +80,15 @@ rpcport=18332
     }
 };
 
-
 export const startWalletNode = async (walletNodeOptions: any) => {
   try {
     const isTestnet = walletNodeOptions.testnet;
 
-    // 🔒 Ensure expected LTC RPC port is set even if caller forgot
+    // 🔒 ensure expected LTC RPC port and server=1
     const expectedRpcPort = walletNodeOptions.rpcport ??
-      (isTestnet ? 19332 : 9332); // LTC defaults
-
-    walletNodeOptions.rpcport = expectedRpcPort; // ensure flag builder sees it
+      (isTestnet ? 19332 : 9332);
+    walletNodeOptions.rpcport = expectedRpcPort;
+    if (walletNodeOptions.server === undefined) walletNodeOptions.server = 1;
 
     const flagsObject = new FlagsObject(walletNodeOptions);
 
@@ -102,15 +101,24 @@ export const startWalletNode = async (walletNodeOptions: any) => {
     const configObj: any = structureConfFile(confFile);
     if (!configObj.rpcuser || !configObj.rpcpassword) throw(`Incorrect Config File ${path}`);
 
-    // 🛟 If conf has a mismatched rpcport, normalize what we pass downstream
+    // normalize rpcport for downstream checks
     configObj.rpcport = Number(configObj.rpcport || expectedRpcPort) || expectedRpcPort;
 
-    // Run The core
+    // ✅ flags MUST include -rpcport and -server
     const flagsString = convertFlagsObjectToString(flagsObject);
     const filePath = `"${coreFilePathObj.LTC}"`;
-    const filePathWithFlags = `${filePath}${flagsString}`;
+    let filePathWithFlags = `${filePath}${flagsString}`;
 
-    console.log('cli equivalent command '+filePathWithFlags);
+// ensure rpcport + server flags are present
+if (!filePathWithFlags.includes('-rpcport=')) {
+  filePathWithFlags += ` -rpcport=${expectedRpcPort}`;
+}
+if (!filePathWithFlags.includes('-server=')) {
+  filePathWithFlags += ' -server=1';
+}
+
+
+    console.log('cli equivalent command ' + filePathWithFlags);
     console.log(`[rpc] isTestnet=${isTestnet} rpcport=${expectedRpcPort} datadir=${path}`);
 
     if (!filePathWithFlags) throw(`Error with Starting Node. Code 1`);
@@ -163,7 +171,7 @@ const checkIsCoreStarted = async (
     ) => {
     return new Promise(async (resolve) => {
         const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
-        const port = isTestnet ? 18332 : 8332;
+        const port = isTestnet ? 19332 : 9332;
         console.log('port? '+port+' '+isTestnet)
         const rpcClientOptions = {
             username: rpcuser,

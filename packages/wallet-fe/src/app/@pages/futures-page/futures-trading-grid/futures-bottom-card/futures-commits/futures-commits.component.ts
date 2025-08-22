@@ -9,6 +9,8 @@ import { FuturesMarketService } from 'src/app/@core/services/futures-services/fu
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { TxsService } from 'src/app/@core/services/txs.service';
 import { ENCODER } from 'src/app/utils/payloads/encoder';
+import { BehaviorSubject, combineLatest } from 'rxjs';
+import { filter, shareReplay, switchMap, tap } from 'rxjs/operators';
 
 
 interface ChannelBalanceRow {
@@ -29,8 +31,7 @@ interface ChannelBalanceRow {
 export class FuturesChannelsComponent implements OnInit {
 
   displayedColumns = ['property', 'column', 'channel', 'counterparty', 'amount', 'block', 'actions'];
-  activeChannelsCommits: ChannelBalanceRow[] = [];
-  total = 0;
+
   loading = false;
   working = false;                   // prevent double clicks while building/sending
   error?: string;
@@ -46,13 +47,24 @@ export class FuturesChannelsComponent implements OnInit {
     private txs: TxsService
   ) {}
 
+address$ = new BehaviorSubject<string>('');
+/** Use your collateral property or whatever key your BE expects for futures channel balances */
+
+refreshFuturesCommitChannels(): void { this.futSvc.refreshFuturesChannels(); }
+
   ngOnInit() {
-    this.refresh()
+    this.refreshFuturesCommitChannels()
   }
 
-  ngOnDestroy(): void {
-    this.sub?.unsubscribe();
-  }
+get activeChannelsCommits() {
+  return this.futSvc.channelsCommits;
+}
+
+get total(): number {
+  return this.activeChannelsCommits
+    .reduce((s, r) => s + (Number.isFinite(r?.amount) ? Number(r.amount) : 0), 0);
+}
+
 
   private resolveAddress(): string {
     // futures-buy-sell uses auth.walletAddresses[0]
@@ -62,37 +74,6 @@ export class FuturesChannelsComponent implements OnInit {
   private resolvePropertyId(): number | undefined {
     // same source as the buy/sell card: selected futures market collateral
     return this.futMkts.selectedMarket?.collateral?.propertyId;
-  }
-
-   refresh(): void {
-    const address = this.resolveAddress();
-    const propertyId = this.resolvePropertyId();
-
-    if (!address || propertyId == null) {
-      this.rows = [];
-      this.total = 0;
-      return;
-    }
-
-    this.sub?.unsubscribe();
-    this.sub = this.futSvc
-      .getChannelBalances(address, propertyId)
-      .subscribe({
-        next: (res: { total: number; rows: ChannelBalanceRow[] }) => {
-          this.total = res?.total ?? 0;
-          this.rows = res?.rows ?? [];
-          this.activeChannelsCommits = this.rows.map(r => ({
-            ...r,
-            // derive counterparty if not provided
-            counterparty: r.counterparty ?? (r.column === 'A' ? r.participants?.B : r.participants?.A)
-          }));
-        },
-        error: (err: any) => {
-          console.error('futures commits load failed', err);
-          this.rows = [];
-          this.total = 0;
-        },
-      });
   }
 
   copy(value?: string | null) {
@@ -119,7 +100,7 @@ export class FuturesChannelsComponent implements OnInit {
 
     if (ref?.afterClosed) {
       ref.afterClosed().subscribe((res: any) => {
-        if (res?.success) this.refresh();
+      this.futSvc.loadOnce()
       });
     }
   }
@@ -155,7 +136,7 @@ export class FuturesChannelsComponent implements OnInit {
       if (res?.error) throw new Error(res.error);
 
       // Refresh (row may shrink or disappear)
-      this.refresh();
+      this.futSvc.loadOnce()
     } catch (err: any) {
       console.error('[Futures][Withdraw] error:', err?.message || err);
       this.error = err?.message || 'Withdraw failed';
@@ -220,7 +201,7 @@ export class FuturesChannelsComponent implements OnInit {
     }
 
     console.log(`[WithdrawAll] done: ok=${ok} fail=${fail}`);
-    this.refresh(); // refresh table (rows may shrink/disappear)
+    this.futSvc.loadOnce(); // refresh table (rows may shrink/disappear)
   } catch (err: any) {
     this.error = err?.message || 'Withdraw All failed';
     console.error('[WithdrawAll] error:', this.error);

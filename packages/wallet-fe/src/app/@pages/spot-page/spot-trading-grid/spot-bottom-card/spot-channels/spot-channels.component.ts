@@ -5,13 +5,13 @@ import { LoadingService } from 'src/app/@core/services/loading.service';
 import { ToastrService } from 'ngx-toastr';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Component, OnInit, OnDestroy, Input } from '@angular/core';
-import { SpotChannelsService } from 'src/app/@core/services/spot-services/spot-channels.service';
 import { DialogService } from 'src/app/@core/services/dialogs.service';
 import { TxsService } from 'src/app/@core/services/txs.service';
 import { ENCODER } from 'src/app/utils/payloads/encoder';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
-import { Observable, forkJoin, of } from 'rxjs';
-import { catchError, finalize, map } from 'rxjs/operators';
+import { Observable, forkJoin, of, BehaviorSubject, combineLatest} from 'rxjs';
+import { catchError, finalize, map, filter, shareReplay, switchMap, tap } from 'rxjs/operators';
+import { SpotChannelsService } from 'src/app/@core/services/spot-services/spot-channels.service'; 
 
 interface ChannelBalanceRow {
   channel: string;
@@ -31,8 +31,6 @@ interface ChannelBalanceRow {
 export class SpotChannelsComponent implements OnInit {
 
   displayedColumns = ['property', 'column', 'channel', 'counterparty', 'amount', 'block', 'actions'];
-  activeChannelsCommits: ChannelBalanceRow[] = [];
-  total = 0;
   loading = false;
   working = false;
   error?: string;
@@ -49,8 +47,11 @@ export class SpotChannelsComponent implements OnInit {
     private txs: TxsService
   ) {}
 
+/** Call this when user action should force refresh (optional) */
+refreshChannels(): void { this.spotSvc.loadOnce(); }
+
    ngOnInit(): void {
-    this.refresh();
+    this.refreshChannels();
   }
 
   ngOnDestroy(): void {
@@ -60,6 +61,16 @@ export class SpotChannelsComponent implements OnInit {
   private resolveAddress(): string {
     return this.auth.walletAddresses?.[0] ?? '';
   }
+
+  get activeChannelsCommits() {
+  return this.spotSvc.channelsCommits;
+}
+
+get total(): number {
+  return this.activeChannelsCommits
+    .reduce((s, r) => s + (Number.isFinite(r?.amount) ? Number(r.amount) : 0), 0);
+}
+
 
   private resolvePropertyId(): number | undefined {
     // Be flexible; different builds store selected spot market differently.
@@ -73,44 +84,6 @@ export class SpotChannelsComponent implements OnInit {
       m?.propertyId
     );
   }
-
- refresh(): void {
-  const pid1 = this.spotMkts?.selectedMarket.first_token.propertyId
-  const pid2 = this.spotMkts?.selectedMarket.second_token.propertyId
-  const address = this.resolveAddress();
-
-  if (!pid1 || !pid2) {
-    this.activeChannelsCommits = [];
-    this.total = 0;
-    return;
-  }
-
-  this.loading = true;
-  this.error = '';
-
-  forkJoin({
-  r1: this.spotSvc.getChannelBalances(address, pid1),
-  r2: this.spotSvc.getChannelBalances(address, pid2),
-})
-.pipe(
-  map(({ r1, r2 }) => {
-    const a = this._extractCommits(r1);
-    const b = this._extractCommits(r2);
-    return this._mergeCommits(a, b);
-  }),
-  map(rows => this._sortByBlockDesc(rows)),
-  catchError((e) => {
-    this.error = e?.message || 'Failed to load channels';
-    return of<any[]>([]);
-  }),
-  finalize(() => { this.loading = false; })
-)
-.subscribe((rows) => {
-  this.activeChannelsCommits = rows;
-  this.total = rows.reduce((s, r) => s + (Number.isFinite(r?.amount) ? Number(r.amount) : 0), 0);
-});
-
-}
 
   copy(value?: string | null) {
     if (!value) return;
@@ -136,7 +109,7 @@ export class SpotChannelsComponent implements OnInit {
 
     if (ref?.afterClosed) {
       ref.afterClosed().subscribe((res: any) => {
-        if (res?.success) this.refresh();
+        if (res?.success) this.refreshChannels();
       });
     }
   }
@@ -168,7 +141,7 @@ export class SpotChannelsComponent implements OnInit {
       const res = await this.txs.buildSingSendTx(buildCfg as any);
       if (res?.error) throw new Error(res.error);
 
-      this.refresh();
+      this.refreshChannels();
     } catch (err: any) {
       console.error('[Spot][Withdraw] error:', err?.message || err);
       this.error = err?.message || 'Withdraw failed';
@@ -233,7 +206,7 @@ export class SpotChannelsComponent implements OnInit {
     }
 
     console.log(`[WithdrawAll] done: ok=${ok} fail=${fail}`);
-    this.refresh(); // refresh table (rows may shrink/disappear)
+    this.refreshChannels(); // refresh table (rows may shrink/disappear)
   } catch (err: any) {
     this.error = err?.message || 'Withdraw All failed';
     console.error('[WithdrawAll] error:', this.error);

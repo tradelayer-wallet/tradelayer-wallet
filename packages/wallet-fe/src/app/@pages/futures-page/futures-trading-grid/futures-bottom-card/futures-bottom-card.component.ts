@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { FuturesChannelsService } from 'src/app/@core/services/futures-services/futures-channels.service';
 import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
 import { FuturesOrdersService } from 'src/app/@core/services/futures-services/futures-orders.service';
+import {FuturesTradeHistoryService} from 'src/app/@core/services/futures-services/futures-trade-history.service'
 
 @Component({
   selector: 'tl-futures-bottom-card',
@@ -14,6 +15,7 @@ export class FuturesBottomCardComponent {
       private futuresOrdersService: FuturesOrdersService,
       private futuresOrderbookService: FuturesOrderbookService,
       private futuresChannelsService: FuturesChannelsService,
+      private futuresTradeHistory: FuturesTradeHistoryService
     ) {}
 
     get allPositionsLength() {
@@ -33,6 +35,6 @@ export class FuturesBottomCardComponent {
     }
 
     get allRelayedHistory() {
-      return this.futuresOrderbookService.relatedHistoryTrades.length || 0;
+      return this.futuresTradeHistory.rows.length || 0;
     }
 }

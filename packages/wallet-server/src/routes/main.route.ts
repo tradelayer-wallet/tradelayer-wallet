@@ -37,7 +37,7 @@ fastify.post('start-wallet-node', async (request, reply) => {
     // derive chain/network & rpcPort from the label you already pass (e.g. 'LTCLIVE'|'LTCTEST')
     const { chain, network: net } = parseDefaultChain(network);
     const rpcPort = defaultRpcPort(chain, net);
-
+    console.log('config data '+rpcPort+' '+chain+' '+network)
     // persist for both desktop + backend
     writeEnvKVs({
       DEFAULT_CHAIN: network, // keep your label

@@ -1,23 +1,9 @@
-import { ToastrService } from "ngx-toastr";
-import { AuthService } from "../auth.service";
-import { BalanceService } from "../balance.service";
-import { RpcService } from "../rpc.service";
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import axios, { AxiosResponse } from 'axios';
+import { AuthService } from 'src/app/@core/services/auth.service';
+import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 
-export interface IChannelCommit {
-    amount: number;
-    block: number;
-    channel: string;
-    propertyId: number;
-    sender: string;
-    tokenName: string;
-}
-
-
-interface ChannelBalanceRow {
+export interface ChannelBalanceRow {
   channel: string;
   column: 'A' | 'B';
   propertyId: number;
@@ -27,79 +13,162 @@ interface ChannelBalanceRow {
   lastCommitmentBlock?: number;
 }
 
-interface ChannelBalancesResponse {
+export interface ChannelBalancesResponse {
   total: number;
   rows: ChannelBalanceRow[];
 }
 
-
-@Injectable({
-    providedIn: 'root',
-})
-
+@Injectable({ providedIn: 'root' })
 export class SpotChannelsService {
-    private _channelsCommits: IChannelCommit[] = [];
+  /** UI binds to this */
+  public channelsCommits: ChannelBalanceRow[] = [];
 
-    constructor(
-        private rpcService: RpcService,
-        private authService: AuthService,
-        private toastrService: ToastrService,
-        private balanceService: BalanceService,
-        private http: HttpClient
-    ) { }
+  /** Hardcoded endpoint */
+  private readonly endpoint = 'http://localhost:3000/tl_channelBalanceForCommiter';
 
-    get channelsCommits() {
-        return this._channelsCommits;
+  /** polling */
+  private refreshMs = 20000;
+  private pollId?: any;
+  private isLoading = false;
+
+  constructor(
+    private authService: AuthService,
+    private spotMarkets: SpotMarketsService
+  ) {
+    // Optional: live refresh on address/market change if streams exist
+    this.authService.updateAddressesSubs$?.subscribe(() => this.refreshNow());
+    (this.spotMarkets as any).selectedMarket$?.subscribe?.(() => this.refreshNow());
+    (this.spotMarkets as any).marketChange$?.subscribe?.(() => this.refreshNow());
+  }
+
+  /** Start (or restart) polling */
+  startPolling(ms: number = this.refreshMs): void {
+    this.stopPolling();
+    this.refreshMs = Math.max(1000, ms | 0);
+    this.loadOnce(); // run immediately
+    this.pollId = setInterval(() => this.loadOnce(), this.refreshMs);
+  }
+
+  /** Stop polling */
+  stopPolling(): void {
+    if (this.pollId) clearInterval(this.pollId);
+    this.pollId = undefined;
+  }
+
+  /** Manual refresh */
+  refreshNow(): void {
+    this.loadOnce();
+  }
+
+  /** Change cadence */
+  setRefreshMs(ms: number): void {
+    this.refreshMs = Math.max(1000, ms | 0);
+    if (this.pollId) this.startPolling(this.refreshMs);
+  }
+
+  // ---------- internals ----------
+
+  private normalizeRow(
+    r: any,
+    addr: string,
+    defaults: { propertyId?: number }
+  ): ChannelBalanceRow {
+    // participants can come in various shapes; normalize
+    const participants: { A?: string; B?: string } = r?.participants ?? {
+      A: r?.participantA ?? r?.A ?? r?.partyA,
+      B: r?.participantB ?? r?.B ?? r?.partyB,
+    };
+
+    // Determine which side we are (prefer provided column, else infer)
+    let column: 'A' | 'B';
+    if (r?.column === 'A' || r?.column === 'B') {
+      column = r.column;
+    } else if (participants?.A && addr && participants.A === addr) {
+      column = 'A';
+    } else if (participants?.B && addr && participants.B === addr) {
+      column = 'B';
+    } else {
+      column = 'A'; // fallback
     }
 
-     getChannelBalances(address: string, propertyId?: number): Observable<ChannelBalancesResponse> {
-    let params = new HttpParams().set('address', address);
-    if (propertyId !== undefined && propertyId !== null) {
-      params = params.set('propertyId', String(propertyId));
-    }
-    return this.http.get<ChannelBalancesResponse>(
-      '/tl_channelBalanceForCommiter',
-      { params }
-    ).pipe(
-      map(res => ({
-        total: res?.total ?? 0,
-        rows: (res?.rows ?? []).map(r => ({
-          ...r,
-          counterparty: r.counterparty ?? (r.column === 'A' ? r.participants?.B : r.participants?.A) ?? ''
-        }))
-      }))
+    const counterparty = column === 'A' ? participants?.B : participants?.A;
+
+    // propertyId (0 is valid for LTC) — only replace if undefined/null
+    const pidRaw = r?.propertyId;
+    const propertyId =
+      pidRaw !== undefined && pidRaw !== null ? Number(pidRaw)
+      : defaults.propertyId !== undefined ? Number(defaults.propertyId)
+      : 0;
+
+    // amounts/blocks
+    const amount = Number(
+      r?.amount ?? r?.balance ?? r?.value ?? 0
     );
+
+    const lastCommitmentBlock = Number(
+      r?.lastCommitmentBlock ?? r?.block ?? r?.height ?? undefined
+    );
+
+    const channelId =
+      r?.channel ??
+      r?.channelId ??
+      (participants?.A || participants?.B
+        ? `${participants?.A ?? ''}:${participants?.B ?? ''}`
+        : 'unknown');
+
+    return {
+      channel: String(channelId),
+      column,
+      propertyId,
+      amount,
+      participants,
+      counterparty,
+      lastCommitmentBlock: Number.isFinite(lastCommitmentBlock) ? lastCommitmentBlock : undefined,
+    };
+  }
+
+  public async loadOnce(): Promise<void> {
+    if (this.isLoading) return;
+    this.isLoading = true;
+    try {
+      const addr = this.authService.walletAddresses?.[0];
+      const m = this.spotMarkets.selectedMarket;
+
+      // Use base/first token propertyId when not provided by backend (0 is valid)
+      const pidRaw = m?.first_token?.propertyId;
+      const defaultPid = pidRaw !== undefined && pidRaw !== null ? Number(pidRaw) : undefined;
+
+      if (!addr) {
+        this.channelsCommits = [];
+        return;
+      }
+
+      const params: any = { address: addr };
+      if (defaultPid !== undefined && Number.isFinite(defaultPid)) params.propertyId = defaultPid;
+
+      const res: AxiosResponse<ChannelBalancesResponse | ChannelBalanceRow[] | any> =
+        await axios.get(this.endpoint, { params });
+
+      const data = res.data;
+      const rawRows: any[] = Array.isArray(data) ? data : (Array.isArray(data?.rows) ? data.rows : []);
+      const rows = rawRows.map(row => this.normalizeRow(row, addr, { propertyId: defaultPid }));
+
+      // New array ref so Angular change detection triggers
+      this.channelsCommits = rows.slice();
+    } catch (err) {
+      console.error('[spot-channels] load error:', err);
+      this.channelsCommits = [];
+    } finally {
+      this.isLoading = false;
+    }
   }
 
     get activeSpotaddress() {
         return this.authService.activeSpotKey?.address || null;
     }
 
-    async updateOpenChannels() {
-        try {
-            if (!this.activeSpotaddress) {
-                this._channelsCommits = [];
-                return;
-            }
-            const commitsRes = await this.rpcService.rpc('tl_check_commits', [this.activeSpotaddress]);
-            if (commitsRes.error || !commitsRes.data) throw new Error(`tl_check_commits: ${commitsRes.error}`);
-            const promiseArray = commitsRes.data.map(async (q: any) => {
-                return {
-                    amount: parseFloat(q.amount),
-                    propertyId: parseFloat(q.propertyId),
-                    block: q.block,
-                    channel: q.channel,
-                    sender: q.sender,
-                    tokenName: await this.balanceService.getTokenNameById(parseFloat(q.propertyId)),
-                };
-            });
-            this._channelsCommits = await Promise.all(promiseArray);
-        } catch (err: any) {
-            this.toastrService.warning(err.message);
-        }
-    }
-
     removeAll() {
-        this._channelsCommits = [];
+        this.channelsCommits = [];
     }
 }
+
