@@ -152,7 +152,7 @@ export class WithdrawDialog {
                 return;
             }
             
-            this.toastrService.success(`Withdraw TX: ${res.data}`, 'Success');
+            this.toastrService.success(`Send TX: ${res.data}`, 'Success');
         } catch (error: any) {
             console.log('issue in withdraw function')
             this.toastrService.error(error.message || `Error with Withdraw`, 'Error');

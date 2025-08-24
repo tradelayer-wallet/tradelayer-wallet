@@ -12,6 +12,7 @@ import { PortfolioPageComponent } from './@pages/portfolio-page/portfolio-page.c
 import { SpotPageComponent } from './@pages/spot-page/spot-page.component';
 import { TxBuilderPageComponent } from './@pages/tx-builder-page/tx-builder-page.component';
 import {AlgoTradingPageComponent } from './@pages/algo-trading/algo-trading.component'
+
 export const routes: Routes = [
   {
     path: '',

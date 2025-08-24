@@ -44,7 +44,8 @@ export class FuturesChannelsComponent implements OnInit {
     private auth: AuthService,
     private futMkts: FuturesMarketService,
     private dialogs: DialogService,
-    private txs: TxsService
+    private txs: TxsService,
+    private toastrService: ToastrService
   ) {}
 
 address$ = new BehaviorSubject<string>('');
@@ -112,6 +113,7 @@ get total(): number {
 
     try {
       this.working = true;
+      this.address = this.resolveAddress()
 
       // Map column: A -> 0, B -> 1
       const columnNum = row.column === 'A' ? 0 : 1;
@@ -134,6 +136,7 @@ get total(): number {
 
       const res = await this.txs.buildSingSendTx(buildCfg as any);
       if (res?.error) throw new Error(res.error);
+      this.toastrService.success(`Withdrawal TX: ${res.data}`, 'Success');
 
       // Refresh (row may shrink or disappear)
       this.futSvc.loadOnce()
@@ -166,6 +169,7 @@ get total(): number {
     // Process sequentially to avoid RPC/mempool bursts
     for (const row of targetRows) {
       const columnNum = row.column === 'A' ? 0 : 1;
+            this.address = this.resolveAddress()
 
       // withdrawAll=1 tells protocol to withdraw entire balance for this property on that column
       const payload = ENCODER.encodeWithdrawal({
@@ -183,28 +187,21 @@ get total(): number {
         payload
       };
 
-      try {
         const res = await this.txs.buildSingSendTx(buildCfg as any);
         if (res?.error) {
           console.error('[WithdrawAll] item failed:', row, res.error);
-          fail++;
-        } else {
-          ok++;
-        }
-      } catch (e: any) {
-        console.error('[WithdrawAll] item exception:', row, e?.message || e);
-        fail++;
-      }
-
+          return this.toastrService.error('WithdrawalAll failed: '+res.error)
+        } 
       // small delay to be gentle on node/mempool
       await new Promise(r => setTimeout(r, 200));
     }
 
     console.log(`[WithdrawAll] done: ok=${ok} fail=${fail}`);
     this.futSvc.loadOnce(); // refresh table (rows may shrink/disappear)
+    return true
   } catch (err: any) {
     this.error = err?.message || 'Withdraw All failed';
-    console.error('[WithdrawAll] error:', this.error);
+    return console.error('[WithdrawAll] error:', this.error);
   } finally {
     this.working = false;
   }

@@ -44,7 +44,8 @@ export class SpotChannelsComponent implements OnInit {
     private spotMkts: SpotMarketsService,
     private dialogs: DialogService,
     private auth: AuthService,
-    private txs: TxsService
+    private txs: TxsService,
+    private toastrService: ToastrService
   ) {}
 
 /** Call this when user action should force refresh (optional) */
@@ -123,6 +124,7 @@ get total(): number {
       this.working = true;
 
       const columnNum = row.column === 'A' ? 0 : 1;
+      this.address = this.resolveAddress()
 
       const payload = ENCODER.encodeWithdrawal({
         withdrawAll: 0,
@@ -140,6 +142,7 @@ get total(): number {
 
       const res = await this.txs.buildSingSendTx(buildCfg as any);
       if (res?.error) throw new Error(res.error);
+      this.toastrService.success(`Withdrawal TX: ${res.data}`, 'Success');
 
       this.refreshChannels();
     } catch (err: any) {
@@ -173,6 +176,7 @@ get total(): number {
       const columnNum = row.column === 'A' ? 0 : 1;
 
       // withdrawAll=1 tells protocol to withdraw entire balance for this property on that column
+      this.address = this.resolveAddress()
       const payload = ENCODER.encodeWithdrawal({
         withdrawAll: 1,
         propertyId: row.propertyId,
@@ -188,18 +192,14 @@ get total(): number {
         payload
       };
 
-      try {
         const res = await this.txs.buildSingSendTx(buildCfg as any);
         if (res?.error) {
           console.error('[WithdrawAll] item failed:', row, res.error);
           fail++;
-        } else {
-          ok++;
-        }
-      } catch (e: any) {
-        console.error('[WithdrawAll] item exception:', row, e?.message || e);
-        fail++;
-      }
+        } 
+    
+      this.toastrService.success(`Withdrawal TX: ${res.data}`, 'Success');
+
 
       // small delay to be gentle on node/mempool
       await new Promise(r => setTimeout(r, 200));

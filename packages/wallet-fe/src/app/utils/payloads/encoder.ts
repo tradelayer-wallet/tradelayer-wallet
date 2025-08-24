@@ -184,29 +184,39 @@ const encodeAttestation = (params: EncodeAttestationParams): string => {
 };
 
 
+// keep your existing EncodeCommitParams / encodeCommit
 
 type EncodeWithdrawalParams = {
-  withdrawAll: number; // 1 for true, 0 for false
+  withdrawAll: number | boolean;  // 1/0 or true/false
   propertyId: number;
-  amountOffered: number;
-  column: number; // 0 for A, 1 for B
+  amountOffered: number | string; // decimal string or number
+  column: number | boolean;       // 0/1 or A/B as boolean
   channelAddress: string;
+  ref?: number;                    // NEW: reference output index
 };
 
-const encodeWithdrawal = (params: EncodeWithdrawalParams): string => {
-  const amounts = new BigNumber(params.amountOffered).times(1e8).toString();
-  const propertyIds = params.propertyId.toString(36);
-  const payload = [
-    params.withdrawAll,
-    propertyIds,
-    amounts,
-    params.column,
-    params.channelAddress
-  ].join(',');
+const encodeWithdrawal = (p: EncodeWithdrawalParams): string => {
+  const withdrawAll = (p.withdrawAll ? 1 : 0).toString();
+  const propertyIds = p.propertyId.toString(36);
+  const amounts = new BigNumber(p.amountOffered)
+    .times(1e8)
+    .integerValue(BigNumber.ROUND_DOWN)
+    .toString(36);
+  const column = (typeof p.column === 'boolean' ? (p.column ? 1 : 0) : p.column).toString();
+  const chanField = p.channelAddress.length > 42 ? `ref:${p.ref ?? 0}` : p.channelAddress;
+
   const type = 21;
-  const typeStr = type.toString(36);
-  return marker + typeStr + payload;
+  const typeStr = type.toString(36); // 'l'
+
+  const payload = [withdrawAll, propertyIds, amounts, column, chanField].join(',');
+  const out = marker + typeStr + payload;
+
+  // Optional: keep OP_RETURN under standard policy
+  // if (Buffer.byteLength(out, 'utf8') > 80) throw new Error('OP_RETURN too large');
+
+  return out;
 };
+
 
 
 export const ENCODER = { 
