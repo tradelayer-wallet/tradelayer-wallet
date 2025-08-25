@@ -3,10 +3,6 @@
     <h1 class="title">Algo Trading</h1>
     <span class="badge">Updated hourly</span>
     <div class="spacer"></div>
-    <label class="upload-btn">
-      <input #fileInput type="file" accept=".js,.mjs,.ts" (change)="onUploadFile(fileInput)" />
-      Upload Strategy
-    </label>
   </header>
 
   <nav class="tabs">
@@ -50,11 +46,11 @@
 
   <!-- DISCOVERY TABS (existing table) -->
   <ng-container *ngIf="activeTab!=='running'">
-    <section class="filters">
+    <form class="filters" [formGroup]="filters">
       <div class="row">
         <label>
           <span>Market:</span>
-          <select [formControl]="filters.controls.market">
+          <select formControlName="market">
             <option>All</option>
             <option>BTC</option>
             <option>ETH</option>
@@ -64,7 +60,7 @@
         </label>
         <label>
           <span>Running Time:</span>
-          <select [formControl]="filters.controls.runningTime">
+          <select formControlName="runningTime">
             <option>All</option>
             <option>1–7 days</option>
             <option>7–30 days</option>
@@ -73,7 +69,7 @@
         </label>
         <label>
           <span>ROI:</span>
-          <select [formControl]="filters.controls.roi">
+          <select formControlName="roi">
             <option>All</option>
             <option>&gt; 100%</option>
             <option>10% – 100%</option>
@@ -82,7 +78,7 @@
         </label>
         <label>
           <span>Categories:</span>
-          <select [formControl]="filters.controls.category">
+          <select formControlName="category">
             <option>All</option>
             <option>Grid</option>
             <option>Martingale</option>
@@ -92,7 +88,7 @@
         <button class="reset" type="button" (click)="filters.reset({market:'All',runningTime:'All',roi:'All',category:'All',sort:filters.value.sort||'Recommended'})">Reset</button>
         <div class="sort">
           <span>Rank by:</span>
-          <select [formControl]="filters.controls.sort">
+           <select formControlName="sort">
             <option>Recommended</option>
             <option>ROI</option>
             <option>P&amp;L</option>
@@ -101,7 +97,7 @@
           </select>
         </div>
       </div>
-    </section>
+     </form>
 
     <section class="table">
       <div class="thead">

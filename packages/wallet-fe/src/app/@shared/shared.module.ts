@@ -1,5 +1,4 @@
 import { NgModule } from '@angular/core';
-
 import { CommonModule } from '@angular/common';
 import { ClipboardModule } from '@angular/cdk/clipboard'; 
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -102,6 +101,8 @@ const declarations = [
 const exports = [
     ...DIALOGS,
     ...COMPONENTS,
+    ...NG_MODULES,
+    ...MAT_MODULES, 
 ];
 
 @NgModule({ imports, declarations, exports })

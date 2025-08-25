@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormBuilder, FormGroup } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, FormArray, FormControl } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatDialog } from '@angular/material/dialog';
 import { Observable } from 'rxjs';
@@ -49,12 +49,13 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
   selectedRow?: StrategyRow;
   selectedMeta?: SelectedMeta;
 
-  allocationForm: FormGroup;
+  public filters: FormGroup;
+  public allocationForm: FormGroup;
   showAllocate = false;
 
   running: RunningInstance[] = [];
 
-  withdrawForm: FormGroup;
+  public withdrawForm: FormGroup;
   withdrawFor?: RunningInstance;
   showWithdraw = false;
 
@@ -63,15 +64,22 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
     private http: HttpClient
   ) {
+    this.filters = this.fb.group({
+      market: 'All',
+      runningTime: 'All',
+      roi: 'All',
+      category: 'All',
+      sort: 'Recommended'
+    });
     this.allocationForm = this.fb.group({
-      amount: [],
+      amount: [null, Validators.required],
       apiKey: [''],
       apiSecret: ['']
     });
-
     this.withdrawForm = this.fb.group({
-      amount: []
+      amount: [null, Validators.required]
     });
+
   }
 
   ngOnInit(): void {

@@ -217,7 +217,54 @@ const encodeWithdrawal = (p: EncodeWithdrawalParams): string => {
   return out;
 };
 
+// --- Synth encode helpers ---
 
+/** ---------- MINT ---------- */
+export type EncodeMintSyntheticParams = {
+  propertyId: number;   // underlying property id
+  contractId: number;   // contract id used
+  amount: string | number;
+};
+
+export const encodeMintSynthetic = (params: EncodeMintSyntheticParams): string => {
+  const typeStr = (24).toString(36);
+  const amt36 = new BigNumber(params.amount)
+    .times(1e8)
+    .integerValue(BigNumber.ROUND_DOWN)
+    .toString(36);
+
+  const payload = [
+    Number(params.propertyId).toString(36),
+    Number(params.contractId).toString(36),
+    amt36,
+  ];
+
+  return marker + typeStr + payload.join(',');
+};
+
+/** ---------- REDEEM ---------- */
+export type EncodeRedeemSyntheticParams = {
+  propertyId: string;   // composite string e.g. "123-456"
+  contractId: number;   // contract id used
+  amount: string | number;
+};
+
+export const encodeRedeemSynthetic = (params: EncodeRedeemSyntheticParams): string => {
+  const typeStr = (25).toString(36);
+
+  const amt36 = new BigNumber(params.amount)
+    .times(1e8)
+    .integerValue(BigNumber.ROUND_DOWN)
+    .toString(36);
+
+  const payload = [
+    Number(params.propertyId).toString(36),
+    Number(params.contractId).toString(36),
+    amt36,
+  ];
+
+  return marker + typeStr + payload.join(',');
+};
 
 export const ENCODER = { 
     encodeSend, 
@@ -227,5 +274,7 @@ export const ENCODER = {
     encodeTradeTokenForUTXO, 
     encodeCommit,
     encodeTransfer,
-    encodeAttestation
+    encodeAttestation,
+    encodeMintSynthetic,
+    encodeRedeemSynthetic
 };

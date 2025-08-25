@@ -142,6 +142,9 @@
             <span class='span-button' (click)="openDialog('deposit', selectedAddress, element.propertyid)">Receive</span>
             <span> | </span>
             <span class='span-button' (click)="openDialog('withdraw', selectedAddress, element.propertyid)">Send</span>
+            <span> | </span>
+             <span class="span-button" (click)="openDialog('synth', selectedAddress, element.propertyid)">Mint/Redeem
+            </span>
           </mat-cell>
         </ng-container>
 

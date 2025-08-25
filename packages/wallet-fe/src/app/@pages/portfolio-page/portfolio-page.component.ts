@@ -1,5 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnInit,ChangeDetectorRef } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
+import { AfterViewInit, Component, ElementRef, OnInit, ChangeDetectorRef,Inject } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import { first } from 'rxjs/operators';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
@@ -11,7 +10,8 @@ import { RpcService } from 'src/app/@core/services/rpc.service';
 import { TxsService } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { ENCODER } from 'src/app/utils/payloads/encoder'
-
+import { HttpClient } from '@angular/common/http';
+import { MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
 
 @Component({
   selector: 'tl-portoflio-page',
@@ -23,7 +23,7 @@ export class PortfolioPageComponent implements OnInit {
   cryptoBalanceColumns: string[] = ['attestation', 'address', 'confirmed', 'unconfirmed', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'channel', 'actions'];
   selectedAddress: string = '';
-
+  private propertyTypeCache = new Map<number, number>(); // pid -> type (5 = synthetic)
 
   constructor(
     private balanceService: BalanceService,
@@ -36,7 +36,8 @@ export class PortfolioPageComponent implements OnInit {
     private txsService: TxsService,
     private attestationService: AttestationService,
     private loadingService: LoadingService,
-    private cdr: ChangeDetectorRef // Inject ChangeDetectorRef
+    private cdr: ChangeDetectorRef, // Inject ChangeDetectorRef,
+    private http: HttpClient
   ) {}
 
   get coinBalance() {
@@ -120,14 +121,20 @@ export class PortfolioPageComponent implements OnInit {
 
   openDialog(dialog: string, address?: any, _propId?: number) {
     const data = { address, propId: _propId };
-    const TYPE = dialog === 'deposit'
-      ? DialogTypes.DEPOSIT
-      : dialog === 'withdraw'
-        ? DialogTypes.WITHDRAW
-        : null;
+
+    let TYPE = null;
+    if (dialog === 'deposit') {
+      TYPE = DialogTypes.DEPOSIT;
+    } else if (dialog === 'withdraw') {
+      TYPE = DialogTypes.WITHDRAW;
+    } else if (dialog === 'synth') {
+      TYPE = DialogTypes.SYNTH;
+    }
+
     if (!TYPE || !data) return;
     this.dialogService.openDialog(TYPE, { disableClose: false, data });
   }
+
 
   async newAddress() {
       try {
@@ -217,5 +224,24 @@ export class PortfolioPageComponent implements OnInit {
           this.loadingService.isLoading = false;
       }
   }
+
+
+private async ensurePropertyType(pid: number): Promise<number | undefined> {
+  if (this.propertyTypeCache.has(pid)) return this.propertyTypeCache.get(pid)!;
+  // backend expects: POST /tl_getProperty with { params: pid }
+  const data: any = await this.http.post('http://localhost:3000/tl_getProperty', { params: pid }).toPromise();
+  // expect data.type present; synthetic == 5
+  const t = Number(data?.type);
+  if (!Number.isFinite(t)) return undefined;
+  this.propertyTypeCache.set(pid, t);
+  return t;
+}
+
+// --- label for the button in the table ---
+getMintRedeemLabel(row: any): string {
+  const t = this.propertyTypeCache.get(Number(row?.propertyid));
+  // If we don't know yet, default to 'Mint' and we’ll update on click
+  return t === 5 ? 'Redeem' : 'Mint';
+}
 
 }

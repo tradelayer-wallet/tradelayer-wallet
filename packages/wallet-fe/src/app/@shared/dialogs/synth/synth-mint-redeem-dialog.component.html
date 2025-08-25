@@ -1,0 +1,67 @@
+<div class="dialog-container">
+  <div class="title">
+    <h1>{{ data.mode === 'mint' ? 'Mint Synthetic' : 'Redeem Synthetic' }}</h1>
+  </div>
+
+  <div class="content" *ngIf="data?.address">
+    <div class="address-content">
+      <span class="address" (click)="copyAddress()">{{ data.address }}</span>
+      <span class="note">(click over the address to copy in clipboard)</span>
+    </div>
+
+    <!-- Hedge contract selector (only for Mint) -->
+<mat-form-field *ngIf="data.mode === 'mint'" appearance="fill" style="width:350px">
+  <mat-label>Hedge Contract</mat-label>
+  <mat-select [value]="selectedContractId" (selectionChange)="onContractChange($event.value)">
+    <mat-option *ngFor="let c of contracts" [value]="c.id">
+      {{ c.label }}
+    </mat-option>
+  </mat-select>
+</mat-form-field>
+
+<div class="hint" *ngIf="data.mode === 'mint' && contracts.length === 0">
+  No eligible inverse-native contracts found for this asset.
+</div>
+
+
+    <div class="from-to">
+      <span>Property</span>
+      <div class="arrow"></div>
+      <span>{{ data.propertyId || data.propId }}</span>
+    </div>
+
+    <mat-form-field appearance="fill" style="width:350px">
+      <mat-label>Amount</mat-label>
+      <input
+        matInput
+        type="number"
+        step="0.00000001"
+        [value]="amount"
+        (input)="amount = $any($event.target).value" />
+    </mat-form-field>
+
+    <span class="max-amount" *ngIf="capInfo?.max" (click)="fillMax()">
+      max: {{ capInfo.max | number:'1.0-8' }}
+    </span>
+
+    <mat-slider
+      *ngIf="capInfo?.max"
+      [min]="0"
+      [max]="100"
+      [step]="10"
+      (input)="onSlide($event)">
+      <input matSliderThumb />
+    </mat-slider>
+  </div>
+
+  <div class="buttons">
+    <button mat-button color="warn" (click)="cancel()">CANCEL</button>
+    <button
+      mat-button
+      color="primary"
+      (click)="submit()"
+      [disabled]="!isPositive(amount)">
+      {{ data.mode === 'mint' ? 'MINT' : 'REDEEM' }}
+    </button>
+  </div>
+</div>

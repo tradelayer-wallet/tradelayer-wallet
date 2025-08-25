@@ -11,6 +11,8 @@ import { TransferDialog } from 'src/app/@shared/dialogs/transfer/transfer.compon
 import { PasswordPromptDialog } from 'src/app/@shared/dialogs/password-prompt/password-prompt.component';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { ToastrService } from "ngx-toastr";
+import { SynthMintRedeemDialogComponent, SynthMode } from
+  'src/app/@shared/dialogs/synth/synth-mint-redeem-dialog.component';
 
 export enum DialogTypes {
     SELECT_NETOWRK = "SELECT_NETOWRK",
@@ -22,6 +24,7 @@ export enum DialogTypes {
     DEPOSIT = 'DEPOSIT',
     TRANSFER = 'TRANSFER',
     PASSWORD_PROMPT = 'PASSWORD_PROMPT',
+    SYNTH = 'SYNTH'
 };
 
 const dialogs: { [key: string]: any; } = {
