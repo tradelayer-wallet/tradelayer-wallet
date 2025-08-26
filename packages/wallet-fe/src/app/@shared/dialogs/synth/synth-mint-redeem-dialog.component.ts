@@ -24,7 +24,7 @@ export class SynthMintRedeemDialogComponent {
       mode?: SynthMode;                 // now optional — we’ll infer if not provided
       address: string;
       propertyId: number | string;      // may be 's<pid>-<cid>' alias or a number
-      available: number
+      available?: number
     },
     private http: HttpClient,
   ) {}
@@ -82,6 +82,7 @@ export class SynthMintRedeemDialogComponent {
   }
 
   private async loadRedeemCap() {
+    try{
       const max = Number(this.data.available ?? 0);
       if (max > 0) {
         this.capInfo = { max };
