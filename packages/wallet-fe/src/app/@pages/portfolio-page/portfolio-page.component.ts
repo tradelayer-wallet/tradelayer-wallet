@@ -119,8 +119,8 @@ export class PortfolioPageComponent implements OnInit {
   }
 
 
-  openDialog(dialog: string, address?: any, _propId?: number) {
-    const data = { address, propId: _propId };
+  openDialog(dialog: string, address?: any, _propId?: number, _amount?:number) {
+    const data = { address, propId: _propId, amount: _amount };
 
     let TYPE = null;
     if (dialog === 'deposit') {

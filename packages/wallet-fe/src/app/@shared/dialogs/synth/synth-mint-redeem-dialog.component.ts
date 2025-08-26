@@ -24,6 +24,7 @@ export class SynthMintRedeemDialogComponent {
       mode?: SynthMode;                 // now optional — we’ll infer if not provided
       address: string;
       propertyId: number | string;      // may be 's<pid>-<cid>' alias or a number
+      available: number
     },
     private http: HttpClient,
   ) {}
@@ -49,7 +50,7 @@ export class SynthMintRedeemDialogComponent {
         ? Number(this.data.propertyId.replace(/^s/i, '').split('-')[0])
         : Number(this.data.propertyId);
 
-      const resp: any = await this.http.get(`/api/portfolio/mint-eligibility`, {
+      const resp: any = await this.http.get(`/tl_getMaxSynth`, {
         params: { address: this.data.address, propertyId: String(pid) },
       }).toPromise();
 
@@ -81,11 +82,7 @@ export class SynthMintRedeemDialogComponent {
   }
 
   private async loadRedeemCap() {
-    try {
-      const cap: any = await this.http.get(`/api/portfolio/synth-available`, {
-        params: { address: this.data.address, propertyId: String(this.data.propertyId) },
-      }).toPromise();
-      const max = Number(cap?.available ?? 0);
+      const max = Number(this.data.available ?? 0);
       if (max > 0) {
         this.capInfo = { max };
         this.amount = max.toFixed(8);
