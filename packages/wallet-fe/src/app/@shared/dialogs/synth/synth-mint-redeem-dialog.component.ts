@@ -1,152 +1,143 @@
+// src/app/@shared/dialogs/synth/synth-mint-redeem-dialog.component.ts
 import { Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { HttpClient } from '@angular/common/http';
 
 export type SynthMode = 'mint' | 'redeem';
 
-type ContractOption = { id: number; label: string; notional?: number };
+type ContractRow = { id: number; label: string; notional?: number; maxMintLTC?: number };
 
-@Component({                 
+@Component({
   selector: 'app-synth-mint-redeem-dialog',
   templateUrl: './synth-mint-redeem-dialog.component.html',
-  styleUrls: ['./synth.scss']
+  styleUrls: ['./synth.scss'],
 })
 export class SynthMintRedeemDialogComponent {
   amount = '';
   capInfo?: { max: number };
-
-contracts: ContractOption[] = [];
-selectedContractId: number | null = null;
+  contracts: ContractRow[] = [];
+  selectedContractId: number | null = null;
 
   constructor(
     public dialogRef: MatDialogRef<SynthMintRedeemDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: {
-      mode: SynthMode;
+      mode?: SynthMode;                 // now optional — we’ll infer if not provided
       address: string;
-      propertyId: number;
-      // optional: contractIdUsed, etc.
+      propertyId: number | string;      // may be 's<pid>-<cid>' alias or a number
     },
     private http: HttpClient,
   ) {}
 
-  async // NEW: load eligible contracts for this property
-private async loadContracts() {
-  try {
-    // Option A: via your markets service REST (replace with your real endpoint)
-    // Expecting [{ id, symbol, type, basePid, notional }, ...]
-    const markets: any[] = await this.http
-      .get<any[]>('/api/markets')
-      .toPromise();
-
-    // Filter to inverse-native contracts for this property
-    const pid = this.data.propertyId;
-    const eligible = (markets || []).filter(m =>
-      (m?.type === 'inverse_native' || m?.isInverseNative === true) &&
-      (m?.basePid === pid || m?.propertyId === pid || m?.underlyingPid === pid)
-    );
-
-    this.contracts = eligible.map(m => ({
-      id: Number(m.contractId ?? m.id),
-      label: `${m.symbol ?? 'TL/??'} · inverse native${m?.notional ? ' · N=' + m.notional : ''}`,
-      notional: m.notional
-    }));
-
-    if (this.contracts.length) {
-      this.selectedContractId = this.contracts[0].id;
+  async ngOnInit() {
+    // 1) Infer mode from propertyId if not explicitly provided:
+    if (!this.data.mode) {
+      const isSynthAlias = typeof this.data.propertyId === 'string' && /^s\d+-\d+$/i.test(this.data.propertyId);
+      this.data.mode = isSynthAlias ? 'redeem' : 'mint';
     }
-  } catch {
-    this.contracts = [];
-    this.selectedContractId = null;
-  }
-}
 
-// handle selection change from dropdown
-onContractChange(contractId: number) {
-  this.selectedContractId = contractId;
-  // if Mint, re-calc cap for the newly selected hedge
-  if (this.data.mode === 'mint') this.loadCap();
-}
-
-// factor out cap loading so we can call it on init and on change
-private async loadCap() {
-  try {
+    // 2) Load caps
     if (this.data.mode === 'mint') {
-      const cap: any = await this.http.get(`/api/portfolio/mint-cap`, {
-        params: {
-          address: this.data.address,
-          propertyId: this.data.propertyId,
-          contractId: String(this.selectedContractId ?? '')
-        } as any,
-      }).toPromise();
-      const max = Number(cap?.maxMint ?? 0);
-      this.capInfo = max > 0 ? { max } : undefined;
-      if (max > 0) this.amount = max.toFixed(8);
+      await this.loadEligibility(); // fills contracts & default selection & cap
     } else {
+      await this.loadRedeemCap();   // simple available balance
+    }
+  }
+
+  private async loadEligibility() {
+    try {
+      const pid = typeof this.data.propertyId === 'string'
+        ? Number(this.data.propertyId.replace(/^s/i, '').split('-')[0])
+        : Number(this.data.propertyId);
+
+      const resp: any = await this.http.get(`/api/portfolio/mint-eligibility`, {
+        params: { address: this.data.address, propertyId: String(pid) },
+      }).toPromise();
+
+      // Normalize to dialog shape
+      this.contracts = (resp?.contracts || []).map((c: any) => ({
+        id: Number(c.contractId),
+        label: c.label || `Contract #${c.contractId}`,
+        notional: c.notional,
+        maxMintLTC: c.maxMintLTC,
+      }));
+
+      // pick the first eligible by default
+      this.selectedContractId = this.contracts[0]?.id ?? null;
+
+      // cap = selected contract max (fallback to total)
+      const selected = this.contracts.find(c => c.id === this.selectedContractId);
+      const max = selected?.maxMintLTC ?? Number(resp?.maxMintTotalLTC ?? 0);
+      if (max > 0) {
+        this.capInfo = { max };
+        this.amount = max.toFixed(8);
+      } else {
+        this.capInfo = undefined;
+      }
+    } catch {
+      this.contracts = [];
+      this.selectedContractId = null;
+      this.capInfo = undefined;
+    }
+  }
+
+  private async loadRedeemCap() {
+    try {
       const cap: any = await this.http.get(`/api/portfolio/synth-available`, {
-        params: { address: this.data.address, propertyId: this.data.propertyId } as any,
+        params: { address: this.data.address, propertyId: String(this.data.propertyId) },
       }).toPromise();
       const max = Number(cap?.available ?? 0);
-      this.capInfo = max > 0 ? { max } : undefined;
-      if (max > 0) this.amount = max.toFixed(8);
+      if (max > 0) {
+        this.capInfo = { max };
+        this.amount = max.toFixed(8);
+      } else {
+        this.capInfo = undefined;
+      }
+    } catch {
+      this.capInfo = undefined;
     }
-  } catch {
-    this.capInfo = undefined;
   }
-}
 
-// update your existing ngOnInit to call loadContracts() first (for Mint), then loadCap()
-async ngOnInit() {
- const isSynthAlias = typeof this.data.propertyId === 'string' && /^s\d+-\d+$/i.test(this.data.propertyId);
-      this.data.mode = isSynthAlias ? 'redeem' : 'mint';
-  try {
-    if (this.data.mode === 'mint') {
-      await this.loadContracts();  // populate dropdown + default selection
-    }
-    await this.loadCap();          // compute cap (uses selectedContractId on Mint)
-  } catch {}
-}
+  onContractChange(id: number) {
+    this.selectedContractId = id;
+    const selected = this.contracts.find(c => c.id === id);
+    const max = selected?.maxMintLTC ?? 0;
+    this.capInfo = max > 0 ? { max } : undefined;
+    if (max > 0) this.amount = max.toFixed(8);
+  }
 
-// small helpers already added in previous step (keep them)
-// fillMax(), copyAddress(), onSlide(), isPositive() ...
-
-// include contractIdUsed on submit (for Mint)
-submit() {
-  this.dialogRef.close({
-    amount: this.amount,
-    propertyIdUsed: this.data.propertyId,
-    contractIdUsed: this.data.mode === 'mint' ? this.selectedContractId : undefined,
-    mode: this.data.mode,
-    address: this.data.address,
-  });
-}
   fillMax() {
     if (this.capInfo) this.amount = this.capInfo.max.toFixed(8);
   }
 
+  isPositive(val: string) {
+    const n = Number(val);
+    return Number.isFinite(n) && n > 0;
+  }
 
-copyAddress() {
-  try { navigator.clipboard?.writeText(this.data.address); } catch {}
-}
+  copyAddress() {
+    try { navigator.clipboard?.writeText(this.data.address); } catch {}
+  }
 
-onSlide(ev: any) {
-  if (!this.capInfo) return;
-  const v = (ev?.value ?? ev?.target?.value ?? 0) as number;
-  const pct = Math.max(0, Math.min(100, Number(v) || 0)) / 100;
-  this.amount = (this.capInfo.max * pct).toFixed(8);
-}
-
-isPositive(val: string) {
-  const n = Number(val);
-  return Number.isFinite(n) && n > 0;
-}
+  onSlide(ev: any) {
+    if (!this.capInfo) return;
+    const v = (ev?.value ?? ev?.target?.value ?? 0) as number;
+    const pct = Math.max(0, Math.min(100, Number(v) || 0)) / 100;
+    this.amount = (this.capInfo.max * pct).toFixed(8);
+  }
 
   cancel() { this.dialogRef.close(); }
 
   submit() {
+    // Return what the encoder needs
     this.dialogRef.close({
+      mode: this.data.mode,
       amount: this.amount,
-      propertyIdUsed: this.data.propertyId,
-      // contractIdUsed: 2001, // if you want to pass it
+      propertyIdUsed:
+        typeof this.data.propertyId === 'string'
+          ? Number(this.data.propertyId.replace(/^s/i, '').split('-')[0])
+          : Number(this.data.propertyId),
+      contractIdUsed: this.data.mode === 'mint' ? this.selectedContractId : undefined,
+      address: this.data.address,
     });
   }
 }
