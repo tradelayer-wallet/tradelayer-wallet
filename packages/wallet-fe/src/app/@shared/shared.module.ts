@@ -38,6 +38,7 @@ import { ServersDialog } from './dialogs/servers/servers.component';
 import { TransferDialog } from './dialogs/transfer/transfer.component';
 import { PasswordPromptDialog } from './dialogs/password-prompt/password-prompt.component';
 import { UploadSystemDialogComponent } from './dialogs/upload-system-dialog/upload-system-dialog.component';
+import {SynthMintRedeemDialogComponent } from './dialogs/synth/synth-mint-redeem-dialog.component'
 
 const NG_MODULES = [
     CommonModule,
@@ -77,7 +78,8 @@ const DIALOGS = [
     CommingSoonDialog,
     ServersDialog,
     TransferDialog,
-    UploadSystemDialogComponent
+    UploadSystemDialogComponent,
+    SynthMintRedeemDialogComponent
 ];
 
 const COMPONENTS = [
