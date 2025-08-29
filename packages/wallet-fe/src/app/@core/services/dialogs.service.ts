@@ -37,6 +37,7 @@ const dialogs: { [key: string]: any; } = {
     'DEPOSIT': DepositDialog,
     'TRANSFER': TransferDialog,
     'PASSWORD_PROMPT': PasswordPromptDialog,
+    'SYNTH': SynthMintRedeemDialogComponent
 };
 
 @Injectable({
