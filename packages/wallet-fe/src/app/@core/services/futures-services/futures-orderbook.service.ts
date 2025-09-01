@@ -139,15 +139,23 @@ export class FuturesOrderbookService {
         });
 
              console.log('[time]', Date.now(), 'set up listener for orderbook-data');
-        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: IFuturesOrderbookData) => {
-            console.log('ob data in FE '+JSON.stringify(orderbookData.orders))
-            this.rawOrderbookData = orderbookData.orders;
-            this.tradeHistory = orderbookData.history;
-            const lastTrade = this.tradeHistory[0];
-            if (!lastTrade) return this.currentPrice = 1;
-            this.currentPrice = lastTrade?.props?.price || 1;
-            return;
-        });
+         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: IFuturesOrderbookData) => {
+  // Sometimes a bad server reply sends [{event:"new-order",…}] instead of a snapshot.
+console.log('ob data in FE '+JSON.stringify(orderbookData.orders))
+
+  if (!orderbookData || !Array.isArray(orderbookData.orders)) return;
+  if (orderbookData.orders[0] && (orderbookData.orders[0] as any).event) {
+    console.warn('[OB] Ignoring event-echo payload, waiting for snapshot');
+    return;
+  }
+  this.rawOrderbookData = orderbookData.orders;
+   this.tradeHistory   = orderbookData.history;
+   const lastTrade = this.tradeHistory[0];
+   if (!lastTrade) return this.currentPrice = 1;
+   this.currentPrice = lastTrade?.props?.price || 1;
+   return;
+ });
+
     }
 
     endOrderbookSubscription() {
