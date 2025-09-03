@@ -6,7 +6,6 @@
   <div class="content" *ngIf="data?.address">
     <div class="address-content">
       <span class="address" (click)="copyAddress()">{{ data.address }}</span>
-      <span class="note">(click over the address to copy in clipboard)</span>
     </div>
 
     <!-- Hedge contract selector (only for Mint) -->
@@ -38,11 +37,18 @@
         step="0.00000001"
         [value]="amount"
         (input)="amount = $any($event.target).value" />
+
+      <!-- Suffix button to set max -->
+      <button
+        mat-button
+        *ngIf="capInfo?.max"
+        matSuffix
+        type="button"
+        (click)="fillMax()">
+        Max ({{ capInfo.max | number:'1.0-8' }})
+      </button>
     </mat-form-field>
 
-    <span class="max-amount" *ngIf="capInfo?.max" (click)="fillMax()">
-      max: {{ capInfo.max | number:'1.0-8' }}
-    </span>
 
     <mat-slider
       *ngIf="capInfo?.max"

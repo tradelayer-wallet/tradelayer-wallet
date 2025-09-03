@@ -2,10 +2,17 @@
 import { Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { HttpClient } from '@angular/common/http';
+import { ToastrService } from 'ngx-toastr';
+import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service'; import { ENCODER } from 'src/app/utils/payloads/encoder';
 
 export type SynthMode = 'mint' | 'redeem';
 
-type ContractRow = { id: number; label: string; notional?: number; maxMintLTC?: number };
+type ContractRow = { 
+    id: number; 
+    label: string; 
+    notional?: number; 
+    maxMintLTC?: number
+    maxMintUnits?: number; };
 
 @Component({
   selector: 'app-synth-mint-redeem-dialog',
@@ -26,7 +33,9 @@ export class SynthMintRedeemDialogComponent {
       propId: number | string;      // may be 's<pid>-<cid>' alias or a number
       available?: number
     },
-    private http: HttpClient,
+    private txsService: TxsService,
+    private toastr: ToastrService,
+    private http: HttpClient
   ) {}
 
   async ngOnInit() {
@@ -44,6 +53,21 @@ export class SynthMintRedeemDialogComponent {
     }
   }
 
+  get selectedContract() {
+    return this.contracts.find(c => c.id === this.selectedContractId) || null;
+  }
+
+  get maxMintUnits() {
+    return this.selectedContract?.maxMintUnits ?? 0;
+  }
+
+  setMaxAmount() {
+    if (this.maxMintUnits > 0) {
+      this.amount = String(this.maxMintUnits);
+    }
+  }
+
+
   private async loadEligibility() {
     console.log('data inject in synth '+JSON.stringify(this.data))
     //try {
@@ -54,12 +78,15 @@ export class SynthMintRedeemDialogComponent {
       console.log('loadEligibility response', resp);
 
       // Normalize to dialog shape
-      this.contracts = (resp?.contracts || []).map((c: any) => ({
+      this.contracts = (resp?.eligible || []).map((c: any) => ({
         id: Number(c.contractId),
-        label: c.label || `Contract #${c.contractId}`,
-        notional: c.notional,
-        maxMintLTC: c.maxMintLTC,
+        label: c.symbol || `Contract #${c.contractId}`,
+        seriesId: c.seriesId,
+        notionalPropertyId: c.notionalPropertyId,
+        perContractUnits: c.perContractUnits,
+        maxMintUnits: c.maxMintUnits,
       }));
+
 
       // pick the first eligible by default
       this.selectedContractId = this.contracts[0]?.id ?? null;
@@ -124,17 +151,37 @@ export class SynthMintRedeemDialogComponent {
 
   cancel() { this.dialogRef.close(); }
 
-  submit() {
-    // Return what the encoder needs
-    this.dialogRef.close({
-      mode: this.data.mode,
-      amount: this.amount,
-      propIdUsed:
-        typeof this.data.propId === 'string'
-          ? Number(this.data.propId.replace(/^s/i, '').split('-')[0])
-          : Number(this.data.propId),
-      contractIdUsed: this.data.mode === 'mint' ? this.selectedContractId : undefined,
-      address: this.data.address,
-    });
+   async submit() {
+    try {
+      let payload: string;
+
+      if (this.data.mode === 'mint') {
+        payload = ENCODER.encodeMintSynthetic({
+          propertyId: Number(this.data.propId),
+          contractId: Number(this.selectedContractId),
+          amount: Number(this.amount)
+        });
+      } else {
+        payload = ENCODER.encodeRedeemSynthetic({
+          propertyId: String(this.data.propId),   // redeem expects composite key
+          contractId: Number(this.selectedContractId),
+          amount: Number(this.amount)
+        });
+      }
+
+      const cfg: IBuildTxConfig = {
+        fromKeyPair: { address: this.data.address },
+        toKeyPair:   { address: this.data.address }, // loopback, since payload is the point
+        amount: 0,                                   // no LTC amount, just the payload
+        payload
+      };
+
+      const result = await this.txsService.buildSingSendTx(cfg);
+      this.toastr.success(`Tx sent: ${result.data}`);
+      this.dialogRef.close(result);
+    } catch (err: any) {
+      console.error('[SynthDialog] tx error', err);
+      this.toastr.error(err.message || 'Tx failed');
+    }
   }
 }
