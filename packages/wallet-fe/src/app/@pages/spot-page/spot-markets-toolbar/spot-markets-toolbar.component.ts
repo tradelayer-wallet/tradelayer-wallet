@@ -1,5 +1,10 @@
 import { Component, ViewChildren } from '@angular/core';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
+import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
+import { SpotChannelsService } from 'src/app/@core/services/spot-services/spot-channels.service';
+import { SpotTradeHistoryService } from 'src/app/@core/services/spot-services/spot-trade-history.service';
+
+
 
 @Component({
   selector: 'tl-spot-markets-toolbar',
@@ -11,6 +16,9 @@ export class SpotMarketsToolbarComponent {
  
     constructor(
         private spotMarketsService: SpotMarketsService,
+        private spotOrderbookService: SpotOrderbookService,
+        private spotChannels: SpotChannelsService,
+        private spotHistory: SpotTradeHistoryService
     ) {}
 
     get marketsTypes() {
@@ -18,6 +26,7 @@ export class SpotMarketsToolbarComponent {
     }
 
     get selectedMarketType() {
+        // After selectedMarketType setter runs, it sets a default selectedMarket.
         return this.spotMarketsService.selectedMarketType;
     }
 
@@ -35,10 +44,26 @@ export class SpotMarketsToolbarComponent {
 
     selectMarketType(marketTypeIndex: number) {
         this.spotMarketsService.selectedMarketType = this.marketsTypes[marketTypeIndex];
+        // After selectedMarketType setter runs, it sets a default selectedMarket.
+        const sel = this.spotOrderbookService.selectedMarket;
+        if (sel) {
+          this.spotOrderbookService.switchSpotMarket(
+            sel.first_token.propertyId,
+            sel.second_token.propertyId,
+            { depth: 50, side: 'both', includeTrades: false }
+          );
+        }
     }
 
-    selectMarket(marketIndex: number, mtIndex: number) {
-        if (this.selectedMarketTypeIndex !== mtIndex) return;
+    selectMarket(marketIndex: number, mtIndex: number){
         this.spotMarketsService.selectedMarket = this.marketsFromSelectedMarketType[marketIndex];
+        const sel = this.spotOrderbookService.selectedMarket;
+        this.spotChannels.loadOnce();
+        this.spotHistory.refreshNow();
+            this.spotOrderbookService.switchSpotMarket(
+              sel.first_token.propertyId,
+              sel.second_token.propertyId,
+              { depth: 50, side: 'both', includeTrades: false }
+            );
     }
 }

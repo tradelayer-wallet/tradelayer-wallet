@@ -23,16 +23,16 @@ export class SynthMintRedeemDialogComponent {
     @Inject(MAT_DIALOG_DATA) public data: {
       mode?: SynthMode;                 // now optional — we’ll infer if not provided
       address: string;
-      propertyId: number | string;      // may be 's<pid>-<cid>' alias or a number
+      propId: number | string;      // may be 's<pid>-<cid>' alias or a number
       available?: number
     },
     private http: HttpClient,
   ) {}
 
   async ngOnInit() {
-    // 1) Infer mode from propertyId if not explicitly provided:
+    // 1) Infer mode from propId if not explicitly provided:
     if (!this.data.mode) {
-      const isSynthAlias = typeof this.data.propertyId === 'string' && /^s\d+-\d+$/i.test(this.data.propertyId);
+      const isSynthAlias = typeof this.data.propId === 'string' && /^s\d+-\d+$/i.test(this.data.propId);
       this.data.mode = isSynthAlias ? 'redeem' : 'mint';
     }
 
@@ -45,14 +45,13 @@ export class SynthMintRedeemDialogComponent {
   }
 
   private async loadEligibility() {
-    try {
-      const pid = typeof this.data.propertyId === 'string'
-        ? Number(this.data.propertyId.replace(/^s/i, '').split('-')[0])
-        : Number(this.data.propertyId);
+    console.log('data inject in synth '+JSON.stringify(this.data))
+    //try {
 
-      const resp: any = await this.http.get(`/tl_getMaxSynth`, {
-        params: { address: this.data.address, propertyId: String(pid) },
+      const resp: any = await this.http.get(`http://localhost:3000/tl_getMaxSynth`, {
+        params: { address: this.data.address, propId: this.data.propId },
       }).toPromise();
+      console.log('loadEligibility response', resp);
 
       // Normalize to dialog shape
       this.contracts = (resp?.contracts || []).map((c: any) => ({
@@ -74,11 +73,11 @@ export class SynthMintRedeemDialogComponent {
       } else {
         this.capInfo = undefined;
       }
-    } catch {
-      this.contracts = [];
-      this.selectedContractId = null;
-      this.capInfo = undefined;
-    }
+    //} catch {
+      //this.contracts = [];
+      //this.selectedContractId = null;
+      //this.capInfo = undefined;
+    //}
   }
 
   private async loadRedeemCap() {
@@ -130,10 +129,10 @@ export class SynthMintRedeemDialogComponent {
     this.dialogRef.close({
       mode: this.data.mode,
       amount: this.amount,
-      propertyIdUsed:
-        typeof this.data.propertyId === 'string'
-          ? Number(this.data.propertyId.replace(/^s/i, '').split('-')[0])
-          : Number(this.data.propertyId),
+      propIdUsed:
+        typeof this.data.propId === 'string'
+          ? Number(this.data.propId.replace(/^s/i, '').split('-')[0])
+          : Number(this.data.propId),
       contractIdUsed: this.data.mode === 'mint' ? this.selectedContractId : undefined,
       address: this.data.address,
     });

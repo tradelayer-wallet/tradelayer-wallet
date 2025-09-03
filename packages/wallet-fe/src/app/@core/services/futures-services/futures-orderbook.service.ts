@@ -10,6 +10,8 @@ import { IFuturesTradeProps } from "src/app/utils/swapper/common";
 import { BehaviorSubject } from 'rxjs';
 
 
+type Side = 'bids' | 'asks' | 'both';
+
 interface IFuturesOrderbookData {
     orders: IFuturesOrder[],
     history: IFuturesHistoryTrade[],
@@ -46,6 +48,10 @@ export interface IFuturesOrder {
 })
 
 export class FuturesOrderbookService {
+    private activeKey: string | null = null;
+    private books: Record<string, IFuturesOrderbookData> = {};
+    private bound = false;
+    private key(type: string, id: number|string) { return `${type}:${id}`; }
     private _rawOrderbookData: IFuturesOrder[] = [];
     outsidePriceHandler: Subject<number> = new Subject();
     buyOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
@@ -53,6 +59,8 @@ export class FuturesOrderbookService {
     tradeHistory: IFuturesHistoryTrade[] = [];
     currentPrice: number = 1;
     lastPrice: number = 1;
+    private _activeKey: string | null = null;
+    private _lastRequestedKey: string | null = null;
 
     constructor(
         private socketService: SocketService,
@@ -98,6 +106,51 @@ export class FuturesOrderbookService {
         return this.futuresMarketService.marketFilter;
     };
 
+     private bindOnce() {
+    if (this.bound) return; this.bound = true;
+    this.socket.on('ORDERBOOK_DATA', (msg: any) => {
+      if (!msg?.marketKey || msg.marketKey !== this.activeKey) return; // guard
+      this.books[msg.marketKey] = { orders: msg.orders, history: msg.history };
+    });
+  }
+
+    async switchMarket(
+      type: 'FUTURES' | 'SPOT',
+      contract_id: number,
+      p?: { depth?: number; side?: 'bids' | 'asks' | 'both'; includeTrades?: boolean }
+    ) {
+      this.bindOnce();
+      const newKey = this.key(type, contract_id);
+
+      if (this.activeKey && this.activeKey !== newKey) {
+        this.socket.send(
+          JSON.stringify({ event: 'orderbook:leave', marketKey: this.activeKey })
+        );
+      }
+      this.activeKey = newKey;
+      this._lastRequestedKey = newKey;
+
+      // 1. Ask server for a fresh snapshot (WS)
+      this.socket.send(
+        JSON.stringify({
+          event: 'update-orderbook',
+          filter: {
+            type,
+            contract_id,
+            depth: String(p?.depth ?? 50),
+            side: p?.side ?? 'both',
+            includeTrades: String(p?.includeTrades ?? false),
+          },
+        })
+      );
+
+      // 2. Join the market room for live deltas
+      this.socket.send(
+        JSON.stringify({ event: 'orderbook:join', marketKey: newKey })
+      );
+    }
+
+
    getContractMeta(contract_id: number) {
         // Use FuturesMarketService.getMarketByContractId()
         const market = this.futuresMarketService.getMarketByContractId(contract_id);
@@ -139,7 +192,10 @@ export class FuturesOrderbookService {
         });
 
              console.log('[time]', Date.now(), 'set up listener for orderbook-data');
-         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: IFuturesOrderbookData) => {
+        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
+        const mk = orderbookData?.marketKey ?? this._lastRequestedKey;
+        //if (mk && this._activeKey && mk !== this._activeKey) return; // guard to active
+
   // Sometimes a bad server reply sends [{event:"new-order",…}] instead of a snapshot.
 console.log('ob data in FE '+JSON.stringify(orderbookData.orders))
 
@@ -210,4 +266,9 @@ console.log('ob data in FE '+JSON.stringify(orderbookData.orders))
         ? result.sort((a, b) => b.price - a.price).slice(0, 9)
         : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
     }
+
+    switchFuturesMarket(contract_id: number, opts?: { depth?: number; side?:'bids'|'asks'|'both'; includeTrades?: boolean }) {
+        return this.switchMarket('FUTURES', contract_id, opts);
+    }
+
 }

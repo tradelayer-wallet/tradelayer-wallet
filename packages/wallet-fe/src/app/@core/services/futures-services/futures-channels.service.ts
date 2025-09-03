@@ -95,6 +95,8 @@ export class FuturesChannelsService {
           params: { address: addr, propertyId: collateralPropertyId },
         });
 
+        console.log('futures channels '+JSON.stringify(res))
+
       const data = res.data;
       const rawRows: any[] = Array.isArray(data) ? data : (Array.isArray(data?.rows) ? data.rows : []);
       const rows = rawRows.map(row => this.normalizeRow(row, addr, { collateralPropertyId }));
