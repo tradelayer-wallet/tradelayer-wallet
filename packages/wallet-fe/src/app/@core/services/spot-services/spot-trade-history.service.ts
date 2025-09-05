@@ -16,7 +16,7 @@ export class SpotTradeHistoryService {
   public rows: SpotTradeRecord[] = [];
   public baseURL: string = 'http://localhost:3000/';
   /** poll cadence (ms) */
-  private refreshMs = 20000;
+  private refreshMs = 5000;
 
   /** interval handle */
   private timerId?: any;

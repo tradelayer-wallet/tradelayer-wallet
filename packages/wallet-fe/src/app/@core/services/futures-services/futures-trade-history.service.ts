@@ -24,7 +24,7 @@ export class FuturesTradeHistoryService {
   public rows: FuturesTradeRow[] = [];
 
   /** poll cadence (ms) */
-  private refreshMs = 20000;
+  private refreshMs = 5000;
 
   /** interval handle */
   private timerId?: any;
@@ -74,17 +74,10 @@ export class FuturesTradeHistoryService {
   /** try to extract ids from various possible shapes your futures market might use */
   private extractIdsFromMarket(m: any): { contractId?: number; collateralPropertyId?: number } {
     const cid =
-      m?.contractId ??
-      m?.contract?.id ??
-      m?.contract?.propertyId ??
-      m?.propertyId ??
-      m?.id;
+      m?.contract_id
 
     const collat =
-      m?.collateralPropertyId ??
-      m?.collateralId ??
-      m?.collateral?.propertyId ??
-      m?.marginAsset?.propertyId;
+      m?.collateral?.propertyId
 
     return {
       contractId: cid !== undefined && cid !== null ? Number(cid) : undefined,
@@ -93,6 +86,7 @@ export class FuturesTradeHistoryService {
   }
 
   private async loadOnce(): Promise<void> {
+  console.log('loading futures trade hist')
     try {
       const addr = this.auth.walletAddresses?.[0];
       const m = this.futMarkets.selectedMarket;
@@ -102,6 +96,9 @@ export class FuturesTradeHistoryService {
       const hasCid = contractId !== undefined && contractId !== null && Number.isFinite(contractId);
       const hasColl = collateralPropertyId !== undefined && collateralPropertyId !== null && Number.isFinite(collateralPropertyId);
 
+
+      console.log('query futures trades ', { addr, contractId, collateralPropertyId } );
+
       // NOTE: 0 can be a valid collateral (LTC). Don't treat 0 as missing.
       if (!(hasAddr && hasCid && hasColl)) {
         this.rows = [];
@@ -110,6 +107,7 @@ export class FuturesTradeHistoryService {
 
       const uri = `${this.baseURL}tl_contractTradeHistoryForAddress`;
 
+
       const res: AxiosResponse<any> = await axios.get(uri, {
         params: {
           contractId,
@@ -117,6 +115,9 @@ export class FuturesTradeHistoryService {
           address: addr,
         },
       });
+
+      console.log('[futures-trade-history] '+JSON.stringify(res) );
+
 
       const payload = res.data?.result ?? res.data;
       const rawRows: any[] = Array.isArray(payload) ? payload : (payload?.rows ?? []);
