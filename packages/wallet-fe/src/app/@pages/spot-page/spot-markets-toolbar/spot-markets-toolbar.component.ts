@@ -1,8 +1,10 @@
-import { Component, ViewChildren } from '@angular/core';
+import { Component, ViewChildren, ViewChild} from '@angular/core';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { SpotChannelsService } from 'src/app/@core/services/spot-services/spot-channels.service';
 import { SpotTradeHistoryService } from 'src/app/@core/services/spot-services/spot-trade-history.service';
+import { SpotBuySellCardComponent } from '../spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component';
+
 
 
 
@@ -13,7 +15,7 @@ import { SpotTradeHistoryService } from 'src/app/@core/services/spot-services/sp
 })
 export class SpotMarketsToolbarComponent {
     @ViewChildren('marketsTabGroup') marketsTabGroup: any;
- 
+    @ViewChild(SpotBuySellCardComponent) buySellCard!: SpotBuySellCardComponent;
     constructor(
         private spotMarketsService: SpotMarketsService,
         private spotOrderbookService: SpotOrderbookService,
@@ -45,6 +47,9 @@ export class SpotMarketsToolbarComponent {
     selectMarketType(marketTypeIndex: number) {
         this.spotMarketsService.selectedMarketType = this.marketsTypes[marketTypeIndex];
         // After selectedMarketType setter runs, it sets a default selectedMarket.
+        if (this.buySellCard) {
+            this.buySellCard.forceRefresh();
+        }
         const sel = this.spotOrderbookService.selectedMarket;
         if (sel) {
           this.spotOrderbookService.switchSpotMarket(
@@ -60,7 +65,7 @@ export class SpotMarketsToolbarComponent {
         const sel = this.spotOrderbookService.selectedMarket;
         this.spotChannels.loadOnce();
         this.spotHistory.refreshNow();
-            this.spotOrderbookService.switchSpotMarket(
+        this.spotOrderbookService.switchSpotMarket(
               sel.first_token.propertyId,
               sel.second_token.propertyId,
               { depth: 50, side: 'both', includeTrades: false }

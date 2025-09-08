@@ -115,7 +115,7 @@ export class OBSocketService {
       return;
     }
 
-      //console.log('incoming message from OB ' + Date.now() +' '+JSON.stringify(msg));
+    console.log('incoming message from OB ' + Date.now() +' '+JSON.stringify(msg));
 
     // Relay ::swap (always send through as-is)
     if (msg.event.includes('::swap')) {

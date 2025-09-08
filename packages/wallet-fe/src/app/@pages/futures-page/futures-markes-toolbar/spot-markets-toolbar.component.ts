@@ -1,8 +1,10 @@
-import { Component, ViewChildren } from '@angular/core';
+import { Component, ViewChildren,ViewChild } from '@angular/core';
 import { FuturesMarketService } from 'src/app/@core/services/futures-services/futures-markets.service';
 import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
 import { FuturesChannelsService } from 'src/app/@core/services/futures-services/futures-channels.service';
 import { FuturesTradeHistoryService } from 'src/app/@core/services/futures-services/futures-trade-history.service';
+import { FuturesBuySellCardComponent } from '../futures-trading-grid/futures-buy-sell-card/futures-buy-sell-card.component';
+
 
 @Component({
   selector: 'tl-futures-markets-toolbar',
@@ -12,6 +14,7 @@ import { FuturesTradeHistoryService } from 'src/app/@core/services/futures-servi
 
 export class FuturesMarketsToolbarComponent {
     @ViewChildren('marketsTabGroup') marketsTabGroup: any;
+    @ViewChild(FuturesBuySellCardComponent) buySellCard!: FuturesBuySellCardComponent;
  
     constructor(
         private futuresMarketsService: FuturesMarketService,
@@ -42,6 +45,9 @@ export class FuturesMarketsToolbarComponent {
 
     selectMarketType(marketTypeIndex: number) {
         this.futuresMarketsService.selectedMarketType = this.marketsTypes[marketTypeIndex];
+        if (this.buySellCard) {
+            this.buySellCard.forceRefresh();
+        }
         const sel = this.futuresOrderbookService.selectedMarket;
         if (sel) {
           this.futuresOrderbookService.switchMarket(
