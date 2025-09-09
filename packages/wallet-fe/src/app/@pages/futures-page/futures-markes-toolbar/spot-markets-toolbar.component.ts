@@ -48,14 +48,6 @@ export class FuturesMarketsToolbarComponent {
         if (this.buySellCard) {
             this.buySellCard.forceRefresh();
         }
-        const sel = this.futuresOrderbookService.selectedMarket;
-        if (sel) {
-          this.futuresOrderbookService.switchMarket(
-            'FUTURES',
-            sel.contract_id,
-            { depth: 50, side: 'both', includeTrades: false }
-          );
-        }
     }
 
     selectMarket(marketIndex: number, mtIndex: number) {

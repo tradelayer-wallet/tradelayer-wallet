@@ -4,7 +4,7 @@ import { obEventPrefix, SocketService } from "../socket.service";
 import { ToastrService } from "ngx-toastr";
 import { LoadingService } from "../loading.service";
 import { AuthService } from "../auth.service";
-import { FuturesMarketService } from "./futures-markets.service";
+import { FuturesMarketService, IFutureMarket } from "./futures-markets.service";
 import { ITradeInfo } from "src/app/utils/swapper";
 import { IFuturesTradeProps } from "src/app/utils/swapper/common";
 import { BehaviorSubject } from 'rxjs';
@@ -59,7 +59,6 @@ export class FuturesOrderbookService {
     tradeHistory: IFuturesHistoryTrade[] = [];
     currentPrice: number = 1;
     lastPrice: number = 1;
-    private _activeKey: string | null = null;
     private _lastRequestedKey: string | null = null;
 
     constructor(
@@ -113,6 +112,8 @@ export class FuturesOrderbookService {
       this.books[msg.marketKey] = { orders: msg.orders, history: msg.history };
     });
   }
+
+
 
     async switchMarket(
       type: 'FUTURES' | 'SPOT',

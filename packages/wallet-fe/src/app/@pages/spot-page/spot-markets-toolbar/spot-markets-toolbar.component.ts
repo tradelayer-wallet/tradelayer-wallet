@@ -27,6 +27,8 @@ export class SpotMarketsToolbarComponent {
         return this.spotMarketsService.spotMarketsTypes;
     }
 
+
+
     get selectedMarketType() {
         // After selectedMarketType setter runs, it sets a default selectedMarket.
         return this.spotMarketsService.selectedMarketType;
@@ -50,14 +52,6 @@ export class SpotMarketsToolbarComponent {
         if (this.buySellCard) {
             this.buySellCard.forceRefresh();
         }
-        const sel = this.spotOrderbookService.selectedMarket;
-        if (sel) {
-          this.spotOrderbookService.switchSpotMarket(
-            sel.first_token.propertyId,
-            sel.second_token.propertyId,
-            { depth: 50, side: 'both', includeTrades: false }
-          );
-        }
     }
 
     selectMarket(marketIndex: number, mtIndex: number){
@@ -65,7 +59,7 @@ export class SpotMarketsToolbarComponent {
         const sel = this.spotOrderbookService.selectedMarket;
         this.spotChannels.loadOnce();
         this.spotHistory.refreshNow();
-        this.spotOrderbookService.switchSpotMarket(
+        this.spotOrderbookService.switchMarket(
               sel.first_token.propertyId,
               sel.second_token.propertyId,
               { depth: 50, side: 'both', includeTrades: false }

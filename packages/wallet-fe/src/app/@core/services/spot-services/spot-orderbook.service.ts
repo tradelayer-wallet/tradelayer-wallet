@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
 import { Subject } from "rxjs";
-import { SpotMarketsService } from "./spot-markets.service";
+import { SpotMarketsService, IMarket  } from "./spot-markets.service";
 import { obEventPrefix, SocketService } from "../socket.service";
 import { ToastrService } from "ngx-toastr";
 import { LoadingService } from "../loading.service";
@@ -51,7 +51,7 @@ export class SpotOrderbookService {
     tradeHistory: ISpotHistoryTrade[] = [];
     currentPrice: number = 1;
     lastPrice: number = 1;
-    private _activeKey: string | null = null;
+    private activeKey: string | null = null;
     private _lastRequestedKey: string | null = null;
 
     constructor(
@@ -126,7 +126,7 @@ export class SpotOrderbookService {
             // Accept either: (A) legacy payload {orders,history} OR
             // (B) market-scoped payload {marketKey, orders, history}
             const mk = orderbookData?.marketKey ?? this._lastRequestedKey;
-            if (mk && this._activeKey && mk !== this._activeKey) return; // guard to active market
+            if (mk && this.activeKey && mk !== this.activeKey) return; // guard to active market
             this.rawOrderbookData = orderbookData.orders as ISpotOrder[];
             this.tradeHistory = orderbookData.history;
             const lastTrade = this.tradeHistory[0];
@@ -171,27 +171,42 @@ export class SpotOrderbookService {
             : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
     }
 
-    switchSpotMarket(id_for_sale: number|string, id_desired: number|string, opts?: { depth?: number; side?: Side; includeTrades?: boolean }) {
-        const newKey = `spot_${String(id_for_sale)}_${String(id_desired)}`;
+    
+  /** Normalize spot keys using p1<p2 rule */
+  private normalizeKey(p1: number, p2: number): string {
+    return p1 < p2 ? `${p1}-${p2}` : `${p2}-${p1}`;
+  }
 
-        // leave previous room (if server supports it)
-        if (this._activeKey && this._activeKey !== newKey) {
-            this.socket.send(JSON.stringify({ event: 'orderbook:leave', marketKey: this._activeKey }));
+      async switchMarket(
+        first_token:number, second_token:number,
+        p?: { depth?: number; side?: 'bids' | 'asks' | 'both'; includeTrades?: boolean }
+      ) {
+        const newKey = this.normalizeKey(first_token,second_token);
+
+        // Leave old
+        if (this.activeKey && this.activeKey !== newKey) {
+          this.socket.send(JSON.stringify({ event: 'orderbook:leave', marketKey: this.activeKey }));
         }
-        this._activeKey = newKey;
+
+        this.activeKey = newKey;
         this._lastRequestedKey = newKey;
 
-        // ask server for a market-scoped snapshot (WS path already exists)
-        this.socket.emit('update-orderbook', {
-          type: 'SPOT',
-          first_token: id_for_sale,
-          second_token: id_desired,
-          depth: String(opts?.depth ?? 50),
-          side: opts?.side ?? 'both',
-          includeTrades: String(opts?.includeTrades ?? false),
-        });
+        // Ask server for snapshot
+        this.socket.send(
+          JSON.stringify({
+            event: 'update-orderbook',
+            filter: {
+              type: 'SPOT',
+              id_for_sale: first_token,
+              id_desired: second_token,
+              depth: String(p?.depth ?? 50),
+              side: p?.side ?? 'both',
+              includeTrades: String(p?.includeTrades ?? false),
+            },
+          })
+        );
 
-        // join the market room for live deltas (if server supports rooms)
+        // Join for live deltas
         this.socket.send(JSON.stringify({ event: 'orderbook:join', marketKey: newKey }));
-    }
+      }
 }
