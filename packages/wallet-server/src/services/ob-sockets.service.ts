@@ -100,6 +100,8 @@ export class OBSocketService {
 
   // -------------------- SERVER → WALLET (universal handler) --------------------
   private handleServer(msg: any) {
+      console.log('incoming message from OB ' + Date.now() +' '+JSON.stringify(msg));
+
     if (!msg?.event) return;
     // Handle id assignment from server, dedupe here.
     if (msg.event === 'connected' && msg.id) {
@@ -115,7 +117,6 @@ export class OBSocketService {
       return;
     }
 
-    console.log('incoming message from OB ' + Date.now() +' '+JSON.stringify(msg));
 
     // Relay ::swap (always send through as-is)
     if (msg.event.includes('::swap')) {

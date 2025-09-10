@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { Injectable, ChangeDetectorRef } from "@angular/core";
 import { Subject } from "rxjs";
 import { obEventPrefix, SocketService } from "../socket.service";
 import { ToastrService } from "ngx-toastr";
@@ -67,6 +67,7 @@ export class FuturesOrderbookService {
         private toastrService: ToastrService,
         private loadingService: LoadingService,
         private authService: AuthService,
+        private cdRef: ChangeDetectorRef,
     ) {}
 
     get activeFuturesKey() {
@@ -192,27 +193,49 @@ export class FuturesOrderbookService {
             this.socket.emit('update-orderbook', this.marketFilter)
         });
 
-             console.log('[time]', Date.now(), 'set up listener for orderbook-data');
+        console.log('[time]', Date.now(), 'set up listener for orderbook-data');
         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
-        const mk = orderbookData?.marketKey ?? this._lastRequestedKey;
-        //if (mk && this._activeKey && mk !== this._activeKey) return; // guard to active
+          console.log('[Futures OB] update ' + JSON.stringify(orderbookData));
 
-  // Sometimes a bad server reply sends [{event:"new-order",…}] instead of a snapshot.
-console.log('ob data in FE '+JSON.stringify(orderbookData.orders))
+          const mk = orderbookData?.marketKey || this.activeKey;
+          if (mk && this.activeKey && mk !== this.activeKey) return;
 
-  if (!orderbookData || !Array.isArray(orderbookData.orders)) return;
-  if (orderbookData.orders[0] && (orderbookData.orders[0] as any).event) {
-    console.warn('[OB] Ignoring event-echo payload, waiting for snapshot');
-    return;
-  }
-  this.rawOrderbookData = orderbookData.orders;
-   this.tradeHistory   = orderbookData.history;
-   const lastTrade = this.tradeHistory[0];
-   if (!lastTrade) return this.currentPrice = 1;
-   this.currentPrice = lastTrade?.props?.price || 1;
-   return;
- });
+          if (Array.isArray(orderbookData.orders)) {
+            if (orderbookData.isDelta) {
+              this.rawOrderbookData = this.mergeOrders(
+                this.rawOrderbookData,
+                orderbookData.orders as IFuturesOrder[]
+              );
+            } else {
+              this.rawOrderbookData = orderbookData.orders as IFuturesOrder[];
+            }
+          }
 
+          this.tradeHistory = orderbookData.history || [];
+          const lastTrade = this.tradeHistory[0];
+
+          this.currentPrice = lastTrade?.props?.price || 1;
+
+          this.cdRef.detectChanges?.();
+        });
+    }
+
+    /**
+     * Merge incoming futures orders into current snapshot.
+     * Uses `uuid` (or txid if you prefer) as the unique key.
+     */
+    private mergeOrders(current: IFuturesOrder[], deltas: IFuturesOrder[]): IFuturesOrder[] {
+      const map = new Map(current.map(o => [o.uuid, o]));
+
+      for (const d of deltas) {
+        if (d.props.amount === 0 || d.state === "CANCELED") {
+          map.delete(d.uuid);
+        } else {
+          map.set(d.uuid, d);
+        }
+      }
+
+      return Array.from(map.values());
     }
 
     endOrderbookSubscription() {

@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { Injectable,ChangeDetectorRef  } from "@angular/core";
 import { Subject } from "rxjs";
 import { SpotMarketsService, IMarket  } from "./spot-markets.service";
 import { obEventPrefix, SocketService } from "../socket.service";
@@ -60,6 +60,7 @@ export class SpotOrderbookService {
         private toastrService: ToastrService,
         private loadingService: LoadingService,
         private authService: AuthService,
+        private cdRef: ChangeDetectorRef,
     ) {}
 
     get activeSpotKey() {
@@ -122,19 +123,37 @@ export class SpotOrderbookService {
             this.socket.emit('update-orderbook', this.marketFilter)
         });
 
+        
+
         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
-            // Accept either: (A) legacy payload {orders,history} OR
-            // (B) market-scoped payload {marketKey, orders, history}
-            const mk = orderbookData?.marketKey ?? this._lastRequestedKey;
-            if (mk && this.activeKey && mk !== this.activeKey) return; // guard to active market
-            this.rawOrderbookData = orderbookData.orders as ISpotOrder[];
-            this.tradeHistory = orderbookData.history;
-            const lastTrade = this.tradeHistory[0];
-            if (!lastTrade) return this.currentPrice = 1;
-            const { amountForSale , amountDesired } = lastTrade.props;
-            const price = parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
-            this.currentPrice = price;
-            return;
+          console.log('[Spot OB] update ' + JSON.stringify(orderbookData));
+
+          const mk = orderbookData?.marketKey || this.activeKey;
+          if (mk && this.activeKey && mk !== this.activeKey) return;
+
+          if (Array.isArray(orderbookData.orders)) {
+            if (orderbookData.isDelta) {
+              this.rawOrderbookData = this.mergeOrders(
+                this.rawOrderbookData,
+                orderbookData.orders as ISpotOrder[]
+              );
+            } else {
+              this.rawOrderbookData = orderbookData.orders as ISpotOrder[];
+            }
+          }
+
+          this.tradeHistory = orderbookData.history || [];
+          const lastTrade = this.tradeHistory[0];
+
+          if (!lastTrade) {
+            this.currentPrice = 1;
+          } else {
+            const { amountForSale, amountDesired } = lastTrade.props;
+            this.currentPrice =
+              parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
+          }
+
+          this.cdRef.detectChanges?.();
         });
     }
 
@@ -171,6 +190,19 @@ export class SpotOrderbookService {
             : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
     }
 
+    private mergeOrders(current: ISpotOrder[], deltas: ISpotOrder[]): ISpotOrder[] {
+      const map = new Map(current.map(o => [o.uuid, o]));
+
+      for (const d of deltas) {
+        if (d.props.amount === 0 || d.state === "CANCELED") {
+          map.delete(d.uuid); // remove if canceled
+        } else {
+          map.set(d.uuid, d); // upsert
+        }
+      }
+
+      return Array.from(map.values());
+    }
     
   /** Normalize spot keys using p1<p2 rule */
   private normalizeKey(p1: number, p2: number): string {
