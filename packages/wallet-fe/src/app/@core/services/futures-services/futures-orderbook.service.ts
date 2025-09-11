@@ -217,9 +217,8 @@ export class FuturesOrderbookService {
           if (!lastTrade) {
             this.currentPrice = 1;
           } else {
-            const { amountForSale, amountDesired } = lastTrade.props;
-            this.currentPrice =
-              parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
+            const { price } = lastTrade.props;
+            this.currentPrice =price || 1;
           }
 
             this.currentPrice = lastTrade?.props?.price || 1;
