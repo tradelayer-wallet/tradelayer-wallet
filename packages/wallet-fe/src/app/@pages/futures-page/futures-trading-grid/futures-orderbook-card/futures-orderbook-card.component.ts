@@ -45,7 +45,7 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     get lastPrice() {
-      return 0;
+      //return 0;
       return this.futuresOrderbookService.lastPrice;
     }
 
