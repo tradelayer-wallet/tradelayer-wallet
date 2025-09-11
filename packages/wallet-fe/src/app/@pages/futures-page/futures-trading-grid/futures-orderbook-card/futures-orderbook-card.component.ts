@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, Input, ViewChild, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { FuturesMarketService } from 'src/app/@core/services/futures-services/futures-markets.service';
 import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
 import { FuturesOrdersService } from 'src/app/@core/services/futures-services/futures-orders.service';
@@ -12,11 +12,13 @@ export interface PeriodicElement {
 @Component({
   selector: 'tl-futures-orderbook-card',
   templateUrl: './futures-orderbook-card.component.html',
-  styleUrls: ['../../../spot-page/spot-trading-grid/spot-orderbook-card/orderbook-card.component.scss']
+  styleUrls: ['./orderbook-card.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 
 export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     @ViewChild('sellOrdersContainer') sellOrdersContainer: any;
+    private alive = true;
 
     buyOrderbooks$ = this.futuresOrderbookService.buyOrderbooks$;
     sellOrderbooks$ = this.futuresOrderbookService.sellOrderbooks$;
@@ -26,10 +28,16 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
       private futuresOrderbookService: FuturesOrderbookService,
       private futuresOrdersService: FuturesOrdersService,
       private futuresMarketService: FuturesMarketService,
+      private cd: ChangeDetectorRef
     ) {}
 
     ngOnInit() {
       this.futuresOrderbookService.subscribeForOrderbook();
+      this.futuresOrderbookService.onUpdate = () => {
+        if (this.alive) {
+          this.cd.markForCheck();
+        }
+      };
     }
 
     get upTrend() {
@@ -90,6 +98,8 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
 
     ngOnDestroy() {
       this.futuresOrderbookService.endOrderbookSubscription()
+      this.alive = false;
+      this.spotOrderbookService.onUpdate = undefined;
     }
 
     fillBuySellPrice(price: number) {

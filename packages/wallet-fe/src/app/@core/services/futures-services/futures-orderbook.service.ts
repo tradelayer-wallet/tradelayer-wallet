@@ -60,6 +60,7 @@ export class FuturesOrderbookService {
     currentPrice: number = 1;
     lastPrice: number = 1;
     private _lastRequestedKey: string | null = null;
+    onUpdate?: () => void;
 
     constructor(
         private socketService: SocketService,
@@ -210,11 +211,19 @@ export class FuturesOrderbookService {
             }
           }
 
-          this.tradeHistory = orderbookData.history || [];
-          const lastTrade = this.tradeHistory[0];
+            this.tradeHistory = orderbookData.history || [];
+            const lastTrade = this.tradeHistory[0];
 
-          this.currentPrice = lastTrade?.props?.price || 1;
+          if (!lastTrade) {
+            this.currentPrice = 1;
+          } else {
+            const { amountForSale, amountDesired } = lastTrade.props;
+            this.currentPrice =
+              parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
+          }
 
+            this.currentPrice = lastTrade?.props?.price || 1;
+            this.onUpdate?()
         });
     }
 
