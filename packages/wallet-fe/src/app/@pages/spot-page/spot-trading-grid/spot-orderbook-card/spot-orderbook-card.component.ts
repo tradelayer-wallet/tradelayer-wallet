@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, Input, ViewChild, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
@@ -12,11 +12,13 @@ export interface PeriodicElement {
 @Component({
   selector: 'tl-spot-orderbook-card',
   templateUrl: './orderbook-card.component.html',
-  styleUrls: ['./orderbook-card.component.scss']
+  styleUrls: ['./orderbook-card.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 
 export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     @ViewChild('sellOrdersContainer') sellOrdersContainer: any;
+    private alive = true;
 
     displayedColumns: string[] = ['price', 'amount', 'total'];
     clickedRows = new Set<PeriodicElement>();
@@ -24,6 +26,7 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
       private spotOrderbookService: SpotOrderbookService,
       private spotOrdersService: SpotOrdersService,
       private spotMarketsService: SpotMarketsService,
+      private cd: ChangeDetectorRef
     ) {}
 
     get upTrend() {
@@ -75,6 +78,11 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
   
     ngOnInit() {
       this.spotOrderbookService.subscribeForOrderbook();
+      this.spotOrderbookService.onUpdate = () => {
+        if (this.alive) {
+          this.cd.markForCheck();
+        }
+      };
     }
 
     scrollToBottom() {
@@ -85,6 +93,8 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
 
     ngOnDestroy() {
       this.spotOrderbookService.endOrderbookSbuscription()
+      this.alive = false;
+      this.spotOrderbookService.onUpdate = undefined;
     }
 
     fillBuySellPrice(price: number) {

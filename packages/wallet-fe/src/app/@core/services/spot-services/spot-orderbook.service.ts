@@ -1,4 +1,4 @@
-import { Injectable,ChangeDetectorRef  } from "@angular/core";
+import { Injectable } from "@angular/core";
 import { Subject } from "rxjs";
 import { SpotMarketsService, IMarket  } from "./spot-markets.service";
 import { obEventPrefix, SocketService } from "../socket.service";
@@ -53,6 +53,7 @@ export class SpotOrderbookService {
     lastPrice: number = 1;
     private activeKey: string | null = null;
     private _lastRequestedKey: string | null = null;
+    onUpdate?: () => void;
 
     constructor(
         private socketService: SocketService,
@@ -60,7 +61,6 @@ export class SpotOrderbookService {
         private toastrService: ToastrService,
         private loadingService: LoadingService,
         private authService: AuthService,
-        private cdRef: ChangeDetectorRef,
     ) {}
 
     get activeSpotKey() {
@@ -153,7 +153,7 @@ export class SpotOrderbookService {
               parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
           }
 
-          this.cdRef.detectChanges?.();
+          this.onUpdate?.();
         });
     }
 
@@ -204,10 +204,10 @@ export class SpotOrderbookService {
       return Array.from(map.values());
     }
     
-  /** Normalize spot keys using p1<p2 rule */
-  private normalizeKey(p1: number, p2: number): string {
-    return p1 < p2 ? `${p1}-${p2}` : `${p2}-${p1}`;
-  }
+    /** Normalize spot keys using p1<p2 rule */
+      private normalizeKey(p1: number, p2: number): string {
+        return p1 < p2 ? `${p1}-${p2}` : `${p2}-${p1}`;
+      }
 
       async switchMarket(
         first_token:number, second_token:number,
@@ -229,8 +229,8 @@ export class SpotOrderbookService {
             event: 'update-orderbook',
             filter: {
               type: 'SPOT',
-              id_for_sale: first_token,
-              id_desired: second_token,
+              first_token,
+              second_token,
               depth: String(p?.depth ?? 50),
               side: p?.side ?? 'both',
               includeTrades: String(p?.includeTrades ?? false),

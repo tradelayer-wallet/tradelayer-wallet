@@ -1,4 +1,4 @@
-import { Injectable, ChangeDetectorRef } from "@angular/core";
+import { Injectable } from "@angular/core";
 import { Subject } from "rxjs";
 import { obEventPrefix, SocketService } from "../socket.service";
 import { ToastrService } from "ngx-toastr";
@@ -67,7 +67,6 @@ export class FuturesOrderbookService {
         private toastrService: ToastrService,
         private loadingService: LoadingService,
         private authService: AuthService,
-        private cdRef: ChangeDetectorRef,
     ) {}
 
     get activeFuturesKey() {
@@ -216,7 +215,6 @@ export class FuturesOrderbookService {
 
           this.currentPrice = lastTrade?.props?.price || 1;
 
-          this.cdRef.detectChanges?.();
         });
     }
 
