@@ -92,10 +92,12 @@ export class BuySwapper extends Swap {
         console.log('examing this.tradeInfo object '+JSON.stringify(this.tradeInfo))
         // Preserve the ctcpParams logic based on trade type
         if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo){
-            let { propIdDesired, amountDesired, amountForSale, propIdForSale, transfer} = this.tradeInfo
+            let { propIdDesired, amountDesired, amountForSale, propIdForSale, transfer, sellerIsMaker} = this.tradeInfo
             
             const column = await this.txsService.predictColumn(this.multySigChannelData.address,this.myInfo.keypair.address, this.cpInfo.keypair.address);
                     let isA = column === 'A' ? 1 : 0;
+                    let columnAIsMaker = isA === 1 ? (sellerIsMaker ? 1 : 0)
+                                      : (!sellerIsMaker ? 1 : 0); // seller is B
 
             console.log('column isA'+isA +' '+column)
             //let { transfer } = this.tradeInfo as ITradeInfo<ISpotTradeProps>;
@@ -200,8 +202,9 @@ export class BuySwapper extends Swap {
                         propertyId2: propIdDesired,
                         amountOffered1: amountForSale,
                         amountDesired2: amountDesired,
-                        columnAIsOfferer: isA,
                         expiryBlock: bbData,
+                        columnAIsOfferer: isA,
+                        columnAIsMaker
                     }
                     const cpitRes = { data: ENCODER.encodeTradeTokensChannel(cpitLTCOptions), error: null };
                     if (cpitRes.error || !cpitRes.data) throw new Error(`tl_createpayload_instant_trade: ${cpitRes.error}`);
@@ -232,8 +235,7 @@ export class BuySwapper extends Swap {
                 );
             }
        } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {// 1) Unpack your trade info
-        const { contract_id, amount, price, initMargin, collateral, transfer = false } = this.tradeInfo as IFuturesTradeProps;
-
+        const { contract_id, amount, price, initMargin, collateral, transfer = false,sellerIsMaker } = this.tradeInfo as IFuturesTradeProps;
         console.log(' futures trade props '+contract_id +' '+ amount+' '+price+' '+ initMargin+' '+collateral+' '+transfer)
 
         // 2) Compute initial margin
@@ -244,6 +246,10 @@ export class BuySwapper extends Swap {
         );
         const isA = column === 'A' ? 1 : 0;
         console.log('column isA'+isA +' '+column)
+        
+        let columnAIsMaker = isA === 1 ? (sellerIsMaker ? 1 : 0)   // seller is A
+                                      : (!sellerIsMaker ? 1 : 0); // seller is B
+
         // 3) Build the commit or transfer payload
         const payload = transfer
           ? ENCODER.encodeTransfer({
@@ -309,8 +315,9 @@ export class BuySwapper extends Swap {
           amount,
           expiryBlock: bbData,
           price,
-          columnAIsSeller: column === 'A',
-          insurance: false
+          columnAIsSeller: isA,
+          insurance: false,
+          columnAIsMaker
         });
 
         // 8) Build PSBT channel trade TX

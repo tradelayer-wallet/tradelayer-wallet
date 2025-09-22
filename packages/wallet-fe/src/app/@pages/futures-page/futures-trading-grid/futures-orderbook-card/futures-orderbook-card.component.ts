@@ -99,7 +99,7 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     ngOnDestroy() {
       this.futuresOrderbookService.endOrderbookSubscription()
       this.alive = false;
-      this.spotOrderbookService.onUpdate = undefined;
+      this.futuresOrderbookService.onUpdate = undefined;
     }
 
     fillBuySellPrice(price: number) {

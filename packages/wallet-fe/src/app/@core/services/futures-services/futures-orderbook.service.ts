@@ -222,7 +222,7 @@ export class FuturesOrderbookService {
           }
 
             this.currentPrice = lastTrade?.props?.price || 1;
-            this.onUpdate?()
+            this.onUpdate?.()
         });
     }
 

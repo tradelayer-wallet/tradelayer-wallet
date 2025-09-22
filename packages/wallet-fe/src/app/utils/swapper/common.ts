@@ -22,6 +22,7 @@ export interface ISpotTradeProps {
     propIdDesired: number;
     propIdForSale: number;
     transfer?: boolean; // Add this  
+    sellerIsMaker?: boolean;
 };
 
 export interface IFuturesTradeProps {
@@ -31,6 +32,7 @@ export interface IFuturesTradeProps {
     initMargin: number;
     collateral: number;
     transfer?: boolean;
+    sellerIsMaker?: boolean;
 };
 
 export interface IMSChannelData {

@@ -56,6 +56,7 @@ type TradeTokensChannelParams = {
     amountDesired2: number;
     columnAIsOfferer: number;
     expiryBlock: number;
+    columnAIsMaker: number;
 };
 
 const encodeTradeTokensChannel = (params: TradeTokensChannelParams): string => {
@@ -66,6 +67,7 @@ const encodeTradeTokensChannel = (params: TradeTokensChannelParams): string => {
         new BigNumber(params.amountDesired2).times(1e8).toString(36), // Updated to use BigNumber
         params.columnAIsOfferer ? '1' : '0',
         params.expiryBlock.toString(36),
+        params.columnAIsMaker
     ];
     const txNumber = 20;
     const txNumber36 = txNumber.toString(36);
@@ -121,9 +123,10 @@ type EncodeTradeContractParams = {
   contractId: number;
   price: number;
   amount: number;
-  columnAIsSeller: boolean;
+  columnAIsSeller: number;
   expiryBlock: number;
   insurance: boolean;
+  columnAIsMaker: number
 };
 
 
@@ -132,9 +135,10 @@ const encodeTradeContractChannel = (params: EncodeTradeContractParams): string =
     params.contractId.toString(36),
     encodeAmount(params.price),
     params.amount.toString(36),
-    params.columnAIsSeller ? '1' : '0',
+    params.columnAIsSeller,
     params.expiryBlock.toString(36),
     params.insurance ? '1' : '0',
+    params.columnAIsMaker
   ];
 
   const type = 19;
