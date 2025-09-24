@@ -97,7 +97,7 @@ const encodeCommit = (params: EncodeCommitParams): string => {
 type EncodeTradeTokenForUTXOParams = {
     propertyId: number;
     amount: number;
-    columnA: boolean;
+    columnA: number;
     satsExpected: number;
     tokenOutput: number;
     payToAddress: number;
@@ -107,7 +107,7 @@ const encodeTradeTokenForUTXO = (params: EncodeTradeTokenForUTXOParams): string 
     const payload = [
         params.propertyId.toString(36),
         new BigNumber(params.amount).times(1e8).toString(36), // Updated to use BigNumber
-        params.columnA ? 1:0,
+        params.columnA,
         new BigNumber(params.satsExpected).times(1e8).toString(36),
         params.tokenOutput.toString(36),
         params.payToAddress.toString(36)
