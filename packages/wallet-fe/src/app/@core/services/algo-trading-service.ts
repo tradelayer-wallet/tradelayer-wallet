@@ -1,7 +1,7 @@
 import { Injectable, NgZone } from '@angular/core';
-import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, Observable, Subject, fromEventPattern } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { tap } from 'rxjs/operators';
 
 export interface DiscoveryRow {
   id: string;
@@ -54,90 +54,108 @@ export interface MetricEvent {
   trades?: number;
 }
 
-type Dict<T=any> = { [k: string]: T };
+type Dict<T = any> = { [k: string]: T };
 
 @Injectable({ providedIn: 'root' })
 export class AlgoTradingService {
+  // Adjust base if needed (e.g., '/api' behind Electron)
   private base = '/api/algo';
 
-  discovery$ = new BehaviorSubject<DiscoveryRow[]>([]);
-  running$ = new BehaviorSubject<RunningSystem[]>([]);
+  /** Discovery (ranked systems) and running instances for current user */
+  readonly discovery$ = new BehaviorSubject<DiscoveryRow[]>([]);
+  readonly running$ = new BehaviorSubject<RunningSystem[]>([]);
 
-  // stream of per-run metric updates
   private metricStreams: Dict<Subject<MetricEvent>> = {};
 
   constructor(private http: HttpClient, private zone: NgZone) {}
 
-  /** Upload a system as a file blob (JS/TS/ZIP). Server should store & compile if needed. */
-  uploadSystem(file: File, name?: string, isPublic?: boolean): Observable<{ ok: boolean; systemId: string; }> {
+  /** Upload a trading system bundle (zip/js/ts) */
+  uploadSystem(
+    file: File,
+    name?: string,
+    isPublic?: boolean
+  ): Observable<{ ok: boolean; systemId: string }> {
     const form = new FormData();
     form.append('file', file, file.name);
     if (name) form.append('name', name);
     form.append('public', String(!!isPublic));
-    return this.http.post<{ ok: boolean; systemId: string; }>(`${this.base}/systems`, form);
+    return this.http.post<{ ok: boolean; systemId: string }>(
+      `${this.base}/systems`,
+      form
+    );
   }
 
-  /** Fetch ranked discovery rows (server-backed), with optional filters. */
+  /** Fetch discovery list with optional filters */
   fetchDiscovery(filters: Dict): Observable<DiscoveryRow[]> {
     let params = new HttpParams();
     Object.entries(filters || {}).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && v !== '') params = params.set(k, String(v));
+      if (v !== undefined && v !== null && v !== '') {
+        params = params.set(k, String(v));
+      }
     });
-    return this.http.get<DiscoveryRow[]>(`${this.base}/discovery`, { params })
+    return this.http
+      .get<DiscoveryRow[]>(`${this.base}/discovery`, { params })
       .pipe(tap(rows => this.discovery$.next(rows)));
   }
 
-  /** Fetch running instances for current user. */
+  /** Fetch currently running systems for the user */
   fetchRunning(): Observable<RunningSystem[]> {
-    return this.http.get<RunningSystem[]>(`${this.base}/running`)
+    return this.http
+      .get<RunningSystem[]>(`${this.base}/running`)
       .pipe(tap(list => this.running$.next(list)));
   }
 
-  /** Start/allocate a new run of a system. */
+  /** Start/allocate a run */
   allocate(req: AllocateRequest): Observable<AllocateResponse> {
-    return this.http.post<AllocateResponse>(`${this.base}/allocate`, req).pipe(
-      tap(() => this.fetchRunning().subscribe())
-    );
+    return this.http
+      .post<AllocateResponse>(`${this.base}/allocate`, req)
+      .pipe(tap(() => this.fetchRunning().subscribe()));
   }
 
-  /** Stop a running system. */
-  stop(runId: string): Observable<{ ok: boolean; }> {
-    return this.http.post<{ ok: boolean; }>(`${this.base}/stop`, { runId }).pipe(
-      tap(() => this.fetchRunning().subscribe())
-    );
+  /** Stop a run */
+  stop(runId: string): Observable<{ ok: boolean }> {
+    return this.http
+      .post<{ ok: boolean }>(`${this.base}/stop`, { runId })
+      .pipe(tap(() => this.fetchRunning().subscribe()));
   }
 
-  /** Withdraw funds from a running system. */
+  /** Withdraw funds */
   withdraw(runId: string, amount: number): Observable<WithdrawResponse> {
-    return this.http.post<WithdrawResponse>(`${this.base}/withdraw`, { runId, amount }).pipe(
-      tap(() => this.fetchRunning().subscribe())
-    );
+    return this.http
+      .post<WithdrawResponse>(`${this.base}/withdraw`, { runId, amount })
+      .pipe(tap(() => this.fetchRunning().subscribe()));
   }
 
-  /** Stream live metrics for a run via SSE. Falls back to polling if SSE isn't available. */
+  /** Live metrics via SSE (fallback to polling) */
   metrics(runId: string): Observable<MetricEvent> {
     if (!this.metricStreams[runId]) {
       this.metricStreams[runId] = new Subject<MetricEvent>();
-      // Prefer SSE endpoint /metrics/stream?runId=...
-      const url = `${this.base}/metrics/stream?runId=${encodeURIComponent(runId)}`;
+      const sseUrl = `${this.base}/metrics/stream?runId=${encodeURIComponent(runId)}`;
+
       try {
-        const es = new EventSource(url, { withCredentials: true });
+        const es = new EventSource(sseUrl, { withCredentials: true });
         const onMessage = (ev: MessageEvent) => {
           try {
-            const data = JSON.parse(ev.data);
+            const data = JSON.parse(ev.data) as MetricEvent;
             this.zone.run(() => this.metricStreams[runId].next(data));
-          } catch {}
+          } catch {
+            /* ignore bad frames */
+          }
         };
-        const onError = () => { /* server may close; client remains safe */ };
+        const onError = () => { /* server may close, client stays alive */ };
         es.addEventListener('message', onMessage);
         es.addEventListener('error', onError);
       } catch {
-        // Fallback: poll
+        // Polling fallback
         const poll = () => {
-          this.http.get<MetricEvent | MetricEvent[]>(`${this.base}/metrics`, { params: new HttpParams().set('runId', runId) })
+          this.http
+            .get<MetricEvent | MetricEvent[]>(
+              `${this.base}/metrics`,
+              { params: new HttpParams().set('runId', runId) }
+            )
             .subscribe((res: any) => {
-              const list = Array.isArray(res) ? res : [res];
-              list.forEach((m: MetricEvent) => this.metricStreams[runId].next(m));
+              const arr = Array.isArray(res) ? res : [res];
+              arr.forEach(m => this.metricStreams[runId].next(m));
               setTimeout(poll, 5000);
             });
         };
@@ -147,23 +165,23 @@ export class AlgoTradingService {
     return this.metricStreams[runId].asObservable();
   }
 
-  /** (Optional) Stream user trade events to fold into history/PnL in UI. */
+  /** Stream user trade events to backfill trade history/PNL */
   userTrades(): Observable<any> {
     const url = `${this.base}/trades/stream`;
-    const addHandler = (handler: any) => {
-      const es = new EventSource(url, { withCredentials: true });
-      (es as any).__ref = es;
-      es.addEventListener('message', (e) => {
+    const add = (handler: any) => {
+      const es = new EventSource(url, { withCredentials: true }) as any;
+      es.__ref = es;
+      es.addEventListener('message', (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data);
           this.zone.run(() => handler(data));
         } catch {}
       });
     };
-    const removeHandler = (handler: any, signal?: any) => {
+    const remove = (handler: any, signal?: any) => {
       const es = (signal as any)?.__ref;
       if (es) es.close();
     };
-    return fromEventPattern(addHandler, removeHandler);
+    return fromEventPattern(add, remove);
   }
 }
