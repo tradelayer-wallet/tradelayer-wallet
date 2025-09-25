@@ -84,11 +84,6 @@ export class AlgoTradingService {
       .pipe(tap(list => this.running$.next(list)));
   }
 
-  allocate(req: AllocateRequest) {
-    return this.mainApi.allocate(req)
-      .pipe(tap(() => this.fetchRunning().subscribe()));
-  }
-
   withdraw(systemId: string, amount: number) {
     return this.mainApi.withdraw({ systemId, amount })
       .pipe(tap(() => this.fetchRunning().subscribe()));
@@ -110,6 +105,6 @@ export class AlgoTradingService {
   }
 
   allocate(systemId: string, amount: number) {
-    return this.mainApi.allocateAlgo(systemId, amount);
+    return this.mainApi.allocate({systemId, amount});
   }
 }
