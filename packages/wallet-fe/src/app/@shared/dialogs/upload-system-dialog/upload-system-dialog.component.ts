@@ -1,65 +1,65 @@
 import { Component, Inject } from '@angular/core';
-import { FormBuilder, FormGroup } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { AlgoTradingService } from './algo-trading-service';
+import { AlgoTradingService } from '../../../@core/services/algo-trading.service';
 
 @Component({
   selector: 'tl-upload-system-dialog',
-  templateUrl: './upload-system-dialog.component.html'
+  templateUrl: './upload-system-dialog.component.html',
+  styleUrls: ['./upload-system-dialog.component.scss'],
 })
 export class UploadSystemDialogComponent {
-  form: FormGroup;
-  selectedFile?: File;
+  uploading = false;
+  errorMsg = '';
+
+  // ✨ template expects these
   dragOver = false;
+  selectedFile: File | null = null;
 
   constructor(
-    private fb: FormBuilder,
-    private svc: AlgoTradingService,
     private ref: MatDialogRef<UploadSystemDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: any
-  ) {
-    this.form = this.fb.group({
-      name: [''],
-      isPublic: [false]
-    });
-  }
+    private svc: AlgoTradingService,
+    @Inject(MAT_DIALOG_DATA) public data: unknown
+  ) {}
 
+  // drag & drop handlers
   onDragOver(evt: DragEvent) {
     evt.preventDefault();
-    evt.stopPropagation();
     this.dragOver = true;
   }
+
   onDragLeave(evt: DragEvent) {
     evt.preventDefault();
-    evt.stopPropagation();
     this.dragOver = false;
-  }
-  onDrop(evt: DragEvent) {
-    evt.preventDefault();
-    evt.stopPropagation();
-    this.dragOver = false;
-    const files = evt.dataTransfer?.files;
-    if (files && files.length) {
-      this.selectedFile = files[0];
-    }
-  }
-  onFileSelected(evt: Event) {
-    const input = evt.target as HTMLInputElement;
-    if (input.files && input.files.length) {
-      this.selectedFile = input.files[0];
-    }
   }
 
+  onDrop(evt: DragEvent) {
+    evt.preventDefault();
+    this.dragOver = false;
+    const file = evt.dataTransfer?.files?.[0];
+    if (file) this.selectedFile = file;
+  }
+
+  // file input change
+  onFileSelected(evt: Event) {
+    const input = evt.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) this.selectedFile = file;
+  }
+
+  // footer buttons
   cancel() {
     this.ref.close();
   }
 
   submit() {
     if (!this.selectedFile) return;
-    const { name, isPublic } = this.form.value;
-    this.svc.uploadSystem(this.selectedFile, name, isPublic).subscribe({
+    this.uploading = true;
+    this.svc.uploadSystem(this.selectedFile).subscribe({
       next: (res) => this.ref.close(res),
-      error: (err) => this.ref.close({ ok: false, error: err?.message || 'Upload failed' })
+      error: (err) => {
+        this.uploading = false;
+        this.errorMsg = err?.message || 'Upload failed';
+      },
     });
   }
 }

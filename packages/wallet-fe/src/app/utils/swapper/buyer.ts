@@ -125,7 +125,7 @@ export class BuySwapper extends Swap {
                 const payload = ENCODER.encodeTradeTokenForUTXO({
                     propertyId: tokenId,
                     amount: tokensSold,
-                    columnA: isA === 1,
+                    columnA: isA,
                     satsExpected: satsPaid,
                     tokenOutput: 0,
                     payToAddress: 1
