@@ -1,12 +1,21 @@
 import { FastifyInstance } from "fastify";
 import { fasitfyServer } from "../index";
+import multipart from '@fastify/multipart';
 import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
 import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
 import { backOff, BackoffOptions } from "exponential-backoff";
 import { TradeLayerService } from '../services/tradelayer.service';  // Correctly import the named export
 import { parseDefaultChain, defaultRpcPort, writeEnvKVs } from '../utils/env.util'; // adjust path
-import { AlgoService } from '../services/algo.service';
+import {
+  uploadAlgo,
+  runAlgo,
+  stopAlgo,
+  allocateAlgo,
+  discoveryAlgo,
+  runningAlgo,
+} from '../services/algo.service';
+
 
 const tradeLayerService = new TradeLayerService();
 
@@ -156,17 +165,37 @@ fastify.post('start-wallet-node', async (request, reply) => {
         }
     });
 
-    fastify.post('/algo/upload', (req, res) => algoService.upload(req, res));
-    fastify.post('/algo/run', (req, res) => algoService.run(req, res));
-    fastify.post('/algo/stop', (req, res) => algoService.stop(req, res));
-    .post('/algo/allocate', (req, res) => algoService.allocate(req, res));
-    fastify.get('/algo/discovery', (req, reply) => algoService.discovery(req, reply));
-    fastify.get('/algo/running', (req, reply) => algoService.running(req, reply));
-    fastify.post('/algo/allocate', (req, reply) => algoService.allocate(req, reply));
-    fastify.post('/algo/stop', (req, reply) => algoService.stop(req, reply));
-    fastify.post('/algo/withdraw', (req, reply) => algoService.withdraw(req, reply));
-    fastify.get('/algo/metrics', (req, reply) => algoService.metrics(req, reply));
-    fastify.get('/algo/trades/stream', (req, reply) => algoService.tradesStream(req, reply));
+    // --- Algo routes (function handlers; same style as other routes) ---
+    fastify.post('algo/upload', async (request, reply) => {
+      try { await uploadAlgo(request, reply); }
+      catch (e: any) { reply.status(500).send({ error: e?.message || 'Upload failed' }); }
+    });
+
+    fastify.post('algo/run', async (request, reply) => {
+      try { await runAlgo(request, reply); }
+      catch (e: any) { reply.status(500).send({ error: e?.message || 'Run failed' }); }
+    });
+
+    fastify.post('algo/stop', async (request, reply) => {
+      try { await stopAlgo(request, reply); }
+      catch (e: any) { reply.status(500).send({ error: e?.message || 'Stop failed' }); }
+    });
+
+    fastify.post('algo/allocate', async (request, reply) => {
+      try { await allocateAlgo(request, reply); }
+      catch (e: any) { reply.status(500).send({ error: e?.message || 'Allocate failed' }); }
+    });
+
+    fastify.get('algo/discovery', async (request, reply) => {
+      try { await discoveryAlgo(request, reply); }
+      catch (e: any) { reply.status(500).send({ error: e?.message || 'Discovery failed' }); }
+    });
+
+    fastify.get('algo/running', async (request, reply) => {
+      try { await runningAlgo(request, reply); }
+      catch (e: any) { reply.status(500).send({ error: e?.message || 'Fetch running failed' }); }
+    });
+    // --- end algo routes ---
 
 
     done();
