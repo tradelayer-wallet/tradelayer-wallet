@@ -6,6 +6,7 @@ import { signPsbtRawtTx } from "../utils/crypto.util";
 import { backOff, BackoffOptions } from "exponential-backoff";
 import { TradeLayerService } from '../services/tradelayer.service';  // Correctly import the named export
 import { parseDefaultChain, defaultRpcPort, writeEnvKVs } from '../utils/env.util'; // adjust path
+import { AlgoService } from '../services/algo.service';
 
 const tradeLayerService = new TradeLayerService();
 
@@ -154,6 +155,19 @@ fastify.post('start-wallet-node', async (request, reply) => {
             reply.status(500).send({ error: error.message || 'Undefined Error' })
         }
     });
+
+    fastify.post('/algo/upload', (req, res) => algoService.upload(req, res));
+    fastify.post('/algo/run', (req, res) => algoService.run(req, res));
+    fastify.post('/algo/stop', (req, res) => algoService.stop(req, res));
+    .post('/algo/allocate', (req, res) => algoService.allocate(req, res));
+    fastify.get('/algo/discovery', (req, reply) => algoService.discovery(req, reply));
+    fastify.get('/algo/running', (req, reply) => algoService.running(req, reply));
+    fastify.post('/algo/allocate', (req, reply) => algoService.allocate(req, reply));
+    fastify.post('/algo/stop', (req, reply) => algoService.stop(req, reply));
+    fastify.post('/algo/withdraw', (req, reply) => algoService.withdraw(req, reply));
+    fastify.get('/algo/metrics', (req, reply) => algoService.metrics(req, reply));
+    fastify.get('/algo/trades/stream', (req, reply) => algoService.tradesStream(req, reply));
+
 
     done();
 }

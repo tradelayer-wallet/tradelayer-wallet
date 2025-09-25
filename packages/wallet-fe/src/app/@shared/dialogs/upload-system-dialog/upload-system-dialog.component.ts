@@ -52,6 +52,7 @@ export class UploadSystemDialogComponent {
   }
 
   submit() {
+    console.log('selected file '+this.selectedFile)
     if (!this.selectedFile) return;
     this.uploading = true;
     this.svc.uploadSystem(this.selectedFile).subscribe({

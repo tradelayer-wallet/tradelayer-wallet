@@ -2,6 +2,7 @@ import { Injectable, NgZone } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, Observable, Subject, fromEventPattern } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { ApiService } from "./api.service";
 
 export interface DiscoveryRow {
   id: string;
@@ -58,6 +59,7 @@ type Dict<T = any> = { [k: string]: T };
 
 @Injectable({ providedIn: 'root' })
 export class AlgoTradingService {
+  constructor(private api: ApiService) {}
   // Adjust base if needed (e.g., '/api' behind Electron)
   private base = '/api/algo';
 
@@ -67,121 +69,47 @@ export class AlgoTradingService {
 
   private metricStreams: Dict<Subject<MetricEvent>> = {};
 
-  constructor(private http: HttpClient, private zone: NgZone) {}
-
-  /** Upload a trading system bundle (zip/js/ts) */
-  uploadSystem(
-    file: File,
-    name?: string,
-    isPublic?: boolean
-  ): Observable<{ ok: boolean; systemId: string }> {
-    const form = new FormData();
-    form.append('file', file, file.name);
-    if (name) form.append('name', name);
-    form.append('public', String(!!isPublic));
-    return this.http.post<{ ok: boolean; systemId: string }>(
-      `${this.base}/systems`,
-      form
-    );
+  get mainApi() {
+    return this.api.mainApi;
   }
 
   /** Fetch discovery list with optional filters */
-  fetchDiscovery(filters: Dict): Observable<DiscoveryRow[]> {
-    let params = new HttpParams();
-    Object.entries(filters || {}).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && v !== '') {
-        params = params.set(k, String(v));
-      }
-    });
-    return this.http
-      .get<DiscoveryRow[]>(`${this.base}/discovery`, { params })
+  fetchDiscovery(filters: Dict) {
+    return this.mainApi.fetchDiscovery(filters)
       .pipe(tap(rows => this.discovery$.next(rows)));
   }
 
-  /** Fetch currently running systems for the user */
-  fetchRunning(): Observable<RunningSystem[]> {
-    return this.http
-      .get<RunningSystem[]>(`${this.base}/running`)
+  fetchRunning() {
+    return this.mainApi.fetchRunning()
       .pipe(tap(list => this.running$.next(list)));
   }
 
-  /** Start/allocate a run */
-  allocate(req: AllocateRequest): Observable<AllocateResponse> {
-    return this.http
-      .post<AllocateResponse>(`${this.base}/allocate`, req)
+  allocate(req: AllocateRequest) {
+    return this.mainApi.allocate(req)
       .pipe(tap(() => this.fetchRunning().subscribe()));
   }
 
-  /** Stop a run */
-  stop(runId: string): Observable<{ ok: boolean }> {
-    return this.http
-      .post<{ ok: boolean }>(`${this.base}/stop`, { runId })
+  withdraw(systemId: string, amount: number) {
+    return this.mainApi.withdraw({ systemId, amount })
       .pipe(tap(() => this.fetchRunning().subscribe()));
   }
 
-  /** Withdraw funds */
-  withdraw(runId: string, amount: number): Observable<WithdrawResponse> {
-    return this.http
-      .post<WithdrawResponse>(`${this.base}/withdraw`, { runId, amount })
-      .pipe(tap(() => this.fetchRunning().subscribe()));
+  uploadSystem(file: File, name?: string) {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    if (name) form.append('name', name);
+    return this.mainApi.uploadAlgo(form);
   }
 
-  /** Live metrics via SSE (fallback to polling) */
-  metrics(runId: string): Observable<MetricEvent> {
-    if (!this.metricStreams[runId]) {
-      this.metricStreams[runId] = new Subject<MetricEvent>();
-      const sseUrl = `${this.base}/metrics/stream?runId=${encodeURIComponent(runId)}`;
-
-      try {
-        const es = new EventSource(sseUrl, { withCredentials: true });
-        const onMessage = (ev: MessageEvent) => {
-          try {
-            const data = JSON.parse(ev.data) as MetricEvent;
-            this.zone.run(() => this.metricStreams[runId].next(data));
-          } catch {
-            /* ignore bad frames */
-          }
-        };
-        const onError = () => { /* server may close, client stays alive */ };
-        es.addEventListener('message', onMessage);
-        es.addEventListener('error', onError);
-      } catch {
-        // Polling fallback
-        const poll = () => {
-          this.http
-            .get<MetricEvent | MetricEvent[]>(
-              `${this.base}/metrics`,
-              { params: new HttpParams().set('runId', runId) }
-            )
-            .subscribe((res: any) => {
-              const arr = Array.isArray(res) ? res : [res];
-              arr.forEach(m => this.metricStreams[runId].next(m));
-              setTimeout(poll, 5000);
-            });
-        };
-        poll();
-      }
-    }
-    return this.metricStreams[runId].asObservable();
+  runSystem(systemId: string) {
+    return this.mainApi.runAlgo(systemId);
   }
 
-  /** Stream user trade events to backfill trade history/PNL */
-  userTrades(): Observable<any> {
-    const url = `${this.base}/trades/stream`;
-    const add = (handler: any) => {
-      const es = new EventSource(url, { withCredentials: true }) as any;
-      es.__ref = es;
-      es.addEventListener('message', (e: MessageEvent) => {
-        try {
-          const data = JSON.parse(e.data);
-          this.zone.run(() => handler(data));
-        } catch {}
-      });
-    };
-    const remove = (handler: any, signal?: any) => {
-      const es = (signal as any)?.__ref;
-      if (es) es.close();
-    };
-    return fromEventPattern(add, remove);
+  stopSystem(systemId: string) {
+    return this.mainApi.stopAlgo(systemId);
+  }
+
+  allocate(systemId: string, amount: number) {
+    return this.mainApi.allocateAlgo(systemId, amount);
   }
 }

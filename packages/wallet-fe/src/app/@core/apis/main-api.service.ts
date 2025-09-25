@@ -136,4 +136,53 @@ export class MainApiService {
         console.log('about to call init TL ' + this.apiUrl + 'init-tradelayer');
         return this.http.post(this.apiUrl + 'init-tradelayer', {});
     }
+
+    // === ALGO API methods ===
+
+    uploadAlgo(form: FormData): Observable<{ ok: boolean; systemId: string }> {
+      return this.http.post<{ ok: boolean; systemId: string }>(
+        this.apiUrl + 'algo/upload',
+        form
+      );
+    }
+
+    runAlgo(systemId: string): Observable<{ ok: boolean }> {
+      return this.http.post<{ ok: boolean }>(
+        this.apiUrl + 'algo/run',
+        { systemId }
+      );
+    }
+
+    stopAlgo(systemId: string): Observable<{ ok: boolean }> {
+      return this.http.post<{ ok: boolean }>(
+        this.apiUrl + 'algo/stop',
+        { systemId }
+      );
+    }
+
+    fetchDiscovery(filters: any) {
+      return this.http.get<any[]>(this.apiUrl + 'algo/discovery', { params: filters });
+    }
+
+    fetchRunning() {
+      return this.http.get<any[]>(this.apiUrl + 'algo/running');
+    }
+
+    allocate(body: { systemId: string; amount: number }) {
+      return this.http.post(this.apiUrl + 'algo/allocate', body);
+    }
+
+    withdraw(body: { systemId: string; amount: number }) {
+      return this.http.post(this.apiUrl + 'algo/withdraw', body);
+    }
+
+    metrics(runId: string) {
+      return this.http.get(this.apiUrl + 'algo/metrics', { params: { runId } });
+    }
+
+    userTrades() {
+      return new EventSource(this.apiUrl + 'algo/trades/stream', { withCredentials: true });
+    }
+
+
 }
