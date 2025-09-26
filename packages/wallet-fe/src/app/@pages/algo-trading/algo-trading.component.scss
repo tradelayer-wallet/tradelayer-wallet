@@ -1,12 +1,22 @@
 .algo-page { padding: 24px; color: var(--tl-fg, #101014); }
 
 :host {
-  display: block;
-  padding-top: 14px;            /* keep the tabs clear of the fixed header */
+  /* prevent blue text selection on tabs/filters */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+
+  /* optional: remove selection highlight just in case */
+  ::selection { background: transparent; }
 }
-.algo-tabs, .mat-tab-header {   /* if you’re using Angular Material tabs */
-  margin-top: 8px;
-  z-index: 1;
+
+/* If you have specific wrappers, be more targeted (safer): */
+.algo-tabs, .algo-filters, .algo-header, .algo-toolbar {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 .mat-tab-header, .mat-tab-labels, .mat-tab-label, .mat-tab-label-active {

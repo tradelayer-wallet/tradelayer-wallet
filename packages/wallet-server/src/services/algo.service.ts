@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import type { ProcessDescription } from 'pm2';
 import { v4 as uuidv4 } from 'uuid';
+import * as os from 'os';
 
 let _pm2: any;
 function pm2() {
@@ -14,8 +15,26 @@ function pm2() {
 }
 import { randomUUID } from 'crypto';
 
-/** ------- storage layout & helpers (module scope) ------- */
-const baseDir = path.join(process.cwd(), 'trading-algos');
+
+function resolveDataDir(): string {
+  // 1) allow override
+  if (process.env.TL_DATA_DIR) return process.env.TL_DATA_DIR;
+
+  // 2) Electron userData (if available)
+  try {
+    // lazy require so webpack/electron don’t fight
+    const electron = (eval('require') as NodeRequire)('electron');
+    const app = electron?.app || electron?.remote?.app;
+    if (app && typeof app.getPath === 'function') {
+      return path.join(app.getPath('userData'), 'trading-algos');
+    }
+  } catch {}
+
+  // 3) per-user fallback
+  return path.join(os.homedir(), '.tradelayer', 'trading-algos');
+}
+
+const baseDir = resolveDataDir();
 const indexPath = path.join(baseDir, 'index.json');
 const legacyIdx = path.join(baseDir, 'index');
 
@@ -42,40 +61,7 @@ if (!fs.existsSync(indexPath)) fs.writeFileSync(indexPath, '[]');
 // --- small utils
 const stripBom = (s: string) => s.replace(/^\uFEFF/, '');
 const shortId = () => (uuidv4().replace(/-/g, '').slice(0, 12));
-
-/** If index is empty/corrupt, rebuild it by scanning the folder. */
-async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
-  await ensureIndexFile();
-
-  const files = (await fsp.readdir(baseDir))
-    .filter(f => f.toLowerCase().endsWith('.js') && f !== 'index.json');
-
-  const list: AlgoIndexItem[] = [];
-  for (const fileName of files) {
-    const fullPath = path.join(baseDir, fileName);
-    const stat = await fsp.stat(fullPath);
-
-    // Try to recover id from "<id>-<origName>.js"
-    const withoutExt = fileName.replace(/\.js$/i, '');
-    const dash = withoutExt.indexOf('-');
-    const id = dash > 0 ? withoutExt.slice(0, dash) : uuidv4();
-
-    list.push({
-      id,
-      name: dash > 0 ? withoutExt.slice(dash + 1) + '.js' : fileName,
-      fileName,
-      fullPath,
-      size: stat.size,
-      createdAt: stat.mtimeMs,
-      status: 'stopped',
-    });
-  }
-
-  await fsp.writeFile(indexPath, JSON.stringify(list, null, 2), 'utf8');
-  return list;
-}
-
-// tiny mutex to prevent concurrent read/write races
+// ---------- tiny mutex ----------
 let _lock = Promise.resolve();
 function withLock<T>(fn: () => Promise<T>): Promise<T> {
   const run = _lock.then(fn, fn);
@@ -83,7 +69,7 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
-// Ensure dir + index.json exist; migrate legacy if found
+// ---------- ensure dir + index.json ----------
 async function ensureIndexFile() {
   await fsp.mkdir(baseDir, { recursive: true });
   const hasJson   = await fsp.access(indexPath).then(() => true).catch(() => false);
@@ -94,7 +80,8 @@ async function ensureIndexFile() {
       const raw = await fsp.readFile(legacyIdx, 'utf8');
       const parsed = JSON.parse(stripBom(raw) || '[]');
       await fsp.writeFile(indexPath, JSON.stringify(parsed, null, 2), 'utf8');
-      console.log('[algo.index] migrated legacy ->', indexPath, 'items:', Array.isArray(parsed) ? parsed.length : 0);
+      console.log('[algo.index] migrated legacy ->', indexPath, 'items:',
+        Array.isArray(parsed) ? parsed.length : 0);
       return;
     } catch (e) {
       console.warn('[algo.index] legacy migration failed, writing empty index:', e);
@@ -107,7 +94,7 @@ async function ensureIndexFile() {
   }
 }
 
-// runtime validator / normalizer so JSON shape can’t break us
+// ---------- normalizer (keeps union literals) ----------
 function normalizeIndexArray(val: any): AlgoIndexItem[] {
   if (!Array.isArray(val)) return [];
   return val.map((o: any) => ({
@@ -122,20 +109,97 @@ function normalizeIndexArray(val: any): AlgoIndexItem[] {
   })).filter(a => a.id && a.fileName && a.fullPath);
 }
 
-// ---- robust readers/writers ----
+// ---------- raw rebuild (NO nested locks) ----------
+async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
+  await ensureIndexFile();
+
+  // raw read (no withLock)
+  let current: AlgoIndexItem[] = [];
+  try {
+    const raw  = await fsp.readFile(indexPath, 'utf8').catch(() => '[]');
+    const text = stripBom(raw || '[]').trim();
+    current = normalizeIndexArray(text ? JSON.parse(text) : []);
+  } catch {
+    current = [];
+  }
+
+  const byFile = new Map(current.map(i => [i.fileName, i]));
+  const byId   = new Map(current.map(i => [i.id, i]));
+
+  const files = (await fsp.readdir(baseDir))
+    .filter(f => f.toLowerCase().endsWith('.js') && f !== 'index.json');
+
+  let touched = 0;
+
+  for (const fileName of files) {
+    const fullPath = path.join(baseDir, fileName);
+    const stat = await fsp.stat(fullPath);
+
+    // Try "<id>-<name>.js"
+    const m = /^([a-f0-9]{8,32})-(.+)\.js$/i.exec(fileName);
+    let id: string;
+    let name: string;
+    if (m) {
+      id = m[1];
+      name = `${m[2]}.js`;
+    } else {
+      // stable short id for legacy names
+      const hash = (eval('require') as NodeRequire)('crypto')
+        .createHash('md5').update(fileName).digest('hex');
+      id = hash.slice(0, 12);
+      name = fileName;
+    }
+
+    let item = byFile.get(fileName) || byId.get(id);
+    if (item) {
+      if (item.fileName !== fileName) byFile.delete(item.fileName);
+      item.id        = id;
+      item.name      = name;
+      item.fileName  = fileName;
+      item.fullPath  = fullPath;
+      item.size      = stat.size;
+      item.createdAt = item.createdAt || stat.mtimeMs;
+    } else {
+      item = {
+        id,
+        name,
+        fileName,
+        fullPath,
+        size: stat.size,
+        createdAt: stat.mtimeMs,
+        status: 'stopped' as const,
+        amount: 0,
+      };
+      current.push(item);
+      byFile.set(fileName, item);
+      byId.set(id, item);
+    }
+    touched++;
+  }
+
+  if (touched > 0) {
+    const tmp = indexPath + '.tmp';                 // atomic write
+    await fsp.writeFile(tmp, JSON.stringify(current, null, 2), 'utf8');
+    await fsp.rename(tmp, indexPath);
+  }
+
+  console.log('[algo.index] rebuild — files:', files.length,
+              'merged:', touched, 'total:', current.length);
+  return current;
+}
+
+// ---------- readers/writers (single-lock entry points) ----------
 export const readIndex = async (): Promise<AlgoIndexItem[]> =>
   withLock(async () => {
     await ensureIndexFile();
+    let arr: AlgoIndexItem[] = [];
+
     try {
       const raw  = await fsp.readFile(indexPath, 'utf8');
       const text = stripBom(raw).trim();
-      if (!text) { console.warn('[algo.index] index file empty'); return []; }
-      const parsed: unknown = JSON.parse(text);
-      const arr = normalizeIndexArray(parsed);
-      console.log('[algo.index] read', arr.length, 'items from', indexPath);
-      return arr; // <- AlgoIndexItem[]
+      arr = text ? normalizeIndexArray(JSON.parse(text)) : [];
     } catch (err) {
-      // backup the bad file once, then reset to []
+      // backup bad file then reset to []
       try {
         const bad = await fsp.readFile(indexPath).catch(() => null);
         if (bad) {
@@ -146,8 +210,30 @@ export const readIndex = async (): Promise<AlgoIndexItem[]> =>
         }
       } catch {}
       await fsp.writeFile(indexPath, '[]', 'utf8');
-      return [];
+      arr = [];
     }
+
+    // Rebuild if empty OR folder has unindexed .js files
+    try {
+      const files = (await fsp.readdir(baseDir))
+        .filter(f => f.toLowerCase().endsWith('.js') && f !== 'index.json');
+
+      const indexed = new Set(arr.map(i => i.fileName));
+      const needsRebuild = arr.length === 0 || files.some(f => !indexed.has(f));
+
+      if (needsRebuild) {
+        console.log('[algo.index] readIndex -> rebuilding from folder…');
+        const rebuilt = await rebuildIndexFromFolder();   // raw I/O inside; safe under lock
+        console.log('[algo.index] rebuild complete, items:', rebuilt.length);
+        return rebuilt;
+      }
+    } catch (e) {
+      console.warn('[algo.index] readdir failed; keeping current index:',
+        (e as Error)?.message);
+    }
+
+    console.log('[algo.index] read', arr.length, 'items from', indexPath);
+    return arr;
   });
 
 export const writeIndex = async (list: AlgoIndexItem[]) =>
@@ -157,8 +243,11 @@ export const writeIndex = async (list: AlgoIndexItem[]) =>
     const payload = JSON.stringify(Array.isArray(list) ? list : [], null, 2);
     await fsp.writeFile(tmp, payload, 'utf8');
     await fsp.rename(tmp, indexPath);
-    console.log('[algo.index] wrote', Array.isArray(list) ? list.length : 0, 'items to', indexPath);
+    console.log('[algo.index] wrote',
+      Array.isArray(list) ? list.length : 0, 'items to', indexPath);
   });
+
+  
 const byId = (list: AlgoIndexItem[], id: string) => list.find(a => a.id === id);
 
 // helper to handle both sync/async disconnect signatures
@@ -215,6 +304,7 @@ export async function uploadAlgo(request, reply) {
     }
 
     const buf = Buffer.from(dataBase64, "base64");
+    const fileSize = buf.length;
     const id = shortId();
     const base = (name ?? 'algo').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/\.js$/i, '');
     const fileName = `${id}-${base}.js`;
@@ -228,19 +318,18 @@ export async function uploadAlgo(request, reply) {
 
     console.log("Wrote file to:", target);
 
-    await withLock(async () => {
-      const list = await readIndex();
+    const list = await readIndex();
       list.push({
         id,
-        name: safeName,
+        name,
         fileName,
-        target,
+        size: fileSize,
+        fullPath: target,
         createdAt: Date.now(),
         status: 'stopped' as const,
         amount: 0,
       });
       await writeIndex(list);
-    });
 
     return reply.send({ ok: true, systemId: id });
   } catch (err) {
@@ -338,7 +427,8 @@ export async function allocateAlgo(request: FastifyRequest, reply: FastifyReply)
 }
 
 /** GET /api/algo/discovery */
-export async function discoveryAlgo(_request: FastifyRequest, reply: FastifyReply) {
+export async function discoveryAlgo(request: FastifyRequest, reply: FastifyReply) {
+  console.log('inside discover algo '+JSON.stringify(request))
   const list = await readIndex();
   return reply.send(
     list.map(i => ({
@@ -352,7 +442,7 @@ export async function discoveryAlgo(_request: FastifyRequest, reply: FastifyRepl
 }
 
 /** GET /api/algo/running */
-export async function runningAlgo(_request: FastifyRequest, reply: FastifyReply) {
+export async function runningAlgo(request: FastifyRequest, reply: FastifyReply) {
   const list = await readIndex();
   const names = new Set(list.map(i => pm2Name(i.id)));
 

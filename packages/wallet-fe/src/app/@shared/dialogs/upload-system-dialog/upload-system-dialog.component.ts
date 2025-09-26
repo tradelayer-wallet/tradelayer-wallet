@@ -1,6 +1,7 @@
 import { Component, Inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { AlgoTradingService } from '../../../@core/services/algo-trading.service';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'tl-upload-system-dialog',
@@ -18,6 +19,7 @@ export class UploadSystemDialogComponent {
   constructor(
     private ref: MatDialogRef<UploadSystemDialogComponent>,
     private svc: AlgoTradingService,
+    private toast: ToastrService,
     @Inject(MAT_DIALOG_DATA) public data: unknown
   ) {}
 
@@ -56,11 +58,14 @@ export class UploadSystemDialogComponent {
     if (!this.selectedFile) return;
     this.uploading = true;
     this.svc.uploadSystem(this.selectedFile).subscribe({
-      next: (res) => this.ref.close(res),
-      error: (err) => {
-        this.uploading = false;
-        this.errorMsg = err?.message || 'Upload failed';
+      next: () => {
+        this.toast.success('System uploaded');
+        this.dialogRef.close(true);            // ✅ close dialog
       },
+      error: (e) => {
+        this.toast.error(e?.message || 'Upload failed');
+        this.uploading = false;
+      }
     });
   }
 }
