@@ -41,37 +41,7 @@ if (!fs.existsSync(indexPath)) fs.writeFileSync(indexPath, '[]');
 
 // --- small utils
 const stripBom = (s: string) => s.replace(/^\uFEFF/, '');
-let _lock = Promise.resolve();
-function withLock<T>(fn: () => Promise<T>): Promise<T> {
-  const run = _lock.then(fn, fn);
-  _lock = run.then(() => undefined, () => undefined);
-  return run;
-}
-
-/** Ensure folder and index.json exist; migrate legacy file if present. */
-async function ensureIndexFile(): Promise<void> {
-  await fsp.mkdir(baseDir, { recursive: true });
-
-  const [hasJson, hasLegacy] = await Promise.all([
-    fsp.access(indexPath).then(() => true).catch(() => false),
-    fsp.access(legacyIdx).then(() => true).catch(() => false),
-  ]);
-
-  if (!hasJson && hasLegacy) {
-    try {
-      const raw = await fsp.readFile(legacyIdx, 'utf8');
-      const parsed = JSON.parse(stripBom(raw) || '[]');
-      await fsp.writeFile(indexPath, JSON.stringify(parsed ?? [], null, 2), 'utf8');
-      return;
-    } catch {
-      // fall through to create empty json
-    }
-  }
-
-  if (!hasJson) {
-    await fsp.writeFile(indexPath, '[]', 'utf8');
-  }
-}
+const shortId = () => (uuidv4().replace(/-/g, '').slice(0, 12));
 
 /** If index is empty/corrupt, rebuild it by scanning the folder. */
 async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
@@ -105,47 +75,89 @@ async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
   return list;
 }
 
-/** Robust read: ensures file, tolerates BOM/empty/corruption, auto-rebuilds if needed. */
+// tiny mutex to prevent concurrent read/write races
+let _lock = Promise.resolve();
+function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = _lock.then(fn, fn);
+  _lock = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+// Ensure dir + index.json exist; migrate legacy if found
+async function ensureIndexFile() {
+  await fsp.mkdir(baseDir, { recursive: true });
+  const hasJson   = await fsp.access(indexPath).then(() => true).catch(() => false);
+  const hasLegacy = await fsp.access(legacyIdx).then(() => true).catch(() => false);
+
+  if (!hasJson && hasLegacy) {
+    try {
+      const raw = await fsp.readFile(legacyIdx, 'utf8');
+      const parsed = JSON.parse(stripBom(raw) || '[]');
+      await fsp.writeFile(indexPath, JSON.stringify(parsed, null, 2), 'utf8');
+      console.log('[algo.index] migrated legacy ->', indexPath, 'items:', Array.isArray(parsed) ? parsed.length : 0);
+      return;
+    } catch (e) {
+      console.warn('[algo.index] legacy migration failed, writing empty index:', e);
+    }
+  }
+
+  if (!hasJson) {
+    await fsp.writeFile(indexPath, '[]', 'utf8');
+    console.log('[algo.index] created new index at', indexPath);
+  }
+}
+
+// runtime validator / normalizer so JSON shape can’t break us
+function normalizeIndexArray(val: any): AlgoIndexItem[] {
+  if (!Array.isArray(val)) return [];
+  return val.map((o: any) => ({
+    id: String(o?.id ?? ''),
+    name: String(o?.name ?? ''),
+    fileName: String(o?.fileName ?? ''),
+    fullPath: String(o?.fullPath ?? ''),
+    size: Number(o?.size ?? 0),
+    createdAt: Number(o?.createdAt ?? Date.now()),
+    status: o?.status === 'running' ? ('running' as const) : ('stopped' as const),
+    amount: typeof o?.amount === 'number' ? o.amount : undefined,
+  })).filter(a => a.id && a.fileName && a.fullPath);
+}
+
+// ---- robust readers/writers ----
 export const readIndex = async (): Promise<AlgoIndexItem[]> =>
   withLock(async () => {
     await ensureIndexFile();
-
     try {
-      const raw = await fsp.readFile(indexPath, 'utf8');
+      const raw  = await fsp.readFile(indexPath, 'utf8');
       const text = stripBom(raw).trim();
-      if (!text) {
-        // empty file → try to rebuild from folder
-        return await rebuildIndexFromFolder();
-      }
-
-      const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed)) {
-        // wrong shape → rebuild
-        return await rebuildIndexFromFolder();
-      }
-
-      // happy path
-      return parsed as AlgoIndexItem[];
-    } catch {
-      // read/parse error → backup and rebuild
+      if (!text) { console.warn('[algo.index] index file empty'); return []; }
+      const parsed: unknown = JSON.parse(text);
+      const arr = normalizeIndexArray(parsed);
+      console.log('[algo.index] read', arr.length, 'items from', indexPath);
+      return arr; // <- AlgoIndexItem[]
+    } catch (err) {
+      // backup the bad file once, then reset to []
       try {
         const bad = await fsp.readFile(indexPath).catch(() => null);
         if (bad) {
           const ts = new Date().toISOString().replace(/[:.]/g, '-');
-          await fsp.writeFile(path.join(baseDir, `index.broken.${ts}.json`), bad);
+          const backup = path.join(baseDir, `index.broken.${ts}.json`);
+          await fsp.writeFile(backup, bad);
+          console.error('[algo.index] corrupted index backed up to', backup);
         }
       } catch {}
-      return await rebuildIndexFromFolder();
+      await fsp.writeFile(indexPath, '[]', 'utf8');
+      return [];
     }
   });
 
-/** Atomic write with a tiny mutex. */
 export const writeIndex = async (list: AlgoIndexItem[]) =>
   withLock(async () => {
     await ensureIndexFile();
-    const tmp = indexPath + '.tmp';
-    await fsp.writeFile(tmp, JSON.stringify(list ?? [], null, 2), 'utf8');
+    const tmp = indexPath + '.tmp'; // atomic write
+    const payload = JSON.stringify(Array.isArray(list) ? list : [], null, 2);
+    await fsp.writeFile(tmp, payload, 'utf8');
     await fsp.rename(tmp, indexPath);
+    console.log('[algo.index] wrote', Array.isArray(list) ? list.length : 0, 'items to', indexPath);
   });
 const byId = (list: AlgoIndexItem[], id: string) => list.find(a => a.id === id);
 
@@ -203,8 +215,9 @@ export async function uploadAlgo(request, reply) {
     }
 
     const buf = Buffer.from(dataBase64, "base64");
-    const id = uuidv4();    
-    const fileName = `${id}-${name || "algo.js"}`;
+    const id = shortId();
+    const base = (name ?? 'algo').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/\.js$/i, '');
+    const fileName = `${id}-${base}.js`;
     const target = path.join(process.cwd(), "trading-algos", fileName);
 
     // Ensure directory exists
@@ -214,6 +227,20 @@ export async function uploadAlgo(request, reply) {
     await fs.promises.writeFile(target, buf);
 
     console.log("Wrote file to:", target);
+
+    await withLock(async () => {
+      const list = await readIndex();
+      list.push({
+        id,
+        name: safeName,
+        fileName,
+        target,
+        createdAt: Date.now(),
+        status: 'stopped' as const,
+        amount: 0,
+      });
+      await writeIndex(list);
+    });
 
     return reply.send({ ok: true, systemId: id });
   } catch (err) {
