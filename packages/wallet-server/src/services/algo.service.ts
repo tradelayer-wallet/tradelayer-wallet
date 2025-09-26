@@ -247,7 +247,7 @@ export const writeIndex = async (list: AlgoIndexItem[]) =>
       Array.isArray(list) ? list.length : 0, 'items to', indexPath);
   });
 
-  
+
 const byId = (list: AlgoIndexItem[], id: string) => list.find(a => a.id === id);
 
 // helper to handle both sync/async disconnect signatures
@@ -428,7 +428,7 @@ export async function allocateAlgo(request: FastifyRequest, reply: FastifyReply)
 
 /** GET /api/algo/discovery */
 export async function discoveryAlgo(request: FastifyRequest, reply: FastifyReply) {
-  console.log('inside discover algo '+JSON.stringify(request))
+  console.log('inside discover algo ')
   const list = await readIndex();
   return reply.send(
     list.map(i => ({

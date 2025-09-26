@@ -60,7 +60,7 @@ export class UploadSystemDialogComponent {
     this.svc.uploadSystem(this.selectedFile).subscribe({
       next: () => {
         this.toast.success('System uploaded');
-        this.dialogRef.close(true);            // ✅ close dialog
+        this.ref.close(true);            // ✅ close dialog
       },
       error: (e) => {
         this.toast.error(e?.message || 'Upload failed');
