@@ -1,5 +1,24 @@
 .algo-page { padding: 24px; color: var(--tl-fg, #101014); }
 
+:host {
+  display: block;
+  padding-top: 14px;            /* keep the tabs clear of the fixed header */
+}
+.algo-tabs, .mat-tab-header {   /* if you’re using Angular Material tabs */
+  margin-top: 8px;
+  z-index: 1;
+}
+
+.mat-tab-header, .mat-tab-labels, .mat-tab-label, .mat-tab-label-active {
+  z-index: 3;
+  position: relative;
+}
+
+/* make sure the header doesn’t overlap content */
+.mat-tab-body-wrapper {
+  padding-top: 6px; /* small breathing room */
+}
+
 .header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .header .title { font-size: 28px; font-weight: 700; }
 .header .badge { color: #76808f; font-size: 12px; }

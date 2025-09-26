@@ -139,12 +139,14 @@ export class MainApiService {
 
     // === ALGO API methods ===
 
-    uploadAlgo(form: FormData): Observable<{ ok: boolean; systemId: string }> {
+   // main-api.service.ts (FE)
+    uploadAlgo(body: { name: string; dataBase64: string }) {
       return this.http.post<{ ok: boolean; systemId: string }>(
         this.apiUrl + 'algo/upload',
-        form
+        body
       );
     }
+
 
     runAlgo(systemId: string): Observable<{ ok: boolean }> {
       return this.http.post<{ ok: boolean }>(
@@ -183,6 +185,4 @@ export class MainApiService {
     userTrades() {
       return new EventSource(this.apiUrl + 'algo/trades/stream', { withCredentials: true });
     }
-
-
 }

@@ -90,10 +90,21 @@ export class AlgoTradingService {
   }
 
   uploadSystem(file: File, name?: string) {
-    const form = new FormData();
-    form.append('file', file, file.name);
-    if (name) form.append('name', name);
-    return this.mainApi.uploadAlgo(form);
+     return new Observable<{ ok: boolean; systemId: string }>(observer => {
+      const fr = new FileReader();
+      fr.onerror = () => observer.error(new Error('Failed to read file'));
+      fr.onload = () => {
+        const base64 = (fr.result as string).split(',')[1]; // strip data:uri prefix
+        this.mainApi.uploadAlgo({
+          name: name || file.name,
+          dataBase64: base64
+        }).subscribe({
+          next: (res) => { observer.next(res); observer.complete(); },
+          error: (e) => observer.error(e)
+        });
+      };
+      fr.readAsDataURL(file); // gives base64 reliably
+    });
   }
 
   runSystem(systemId: string) {

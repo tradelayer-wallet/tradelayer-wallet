@@ -1,6 +1,5 @@
 import { FastifyInstance } from "fastify";
 import { fasitfyServer } from "../index";
-import multipart from '@fastify/multipart';
 import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
 import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
@@ -167,8 +166,11 @@ fastify.post('start-wallet-node', async (request, reply) => {
 
     // --- Algo routes (function handlers; same style as other routes) ---
     fastify.post('algo/upload', async (request, reply) => {
-      try { await uploadAlgo(request, reply); }
-      catch (e: any) { reply.status(500).send({ error: e?.message || 'Upload failed' }); }
+      //try { 
+      await uploadAlgo(request, reply); 
+      //}catch (e: any) { 
+      //reply.status(500).send({ error: e?.message || 'Upload failed' }); 
+      //}
     });
 
     fastify.post('algo/run', async (request, reply) => {
@@ -186,14 +188,25 @@ fastify.post('start-wallet-node', async (request, reply) => {
       catch (e: any) { reply.status(500).send({ error: e?.message || 'Allocate failed' }); }
     });
 
+    
     fastify.get('algo/discovery', async (request, reply) => {
-      try { await discoveryAlgo(request, reply); }
-      catch (e: any) { reply.status(500).send({ error: e?.message || 'Discovery failed' }); }
+      try {
+        const list = await discoveryAlgo(request, reply);
+        reply.send(list);
+      } catch (e:any) {
+        console.error('GET /algo/list failed:', e);
+        reply.status(500).send({ error: e.message || 'list failed' });
+      }
     });
 
     fastify.get('algo/running', async (request, reply) => {
-      try { await runningAlgo(request, reply); }
-      catch (e: any) { reply.status(500).send({ error: e?.message || 'Fetch running failed' }); }
+      try {
+        const list = await runningAlgo(request,reply);
+        reply.send(list);
+      } catch (e:any) {
+        console.error('GET /algo/running failed:', e);
+        reply.status(500).send({ error: e.message || 'running failed' });
+      }
     });
     // --- end algo routes ---
 

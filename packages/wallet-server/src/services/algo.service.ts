@@ -2,13 +2,9 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
-import { promises as fs } from 'fs';
-import { join, basename } from 'path';
-import { pipeline } from 'stream/promises';
-
-const ALGOS_DIR = join(process.cwd(), 'trading-algos');
-
+import * as crypto from 'crypto';
 import type { ProcessDescription } from 'pm2';
+import { v4 as uuidv4 } from 'uuid';
 
 let _pm2: any;
 function pm2() {
@@ -21,6 +17,7 @@ import { randomUUID } from 'crypto';
 /** ------- storage layout & helpers (module scope) ------- */
 const baseDir = path.join(process.cwd(), 'trading-algos');
 const indexPath = path.join(baseDir, 'index.json');
+const legacyIdx = path.join(baseDir, 'index');
 
 type AlgoIndexItem = {
   id: string;
@@ -33,7 +30,7 @@ type AlgoIndexItem = {
   amount?: number;    // current sizing param
 };
 
-type UploadBody = { filePath?: string; name?: string; isPublic?: boolean };
+type UploadBody = { name: string; dataBase64: string };
 type RunBody = { systemId: string; amount?: number };
 type StopBody = { systemId: string };
 type AllocateBody = { systemId: string; amount: number };
@@ -41,13 +38,115 @@ type AllocateBody = { systemId: string; amount: number };
 if (!fs.existsSync(baseDir)) fs.mkdirSync(baseDir, { recursive: true });
 if (!fs.existsSync(indexPath)) fs.writeFileSync(indexPath, '[]');
 
-const readIndex = async (): Promise<AlgoIndexItem[]> => {
-  try { return JSON.parse(await fsp.readFile(indexPath, 'utf8')); }
-  catch { return []; }
-};
-const writeIndex = (list: AlgoIndexItem[]) =>
-  fsp.writeFile(indexPath, JSON.stringify(list, null, 2), 'utf8');
 
+// --- small utils
+const stripBom = (s: string) => s.replace(/^\uFEFF/, '');
+let _lock = Promise.resolve();
+function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = _lock.then(fn, fn);
+  _lock = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+/** Ensure folder and index.json exist; migrate legacy file if present. */
+async function ensureIndexFile(): Promise<void> {
+  await fsp.mkdir(baseDir, { recursive: true });
+
+  const [hasJson, hasLegacy] = await Promise.all([
+    fsp.access(indexPath).then(() => true).catch(() => false),
+    fsp.access(legacyIdx).then(() => true).catch(() => false),
+  ]);
+
+  if (!hasJson && hasLegacy) {
+    try {
+      const raw = await fsp.readFile(legacyIdx, 'utf8');
+      const parsed = JSON.parse(stripBom(raw) || '[]');
+      await fsp.writeFile(indexPath, JSON.stringify(parsed ?? [], null, 2), 'utf8');
+      return;
+    } catch {
+      // fall through to create empty json
+    }
+  }
+
+  if (!hasJson) {
+    await fsp.writeFile(indexPath, '[]', 'utf8');
+  }
+}
+
+/** If index is empty/corrupt, rebuild it by scanning the folder. */
+async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
+  await ensureIndexFile();
+
+  const files = (await fsp.readdir(baseDir))
+    .filter(f => f.toLowerCase().endsWith('.js') && f !== 'index.json');
+
+  const list: AlgoIndexItem[] = [];
+  for (const fileName of files) {
+    const fullPath = path.join(baseDir, fileName);
+    const stat = await fsp.stat(fullPath);
+
+    // Try to recover id from "<id>-<origName>.js"
+    const withoutExt = fileName.replace(/\.js$/i, '');
+    const dash = withoutExt.indexOf('-');
+    const id = dash > 0 ? withoutExt.slice(0, dash) : uuidv4();
+
+    list.push({
+      id,
+      name: dash > 0 ? withoutExt.slice(dash + 1) + '.js' : fileName,
+      fileName,
+      fullPath,
+      size: stat.size,
+      createdAt: stat.mtimeMs,
+      status: 'stopped',
+    });
+  }
+
+  await fsp.writeFile(indexPath, JSON.stringify(list, null, 2), 'utf8');
+  return list;
+}
+
+/** Robust read: ensures file, tolerates BOM/empty/corruption, auto-rebuilds if needed. */
+export const readIndex = async (): Promise<AlgoIndexItem[]> =>
+  withLock(async () => {
+    await ensureIndexFile();
+
+    try {
+      const raw = await fsp.readFile(indexPath, 'utf8');
+      const text = stripBom(raw).trim();
+      if (!text) {
+        // empty file → try to rebuild from folder
+        return await rebuildIndexFromFolder();
+      }
+
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) {
+        // wrong shape → rebuild
+        return await rebuildIndexFromFolder();
+      }
+
+      // happy path
+      return parsed as AlgoIndexItem[];
+    } catch {
+      // read/parse error → backup and rebuild
+      try {
+        const bad = await fsp.readFile(indexPath).catch(() => null);
+        if (bad) {
+          const ts = new Date().toISOString().replace(/[:.]/g, '-');
+          await fsp.writeFile(path.join(baseDir, `index.broken.${ts}.json`), bad);
+        }
+      } catch {}
+      return await rebuildIndexFromFolder();
+    }
+  });
+
+/** Atomic write with a tiny mutex. */
+export const writeIndex = async (list: AlgoIndexItem[]) =>
+  withLock(async () => {
+    await ensureIndexFile();
+    const tmp = indexPath + '.tmp';
+    await fsp.writeFile(tmp, JSON.stringify(list ?? [], null, 2), 'utf8');
+    await fsp.rename(tmp, indexPath);
+  });
 const byId = (list: AlgoIndexItem[], id: string) => list.find(a => a.id === id);
 
 // helper to handle both sync/async disconnect signatures
@@ -94,68 +193,32 @@ const pm2Name = (systemId: string) => `algo:${systemId}`;
  *  - multipart (field name "file") when @fastify/multipart is registered
  *  - JSON { filePath, name? } to copy local file into managed folder
  */
-export async function uploadAlgo(request: FastifyRequest, reply: FastifyReply) {
-  const isMultipart =
-    typeof (request as any).isMultipart === 'function' && (request as any).isMultipart();
+export async function uploadAlgo(request, reply) {
+  console.log("Incoming uploadAlgo body:", request.body);
 
-  const list = await readIndex();
+  try {
+    const { name, dataBase64 } = request.body as { name?: string; dataBase64?: string };
+    if (!dataBase64) {
+      return reply.status(400).send({ error: "Missing dataBase64" });
+    }
 
-  if (isMultipart) {
-    const filePart = await (request as any).file();
-    if (!filePart) return reply.status(400).send({ error: 'Missing file' });
+    const buf = Buffer.from(dataBase64, "base64");
+    const id = uuidv4();    
+    const fileName = `${id}-${name || "algo.js"}`;
+    const target = path.join(process.cwd(), "trading-algos", fileName);
 
-    const origName = filePart.filename || 'algo.js';
-    const id = randomUUID();
-    const fileName = `${id}-${origName}`;
-    const target = path.join(baseDir, fileName);
+    // Ensure directory exists
+    await fs.promises.mkdir(path.dirname(target), { recursive: true });
 
-    await new Promise<void>((res, rej) => {
-      const ws = fs.createWriteStream(target);
-      filePart.file.pipe(ws);
-      ws.on('finish', () => res());
-      ws.on('error', rej);
-    });
+    // Write file
+    await fs.promises.writeFile(target, buf);
 
-    const stat = await fsp.stat(target);
-    const item: AlgoIndexItem = {
-      id,
-      name: (filePart.fields?.name?.value as string) || origName,
-      fileName,
-      fullPath: target,
-      size: stat.size,
-      createdAt: Date.now(),
-      status: 'stopped',
-    };
-    list.push(item);
-    await writeIndex(list);
+    console.log("Wrote file to:", target);
 
     return reply.send({ ok: true, systemId: id });
-  } else {
-    const body = request.body as UploadBody;
-    if (!body?.filePath) return reply.status(400).send({ error: 'filePath required' });
-    if (!fs.existsSync(body.filePath)) return reply.status(404).send({ error: 'filePath not found' });
-
-    const id = randomUUID();
-    const origName = path.basename(body.filePath);
-    const fileName = `${id}-${origName}`;
-    const target = path.join(baseDir, fileName);
-
-    await fsp.copyFile(body.filePath, target);
-
-    const stat = await fsp.stat(target);
-    const item: AlgoIndexItem = {
-      id,
-      name: body.name || origName,
-      fileName,
-      fullPath: target,
-      size: stat.size,
-      createdAt: Date.now(),
-      status: 'stopped',
-    };
-    list.push(item);
-    await writeIndex(list);
-
-    return reply.send({ ok: true, systemId: id });
+  } catch (err) {
+    console.error("uploadAlgo error:", err);
+    return reply.status(500).send({ error: err.message || "Unknown error" });
   }
 }
 
