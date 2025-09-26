@@ -37,15 +37,32 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
     private svc: AlgoTradingService
   ) {}
 
-  ngOnInit(): void {
-    this.loading = true;
-    this.sub.add(this.svc.discovery$.subscribe((rows) => {
-      this.rows = rows;
-      this.loading = false;
-    }));
-    this.sub.add(this.svc.running$.subscribe((list) => {
-      this.running = list;
-    }));
+   ngOnInit(): void {
+    console.log('[algo-ui] init → fetch discovery & running');
+
+    // Use simple subscribe(next, error) to avoid the 'unknown' observer overload
+    this.svc.fetchDiscovery({})
+      .pipe(take(1))
+      .subscribe(
+        (rows: DiscoveryRow[]) =>
+          console.log('[algo-ui] discovery rows', rows?.length ?? 0),
+        (e: any) =>
+          console.error('[algo-ui] discovery error', e),
+      );
+
+    this.svc.fetchRunning()
+      .pipe(take(1))
+      .subscribe(
+        (rows: RunningSystem[]) =>
+          console.log('[algo-ui] running rows', rows?.length ?? 0),
+        (e: any) =>
+          console.error('[algo-ui] running error', e),
+      );
+  }
+
+  onFiltersChanged(): void {
+    const f = this.filters.value;
+    this.svc.fetchDiscovery(f).pipe(take(1)).subscribe();
   }
 
   ngOnDestroy(): void {
