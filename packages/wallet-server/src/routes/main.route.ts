@@ -13,6 +13,7 @@ import {
   allocateAlgo,
   discoveryAlgo,
   runningAlgo,
+  bootstrapAlgoAssets
 } from '../services/algo.service';
 
 
@@ -24,6 +25,8 @@ const backoffOptions: BackoffOptions = {
 }
 
 export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
+    await bootstrapAlgoAssets();
+
     fastify.post('rpc-call', async (request, reply) => {
         try {
             const { method, params } = request.body as { method: string, params: any[] };

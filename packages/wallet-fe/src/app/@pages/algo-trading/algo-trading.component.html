@@ -85,10 +85,16 @@
       <div class="tbody">
         <div class="tr" *ngFor="let r of rows; let i = index">
           <div class="td w-56">{{ i + 1 }}</div>
-
           <div class="td">
-            {{ r.meta?.name || r.name || ('#' + (r.id || '')) }}
+            <div class="name">{{ r.meta?.name || r.name }}</div>
+            <div class="sub">
+              {{ r.meta?.symbol || '—' }}
+              • {{ r.meta?.mode || 'SPOT' }}
+              <ng-container *ngIf="r.meta?.venue">• {{ r.meta?.venue }}</ng-container>
+              <ng-container *ngIf="r.meta?.timeframe">• TF: {{ r.meta?.timeframe }}</ng-container>
+            </div>
           </div>
+
 
           <div class="td w-140 right">
             {{ ((r.meta?.size ?? r.size) / 1024) | number:'1.0-0' }} KB

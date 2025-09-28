@@ -15,6 +15,70 @@ function pm2() {
 }
 import { randomUUID } from 'crypto';
 
+// Where defaults live at runtime:
+// 1) allow override via env
+// 2) else use electron resourcesPath
+// 3) fallback to dev path (ts-node / node ./dist)
+const RESOURCES = (process as any).resourcesPath || path.join(__dirname, '..', '..');
+const DEFAULTS_DIR =
+  process.env.ALGO_DEFAULTS_DIR ||
+  path.join(RESOURCES, 'assets', 'algo-defaults');
+
+/**
+ * Bootstrap the user's algo folder with defaults exactly once.
+ * - If the user folder already has any *.js, we do nothing.
+ * - If not, we copy from DEFAULTS_DIR and rebuild the index.
+ */
+export async function bootstrapAlgoAssets(): Promise<void> {
+  try {
+    await ensureIndexFile(); // your existing helper
+
+    // If user folder already has .js, skip
+    const existing = await fsp.readdir(baseDir).catch(() => []);
+    const hasJs = existing.some(f => f.toLowerCase().endsWith('.js'));
+    if (hasJs) {
+      console.log('[algo.defaults] user folder already has scripts — skipping bootstrap');
+      return;
+    }
+
+    // Check defaults folder
+    const defaultsOk = await fsp
+      .access(DEFAULTS_DIR)
+      .then(() => true)
+      .catch(() => false);
+
+    if (!defaultsOk) {
+      console.warn('[algo.defaults] no defaults at', DEFAULTS_DIR, '(set ALGO_DEFAULTS_DIR to override)');
+      return;
+    }
+
+    const defFiles = (await fsp.readdir(DEFAULTS_DIR))
+      .filter(f => f.toLowerCase().endsWith('.js'));
+
+    if (defFiles.length === 0) {
+      console.warn('[algo.defaults] defaults dir is empty:', DEFAULTS_DIR);
+      return;
+    }
+
+    console.log('[algo.defaults] seeding', defFiles.length, 'file(s) from', DEFAULTS_DIR);
+
+    // Copy each default, prefix with a short id to match your "<id>-<name>.js" scheme
+    for (const srcName of defFiles) {
+      const srcPath = path.join(DEFAULTS_DIR, srcName);
+      const id = shortId(srcName);
+      const destName = `${id}-${safeName(srcName)}`;
+      const destPath = path.join(baseDir, destName);
+      await fsp.copyFile(srcPath, destPath);
+    }
+
+    // Merge into index (uses your existing folder->index logic)
+    await rebuildIndexFromFolder();
+
+    console.log('[algo.defaults] bootstrap complete');
+  } catch (e) {
+    console.error('[algo.defaults] bootstrap failed:', (e as Error)?.message || e);
+  }
+}
 
 function resolveDataDir(): string {
   // 1) allow override
@@ -38,16 +102,89 @@ const baseDir = resolveDataDir();
 const indexPath = path.join(baseDir, 'index.json');
 const legacyIdx = path.join(baseDir, 'index');
 
-type AlgoIndexItem = {
+export type AlgoParamSpec =
+  | { type: 'int'    , default: number, min?: number, max?: number, step?: number }
+  | { type: 'number' , default: number, min?: number, max?: number, step?: number }
+  | { type: 'string' , default?: string, enum?: string[] }
+  | { type: 'bool'   , default?: boolean };
+
+export interface AlgoMeta {
+  name: string;
+  symbol: string;                   // e.g. BTCUSDT
+  venue?: string;                   // e.g. binance
+  mode: 'SPOT' | 'FUTURES';
+  leverage?: number;
+  timeframe?: string;               // e.g. 15m, 1h
+  description?: string;
+  tags?: string[];
+  parameters?: Record<string, AlgoParamSpec>;
+  risk?: {
+    stopLossPct?: number;
+    takeProfitPct?: number;
+    maxLeverage?: number;
+    maxPositions?: number;
+  };
+  author?: string;
+  version?: string;
+}
+
+export interface AlgoIndexItem {
   id: string;
   name: string;
-  fileName: string;   // relative inside baseDir
-  fullPath: string;   // absolute path on disk
+  fileName: string;
+  fullPath: string;
   size: number;
   createdAt: number;
-  status?: 'stopped' | 'running';
-  amount?: number;    // current sizing param
-};
+  status: 'stopped' | 'running';
+  amount?: number;
+  // NEW:
+  meta?: AlgoMeta;
+}
+
+const ALGO_BLOCK_RE = /\/\*\s*@algo([\s\S]*?)@algo\s*\*\//i;
+const ALGO_LINE_RE  = /^\s*\/\/\s*@algo\s*({[\s\S]*})\s*$/m;
+
+function parseAlgoMetaFromSource(src: string): AlgoMeta | undefined {
+  try {
+    // Block form
+    const m = ALGO_BLOCK_RE.exec(src);
+    if (m && m[1]) {
+      const json = m[1].trim();
+      return normalizeMeta(JSON.parse(json));
+    }
+    // Single-line fallback
+    const m2 = ALGO_LINE_RE.exec(src);
+    if (m2 && m2[1]) {
+      return normalizeMeta(JSON.parse(m2[1]));
+    }
+  } catch (e) {
+    console.warn('[algo.meta] failed to parse @algo block:', (e as Error)?.message);
+  }
+  return undefined;
+}
+
+function normalizeMeta(m: any): AlgoMeta | undefined {
+  if (!m || typeof m !== 'object') return undefined;
+  const mode = String(m.mode || '').toUpperCase();
+  const norm: AlgoMeta = {
+    name: String(m.name || m.symbol || 'Unnamed Strategy'),
+    symbol: String(m.symbol || '').toUpperCase(),
+    venue: m.venue ? String(m.venue) : undefined,
+    mode: mode === 'FUTURES' ? 'FUTURES' : 'SPOT',
+    leverage: m.leverage != null ? Number(m.leverage) : undefined,
+    timeframe: m.timeframe ? String(m.timeframe) : undefined,
+    description: m.description ? String(m.description) : undefined,
+    tags: Array.isArray(m.tags) ? m.tags.map((t: any) => String(t)) : undefined,
+    parameters: (m.parameters && typeof m.parameters === 'object') ? m.parameters : undefined,
+    risk: (m.risk && typeof m.risk === 'object') ? m.risk : undefined,
+    author: m.author ? String(m.author) : undefined,
+    version: m.version ? String(m.version) : undefined,
+  };
+  // minimal validity
+  if (!norm.symbol) return norm; // still OK; UI can show name only
+  return norm;
+}
+
 
 type UploadBody = { name: string; dataBase64: string };
 type RunBody = { systemId: string; amount?: number };
@@ -134,6 +271,8 @@ async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
   for (const fileName of files) {
     const fullPath = path.join(baseDir, fileName);
     const stat = await fsp.stat(fullPath);
+    const source = await fsp.readFile(fullPath, 'utf8').catch(() => '');
+    const meta = parseAlgoMetaFromSource(source);
 
     // Try "<id>-<name>.js"
     const m = /^([a-f0-9]{8,32})-(.+)\.js$/i.exec(fileName);
@@ -159,6 +298,7 @@ async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
       item.fullPath  = fullPath;
       item.size      = stat.size;
       item.createdAt = item.createdAt || stat.mtimeMs;
+      if (meta) item.meta = meta;
     } else {
       item = {
         id,
@@ -169,6 +309,7 @@ async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
         createdAt: stat.mtimeMs,
         status: 'stopped' as const,
         amount: 0,
+        meta,
       };
       current.push(item);
       byFile.set(fileName, item);
