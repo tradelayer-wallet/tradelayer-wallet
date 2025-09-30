@@ -2,7 +2,6 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
-import * as crypto from 'crypto';
 import type { ProcessDescription } from 'pm2';
 import { v4 as uuidv4 } from 'uuid';
 import * as os from 'os';
@@ -13,7 +12,6 @@ function pm2() {
   if (!_pm2) _pm2 = (eval('require') as NodeRequire)('pm2');
   return _pm2;
 }
-import { randomUUID } from 'crypto';
 
 // Where defaults live at runtime:
 // 1) allow override via env
@@ -23,6 +21,7 @@ const RESOURCES = (process as any).resourcesPath || path.join(__dirname, '..', '
 const DEFAULTS_DIR =
   process.env.ALGO_DEFAULTS_DIR ||
   path.join(RESOURCES, 'assets', 'algo-defaults');
+const safeName = (s: string) => s.replace(/[^a-z0-9_\-\.]/gi, '_');
 
 /**
  * Bootstrap the user's algo folder with defaults exactly once.
@@ -65,7 +64,7 @@ export async function bootstrapAlgoAssets(): Promise<void> {
     // Copy each default, prefix with a short id to match your "<id>-<name>.js" scheme
     for (const srcName of defFiles) {
       const srcPath = path.join(DEFAULTS_DIR, srcName);
-      const id = shortId(srcName);
+      const id = shortId();
       const destName = `${id}-${safeName(srcName)}`;
       const destPath = path.join(baseDir, destName);
       await fsp.copyFile(srcPath, destPath);
@@ -197,7 +196,7 @@ if (!fs.existsSync(indexPath)) fs.writeFileSync(indexPath, '[]');
 
 // --- small utils
 const stripBom = (s: string) => s.replace(/^\uFEFF/, '');
-const shortId = () => (uuidv4().replace(/-/g, '').slice(0, 12));
+const shortId = () =>(uuidv4().replace(/-/g, '').slice(0, 12));
 // ---------- tiny mutex ----------
 let _lock = Promise.resolve();
 function withLock<T>(fn: () => Promise<T>): Promise<T> {
@@ -538,16 +537,34 @@ export async function allocateAlgo(request: FastifyRequest, reply: FastifyReply)
   const item = byId(list, systemId);
   if (!item) return reply.status(404).send({ error: 'system not found' });
 
+  // build env for the process
+  const baseEnv: Record<string, string> = {
+    SIZE: String(amount),
+  };
+
+  // also include meta fields if available
+  if (item.meta?.name)        baseEnv.ALGO_NAME = item.meta.name;
+  if (item.meta?.description) baseEnv.ALGO_DESC = item.meta.description;
+    baseEnv.TARGET_EXPOSURE = String(amount);
+
+  const envKey = `${item.name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}_TARGET_EXPOSURE`;
+
   await withPm2(async () => {
-  await new Promise<void>((res, rej) => {
+    await new Promise<void>((res, rej) => {
       pm2().start(
-        { script: item.fullPath, name: pm2Name(systemId), env: { SIZE: String(amount) } },
+        {
+          script: item.fullPath,
+          name: pm2Name(systemId),
+          env: { [envKey]: String(amount) },  // ✅ namespaced env
+        },
         (err: any) => {
           if (err && err.message?.includes('process name already exists')) {
-            // Use object signature (2 args): (Proc | string | number | ProcessDescription, Callback)
-            // updateEnv tells PM2 to merge the provided env into the process' env
             pm2().restart(
-              { name: pm2Name(systemId), env: { SIZE: String(amount) }, /* @ts-ignore */ updateEnv: true } as any,
+              {
+                name: pm2Name(systemId),
+                env: { [envKey]: String(amount) },
+                /* @ts-ignore */ updateEnv: true,
+              } as any,
               (e: any) => (e ? rej(e) : res())
             );
           } else if (err) {

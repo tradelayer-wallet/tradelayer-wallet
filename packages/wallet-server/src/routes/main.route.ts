@@ -24,7 +24,7 @@ const backoffOptions: BackoffOptions = {
     numOfAttempts: 5,
 }
 
-export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
+export const mainRoutes = async (fastify: FastifyInstance, opts: any, done: any) => {
     await bootstrapAlgoAssets();
 
     fastify.post('rpc-call', async (request, reply) => {
