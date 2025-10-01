@@ -78,24 +78,32 @@ export async function bootstrapAlgoAssets(): Promise<void> {
     console.error('[algo.defaults] bootstrap failed:', (e as Error)?.message || e);
   }
 }
-
 function resolveDataDir(): string {
   // 1) allow override
   if (process.env.TL_DATA_DIR) return process.env.TL_DATA_DIR;
 
-  // 2) Electron userData (if available)
   try {
-    // lazy require so webpack/electron don’t fight
+    // 2) Packaged app: inside resources
     const electron = (eval('require') as NodeRequire)('electron');
     const app = electron?.app || electron?.remote?.app;
-    if (app && typeof app.getPath === 'function') {
-      return path.join(app.getPath('userData'), 'trading-algos');
-    }
-  } catch {}
+    if (app) {
+     const resourcesPath =
+  (process as any).resourcesPath || path.join(process.cwd(), 'resources');
 
-  // 3) per-user fallback
-  return path.join(os.homedir(), '.tradelayer', 'trading-algos');
+      const bundledDir = path.join(resourcesPath, 'trading-algos');
+      if (require('fs').existsSync(bundledDir)) {
+        return bundledDir;
+      }
+    }
+  } catch {
+    // ignore if not running in Electron packaged mode
+  }
+
+  // 3) Dev fallback: local root folder
+  const localDir = path.join(process.cwd(), 'trading-algos');
+  return localDir;
 }
+
 
 const baseDir = resolveDataDir();
 const indexPath = path.join(baseDir, 'index.json');

@@ -66,6 +66,7 @@ module.exports = (env) => {
       libraryExport: 'default'
     },
     externals: [
+      'crypto',
       'long',
       'pino-pretty',
       'bufferutil',

@@ -10,7 +10,8 @@
  *   "counterAsset": "USDT"
  * }
  */
-
+import axios from "axios";
+import crypto from "crypto"
 /*
   Gamma-Hedged MA Scalper (5m)
   ---------------------------------
@@ -339,8 +340,6 @@ if (require.main === module) {
 /************************** Binance Perps Adapter **************************/
 // src/adapters/binance.ts
 // USDC-M futures (perps). Uses REST for simplicity; add WS user stream for fills in prod.
-import axios from "axios";
-import crypto from "crypto";
 
 export class BinancePerps implements MarketAdapter {
   private http = axios.create({ baseURL: "https://dapi.binance.com", timeout: 10000 }); // USDT-M would be fapi; USDC-M is dapi for coin-margined; adjust if needed
@@ -395,7 +394,7 @@ export class BinancePerps implements MarketAdapter {
 /************************** Alpaca Options Greeks Adapter **************************/
 // src/adapters/alpacaOptions.ts
 // Pulls option chain greeks and aggregates net portfolio greeks for the underlying.
-import axios from "axios";
+
 
 export class AlpacaOptionsGreeks implements OptionsAdapter {
   private data = axios.create({ baseURL: process.env.ALPACA_DATA_URL || "https://data.alpaca.markets", timeout: 10000, headers: { "APCA-API-KEY-ID": process.env.ALPACA_KEY_ID || "", "APCA-API-SECRET-KEY": process.env.ALPACA_SECRET_KEY || "" } });

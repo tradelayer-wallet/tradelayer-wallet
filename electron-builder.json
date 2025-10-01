@@ -5,6 +5,13 @@
       "dist/**/*",
       "dist/tradelayer/node_modules/**/*"
     ],
+ "extraResources": [
+    {
+      "from": "trading-algos",
+      "to": "trading-algos",
+      "filter": ["**/*"]
+    }
+  ],
     "directories": {
       "output": "release",
       "buildResources": "dist"
