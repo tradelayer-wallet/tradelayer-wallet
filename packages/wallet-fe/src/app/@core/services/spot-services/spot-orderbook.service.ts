@@ -168,8 +168,8 @@ export class SpotOrderbookService {
     }
 
     private _structureOrderbook(isBuy: boolean) {
-        const propIdDesired = isBuy ? this.selectedMarket.first_token.propertyId : this.selectedMarket.second_token.propertyId;
-        const propIdForSale = isBuy ? this.selectedMarket.second_token.propertyId : this.selectedMarket.first_token.propertyId;
+        const propIdDesired = isBuy ? this.selectedMarket.second_token.propertyId : this.selectedMarket.first_token.propertyId;
+        const propIdForSale = isBuy ? this.selectedMarket.first_token.propertyId : this.selectedMarket.second_token.propertyId;
         const filteredOrderbook = this.rawOrderbookData.filter(o => o.props.id_desired === propIdDesired && o.props.id_for_sale === propIdForSale);
         const range = 1000;
         const result: {price: number, amount: number}[] = [];
