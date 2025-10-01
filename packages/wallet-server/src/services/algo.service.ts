@@ -253,11 +253,18 @@ function normalizeIndexArray(val: any): AlgoIndexItem[] {
   })).filter(a => a.id && a.fileName && a.fullPath);
 }
 
-// ---------- raw rebuild (NO nested locks) ----------
+// Simple browser + Node safe hash (not cryptographically secure)
+function simpleHash(str: string): string {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  }
+  return Math.abs(h).toString(16).slice(0, 12);
+}
+
 async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
   await ensureIndexFile();
 
-  // raw read (no withLock)
   let current: AlgoIndexItem[] = [];
   try {
     const raw  = await fsp.readFile(indexPath, 'utf8').catch(() => '[]');
@@ -285,14 +292,13 @@ async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
     const m = /^([a-f0-9]{8,32})-(.+)\.js$/i.exec(fileName);
     let id: string;
     let name: string;
+
     if (m) {
       id = m[1];
       name = `${m[2]}.js`;
     } else {
-      // stable short id for legacy names
-      const hash = (eval('require') as NodeRequire)('crypto')
-        .createHash('md5').update(fileName).digest('hex');
-      id = hash.slice(0, 12);
+      // fallback to simple hash of fileName
+      id = simpleHash(fileName);
       name = fileName;
     }
 
@@ -326,7 +332,7 @@ async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
   }
 
   if (touched > 0) {
-    const tmp = indexPath + '.tmp';                 // atomic write
+    const tmp = indexPath + '.tmp';
     await fsp.writeFile(tmp, JSON.stringify(current, null, 2), 'utf8');
     await fsp.rename(tmp, indexPath);
   }
@@ -335,6 +341,7 @@ async function rebuildIndexFromFolder(): Promise<AlgoIndexItem[]> {
               'merged:', touched, 'total:', current.length);
   return current;
 }
+
 
 // ---------- readers/writers (single-lock entry points) ----------
 export const readIndex = async (): Promise<AlgoIndexItem[]> =>
