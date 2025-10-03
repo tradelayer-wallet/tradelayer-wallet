@@ -20,7 +20,7 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     @ViewChild('sellOrdersContainer') sellOrdersContainer: any;
     private alive = true;
 
-    displayedColumns: string[] = ['price', 'amount', 'total'];
+    displayedColumns: string[] = ['price', 'amount', 'total',depth];
     clickedRows = new Set<PeriodicElement>();
     constructor(
       private spotOrderbookService: SpotOrderbookService,
@@ -107,4 +107,45 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     //     : this.openedSellOrders;
     //   return positions.map(e => e.props.price).some(e => e >= price && (e < price + 0.01));
     // }
+
+    trackLevel = (_: number, l: any) => l.price; // stable key per level
+
+  // call this after you’ve computed the new buy/sell arrays
+  applyAnimations(prevMap: Map<number, { amount: number }>, next: any[], side: 'buy'|'sell') {
+    // normalize bars
+    const max = next.reduce((m, r) => Math.max(m, r.amount), 0) || 1;
+
+    for (const lvl of next) {
+      // fill for depth bar (0..1)
+      lvl.fill = (lvl.amount / max).toFixed(4);
+
+      // detect change vs previous
+      const prev = prevMap.get(lvl.price);
+      if (!prev) continue;
+
+      if (lvl.amount !== prev.amount) {
+        // pulse when size changes
+        lvl._pulse = true;
+      }
+    }
+
+    // example: flash on last trade side
+    const flash = this.spotOrderbookService.lastTradeSide;
+    if (flash === side) {
+      // flash the top-of-book row only
+      const top = next[0];
+      if (top) top._flash = flash;
+    }
+
+    // clear previous map and replace with current
+    prevMap.clear();
+    next.forEach(l => prevMap.set(l.price, { amount: l.amount }));
+  }
+
+  clearAnim(level: any) {
+    // remove classes once animation finishes
+    level._pulse = false;
+    level._flash = undefined;
+  }
+
 }

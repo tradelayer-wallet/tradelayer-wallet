@@ -1,1 +1,42 @@
-[]
+[
+  {
+    "id": "383c626a",
+    "name": "apiEx.js",
+    "fileName": "apiEx.js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\apiEx.js",
+    "size": 2474,
+    "createdAt": 1759342564590.9548,
+    "status": "stopped",
+    "amount": 0
+  },
+  {
+    "id": "6ea0d64c",
+    "name": "calendarHedger.js",
+    "fileName": "calendarHedger.js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\calendarHedger.js",
+    "size": 14086,
+    "createdAt": 1759342564591.9543,
+    "status": "stopped",
+    "amount": 0
+  },
+  {
+    "id": "67618268",
+    "name": "ibit_mm_consolidated.js",
+    "fileName": "ibit_mm_consolidated.js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\ibit_mm_consolidated.js",
+    "size": 10864,
+    "createdAt": 1759342564591.9543,
+    "status": "stopped",
+    "amount": 0
+  },
+  {
+    "id": "440b12a4",
+    "name": "mmEx.js",
+    "fileName": "mmEx.js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\mmEx.js",
+    "size": 10948,
+    "createdAt": 1759342564591.9543,
+    "status": "stopped",
+    "amount": 0
+  }
+]

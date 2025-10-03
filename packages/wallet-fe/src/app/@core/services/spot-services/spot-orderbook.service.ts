@@ -39,6 +39,15 @@ export interface ISpotOrder {
     state?: "CANCELED" | "FILLED"
 }
 
+export interface IOrderbookRow {
+  price: number;
+  amount: number;
+  fill?: string;
+  _pulse?: boolean;
+  _flash?: 'buy' | 'sell';
+}
+
+
 @Injectable({
     providedIn: 'root',
 })
@@ -54,6 +63,11 @@ export class SpotOrderbookService {
     private activeKey: string | null = null;
     private _lastRequestedKey: string | null = null;
     onUpdate?: () => void;
+    private obDebounceTimer: any = null;
+    private obBuffered: any[] = [];
+    private rafId: any = null;
+    public lastTradeSide: 'buy' | 'sell' | undefined;
+
 
     constructor(
         private socketService: SocketService,
@@ -112,6 +126,12 @@ export class SpotOrderbookService {
             this.structureOrderBook();
             // Optionally: notify the user
             this.toastrService.info('Disconnected from orderbook server. Orders cleared.');
+            clearTimeout(this.obDebounceTimer);
+            this.obDebounceTimer = null;
+            this.obBuffered = [];
+            if (this.rafId) cancelAnimationFrame(this.rafId);
+            this.rafId = null;
+
         });
 
         this.socket.on(`${obEventPrefix}::order:saved`, (data: any) => {
@@ -123,37 +143,44 @@ export class SpotOrderbookService {
             this.socket.emit('update-orderbook', this.marketFilter)
         });
 
-        
-
         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
-          console.log('[Spot OB] update ' + JSON.stringify(orderbookData));
-
+          // keep your marketKey guard
           const mk = orderbookData?.marketKey || this.activeKey;
           if (mk && this.activeKey && mk !== this.activeKey) return;
 
-          if (Array.isArray(orderbookData.orders)) {
-            if (orderbookData.isDelta) {
-              this.rawOrderbookData = this.mergeOrders(
-                this.rawOrderbookData,
-                orderbookData.orders as ISpotOrder[]
-              );
-            } else {
-              this.rawOrderbookData = orderbookData.orders as ISpotOrder[];
+          // buffer & debounce
+          this.obBuffered.push(orderbookData);
+          clearTimeout(this.obDebounceTimer);
+
+          this.obDebounceTimer = setTimeout(() => {
+            // prefer the newest full snapshot; otherwise merge the buffered deltas
+            const latestFull = [...this.obBuffered].reverse().find(m => !m.isDelta);
+            const batch = latestFull ? [latestFull] : this.obBuffered;
+            this.obBuffered = [];
+
+            for (const msg of batch) {
+              if (Array.isArray(msg.orders)) {
+                this.rawOrderbookData = msg.isDelta
+                  ? this.mergeOrders(this.rawOrderbookData, msg.orders as ISpotOrder[])
+                  : (msg.orders as ISpotOrder[]);
+              }
+
+              if (Array.isArray(msg.history)) {
+                this.tradeHistory = msg.history;
+                const lastTrade = this.tradeHistory[0];
+                this.lastTradeSide = (lastTrade.side as 'BUY'|'SELL').toLowerCase() as 'buy'|'sell';
+                this.currentPrice = lastTrade
+                  ? parseFloat(
+                      (lastTrade.props.amountForSale / lastTrade.props.amountDesired).toFixed(6)
+                    ) || 1
+                  : 1;
+              }
             }
-          }
 
-          this.tradeHistory = orderbookData.history || [];
-          const lastTrade = this.tradeHistory[0];
-
-          if (!lastTrade) {
-            this.currentPrice = 1;
-          } else {
-            const { amountForSale, amountDesired } = lastTrade.props;
-            this.currentPrice =
-              parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
-          }
-
-          this.onUpdate?.();
+            // paint once per frame
+            if (this.rafId) cancelAnimationFrame(this.rafId);
+            this.rafId = requestAnimationFrame(() => this.onUpdate?.());
+          }, 150); // ~6–7 FPS; tweak 100–200ms as you like
         });
     }
 
@@ -167,35 +194,50 @@ export class SpotOrderbookService {
         this.sellOrderbooks = this._structureOrderbook(false);
     }
 
-    private _structureOrderbook(isBuy: boolean) {
-        const baseId  = this.selectedMarket.first_token.propertyId;   // normalized: base < quote
-        const quoteId = this.selectedMarket.second_token.propertyId;
-        const myKey   = this.normalizeKey(baseId, quoteId);
+    
+private _structureOrderbook(isBuy: boolean) {
+  const baseId  = this.selectedMarket.first_token.propertyId;   // normalized: base < quote
+  const quoteId = this.selectedMarket.second_token.propertyId;
+  const myKey   = this.normalizeKey(baseId, quoteId);
 
-        // BUY: for_sale === baseId;  SELL: for_sale === quoteId
-        const filteredOrderbook = (this.rawOrderbookData || []).filter(o =>
-          this.normalizeKey(o?.props?.id_for_sale, o?.props?.id_desired) === myKey &&
-          (isBuy ? o?.props?.id_for_sale === quoteId : o?.props?.id_for_sale === baseId)
-        );
+  // 1. Filter: only this market + correct side
+  const filteredOrderbook = (this.rawOrderbookData || []).filter(o =>
+    this.normalizeKey(o?.props?.id_for_sale, o?.props?.id_desired) === myKey &&
+    (isBuy ? o?.props?.id_for_sale === quoteId : o?.props?.id_for_sale === baseId)
+  );
 
-        const range = 1000;
-        const result: {price: number, amount: number}[] = [];
-        filteredOrderbook.forEach(o => {
-          const _price = Math.trunc(o.props.price*range)
-          const existing = result.find(_o =>  Math.trunc(_o.price*range) === _price);
-          existing
-            ? existing.amount += o.props.amount
-            : result.push({
-                price: parseFloat(o.props.price.toFixed(4)),
-                amount: o.props.amount,
-            });
-        });
-        if (!isBuy) this.lastPrice = result.sort((a, b) => b.price - a.price)?.[result.length - 1]?.price || this.currentPrice || 1;
+  // 2. Bucket by truncated price
+  const range = 1000;
+  const buckets = new Map<number, number>();
+  for (const o of filteredOrderbook) {
+    const bucket = Math.trunc(o.props.price * range);
+    buckets.set(bucket, (buckets.get(bucket) || 0) + o.props.amount);
+  }
 
-        return isBuy
-            ? result.sort((a, b) => b.price - a.price).slice(0, 9)
-            : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
-    }
+  // 3. Normalize into array
+  let rows: IOrderbookRow[] = Array.from(buckets.entries()).map(([k, amount]) => ({
+    price: parseFloat((k / range).toFixed(4)),
+    amount
+  }));
+
+  // 4. Sort
+  rows.sort((a, b) => b.price - a.price);
+
+  // 5. Add depth fill (0..1 scaled)
+  const max = rows.reduce((m, r) => Math.max(m, r.amount), 0) || 1;
+  rows.forEach(r => r.fill = (r.amount / max).toFixed(4));
+
+  // 6. Update lastPrice from sell side (lowest ask)
+  if (!isBuy) {
+    this.lastPrice = rows[rows.length - 1]?.price ?? this.currentPrice ?? 1;
+  }
+
+  // 7. Return slice
+  return isBuy
+    ? rows.slice(0, 9) // top 9 bids
+    : rows.slice(Math.max(rows.length - 9, 0)); // bottom 9 asks
+}
+
 
     private mergeOrders(current: ISpotOrder[], deltas: ISpotOrder[]): ISpotOrder[] {
       const map = new Map(current.map(o => [o.uuid, o]));

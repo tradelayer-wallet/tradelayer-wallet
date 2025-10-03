@@ -138,3 +138,39 @@ table {
         padding-left: 16px !important;
     }
 }
+
+/* flash background on trade (green buy, red sell) */
+@keyframes flash-green { 0% { background: rgba(0,200,0,.25);} 100% { background: transparent; } }
+@keyframes flash-red   { 0% { background: rgba(220,0,0,.25);} 100% { background: transparent; } }
+
+.flash-buy  { animation: flash-green 350ms ease-out; }
+.flash-sell { animation: flash-red   350ms ease-out; }
+
+/* bar pulse on size change */
+@keyframes pulse { 0% { transform: scaleX(1.05);} 100% { transform: scaleX(1);} }
+.pulse { animation: pulse 200ms ease-out; transform-origin: left; }
+
+/* respect system setting */
+@media (prefers-reduced-motion: reduce) {
+  .flash-buy, .flash-sell, .pulse { animation: none !important; }
+}
+
+.bar-cell {
+  position: relative;
+  overflow: hidden;
+}
+
+.amount-text {
+  position: relative;
+  z-index: 1; /* sits above depth bar */
+}
+
+.depth-bar {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 0, 0, 0.08); /* red-ish for sell, green-ish for buy */
+  transform: scaleX(var(--fill, 0));
+  transform-origin: left;
+  will-change: transform;
+  z-index: 0;
+}
