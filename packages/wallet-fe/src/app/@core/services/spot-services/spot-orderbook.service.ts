@@ -121,16 +121,19 @@ export class SpotOrderbookService {
 
         this.socket.on(`${obEventPrefix}::update-orders-request`, () => {
             this.socket.emit('update-orderbook', this.marketFilter)
-        });
-
-        
+        });     
 
         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
           console.log('[Spot OB] update ' + JSON.stringify(orderbookData));
+          const ts = Date.now();
+          console.log(`[OB tick start ${ts}]`, {
+          orders: orderbookData?.orders?.length ?? 0,
+          isDelta: orderbookData?.isDelta ?? false,
+          history: orderbookData?.history?.length ?? 0
+        });
 
           const mk = orderbookData?.marketKey || this.activeKey;
           if (mk && this.activeKey && mk !== this.activeKey) return;
-
           if (Array.isArray(orderbookData.orders)) {
             if (orderbookData.isDelta) {
               this.rawOrderbookData = this.mergeOrders(
@@ -153,6 +156,7 @@ export class SpotOrderbookService {
               parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
           }
 
+          console.log(`[OB after structure] ${Date.now() - ts}ms`);
           this.onUpdate?.();
         });
     }
@@ -168,6 +172,7 @@ export class SpotOrderbookService {
     }
 
     private _structureOrderbook(isBuy: boolean) {
+
         const baseId  = this.selectedMarket.first_token.propertyId;   // normalized: base < quote
         const quoteId = this.selectedMarket.second_token.propertyId;
         const myKey   = this.normalizeKey(baseId, quoteId);
@@ -199,8 +204,9 @@ export class SpotOrderbookService {
 
     private mergeOrders(current: ISpotOrder[], deltas: ISpotOrder[]): ISpotOrder[] {
       const map = new Map(current.map(o => [o.uuid, o]));
-
+      const scale = 1e8
       for (const d of deltas) {
+       d.props.amount = d.props.amount / scale
         if (d.props.amount === 0 || d.state === "CANCELED") {
           map.delete(d.uuid); // remove if canceled
         } else {
