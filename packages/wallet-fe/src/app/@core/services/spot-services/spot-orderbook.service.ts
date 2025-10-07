@@ -204,9 +204,9 @@ export class SpotOrderbookService {
 
     private mergeOrders(current: ISpotOrder[], deltas: ISpotOrder[]): ISpotOrder[] {
       const map = new Map(current.map(o => [o.uuid, o]));
-      const scale = 1e8
+   
       for (const d of deltas) {
-       d.props.amount = d.props.amount / scale
+       d.props.amount = d.props.amount
         if (d.props.amount === 0 || d.state === "CANCELED") {
           map.delete(d.uuid); // remove if canceled
         } else {
