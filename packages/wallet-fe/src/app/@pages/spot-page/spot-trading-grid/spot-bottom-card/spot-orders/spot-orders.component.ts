@@ -22,7 +22,7 @@ export class SpotOrdersComponent implements OnInit, OnDestroy {
     private authService: AuthService,
   ) {}
 
-  get socket() {
+  get socket(): any {
     return this.socketService.socket;
   }
 
@@ -43,23 +43,28 @@ export class SpotOrdersComponent implements OnInit, OnDestroy {
   }
 
   // ----- symbol classification -----
-private classifySymbol(sym: string): 'SPOT' | 'FUTURES' | 'UNKNOWN' {
-  if (!sym) return 'UNKNOWN';
-  if (/^\d+-\d+$/.test(sym)) return 'SPOT';              // e.g. "0-5"
-  if (/^\d+$/.test(sym)) return 'FUTURES';               // e.g. "5"
-  if ((sym.match(/-/g) || []).length >= 2) return 'FUTURES';
-  if (/-FUT\b/i.test(sym)) return 'FUTURES';
-  if (/(?:^|-)C(?:-|$)/i.test(sym) || /(?:^|-)P(?:-|$)/i.test(sym)) return 'FUTURES';
-  return 'UNKNOWN';
-}
-private isSpotSymbol(sym: string)    { return this.classifySymbol(sym) === 'SPOT'; }
-private isFuturesSymbol(sym: string) { return this.classifySymbol(sym) === 'FUTURES'; }
+  private classifySymbol(sym: string): 'SPOT' | 'FUTURES' | 'UNKNOWN' {
+    if (!sym) return 'UNKNOWN';
+    if (/^\d+-\d+$/.test(sym)) return 'SPOT';              // e.g. "0-5"
+    if (/^\d+$/.test(sym)) return 'FUTURES';               // e.g. "5"
+    if ((sym.match(/-/g) || []).length >= 2) return 'FUTURES';
+    if (/-FUT\b/i.test(sym)) return 'FUTURES';
+    if (/(?:^|-)C(?:-|$)/i.test(sym) || /(?:^|-)P(?:-|$)/i.test(sym)) return 'FUTURES';
+    return 'UNKNOWN';
+  }
+  private isSpotSymbol(sym: string)    { return this.classifySymbol(sym) === 'SPOT'; }
+  private isFuturesSymbol(sym: string) { return this.classifySymbol(sym) === 'FUTURES'; }
 
-// ----- legacy mappers (what the UI tables expect) -----
-private toLegacyOpen(o: any, desk: 'SPOT'|'FUTURES') {
+  // ----- legacy mappers (what the UI tables expect) -----
+  private toLegacyOpen(o: any, desk: 'SPOT'|'FUTURES') {
   const key = desk === 'SPOT' ? this.authService.activeSpotKey
                               : this.authService.activeFuturesKey;
+
+  // Derive a display name if you have a symbol→name map; fall back to symbol
+  const marketName = (o.marketName ?? o.symbol ?? '-');
+
   return {
+    // legacy / existing fields
     uuid:       o.uuid,
     engine_id:  o.engine_id,
     price:      String(o.price),
@@ -67,73 +72,75 @@ private toLegacyOpen(o: any, desk: 'SPOT'|'FUTURES') {
     side:       o.side,
     marketKey:  o.symbol,
     timestamp:  o.timestamp,
-    type:       desk,              // << keeps your legacy filter happy
+    type:       desk,
     state:      'OPEN',
     keypair:    key,
-  };
-}
 
-private toLegacyHist(e: any, desk: 'SPOT'|'FUTURES') {
-  const key = desk === 'SPOT' ? this.authService.activeSpotKey
-                              : this.authService.activeFuturesKey;
-  const qty = e.qty ?? e.quantity ?? e.resting_qty ?? 0;
-  const price = e.price ?? 0;
-  return {
-    uuid:       e.uuid,
-    marketKey:  e.symbol,
-    side:       e.side,
-    // fields your Order History table reads:
-    timestamp:  e.ts ?? e.timestamp,
-    action:     e.side,                // the template shows element.action
-    state:      e.event,               // SUBMIT_ACK | RESTED | MATCH | FILLED | ...
-    props: {                           // template uses element.props.amount/price
-      amount: String(qty),
-      price:  String(price),
+    // 👇 add what the Orders table template actually binds to
+    action:     o.side,                    // used by {{ element.action }}
+    marketName,                            // used by {{ element.marketName || '-' }}
+    props: {                               // used by {{ element.props.amount/price }}
+      amount: String(o.amount ?? 0),
+      price:  String(o.price  ?? 0),
     },
-    // keep legacy flags:
-    type:       desk,
-    keypair:    key,
   };
 }
 
+
+  private toLegacyHist(e: any, desk: 'SPOT'|'FUTURES') {
+    const key = desk === 'SPOT' ? this.authService.activeSpotKey
+                                : this.authService.activeFuturesKey;
+    const qty = e.qty ?? e.quantity ?? e.resting_qty ?? 0;
+    const price = e.price ?? 0;
+    return {
+      uuid:       e.uuid,
+      marketKey:  e.symbol,
+      side:       e.side,
+      timestamp:  e.ts ?? e.timestamp,
+      action:     e.side,                // template uses element.action
+      state:      e.event,               // SUBMIT_ACK | RESTED | MATCH | FILLED | ...
+      props: {                           // template uses element.props.amount/price
+        amount: String(qty),
+        price:  String(price),
+      },
+      type:       desk,
+      keypair:    key,
+    };
+  }
 
   // ---- internals ----
   private subscribeToSocket(): void {
+    const sock = this.socket;
+    if (!sock) return;
+
     // placed-orders -> { openedOrders: [], orderHistory: [] } in *new* native shape
-     this.socket.on(`${obEventPrefix}::placed-orders`, (msg: any) => {
-      console.log('raw order data '+JSON.stringify(msg))
+    sock.on(`${obEventPrefix}::placed-orders`, (msg: any) => {
+    console.log('raw order payload '+JSON.stringify(msg))
       const opened = Array.isArray(msg?.openedOrders) ? msg.openedOrders : [];
       const hist = typeof msg?.orderHistory === 'string'
         ? JSON.parse(msg.orderHistory)
         : (Array.isArray(msg?.orderHistory) ? msg.orderHistory : []);
 
       const openedSpot = opened
-        .filter(o => this.isSpotSymbol(o.symbol))
-        .map(o => this.toLegacyOpen(o, 'SPOT'));
+        .filter((o: any) => this.isSpotSymbol(o.symbol))
+        .map((o: any) => this.toLegacyOpen(o, 'SPOT'));
 
       const historySpot = hist
-        .filter(e => this.isSpotSymbol(e.symbol))
-        .map(e => this.toLegacyHist(e, 'SPOT'));
-        console.log('formatted '+JSON.stringify(openedSpot)+ ' history '+JSON.stringify(historySpot))
+        .filter((e: any) => this.isSpotSymbol(e.symbol))
+        .map((e: any) => this.toLegacyHist(e, 'SPOT'));
+        console.log('formatted '+JSON.stringify(openedSpot)+' '+' formatted history '+JSON.stringify(historySpot))
       this.spotOrdersService.openedOrders  = openedSpot;
-      this.spotOrdersService.orderHistory  = historySpot; // full history; no extra filtering
+      this.spotOrdersService.orderHistory  = historySpot; // full history
     });
 
-      // Disconnect cleanup stays the same
-      this.socket.on(`${obEventPrefix}::disconnect`, () => {
-        this.spotOrdersService.openedOrders = [];
-      });
-    }
-  );
-
     // clear on disconnect
-    this.socket.on(`${obEventPrefix}::disconnect`, () => {
+    sock.on(`${obEventPrefix}::disconnect`, () => {
       this.spotOrdersService.openedOrders = [];
     });
 
     // react to address changes
-    const subs = this.authService.updateAddressesSubs$.subscribe(kp => {
-      if (!this.authService.activeSpotKey || !kp.length) {
+    const subs = this.authService.updateAddressesSubs$.subscribe((kp: any) => {
+      if (!this.authService.activeSpotKey || !kp?.length) {
         this.spotOrdersService.closeAllOrders();
       }
     });
