@@ -8,7 +8,7 @@ import { FuturesMarketService, IFutureMarket } from "./futures-markets.service";
 import { ITradeInfo } from "src/app/utils/swapper";
 import { IFuturesTradeProps } from "src/app/utils/swapper/common";
 import { BehaviorSubject } from 'rxjs';
-
+import { wrangleObMessageInPlace } from 'src/app/@core/utils/ob-normalize';
 
 type Side = 'bids' | 'asks' | 'both';
 
@@ -196,6 +196,8 @@ export class FuturesOrderbookService {
         console.log('[time]', Date.now(), 'set up listener for orderbook-data');
         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
           console.log('[Futures OB] update ' + JSON.stringify(orderbookData));
+          orderbookData = wrangleObMessageInPlace(orderbookData)
+          console.log('normalized futures book '+JSON.stringify(orderbookData))
 
           const mk = orderbookData?.marketKey || this.activeKey;
           if (mk && this.activeKey && mk !== this.activeKey) return;

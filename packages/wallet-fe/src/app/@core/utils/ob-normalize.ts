@@ -1,6 +1,13 @@
-// Minimal, dependency-free helpers for orders & orderbook payloads
+// === add to src/app/@core/utils/ob-normalize.ts ===
+export interface NormalizedL2 {
+  symbol: string;
+  timestamp: number;
+  bids: Array<{ price: number; amount: number; count: number }>;
+  asks: Array<{ price: number; amount: number; count: number }>;
+  checksum?: string;
+}
 
-// ---- parsing ----
+// If you don't already have these in the file, include them:
 export function parseMaybeJson<T = any>(x: any, fallback: T): T {
   try {
     if (x == null) return fallback;
@@ -11,144 +18,10 @@ export function parseMaybeJson<T = any>(x: any, fallback: T): T {
   }
 }
 
-// ---- symbol typing & scaling ----
-export type Desk = 'SPOT' | 'FUTURES';
-
-export function classifySymbol(sym: string): Desk | 'UNKNOWN' {
-  if (!sym) return 'UNKNOWN';
-  if (/^\d+-\d+$/.test(sym)) return 'SPOT';        // e.g. "0-5"
-  if (/^\d+$/.test(sym)) return 'FUTURES';         // e.g. "5"
-  if ((sym.match(/-/g) || []).length >= 2) return 'FUTURES';
-  if (/-FUT\b/i.test(sym)) return 'FUTURES';
-  if (/(?:^|-)C(?:-|$)/i.test(sym) || /(?:^|-)P(?:-|$)/i.test(sym)) return 'FUTURES';
-  return 'UNKNOWN';
-}
-export const isSpotSymbol    = (s: string) => classifySymbol(s) === 'SPOT';
-export const isFuturesSymbol = (s: string) => classifySymbol(s) === 'FUTURES';
-
-/**
- * Per-market price scale (engine ticks -> UI units).
- * TODO: replace with real market metadata when available.
- */
 export function priceScaleForSymbol(symbol?: string): number {
   if (!symbol) return 1;
-  // Example: TLTC/USDTt spot uses cent-based ticks in engine => 100
-  if (symbol === '0-5') return 100;
-  return 1; // default 1:1
-}
-
-// ---- legacy mappers for UI tables ----
-export interface LegacyOpenRow {
-  uuid: string;
-  engine_id?: string;
-  price: string;      // legacy (top-level)
-  amount: string;     // legacy (top-level)
-  side: 'BUY' | 'SELL';
-  marketKey: string;
-  timestamp: number;
-  type: Desk;
-  state: 'OPEN';
-  keypair?: any;
-
-  // fields actually bound by the templates
-  action: 'BUY' | 'SELL';
-  marketName: string;
-  props: { amount: string; price: string };
-}
-
-export interface LegacyHistRow {
-  uuid: string;
-  marketKey: string;
-  side: 'BUY' | 'SELL';
-  timestamp: number;
-  action: 'BUY' | 'SELL';
-  state: string; // SUBMIT_ACK | RESTED | MATCH | FILLED | ...
-  props: { amount: string; price: string };
-  type: Desk;
-  keypair?: any;
-}
-
-export function toLegacyOpen(
-  o: any,
-  desk: Desk,
-  keypair: any,
-  marketName?: string
-): LegacyOpenRow {
-  const scale = priceScaleForSymbol(o?.symbol);
-  const price = Number(o?.price ?? 0) / scale;
-
-  return {
-    uuid:       String(o?.uuid ?? ''),
-    engine_id:  o?.engine_id,
-    price:      String(price),
-    amount:     String(o?.amount ?? 0),
-    side:       o?.side ?? 'BUY',
-    marketKey:  String(o?.symbol ?? ''),
-    timestamp:  Number(o?.timestamp ?? Date.now()),
-    type:       desk,
-    state:      'OPEN',
-    keypair,
-
-    action:     o?.side ?? 'BUY',
-    marketName: marketName ?? (o?.marketName ?? o?.symbol ?? '-'),
-    props: {
-      amount: String(o?.amount ?? 0),
-      price:  String(price),
-    },
-  };
-}
-
-export function toLegacyHist(
-  e: any,
-  desk: Desk,
-  keypair: any
-): LegacyHistRow {
-  const scale = priceScaleForSymbol(e?.symbol);
-  const qty   = e?.qty ?? e?.quantity ?? e?.resting_qty ?? 0;
-  const price = Number(e?.price ?? 0) / scale;
-
-  return {
-    uuid:       String(e?.uuid ?? ''),
-    marketKey:  String(e?.symbol ?? ''),
-    side:       e?.side ?? 'BUY',
-    timestamp:  Number(e?.ts ?? e?.timestamp ?? Date.now()),
-    action:     e?.side ?? 'BUY',
-    state:      String(e?.event ?? ''),
-    props: {
-      amount: String(qty),
-      price:  String(price),
-    },
-    type:       desk,
-    keypair,
-  };
-}
-
-// ---- normalize placed-orders payloads (arrays or JSON strings) ----
-export function normalizeOpenedOrders(
-  openedRaw: any,
-  desk: Desk,
-  keypair: any
-): LegacyOpenRow[] {
-  const list = parseMaybeJson<any[]>(openedRaw, []);
-  return list.map(o => toLegacyOpen(o, desk, keypair));
-}
-
-export function normalizeOrderHistory(
-  histRaw: any,
-  desk: Desk,
-  keypair: any
-): LegacyHistRow[] {
-  const list = parseMaybeJson<any[]>(histRaw, []);
-  return list.map(e => toLegacyHist(e, desk, keypair));
-}
-
-// ---- orderbook snapshot (engine -> UI) ----
-export interface NormalizedL2 {
-  symbol: string;
-  timestamp: number;
-  bids: Array<{ price: number; amount: number; count: number }>;
-  asks: Array<{ price: number; amount: number; count: number }>;
-  checksum?: string;
+  if (symbol === '0-5') return 100; // example; replace with your metadata
+  return 1;
 }
 
 export function normalizeSnapshot(snapRaw: any): NormalizedL2 | null {
@@ -157,7 +30,6 @@ export function normalizeSnapshot(snapRaw: any): NormalizedL2 | null {
 
   const sym   = String(snapObj.snapshot.symbol ?? '');
   const scale = priceScaleForSymbol(sym);
-
   const mapSide = (rows: any[] = []) =>
     rows.map(r => ({
       price:  scale ? Number(r?.price ?? 0) / scale : Number(r?.price ?? 0),
@@ -173,3 +45,72 @@ export function normalizeSnapshot(snapRaw: any): NormalizedL2 | null {
     checksum:  snapObj.checksum,
   };
 }
+
+/**
+ * Mutates `msg` in-place so your existing listener code can run unchanged:
+ * - Ensures msg.orders is an array (or [] if a snapshot was provided)
+ * - Parses stringified orders/history
+ * - Attaches normalized snapshot at msg._normSnapshot when provided
+ * - Sets msg.marketKey from snapshot.symbol if absent
+ * - Coerces lastTrade.props.price to a number if possible
+ */
+export function wrangleObMessageInPlace<T extends any>(msg: T): T {
+  if (!msg || typeof msg !== 'object') return msg as T;
+
+  // 1) orders: parse if string
+  // @ts-expect-error dynamic shape
+  if (typeof msg.orders === 'string') {
+    // @ts-expect-error dynamic shape
+    msg.orders = parseMaybeJson<any[]>(msg.orders, []);
+  }
+
+  // 2) if orders isn't an array, see if it's a snapshot; if so, normalize & stash
+  let snap: NormalizedL2 | null = null;
+  // @ts-expect-error dynamic shape
+  if (!Array.isArray(msg.orders) && (msg as any).orders != null) {
+    // @ts-expect-error dynamic shape
+    snap = normalizeSnapshot(msg.orders);
+    if (snap) {
+      (msg as any)._normSnapshot = snap;                 // stash normalized snapshot
+      if (!(msg as any).marketKey && snap.symbol) (msg as any).marketKey = snap.symbol;
+      // @ts-expect-error dynamic shape
+      msg.orders = [];                                    // keep your array-based path intact
+    }
+  }
+
+  // 3) history: parse if string
+  // @ts-expect-error dynamic shape
+  if (typeof msg.history === 'string') {
+    // @ts-expect-error dynamic shape
+    msg.history = parseMaybeJson<any[]>(msg.history, []);
+  }
+
+  // 4) make lastTrade.props.* numeric if possible
+  // @ts-expect-error dynamic shape
+  if (Array.isArray(msg.history) && (msg.history as any[]).length > 0) {
+    // @ts-expect-error dynamic shape
+    const lt = (msg.history as any[])[0];
+    const hasProps = lt && typeof lt === 'object' && lt.props && typeof lt.props === 'object';
+    if (hasProps) {
+      const p   = Number(lt.props.price);
+      const afs = Number(lt.props.amountForSale);
+      const ad  = Number(lt.props.amountDesired);
+      if (!Number.isNaN(p))   lt.props.price = p;
+      if (!Number.isNaN(afs)) lt.props.amountForSale = afs;
+      if (!Number.isNaN(ad))  lt.props.amountDesired = ad;
+    }
+  }
+
+  // 5) if still no marketKey, salvage from snapshot or first order
+  if (!(msg as any).marketKey) {
+    if (snap?.symbol) (msg as any).marketKey = snap.symbol;
+    // @ts-expect-error dynamic shape
+    else if (Array.isArray(msg.orders) && (msg.orders as any[])[0]?.symbol) {
+      // @ts-expect-error dynamic shape
+      (msg as any).marketKey = (msg.orders as any[])[0].symbol;
+    }
+  }
+
+  return msg;
+}
+

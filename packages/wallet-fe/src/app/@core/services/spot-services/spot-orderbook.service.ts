@@ -7,7 +7,9 @@ import { LoadingService } from "../loading.service";
 import { AuthService } from "../auth.service";
 import { ITradeInfo } from "src/app/utils/swapper";
 import { ISpotTradeProps } from "src/app/utils/swapper/common";
+import { wrangleObMessageInPlace } from 'src/app/@core/utils/ob-normalize';
 type Side = 'bids' | 'asks' | 'both';
+// spot-orders.component.ts (imports)
 
 interface ISpotOrderbookData {
     orders: ISpotOrder[],
@@ -125,6 +127,8 @@ export class SpotOrderbookService {
 
         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
           console.log('[Spot OB] update ' + JSON.stringify(orderbookData));
+          orderbookData = wrangleObMessageInPlace(orderbookData)
+          console.log('normalized spot book '+JSON.stringify(orderbookData))
           const ts = Date.now();
           console.log(`[OB tick start ${ts}]`, {
           orders: orderbookData?.orders?.length ?? 0,
