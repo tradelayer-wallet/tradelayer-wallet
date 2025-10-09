@@ -39,13 +39,55 @@ export class SpotOrdersComponent implements OnInit, OnDestroy {
     }
 
     private subsribe() {
-       this.socket.on(`${obEventPrefix}::placed-orders`, (orders: { openedOrders: ISpotOrder[], orderHistory: ISpotOrder[] }) => {
-          const { openedOrders, orderHistory } = orders;
-          console.log('orders '+JSON.stringify(openedOrders)+' '+JSON.stringify(orderHistory))
-          this.spotOrdersService.orderHistory = orderHistory
-            .filter(q => q.type === "SPOT" && q.keypair.pubkey === this.authService.activeSpotKey?.pubkey && q.state);
-          this.spotOrdersService.openedOrders = openedOrders.filter(q => q.type === "SPOT");
-        });
+      this.socket.on(
+  `${obEventPrefix}::placed-orders`,
+  (orders: { openedOrders: any[]; orderHistory: any[] }) => {
+    const { openedOrders = [], orderHistory = [] } = orders;
+
+    // Legacy adapters so the rest of the UI doesn't change
+    const activeKey = this.authService.activeSpotKey; // may be undefined
+
+    const toLegacyOpen = (o: any) => ({
+      uuid: o.uuid,
+      engine_id: o.engine_id,
+      price: String(o.price),           // UI used strings previously
+      amount: String(o.amount),
+      side: o.side,
+      marketKey: o.symbol,
+      timestamp: o.timestamp,
+      // legacy fields expected by filters / views:
+      type: 'SPOT',
+      state: 'OPEN',
+      keypair: activeKey,
+    });
+
+    const toLegacyHist = (e: any) => ({
+      uuid: e.uuid,
+      marketKey: e.symbol,
+      side: e.side,
+      price: String(e.price ?? 0),
+      amount: String(e.qty ?? e.quantity ?? 0),
+      ts: e.ts,
+      // legacy fields:
+      type: 'SPOT',
+      state: e.event,       // SUBMIT_ACK | RESTED | MATCH | FILLED | ...
+      keypair: activeKey,
+    });
+
+    const openedLegacy = openedOrders.map(toLegacyOpen);
+    const historyLegacy = orderHistory.map(toLegacyHist);
+
+    // Keep your existing filtering intent, but now it will work on legacy shape
+    this.spotOrdersService.orderHistory = historyLegacy
+      .filter(q =>
+        q.type === 'SPOT' &&
+        (!!q.keypair?.pubkey ? q.keypair.pubkey === activeKey?.pubkey : true) &&
+        q.state
+      );
+
+    this.spotOrdersService.openedOrders = openedLegacy
+      .filter(q => q.type === 'SPOT');
+
 
         //this.spotOrdersService.closeOpenedOrder('test-for-update');
         this.socket.on(`${obEventPrefix}::disconnect`, () => {

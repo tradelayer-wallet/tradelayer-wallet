@@ -167,7 +167,7 @@ export class OBSocketService {
     this.cleanupWalletSocketListeners();
 
     // REGULAR EVENTS
-    ['update-orderbook', 'new-order', 'close-order', 'many-orders','orderbook:join', 'orderbook:leave'].forEach(ev => {
+    ['update-orderbook', 'new-order', 'close-order', 'many-orders','orderbook:join', 'orderbook:leave','amend-order'].forEach(ev => {
       this._handlers[ev] = (data: any) => {
         console.log('emitting ' + JSON.stringify(data));
         this.emitToServer(ev, data);
