@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
 import { IFuturesOrder } from "./futures-orderbook.service";
+import { FuturesMarketService  } from "./futures-markets.service";
 
 interface ITradeConf {
     keypair: {
@@ -37,6 +38,7 @@ export class FuturesOrdersService {
     constructor(
         private socketService: SocketService,
         private loadingService: LoadingService,
+        private futureMarketService: FuturesMarketService
     ) { }
 
     get socket() {
@@ -45,6 +47,10 @@ export class FuturesOrdersService {
 
     get openedOrders(): IFuturesOrder[] {
         return this._openedOrders;
+    }
+
+    get selectedMarket() {
+        return this.futureMarketService.selectedMarket;
     }
 
     set openedOrders(value: IFuturesOrder[]) {
@@ -70,7 +76,9 @@ export class FuturesOrdersService {
     }
 
     closeOpenedOrder(uuid: string) {
-        this.socket.emit('close-order', { orderUUID: uuid });
+         const sel = this.selectedMarket;
+        const contractId  = sel?.contract_id;
+        this.socket.emit('close-order', { orderUUID: uuid, contractId });
     }
 
     closeAllOrders() {

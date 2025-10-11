@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
 import { ISpotOrder } from "./spot-orderbook.service";
+import { SpotMarketsService, IMarket  } from "./spot-markets.service";
 
 interface ITradeConf {
     keypair: {
@@ -35,6 +36,7 @@ export class SpotOrdersService {
     constructor(
         private socketService: SocketService,
         private loadingService: LoadingService,
+        private spotMarketService: SpotMarketsService
     ) { }
 
     get socket() {
@@ -47,6 +49,10 @@ export class SpotOrdersService {
 
     set openedOrders(value: ISpotOrder[]) {
         this._openedOrders = value;
+    }
+
+    get selectedMarket() {
+        return this.spotMarketService.selectedMarket;
     }
 
     get orderHistory() {
@@ -69,7 +75,10 @@ export class SpotOrdersService {
 
     closeOpenedOrder(uuid: string) {
         console.log('closing order '+uuid)
-        this.socket.emit('close-order', { orderUUID: uuid });
+        const sel = this.selectedMarket;
+        const base  = sel?.first_token?.propertyId;
+        const quote = sel?.second_token?.propertyId;
+        this.socket.emit('close-order', { orderUUID: uuid, id_for_sale: base, id_desired: quote });
     }
 
     closeAllOrders() {
