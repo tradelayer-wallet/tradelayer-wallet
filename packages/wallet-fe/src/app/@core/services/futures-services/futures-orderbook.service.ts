@@ -106,6 +106,30 @@ export class FuturesOrderbookService {
         return this.futuresMarketService.marketFilter;
     };
 
+    /** FUTURES: if activeKey is unset, adopt it from the incoming OB message/service. */
+    private ensureActiveFuturesKey(msg: any): void {
+      if (this.activeKey) return;
+
+      // Prefer explicit marketKey if present
+      const mk =
+        (typeof msg?.marketKey === 'string' && msg.marketKey.trim())
+          ? msg.marketKey.trim()
+          : null;
+
+      // Or from a snapshot object: orders = { symbol: '...' } (before/after wrangler)
+      const sym =
+        (msg?.orders && !Array.isArray(msg.orders) && typeof msg.orders?.symbol === 'string')
+          ? msg.orders.symbol.trim()
+          : null;
+
+      // Or from your markets service's selected market (if you have it on this service)
+      const selSym: string | undefined =
+        (this.futuresMarketService as any)?.selectedMarket?.symbol;
+
+      this.activeKey = mk ?? sym ?? (selSym?.trim() ?? null);
+    }
+
+
      private bindOnce() {
     if (this.bound) return; this.bound = true;
     this.socket.on('ORDERBOOK_DATA', (msg: any) => {
@@ -198,7 +222,7 @@ export class FuturesOrderbookService {
           console.log('[Futures OB] update ' + JSON.stringify(orderbookData));
           orderbookData = wrangleObMessageInPlace(orderbookData)
           console.log('normalized futures book '+JSON.stringify(orderbookData))
-
+            this.ensureActiveFuturesKey(orderbookData);
           const mk = orderbookData?.marketKey || this.activeKey;
           if (mk && this.activeKey && mk !== this.activeKey) return;
 

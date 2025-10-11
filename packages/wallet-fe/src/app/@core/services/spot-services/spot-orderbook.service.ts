@@ -59,7 +59,7 @@ export class SpotOrderbookService {
 
     constructor(
         private socketService: SocketService,
-        private spotMarkertService: SpotMarketsService,
+        private spotMarketService: SpotMarketsService,
         private toastrService: ToastrService,
         private loadingService: LoadingService,
         private authService: AuthService,
@@ -74,7 +74,7 @@ export class SpotOrderbookService {
     }
 
     get selectedMarket() {
-        return this.spotMarkertService.selectedMarket;
+        return this.spotMarketService.selectedMarket;
     }
 
     get rawOrderbookData() {
@@ -90,6 +90,7 @@ export class SpotOrderbookService {
 
     set rawOrderbookData(value: ISpotOrder[]) {
         this._rawOrderbookData = value;
+        console.log('inside raw orderbook '+JSON.stringify(value))
         this.structureOrderBook();
     } 
 
@@ -98,8 +99,29 @@ export class SpotOrderbookService {
     }
 
     get marketFilter() {
-        return this.spotMarkertService.marketFilter;
+        return this.spotMarketService.marketFilter;
     };
+
+    /** If activeKey is not set, try to infer it from the incoming OB message. */
+    /** If activeKey is not set, adopt it from the incoming OB message or selectedMarket. */
+    private ensureActiveKeyFromMessage(msg: any): void {
+      if (this.activeKey) return;
+
+      // Prefer protocol-format marketKey "id-id" if present
+      const mk = (typeof msg?.marketKey === 'string' && /^\d+-\d+$/.test(msg.marketKey))
+        ? msg.marketKey
+        : null;
+
+      if (mk) { this.activeKey = mk; return; }
+
+      // Fall back to currently selected market from the markets service
+      const sel = this.selectedMarket;
+      const base  = sel?.first_token?.propertyId;
+      const quote = sel?.second_token?.propertyId;
+      if (typeof base === 'number' && typeof quote === 'number') {
+        this.activeKey = this.normalizeKey(base, quote);
+      }
+    }
 
     subscribeForOrderbook() {
         this.endOrderbookSbuscription();
@@ -133,10 +155,12 @@ export class SpotOrderbookService {
           console.log(`[OB tick start ${ts}]`, {
           orders: orderbookData?.orders?.length ?? 0,
           isDelta: orderbookData?.isDelta ?? false,
-          history: orderbookData?.history?.length ?? 0
-        });
+          history: orderbookData?.history?.length ?? 0})
+          this.ensureActiveKeyFromMessage(orderbookData);
+
 
           const mk = orderbookData?.marketKey || this.activeKey;
+          console.log('this active key and market key '+this.activeKey+' '+mk)
           if (mk && this.activeKey && mk !== this.activeKey) return;
           if (Array.isArray(orderbookData.orders)) {
             if (orderbookData.isDelta) {
@@ -145,6 +169,7 @@ export class SpotOrderbookService {
                 orderbookData.orders as ISpotOrder[]
               );
             } else {
+              console.log('ook assigning raw orderbook')
               this.rawOrderbookData = orderbookData.orders as ISpotOrder[];
             }
           }
@@ -186,6 +211,8 @@ export class SpotOrderbookService {
           this.normalizeKey(o?.props?.id_for_sale, o?.props?.id_desired) === myKey &&
           (isBuy ? o?.props?.id_for_sale === quoteId : o?.props?.id_for_sale === baseId)
         );
+
+        console.log('filtered orderbook inside struct ob '+JSON.stringify(filteredOrderbook))
 
         const range = 1000;
         const result: {price: number, amount: number}[] = [];

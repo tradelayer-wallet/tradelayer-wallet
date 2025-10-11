@@ -1,116 +1,84 @@
-// === add to src/app/@core/utils/ob-normalize.ts ===
-export interface NormalizedL2 {
-  symbol: string;
-  timestamp: number;
-  bids: Array<{ price: number; amount: number; count: number }>;
-  asks: Array<{ price: number; amount: number; count: number }>;
-  checksum?: string;
-}
-
-// If you don't already have these in the file, include them:
-export function parseMaybeJson<T = any>(x: any, fallback: T): T {
+function parseMaybeJson<T = any>(x: unknown, fallback: T): T {
+  if (x == null) return fallback;
+  if (typeof x !== 'string') return x as T;
   try {
-    if (x == null) return fallback;
-    if (typeof x === 'string') return JSON.parse(x) as T;
-    return x as T;
+    return JSON.parse(x) as T;
   } catch {
     return fallback;
   }
 }
 
-export function priceScaleForSymbol(symbol?: string): number {
-  if (!symbol) return 1;
-  if (symbol === '0-5') return 100; // example; replace with your metadata
-  return 1;
+
+type SnapshotLike = {
+  symbol?: string;
+  bids?: Array<{ price?: number; amount?: number; visible_quantity?: number }>;
+  asks?: Array<{ price?: number; amount?: number; visible_quantity?: number }>;
+  timestamp?: number;
+};
+
+function isSnapshotLike(x: unknown): x is SnapshotLike {
+  return !!x
+    && typeof x === 'object'
+    && !Array.isArray(x)
+    && (Array.isArray((x as any).bids) || Array.isArray((x as any).asks));
 }
 
-export function normalizeSnapshot(snapRaw: any): NormalizedL2 | null {
-  const snapObj = parseMaybeJson<any>(snapRaw, null);
-  if (!snapObj || !snapObj.snapshot) return null;
+export function wrangleObMessageInPlace<M extends Record<string, any>>(msg: M): M {
+  if (!msg || typeof msg !== 'object') return msg;
 
-  const sym   = String(snapObj.snapshot.symbol ?? '');
-  const scale = priceScaleForSymbol(sym);
-  const mapSide = (rows: any[] = []) =>
-    rows.map(r => ({
-      price:  scale ? Number(r?.price ?? 0) / scale : Number(r?.price ?? 0),
-      amount: Number(r?.visible_quantity ?? 0),
-      count:  Number(r?.order_count ?? 0),
-    }));
+  const anyMsg = msg as Record<string, any>;
 
-  return {
-    symbol:    sym,
-    timestamp: Number(snapObj.snapshot.timestamp ?? Date.now()),
-    bids:      mapSide(snapObj.snapshot.bids),
-    asks:      mapSide(snapObj.snapshot.asks),
-    checksum:  snapObj.checksum,
-  };
-}
-
-/**
- * Mutates `msg` in-place so your existing listener code can run unchanged:
- * - Ensures msg.orders is an array (or [] if a snapshot was provided)
- * - Parses stringified orders/history
- * - Attaches normalized snapshot at msg._normSnapshot when provided
- * - Sets msg.marketKey from snapshot.symbol if absent
- * - Coerces lastTrade.props.price to a number if possible
- */
-export function wrangleObMessageInPlace<T extends any>(msg: T): T {
-  if (!msg || typeof msg !== 'object') return msg as T;
-
-  // 1) orders: parse if string
-  // @ts-expect-error dynamic shape
-  if (typeof msg.orders === 'string') {
-    // @ts-expect-error dynamic shape
-    msg.orders = parseMaybeJson<any[]>(msg.orders, []);
+  // orders: parse if string
+  if (typeof anyMsg.orders === 'string') {
+    anyMsg.orders = parseMaybeJson<any[]>(anyMsg.orders, []);
   }
 
-  // 2) if orders isn't an array, see if it's a snapshot; if so, normalize & stash
-  let snap: NormalizedL2 | null = null;
-  // @ts-expect-error dynamic shape
-  if (!Array.isArray(msg.orders) && (msg as any).orders != null) {
-    // @ts-expect-error dynamic shape
-    snap = normalizeSnapshot(msg.orders);
-    if (snap) {
-      (msg as any)._normSnapshot = snap;                 // stash normalized snapshot
-      if (!(msg as any).marketKey && snap.symbol) (msg as any).marketKey = snap.symbol;
-      // @ts-expect-error dynamic shape
-      msg.orders = [];                                    // keep your array-based path intact
+  // snapshot → array conversion
+  const maybeSnap = anyMsg.orders as unknown;
+  if (isSnapshotLike(maybeSnap)) {
+    const arr: Array<{ price: number; amount: number; side: 'BUY' | 'SELL'; isBuy: boolean }> = [];
+
+    for (const b of maybeSnap.bids ?? []) {
+      arr.push({
+        price: Number(b?.price ?? 0),
+        amount: Number(b?.amount ?? b?.visible_quantity ?? 0),
+        side: 'BUY',
+        isBuy: true,
+      });
     }
-  }
-
-  // 3) history: parse if string
-  // @ts-expect-error dynamic shape
-  if (typeof msg.history === 'string') {
-    // @ts-expect-error dynamic shape
-    msg.history = parseMaybeJson<any[]>(msg.history, []);
-  }
-
-  // 4) make lastTrade.props.* numeric if possible
-  // @ts-expect-error dynamic shape
-  if (Array.isArray(msg.history) && (msg.history as any[]).length > 0) {
-    // @ts-expect-error dynamic shape
-    const lt = (msg.history as any[])[0];
-    const hasProps = lt && typeof lt === 'object' && lt.props && typeof lt.props === 'object';
-    if (hasProps) {
-      const p   = Number(lt.props.price);
-      const afs = Number(lt.props.amountForSale);
-      const ad  = Number(lt.props.amountDesired);
-      if (!Number.isNaN(p))   lt.props.price = p;
-      if (!Number.isNaN(afs)) lt.props.amountForSale = afs;
-      if (!Number.isNaN(ad))  lt.props.amountDesired = ad;
+    for (const a of maybeSnap.asks ?? []) {
+      arr.push({
+        price: Number(a?.price ?? 0),
+        amount: Number(a?.amount ?? a?.visible_quantity ?? 0),
+        side: 'SELL',
+        isBuy: false,
+      });
     }
+
+    anyMsg.orders = arr; // so your Array.isArray path runs as-is
+    if (!anyMsg.marketKey && maybeSnap.symbol) anyMsg.marketKey = maybeSnap.symbol;
   }
 
-  // 5) if still no marketKey, salvage from snapshot or first order
-  if (!(msg as any).marketKey) {
-    if (snap?.symbol) (msg as any).marketKey = snap.symbol;
-    // @ts-expect-error dynamic shape
-    else if (Array.isArray(msg.orders) && (msg.orders as any[])[0]?.symbol) {
-      // @ts-expect-error dynamic shape
-      (msg as any).marketKey = (msg.orders as any[])[0].symbol;
+  // history: parse if string; coerce numbers (e.g. 0) to []
+  if (typeof anyMsg.history === 'string') {
+    anyMsg.history = parseMaybeJson<any[]>(anyMsg.history, []);
+  } else if (typeof anyMsg.history === 'number') {
+    anyMsg.history = [];
+  }
+
+  // best-effort numeric coercions for lastTrade.props
+  if (Array.isArray(anyMsg.history) && anyMsg.history.length > 0) {
+    const lt = anyMsg.history[0];
+    if (lt && typeof lt === 'object' && lt.props && typeof lt.props === 'object') {
+      const toNum = (x: any) => {
+        const v = Number(x);
+        return Number.isNaN(v) ? x : v;
+        };
+      lt.props.price         = toNum(lt.props.price);
+      lt.props.amountForSale = toNum(lt.props.amountForSale);
+      lt.props.amountDesired = toNum(lt.props.amountDesired);
     }
   }
 
   return msg;
 }
-

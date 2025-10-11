@@ -27,8 +27,6 @@ export class SpotMarketsToolbarComponent {
         return this.spotMarketsService.spotMarketsTypes;
     }
 
-
-
     get selectedMarketType() {
         // After selectedMarketType setter runs, it sets a default selectedMarket.
         return this.spotMarketsService.selectedMarketType;
