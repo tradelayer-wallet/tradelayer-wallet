@@ -223,64 +223,64 @@ private isSpotZeroTrade(): boolean {
 
 
 
-private async onStep4(
-  cpId: string,
-  psbtHex: string,
-  commitTxId?: string   // note: optional, LTC-only branches won’t supply it
-) {
-  this.logTime('Step 4 Start');
-  console.log(psbtHex)
-  try {
-    // 1) Basic sanity
-    if (cpId !== this.cpInfo.socketId) {
-      throw new Error('Step 4: p2p socket mismatch');
-    }
-    if (!psbtHex) {
-      throw new Error('Step 4: missing PSBT');
-    }
-
-    // 2) If we have a commitTxId, pull and decode it from the node:
-    const skipRbf = this.isSpotZeroTrade();
-    if (commitTxId && !skipRbf) {
-      // RPC: getrawtransaction with verbose=true to get vin[] & sequence
-      const txRes = await this.client('getrawtransaction', [commitTxId, true]);
-      if (txRes.error || !txRes.data?.vin) {
-        throw new Error(`getrawtransaction failed: ${txRes.error}`);
+  private async onStep4(
+    cpId: string,
+    psbtHex: string,
+    commitTxId?: string   // note: optional, LTC-only branches won’t supply it
+  ) {
+    this.logTime('Step 4 Start');
+    console.log(psbtHex)
+    try {
+      // 1) Basic sanity
+      if (cpId !== this.cpInfo.socketId) {
+        throw new Error('Step 4: p2p socket mismatch');
       }
-      // BIP-125: any sequence < 0xFFFFFFFE signals opt-in RBF
-      const isRbf = txRes.data.vin.some((vin: any) => vin.sequence < 0xfffffffe);
-      if (isRbf) {
-        throw new Error('RBF-enabled commit tx detected; aborting.');
+      if (!psbtHex) {
+        throw new Error('Step 4: missing PSBT');
       }
+
+      // 2) If we have a commitTxId, pull and decode it from the node:
+      const skipRbf = this.isSpotZeroTrade();
+      if (commitTxId && !skipRbf) {
+        // RPC: getrawtransaction with verbose=true to get vin[] & sequence
+        const txRes = await this.client('getrawtransaction', [commitTxId, true]);
+        if (txRes.error || !txRes.data?.vin) {
+          throw new Error(`getrawtransaction failed: ${txRes.error}`);
+        }
+        // BIP-125: any sequence < 0xFFFFFFFE signals opt-in RBF
+        const isRbf = txRes.data.vin.some((vin: any) => vin.sequence < 0xfffffffe);
+        if (isRbf) {
+          throw new Error('RBF-enabled commit tx detected; aborting.');
+        }
+      }
+
+      // 3) Load WIF for PSBT signing
+      const wifRes = await this.txsService.getWifByAddress(this.myInfo.keypair.address);
+      if (wifRes.error || !wifRes.data) {
+        throw new Error(`getWif failed: ${wifRes.error}`);
+      }
+
+      // 4) Sign the PSBT
+      const signRes = await this.txsService.signPsbt({ wif: wifRes.data, psbtHex });
+      console.log('signRes '+JSON.stringify(signRes)+' '+wifRes.data+' '+psbtHex)
+      if (signRes.error || !signRes.data?.psbtHex) {
+        throw new Error(`signPsbt failed: ${signRes.error}`);
+      }
+
+      // 5) Emit to seller for finalization
+      this.socket.emit(
+        `${this.myInfo.socketId}::swap`,
+        {
+          eventName: 'SELLER:STEP5',
+          socketId:  this.myInfo.socketId,
+          data:      signRes.data.psbtHex
+        } as any
+      );
+
+    } catch (err: any) {
+      this.terminateTrade(`Step 4: ${err.message}`);
     }
-
-    // 3) Load WIF for PSBT signing
-    const wifRes = await this.txsService.getWifByAddress(this.myInfo.keypair.address);
-    if (wifRes.error || !wifRes.data) {
-      throw new Error(`getWif failed: ${wifRes.error}`);
-    }
-
-    // 4) Sign the PSBT
-    const signRes = await this.txsService.signPsbt({ wif: wifRes.data, psbtHex });
-    console.log('signRes '+JSON.stringify(signRes)+' '+wifRes.data+' '+psbtHex)
-    if (signRes.error || !signRes.data?.psbtHex) {
-      throw new Error(`signPsbt failed: ${signRes.error}`);
-    }
-
-    // 5) Emit to seller for finalization
-    this.socket.emit(
-      `${this.myInfo.socketId}::swap`,
-      {
-        eventName: 'SELLER:STEP5',
-        socketId:  this.myInfo.socketId,
-        data:      signRes.data.psbtHex
-      } as any
-    );
-
-  } catch (err: any) {
-    this.terminateTrade(`Step 4: ${err.message}`);
   }
-}
 
     private async onStep6(cpId: string, finalTx: string) {
             this.logTime('Step 6 Start');

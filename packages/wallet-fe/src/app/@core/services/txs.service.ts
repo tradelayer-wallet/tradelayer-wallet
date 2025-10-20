@@ -213,6 +213,18 @@ export class TxsService {
         }
     }
 
+    // txs.service.ts (or wherever you call RPC)
+     async finalizePsbt(psbtHex: string): Promise<{ data?: { finalHex?: string; complete?: boolean }, error?: string }> {
+      try {
+        // Core: finalizepsbt <psbt> true → { hex, complete }
+        const res = await this.mainApi.rpcCall('finalizepsbt', [psbtHex, true]).toPromise();
+        if (res?.error) return { error: res.error };
+        return { data: { finalHex: res?.data?.hex, complete: !!res?.data?.complete } };
+      } catch (e: any) {
+        return { error: e?.message || String(e) };
+      }
+    }
+
     async sendTx(rawTx: string) {
         const result = await this.rpcService.rpc('sendrawtransaction', [rawTx]);
         //if(typeof this.balanceService.updateBalances==='function'){ 

@@ -106,22 +106,13 @@ export class BuySwapper extends Swap {
                 transfer=false
             }
 
-            let ltcTrade = false;
-            let ltcForSale = false;
-            if (propIdDesired === 0) {
-                ltcTrade = true;
-            } else if (propIdForSale === 0) {
-                ltcTrade = true;
-                ltcForSale = false;
-            }
-
             // Handle Litecoin-based trades
-            if (ltcTrade === true) {
+            if (propIdDesired==0||propIdForSale==0) {
                     const cpitLTCOptions = [propIdDesired, amountDesired.toString(), amountForSale.toString(), bbData];
-                    let tokenId = ltcForSale ? propIdForSale : propIdDesired;
-                    let tokensSold = ltcForSale ? amountForSale : amountDesired;
-                    let satsPaid = ltcForSale ? amountDesired : amountForSale;
-                    console.log('sats paid? '+satsPaid+' '+ltcForSale+' '+amountDesired+' '+amountForSale)
+                    let tokenId = propIdForSale;
+                    let tokensSold = amountForSale
+                    let satsPaid = amountDesired
+                    console.log('sats paid? '+satsPaid+' '+' '+amountDesired+' '+amountForSale)
                 const payload = ENCODER.encodeTradeTokenForUTXO({
                     propertyId: tokenId,
                     amount: tokensSold,
@@ -338,8 +329,7 @@ export class BuySwapper extends Swap {
           commitTxId: commitTxid
         });
         this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
-    
-    } else {
+        } else {
                 throw new Error(`Unrecognized Trade Type: ${this.typeTrade}`);
                }
         } catch (error: any) {
@@ -347,7 +337,6 @@ export class BuySwapper extends Swap {
             this.terminateTrade(`Step 3: ${errorMessage}`);
         }
     }
-
 
     private async onStep5(cpId: string, psbtHex: string) {
         this.logTime('Step 5 Start');
@@ -363,18 +352,29 @@ export class BuySwapper extends Swap {
         if (!wif) return this.terminateTrade(`Step 5: getWifByAddress: WIF not found: ${this.myInfo.keypair.address}`);
 
         const signRes = await this.txsService.signPsbt({ wif, psbtHex });
-        if (signRes.error || !signRes.data) return this.terminateTrade(`Step 5: signPsbt: ${signRes.error}`);
-        if (!signRes.data?.isFinished || !signRes.data?.finalHex) return this.terminateTrade(`Step 5: Transaction not Fully Synced`);
+        if (signRes.error || !signRes.data) {
+          return this.terminateTrade(`Step 5: signPsbt: ${signRes.error}`);
+        }
 
-        const currentTime = Date.now();
-        this.toastrService.info(`Signed! ${currentTime - this.tradeStartTime} ms`);
+        const { psbtHex: signedPsbtHex } = signRes.data;
+        let finalHex: string | undefined = signRes.data.finalHex;
+        console.log('signed res '+JSON.stringify(signRes))
+        // Try to finalize if finalHex is missing
+        if (!finalHex && signedPsbtHex) {
+          const fin = await this.txsService.finalizePsbt?.(signedPsbtHex);
+          console.log('finalized '+JSON.stringify(fin))
+          finalHex = fin?.data?.finalHex;
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        }
 
-        const finalTxIdRes = await this.txsService.sendTxWithSpecRetry(signRes.data.finalHex);
-        if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(`Step 5: sendRawTransaction: ${finalTxIdRes.error}`);
+        if (!finalHex) {
+          return this.terminateTrade('Step 5: missing finalHex after signing/finalize');
+        }
 
-        if (this.readyRes) this.readyRes({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });
+        await new Promise(r => setTimeout(r, 1000));
+        console.log('signed result', JSON.stringify(signRes));
+
+        const finalTxIdRes = await this.txsService.sendTxWithSpecRetry(finalHex);
 
         const swapEvent = new SwapEvent('BUYER:STEP6', this.myInfo.socketId, finalTxIdRes.data);
         this.toastrService.info('Trade completed: ' + finalTxIdRes.data);
