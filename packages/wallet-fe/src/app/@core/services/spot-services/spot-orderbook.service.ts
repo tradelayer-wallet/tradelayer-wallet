@@ -1,4 +1,3 @@
-import { Injectable } from "@angular/core";
 import { Subject } from "rxjs";
 import { SpotMarketsService, IMarket  } from "./spot-markets.service";
 import { obEventPrefix, SocketService } from "../socket.service";
@@ -8,6 +7,8 @@ import { AuthService } from "../auth.service";
 import { ITradeInfo } from "src/app/utils/swapper";
 import { ISpotTradeProps } from "src/app/utils/swapper/common";
 import { wrangleObMessageInPlace } from 'src/app/@core/utils/ob-normalize';
+import { Injectable, NgZone } from "@angular/core";
+
 type Side = 'bids' | 'asks' | 'both';
 // spot-orders.component.ts (imports)
 
@@ -63,6 +64,7 @@ export class SpotOrderbookService {
         private toastrService: ToastrService,
         private loadingService: LoadingService,
         private authService: AuthService,
+        private ngZone: NgZone, 
     ) {}
 
     get activeSpotKey() {
@@ -169,8 +171,13 @@ export class SpotOrderbookService {
             this.socket.emit('update-orderbook', payload);
           });    
 
-        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
+      this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
+        this.ngZone.run(() => { 
           console.log('[Spot OB] update ' + JSON.stringify(orderbookData));
+          if (Array.isArray(orderbookData.orders)) {
+            return; // don't let it wipe the book
+          }
+
           orderbookData = wrangleObMessageInPlace(orderbookData)
           console.log('normalized spot book '+JSON.stringify(orderbookData))
           const ts = Date.now();
@@ -184,7 +191,6 @@ export class SpotOrderbookService {
           const mk = orderbookData?.marketKey || this.activeKey;
           console.log('this active key and market key '+this.activeKey+' '+mk)
           if (mk && this.activeKey && mk !== this.activeKey) return;
-          if (Array.isArray(orderbookData.orders)) {
             if (orderbookData.isDelta) {
               this.rawOrderbookData = this.mergeOrders(
                 this.rawOrderbookData,
@@ -194,7 +200,6 @@ export class SpotOrderbookService {
               console.log('ook assigning raw orderbook')
               this.rawOrderbookData = orderbookData.orders as ISpotOrder[];
             }
-          }
 
           this.tradeHistory = orderbookData.history || [];
           const lastTrade = this.tradeHistory[0];
@@ -209,6 +214,7 @@ export class SpotOrderbookService {
 
           console.log(`[OB after structure] ${Date.now() - ts}ms`);
           this.onUpdate?.();
+          })
         });
     }
 

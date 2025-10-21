@@ -9,6 +9,7 @@ import { ITradeInfo } from "src/app/utils/swapper";
 import { IFuturesTradeProps } from "src/app/utils/swapper/common";
 import { BehaviorSubject } from 'rxjs';
 import { wrangleObMessageInPlace } from 'src/app/@core/utils/ob-normalize';
+import { Injectable, NgZone } from "@angular/core";
 
 type Side = 'bids' | 'asks' | 'both';
 
@@ -58,7 +59,27 @@ export class FuturesOrderbookService {
     sellOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
     tradeHistory: IFuturesHistoryTrade[] = [];
     currentPrice: number = 1;
-    lastPrice: number = 1;
+
+    // === futures symbol edge-normalization (keep internal futures key numeric) ===
+    private inboundToContractId(sym?: string | null): number | null {
+      if (!sym || typeof sym !== 'string') return null;
+      const m = sym.trim().match(/^([0-9]+)-perp$/i);
+      return m ? Number(m[1]) : null;
+    }
+    private normalizeInboundKeyForFutures(msg: any): string | null {
+      const mk: string | null = typeof msg?.marketKey === 'string' ? msg.marketKey : null;
+      const sym: string | null = (msg?.orders && !Array.isArray(msg.orders) && typeof msg.orders.symbol === 'string')
+        ? msg.orders.symbol
+        : null;
+      const inbound = mk ?? sym ?? null;
+      if (!inbound) return null;
+      const cid = this.inboundToContractId(inbound);
+      return cid != null ? String(cid) : null;
+    }
+    private outboundMarketKeyForFutures(id: number | string): string {
+      return `${id}-perp`;
+    }
+        lastPrice: number = 1;
     private _lastRequestedKey: string | null = null;
     onUpdate?: () => void;
 
@@ -68,6 +89,7 @@ export class FuturesOrderbookService {
         private toastrService: ToastrService,
         private loadingService: LoadingService,
         private authService: AuthService,
+        private ngZone: NgZone, 
     ) {}
 
     get activeFuturesKey() {
@@ -148,7 +170,7 @@ export class FuturesOrderbookService {
 
       if (this.activeKey && this.activeKey !== newKey) {
         this.socket.emit(
-          JSON.stringify({ event: 'orderbook:leave', marketKey: this.activeKey })
+          JSON.stringify({ event: 'orderbook:leave', marketKey: this.outboundMarketKeyForFutures(contract_id) })
         );
       }
       this.activeKey = newKey;
@@ -170,10 +192,9 @@ export class FuturesOrderbookService {
 
       // 2. Join the market room for live deltas
       this.socket.emit(
-        JSON.stringify({ event: 'orderbook:join', marketKey: newKey })
+        JSON.stringify({ event: 'orderbook:join', marketKey: this.outboundMarketKeyForFutures(contract_id) })
       );
     }
-
 
    getContractMeta(contract_id: number) {
         // Use FuturesMarketService.getMarketByContractId()
@@ -186,17 +207,13 @@ export class FuturesOrderbookService {
         };
     }
 
-
-
     subscribeForOrderbook() {
         this.endOrderbookSubscription();
 
         this.socket.on(`${obEventPrefix}::connected`, (message: string) => {
             this.toastrService.success('Connected to orderbook server')
             const newKey = this.marketFilter.contract_id
-            this.socket.emit('orderbook:join', { marketKey: newKey })
-            
-        });
+            this.socket.emit('orderbook:join', { marketKey: this.outboundMarketKeyForFutures(this.marketFilter.contract_id) })
         });
 
         this.socket.on(`${obEventPrefix}::order:error`, (message: string) => {
@@ -225,36 +242,28 @@ export class FuturesOrderbookService {
 
         console.log('[time]', Date.now(), 'set up listener for orderbook-data');
         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
-          console.log('[Futures OB] update ' + JSON.stringify(orderbookData));
-          orderbookData = wrangleObMessageInPlace(orderbookData)
-          console.log('normalized futures book '+JSON.stringify(orderbookData))
-            this.ensureActiveFuturesKey(orderbookData);
-          const mk = orderbookData?.marketKey || this.activeKey;
-          if (mk && this.activeKey && mk !== this.activeKey) return;
-
-          if (Array.isArray(orderbookData.orders)) {
-            if (orderbookData.isDelta) {
-              this.rawOrderbookData = this.mergeOrders(
-                this.rawOrderbookData,
-                orderbookData.orders as IFuturesOrder[]
-              );
+          this.ngZone.run(() => {
+            const key = this.normalizeInboundKeyForFutures(orderbookData) ?? this.activeKey;
+            console.log('inside orderbook data callback for futs '+JSON.stringify(orderbookData))
+            console.log('normalized key'+key)
+            if (!key) return;
+            if (this.activeKey && key !== this.activeKey) return;
+            // existing processing below
+            if (orderbookData?.isDelta) {
+               this.rawOrderbookData = this.mergeOrders(this.rawOrderbookData, orderbookData.orders as IFuturesOrder[]);
             } else {
-              this.rawOrderbookData = orderbookData.orders as IFuturesOrder[];
+               this.rawOrderbookData = orderbookData.orders as IFuturesOrder[];
             }
-          }
-
             this.tradeHistory = orderbookData.history || [];
             const lastTrade = this.tradeHistory[0];
-
-          if (!lastTrade) {
-            this.currentPrice = 1;
-          } else {
-            const { price } = lastTrade.props;
-            this.currentPrice =price || 1;
-          }
-
-            this.currentPrice = lastTrade?.props?.price || 1;
-            this.onUpdate?.()
+            if (!lastTrade) {
+                this.currentPrice = 1;
+            } else {
+                const price = orderbookData?.orders?.price as number | undefined;
+                this.currentPrice = price || (lastTrade?.props?.price as number) || 1;
+            }
+            this.onUpdate?.();
+          })
         });
     }
 

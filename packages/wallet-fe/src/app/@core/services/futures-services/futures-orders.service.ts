@@ -33,7 +33,19 @@ export interface IFuturesTradeConf extends ITradeConf {
 
 export class FuturesOrdersService {
     private _openedOrders: IFuturesOrder[] = [];
-    private _orderHistory: any[] = [];
+    
+
+    // === Symbol normalization helpers (internal futures key = numeric string) ===
+    private inboundToContractId(sym?: string | null): number | null {
+        if (!sym || typeof sym !== 'string') return null;
+        const m = sym.trim().match(/^([0-9]+)-perp$/i);
+        return m ? Number(m[1]) : null;
+    }
+    private feKeyForContractId(cid: number | null | undefined): string | null {
+        return (cid ?? null) != null ? String(cid) : null; // no FUTURES: prefix, just the number as string
+    }
+
+private _orderHistory: any[] = [];
 
     constructor(
         private socketService: SocketService,
@@ -54,7 +66,12 @@ export class FuturesOrdersService {
     }
 
     set openedOrders(value: IFuturesOrder[]) {
-        this._openedOrders = value;
+        const mapIn = (o: any) => {
+            const cid = this.inboundToContractId(o?.symbol);
+            const _feKey = this.feKeyForContractId(cid);
+            return cid != null ? { ...o, contract_id: o.contract_id ?? cid, _feKey } : o;
+        };
+        this._openedOrders = Array.isArray(value) ? value.map(mapIn) : [];
     }
 
     get orderHistory() {
@@ -83,5 +100,16 @@ export class FuturesOrdersService {
 
     closeAllOrders() {
         this._openedOrders.forEach(o => this.closeOpenedOrder(o.uuid));
+    }
+
+
+    // Convenience: opened orders for the currently selected futures market
+    get openedOrdersForActive(): IFuturesOrder[] {
+        const sel = this.selectedMarket;
+        const cid = sel?.contract_id;
+        const key = this.feKeyForContractId(cid);
+        return key
+          ? this._openedOrders.filter((o: any) => o._feKey === key || o.contract_id === cid)
+          : this._openedOrders;
     }
 }

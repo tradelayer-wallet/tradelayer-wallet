@@ -3,7 +3,6 @@ import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-ma
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
 
-
 export interface PeriodicElement {
   price: number;
   amount: number;
