@@ -130,15 +130,13 @@ export class FuturesOrderbookService {
     }
 
 
-     private bindOnce() {
-    if (this.bound) return; this.bound = true;
-    this.socket.on('ORDERBOOK_DATA', (msg: any) => {
-      if (!msg?.marketKey || msg.marketKey !== this.activeKey) return; // guard
-      this.books[msg.marketKey] = { orders: msg.orders, history: msg.history };
-    });
-  }
-
-
+    private bindOnce() {
+      if (this.bound) return; this.bound = true;
+        this.socket.on('ORDERBOOK_DATA', (msg: any) => {
+          if (!msg?.marketKey || msg.marketKey !== this.activeKey) return; // guard
+          this.books[msg.marketKey] = { orders: msg.orders, history: msg.history };
+        });
+    }
 
     async switchMarket(
       type: 'FUTURES' | 'SPOT',
@@ -149,7 +147,7 @@ export class FuturesOrderbookService {
       const newKey = this.key(type, contract_id);
 
       if (this.activeKey && this.activeKey !== newKey) {
-        this.socket.send(
+        this.socket.emit(
           JSON.stringify({ event: 'orderbook:leave', marketKey: this.activeKey })
         );
       }
@@ -157,7 +155,7 @@ export class FuturesOrderbookService {
       this._lastRequestedKey = newKey;
 
       // 1. Ask server for a fresh snapshot (WS)
-      this.socket.send(
+      this.socket.emit(
         JSON.stringify({
           event: 'update-orderbook',
           filter: {
@@ -171,7 +169,7 @@ export class FuturesOrderbookService {
       );
 
       // 2. Join the market room for live deltas
-      this.socket.send(
+      this.socket.emit(
         JSON.stringify({ event: 'orderbook:join', marketKey: newKey })
       );
     }
@@ -192,6 +190,14 @@ export class FuturesOrderbookService {
 
     subscribeForOrderbook() {
         this.endOrderbookSubscription();
+
+        this.socket.on(`${obEventPrefix}::connected`, (message: string) => {
+            this.toastrService.success('Connected to orderbook server')
+            const newKey = this.marketFilter.contract_id
+            this.socket.emit('orderbook:join', { marketKey: newKey })
+            
+        });
+        });
 
         this.socket.on(`${obEventPrefix}::order:error`, (message: string) => {
             this.toastrService.error(message || `Undefined Error`, 'Orderbook Error');

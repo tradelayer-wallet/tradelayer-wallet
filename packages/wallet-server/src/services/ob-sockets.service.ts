@@ -114,9 +114,7 @@ export class OBSocketService {
       this._clientId = msg.id;
       console.log('Connected to OB, got id:', msg.id);
       // Could emit to FE or trigger further actions here if desired
-      return;
     }
-
 
     // Relay ::swap (always send through as-is)
     if (msg.event.includes('::swap')) {

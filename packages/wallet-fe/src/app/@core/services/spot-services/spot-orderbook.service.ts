@@ -125,6 +125,13 @@ export class SpotOrderbookService {
 
     subscribeForOrderbook() {
         this.endOrderbookSbuscription();
+
+        this.socket.on(`${obEventPrefix}::connected`, (message: string) => {
+            this.toastrService.success('Connected to orderbook server')
+            const newKey = this.normalizeKey(this.marketFilter.first_token,this.marketFilter.second_token);
+            this.socket.emit('orderbook:join', { marketKey: newKey })
+        });
+        
         this.socket.on(`${obEventPrefix}::order:error`, (message: string) => {
             this.toastrService.error(message || `Undefined Error`, 'Orderbook Error');
             this.loadingService.tradesLoading = false;
@@ -144,8 +151,23 @@ export class SpotOrderbookService {
         });
 
         this.socket.on(`${obEventPrefix}::update-orders-request`, () => {
-            this.socket.emit('update-orderbook', this.marketFilter)
-        });     
+            // Derive the key we’re requesting a snapshot for
+            const marketKey = this.normalizeKey(
+              this.marketFilter.first_token,
+              this.marketFilter.second_token
+            );
+
+            // Build the payload (include state hints for the server)
+            const payload = {
+              ...this.marketFilter,         // { type, first_token, second_token, depth, side, includeTrades, ... }
+              marketKey,                    // current target key (normalized)
+              activeKey: this.activeKey ?? marketKey,
+              lastRequestedKey: this._lastRequestedKey ?? null,
+            };
+
+            // Fire the request
+            this.socket.emit('update-orderbook', payload);
+          });    
 
         this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
           console.log('[Spot OB] update ' + JSON.stringify(orderbookData));
@@ -253,36 +275,36 @@ export class SpotOrderbookService {
         return p1 < p2 ? `${p1}-${p2}` : `${p2}-${p1}`;
       }
 
-      async switchMarket(
-        first_token:number, second_token:number,
-        p?: { depth?: number; side?: 'bids' | 'asks' | 'both'; includeTrades?: boolean }
-      ) {
-        const newKey = this.normalizeKey(first_token,second_token);
+   async switchMarket(
+  first_token: number,
+  second_token: number,
+  p?: { depth?: number; side?: 'bids' | 'asks' | 'both'; includeTrades?: boolean }
+) {
+  const newKey = this.normalizeKey(first_token, second_token);
 
-        // Leave old
-        if (this.activeKey && this.activeKey !== newKey) {
-          this.socket.send(JSON.stringify({ event: 'orderbook:leave', marketKey: this.activeKey }));
-        }
+  this._lastRequestedKey = this.activeKey;
 
-        this.activeKey = newKey;
-        this._lastRequestedKey = newKey;
+  // Leave old
+  if (this.activeKey && this.activeKey !== newKey) {
+    this.socket.emit('orderbook:leave', { marketKey: this.activeKey });
+  }
 
-        // Ask server for snapshot
-        this.socket.send(
-          JSON.stringify({
-            event: 'update-orderbook',
-            filter: {
-              type: 'SPOT',
-              first_token,
-              second_token,
-              depth: String(p?.depth ?? 50),
-              side: p?.side ?? 'both',
-              includeTrades: String(p?.includeTrades ?? false),
-            },
-          })
-        );
+  this.activeKey = newKey;
 
-        // Join for live deltas
-        this.socket.send(JSON.stringify({ event: 'orderbook:join', marketKey: newKey }));
-      }
+  // Ask server for snapshot
+  this.socket.emit('update-orderbook', {
+    filter: {
+      type: 'SPOT',
+      first_token,
+      second_token,
+      depth: String(p?.depth ?? 50),
+      side: p?.side ?? 'both',
+      includeTrades: String(p?.includeTrades ?? false),
+    },
+  });
+
+  // Join for live deltas
+  this.socket.emit('orderbook:join', { marketKey: newKey });
+}
+
 }
