@@ -6,6 +6,9 @@ export class SocketService {
     private blockCountingInterval: any;
     private lastBlock: number = 0;
     private lastHeader: number = 0;
+    private _obConnectHandler?: (url: string) => void;
+    private _wiredSocketForOb?: any;
+
 
     public io: Server;
     public currentSocket: Socket;
@@ -23,16 +26,28 @@ export class SocketService {
     }
 
     private onConnection(socket: Socket) {
-        if (this.currentSocket) this.currentSocket.offAny();
-        this.currentSocket = socket;
-    
-        this.currentSocket.on('ob-sockets-connect', (url: string) => {
-            fasitfyServer.initOBSocketConnection({ url });
-        });
+      // Clean up the previous socket
+      if (this.currentSocket) {
+        this.currentSocket.removeAllListeners?.('ob-sockets-connect');
+        this.currentSocket.removeAllListeners?.('ob-sockets-disconnect');
+        this.currentSocket.offAny?.();
+      }
 
-        this.currentSocket.on('ob-sockets-disconnect', () => {
-            fasitfyServer.clearOBSocketConnection();
-        });
+      // Swap to the new socket
+      this.currentSocket = socket;
+
+      // Defensive: ensure the new socket has no stale handlers
+      this.currentSocket.removeAllListeners?.('ob-sockets-connect');
+      this.currentSocket.removeAllListeners?.('ob-sockets-disconnect');
+
+      // Wire fresh handlers exactly once
+      this.currentSocket.on('ob-sockets-connect', (url: string) => {
+        fasitfyServer.initOBSocketConnection({ url });
+      });
+
+      this.currentSocket.on('ob-sockets-disconnect', () => {
+        fasitfyServer.clearOBSocketConnection();
+      });
     }
 
     startBlockCounting(ms: number) {
