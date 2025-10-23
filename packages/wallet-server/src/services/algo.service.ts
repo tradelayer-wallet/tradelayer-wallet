@@ -23,6 +23,120 @@ const DEFAULTS_DIR =
   path.join(RESOURCES, 'assets', 'algo-defaults');
 const safeName = (s: string) => s.replace(/[^a-z0-9_\-\.]/gi, '_');
 
+// ---- PATHS / WORKSPACE ----
+function getBundledAlgosPath(): string {
+  try {
+    const electron = (eval('require') as NodeRequire)('electron');
+    const app = electron?.app || electron?.remote?.app;
+    if (app) {
+      const resourcesPath = (process as any).resourcesPath || path.join(process.cwd(), 'resources');
+      const direct = path.join(resourcesPath, 'trading-algos');
+      const unpacked = path.join(resourcesPath, 'app.asar.unpacked', 'trading-algos');
+      if (fs.existsSync(direct)) return direct;
+      if (fs.existsSync(unpacked)) return unpacked;
+    }
+  } catch {}
+  // DEV fallback: repo root
+  return path.join(process.cwd(), 'trading-algos');
+}
+
+function ensureAlgoWorkspace(): string {
+  // writable: %APPDATA%/TradeLayer-Wallet/trading-algos
+  let userData: string | undefined;
+  try {
+    const electron = (eval('require') as NodeRequire)('electron');
+    const app = electron?.app || electron?.remote?.app;
+    userData = app?.getPath('userData');
+  } catch {}
+  const base = userData || path.join(os.homedir(), '.tradelayer-wallet');
+  const dst = path.join(base, 'trading-algos');
+  fs.mkdirSync(dst, { recursive: true });
+
+  // Copy bundled files if empty (non-destructive)
+  const src = getBundledAlgosPath();
+  const existing = fs.existsSync(dst) ? fs.readdirSync(dst).filter(f => f.endsWith('.js')) : [];
+  if (existing.length === 0 && fs.existsSync(src)) {
+    const stack = [{ s: src, d: dst }];
+    while (stack.length) {
+      const { s, d } = stack.pop()!;
+      for (const ent of fs.readdirSync(s, { withFileTypes: true })) {
+        const sp = path.join(s, ent.name);
+        const dp = path.join(d, ent.name);
+        if (ent.isDirectory()) { if (!fs.existsSync(dp)) fs.mkdirSync(dp); stack.push({ s: sp, d: dp }); }
+        else if (!fs.existsSync(dp)) { fs.copyFileSync(sp, dp); }
+      }
+    }
+  }
+  return dst;
+}
+
+// ---- DEP SCAN / PACKAGE / INSTALL ----
+const CORE = new Set(["fs","path","os","url","http","https","net","tls","crypto","stream","events","zlib","util","buffer","child_process","readline","worker_threads"]);
+
+function scanAlgoDeps(dir: string): string[] {
+  const pkgs = new Set<string>();
+  const exts = new Set([".js", ".mjs", ".cjs", ".ts", ".mts", ".cts"]);
+  const skip = new Set(["node_modules", ".git"]);
+  const stack = [dir];
+  while (stack.length) {
+    const d = stack.pop()!;
+    for (const ent of fs.readdirSync(d, { withFileTypes: true })) {
+      if (skip.has(ent.name)) continue;
+      const p = path.join(d, ent.name);
+      if (ent.isDirectory()) { stack.push(p); continue; }
+      if (!exts.has(path.extname(ent.name))) continue;
+      const src = fs.readFileSync(p, "utf8");
+      for (const m of src.matchAll(/import\s+(?:.+?\s+from\s+)?["']([^"']+)["']/g)) {
+        const imp = m[1]; if (!imp || imp.startsWith(".") || CORE.has(imp)) continue;
+        pkgs.add(imp.startsWith("@") ? imp.split("/").slice(0,2).join("/") : imp.split("/")[0]);
+      }
+      for (const m of src.matchAll(/require\(\s*["']([^"']+)["']\s*\)/g)) {
+        const imp = m[1]; if (!imp || imp.startsWith(".") || CORE.has(imp)) continue;
+        pkgs.add(imp.startsWith("@") ? imp.split("/").slice(0,2).join("/") : imp.split("/")[0]);
+      }
+    }
+  }
+  return Array.from(pkgs).sort();
+}
+
+function resolveVersions(pkgs: string[]): Record<string,string> {
+  let rootDeps: Record<string,string> = {};
+  try {
+    const rootPkgPath = path.resolve(process.cwd(), "package.json");
+    const root = JSON.parse(fs.readFileSync(rootPkgPath, "utf8"));
+    rootDeps = { ...(root.dependencies||{}), ...(root.devDependencies||{}) };
+  } catch {}
+  const out: Record<string,string> = {};
+  for (const p of pkgs) out[p] = rootDeps[p] || "latest";
+  return out;
+}
+
+async function writeAlgoPackageJson(dir: string, name="tradelayer-algos") {
+  const deps = resolveVersions(scanAlgoDeps(dir));
+  const pkg = {
+    name, version:"0.0.0", private:true,
+    type:"module",
+    scripts: { start:"node index.js" },
+    dependencies: deps
+  };
+  await fsp.writeFile(path.join(dir, "package.json"), JSON.stringify(pkg, null, 2), "utf8");
+}
+
+async function ensureInstalled(dir: string, onLog?: (s:string)=>void) {
+  const nm = path.join(dir, "node_modules");
+  if (fs.existsSync(nm)) return;
+  await new Promise<void>((res, rej) => {
+    const cmd = process.platform === "win32" ? "npm.cmd" : "npm";
+    const child = (eval('require') as NodeRequire)('child_process')
+      .spawn(cmd, ["install"], { cwd: dir, env: process.env });
+    const pipe = (b:Buffer)=> onLog?.(b.toString("utf8"));
+    child.stdout.on("data", pipe); child.stderr.on("data", pipe);
+    child.on("close", (code:number)=> code===0 ? res() : rej(new Error(`npm install exited ${code}`)));
+  });
+}
+
+
+
 /**
  * Bootstrap the user's algo folder with defaults exactly once.
  * - If the user folder already has any *.js, we do nothing.

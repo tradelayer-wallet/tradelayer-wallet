@@ -19,7 +19,7 @@ export const obEventPrefix = 'OB_SOCKET';
 export class SocketService {
     private _socket: Socket | null = null;
     private _obSocketConnected: boolean = false;
-
+    private hyperExpressId: string = ''
     private mainSocketWaiting: boolean = false;
     private obServerWaiting: boolean = false;
 
@@ -31,6 +31,14 @@ export class SocketService {
 
     get socketsLoading() {
         return this.mainSocketWaiting || this.obServerWaiting;
+    }
+
+    get socketId(){
+        return this.hyperExpressId
+    }
+
+    set socketId(id: string){
+        this.hyperExpressId = id
     }
 
     private get mainSocketUrl(): string {
@@ -74,9 +82,18 @@ export class SocketService {
     }
 
     private handleMainOBSocketEvents() {
-        this.socket.on(`${obEventPrefix}::connect`, () => {
+        this.socket.on(`${obEventPrefix}::connect`, (data) => {
             this._obSocketConnected = true;
             this.obServerWaiting = false;
+            this.socketId = data.id
+        });
+
+        this.socket.on(`${obEventPrefix}::connected`, (data) => {
+            this._obSocketConnected = true;
+            this.obServerWaiting = false;
+
+            console.log('connected fired 0'+JSON.stringify(data))
+            this.socketId = data.id
         });
 
         this.socket.on(`${obEventPrefix}::connect_error`, () => {
@@ -89,6 +106,7 @@ export class SocketService {
             this._obSocketConnected = false;
             this.obServerWaiting = false;
             this.router.navigateByUrl('/');
+            this.socketId= ''
             this.toasterService.error('Orderbook Disconnected', 'Error');
         });
     }
