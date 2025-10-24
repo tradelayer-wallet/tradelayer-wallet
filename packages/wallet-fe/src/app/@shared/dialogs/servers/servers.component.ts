@@ -45,9 +45,7 @@ export class ServersDialog implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.socketService.socket.on(`${obEventPrefix}::connect`, () => {
-      const orderbookUrl = this.selectedOrderbookServer === "@custom"
-        ? this.customOrderbookUrl
-        : this.selectedOrderbookServer;
+      const orderbookUrl = (this.selectedOrderbookServer === "@custom" ? this.customOrderbookUrl : this.selectedOrderbookServer) || environment.ENDPOINTS?.[this.network]?.orderbookApiUrl;
       this.apiService.orderbookUrl = orderbookUrl;
     });
 
@@ -72,6 +70,8 @@ export class ServersDialog implements OnInit, OnDestroy {
     const orderbookUrl = this.selectedOrderbookServer === "@custom"
       ? this.customOrderbookUrl
       : this.selectedOrderbookServer;
+      console.log('setting url '+this.selectedOrderbookServer+' '+orderbookUrl)
+      this.apiService.orderbookUrl = orderbookUrl;
     this.socketService.obSocketConnect(orderbookUrl);
   }
   
