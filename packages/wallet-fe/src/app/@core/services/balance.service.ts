@@ -159,8 +159,6 @@ export class BalanceService {
             }
         }
 
-
-
     private async updateTokensBalanceForAddress(address: string) {
         const tokensBalanceArrRes = await this.getTokensBalanceArrForAddress(address);
         if (tokensBalanceArrRes.error || !tokensBalanceArrRes.data) throw new Error(tokensBalanceArrRes.error || `Error with updating balances`);

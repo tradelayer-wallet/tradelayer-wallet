@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged, take } from 'rxjs/operators';
+import { Subscription, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, take, map, switchMap } from 'rxjs/operators';
 
 import {
   AlgoTradingService,
@@ -21,6 +21,7 @@ type TabKey = 'discovery' | 'running';
   styleUrls: ['./algo-trading.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
+
 export class AlgoTradingPageComponent implements OnInit, OnDestroy {
   // ---------- Tabs used in the template ----------
   tabs = [
@@ -161,15 +162,41 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
       this.allocationForm.markAllAsTouched();
       return;
     }
-    const { amount, apiKey, apiSecret } = this.allocationForm.value;
 
-    this.svc.allocate(this.selectedSystemId, Number(amount))
-      .pipe(take(1))
+    const { amount } = this.allocationForm.value;
+    const systemId = this.selectedSystemId;
+    const amountNum = Number(amount);
+
+    // quick local check first
+    const runningLocal =
+      Array.isArray(this.svc.running$.value) &&
+      this.svc.running$.value.some(r =>
+        r.name === systemId || r.runId === systemId || (r as any).systemId === systemId
+      );
+
+    const ensureRunning$ = runningLocal
+      ? of(true)
+      : this.svc.fetchRunning().pipe(
+          take(1),
+          map(() => {
+            const list = this.svc.running$.value || [];
+            return list.some(r =>
+              r.name === systemId || r.runId === systemId || (r as any).systemId === systemId
+            );
+          }),
+          switchMap(isRunning => (isRunning ? of(true) : this.svc.runSystem(systemId)))
+        );
+
+    ensureRunning$
+      .pipe(
+        switchMap(() => this.svc.allocate(systemId, amountNum)),
+        take(1)
+      )
       .subscribe({
         next: () => {
           this.toast.success('Allocation created');
           this.closeAllocate();
-          this.svc.fetchRunning().pipe(take(1)).subscribe();
+          this.svc.fetchRunning().pipe(take(1)).subscribe(); // refresh list
         },
         error: (e) => {
           console.error('[algo-ui] allocate error', e);
@@ -177,6 +204,7 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
         },
       });
   }
+
 
   // ------------------------------------------------------------
   // Withdraw flow

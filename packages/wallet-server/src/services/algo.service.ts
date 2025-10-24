@@ -5,6 +5,7 @@ import * as path from 'path';
 import type { ProcessDescription } from 'pm2';
 import { v4 as uuidv4 } from 'uuid';
 import * as os from 'os';
+import { OBSocketService } from './ob-sockets.service';
 
 let _pm2: any;
 function pm2() {
@@ -12,6 +13,14 @@ function pm2() {
   if (!_pm2) _pm2 = (eval('require') as NodeRequire)('pm2');
   return _pm2;
 }
+
+function* iterMatches(src: string, re: RegExp): Generator<RegExpExecArray, void, unknown> {
+  // Ensure global flag so exec() advances
+  const r = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
+  let m: RegExpExecArray | null;
+  while ((m = r.exec(src))) yield m;
+}
+
 
 // Where defaults live at runtime:
 // 1) allow override via env
@@ -86,14 +95,34 @@ function scanAlgoDeps(dir: string): string[] {
       if (ent.isDirectory()) { stack.push(p); continue; }
       if (!exts.has(path.extname(ent.name))) continue;
       const src = fs.readFileSync(p, "utf8");
-      for (const m of src.matchAll(/import\s+(?:.+?\s+from\s+)?["']([^"']+)["']/g)) {
-        const imp = m[1]; if (!imp || imp.startsWith(".") || CORE.has(imp)) continue;
-        pkgs.add(imp.startsWith("@") ? imp.split("/").slice(0,2).join("/") : imp.split("/")[0]);
+      // imports
+      {
+        const importRe = /import\s+(?:.+?\s+from\s+)?["']([^"']+)["']/g;
+        let m: RegExpExecArray | null;
+        while ((m = importRe.exec(src)) !== null) {
+          const imp = m[1];
+          if (!imp || imp.startsWith('.') || CORE.has(imp)) continue;
+          pkgs.add(imp.startsWith('@')
+            ? imp.split('/').slice(0, 2).join('/')
+            : imp.split('/')[0]
+          );
+        }
       }
-      for (const m of src.matchAll(/require\(\s*["']([^"']+)["']\s*\)/g)) {
-        const imp = m[1]; if (!imp || imp.startsWith(".") || CORE.has(imp)) continue;
-        pkgs.add(imp.startsWith("@") ? imp.split("/").slice(0,2).join("/") : imp.split("/")[0]);
+
+      // requires
+      {
+        const requireRe = /require\(\s*["']([^"']+)["']\s*\)/g;
+        let m: RegExpExecArray | null;
+        while ((m = requireRe.exec(src)) !== null) {
+          const imp = m[1];
+          if (!imp || imp.startsWith('.') || CORE.has(imp)) continue;
+          pkgs.add(imp.startsWith('@')
+            ? imp.split('/').slice(0, 2).join('/')
+            : imp.split('/')[0]
+          );
+        }
       }
+
     }
   }
   return Array.from(pkgs).sort();
@@ -192,6 +221,7 @@ export async function bootstrapAlgoAssets(): Promise<void> {
     console.error('[algo.defaults] bootstrap failed:', (e as Error)?.message || e);
   }
 }
+
 function resolveDataDir(): string {
   // 1) allow override
   if (process.env.TL_DATA_DIR) return process.env.TL_DATA_DIR;
@@ -606,24 +636,52 @@ export async function uploadAlgo(request, reply) {
     return reply.status(500).send({ error: err.message || "Unknown error" });
   }
 }
-
-/** POST /api/algo/run { systemId, amount? } */
 export async function runAlgo(request: FastifyRequest, reply: FastifyReply) {
-  const { systemId, amount }: RunBody = request.body as RunBody;
+  const { systemId, amount, network, host, port, test, addr, pub } = request.body as any;
   if (!systemId) return reply.status(400).send({ error: 'systemId required' });
 
   const list = await readIndex();
   const item = byId(list, systemId);
   if (!item) return reply.status(404).send({ error: 'system not found' });
 
+  const repoRoot = require('path').resolve(process.cwd()); // repo root cwd
+  const nodePath = require('path').join(repoRoot, 'node_modules');
+
+  const env: Record<string, string> = {};
+  const setIf = (k: string, v: any) => { if (v !== undefined && v !== null && v !== '') env[k] = String(v); };
+
+  // Required for algo to actually connect
+  setIf('NETWORK', network);
+  setIf('OB_HOST', host);
+  setIf('OB_PORT', port);           // keep as string
+  setIf('IS_TESTNET', test ? '1' : '0');
+  setIf('USER_ADDR', addr);
+  setIf('USER_PUB', pub);
+
+  // Optional size
+  setIf('SIZE', amount ?? item.amount ?? 0);
+
+  // Make shared modules resolvable
+  setIf('NODE_PATH', nodePath);
+
+  console.log('[runAlgo env]', env, 'script:', item.fullPath);
+
   await withPm2(async () => {
     await new Promise<void>((res, rej) => {
       pm2().start(
-        { script: item.fullPath, name: pm2Name(systemId), env: { SIZE: String(amount ?? item.amount ?? 0) } },
-        err => (err ? rej(err) : res())
+        {
+          script: item.fullPath,
+          name: pm2Name(systemId),
+          env,
+          cwd: repoRoot, // resolve requires from repo
+          merge_logs: false,
+          out_file: outLogPath(item),
+          error_file: errLogPath(item),
+          log_date_format: 'YYYY-MM-DD HH:mm:ss.SSS',
+        },
+        (err: any) => (err ? rej(err) : res())
       );
     });
-    return;
   });
 
   item.status = 'running';
@@ -632,6 +690,8 @@ export async function runAlgo(request: FastifyRequest, reply: FastifyReply) {
 
   return reply.send({ ok: true });
 }
+
+
 
 /** POST /api/algo/stop { systemId } */
 export async function stopAlgo(request: FastifyRequest, reply: FastifyReply) {
@@ -653,12 +713,10 @@ export async function stopAlgo(request: FastifyRequest, reply: FastifyReply) {
   await writeIndex(list);
 
   return reply.send({ ok: true });
-}
-
-/** POST /api/algo/allocate { systemId, amount } */
+}/** POST /api/algo/allocate { systemId, amount } */
 export async function allocateAlgo(request: FastifyRequest, reply: FastifyReply) {
-  const { systemId, amount }: AllocateBody = request.body as AllocateBody;
-  if (!systemId || typeof amount !== 'number') {
+  const { systemId, amount } = request.body as { systemId?: string; amount?: number };
+  if (!systemId || typeof amount !== 'number' || Number.isNaN(amount)) {
     return reply.status(400).send({ error: 'systemId and numeric amount required' });
   }
 
@@ -666,57 +724,95 @@ export async function allocateAlgo(request: FastifyRequest, reply: FastifyReply)
   const item = byId(list, systemId);
   if (!item) return reply.status(404).send({ error: 'system not found' });
 
-  // build env for the process
+  // Base env for the process
   const baseEnv: Record<string, string> = {
     SIZE: String(amount),
+    TARGET_EXPOSURE: String(amount),
   };
+  if (item.meta?.name)        baseEnv.ALGO_NAME = String(item.meta.name);
+  if (item.meta?.description) baseEnv.ALGO_DESC = String(item.meta.description);
 
-  // also include meta fields if available
-  if (item.meta?.name)        baseEnv.ALGO_NAME = item.meta.name;
-  if (item.meta?.description) baseEnv.ALGO_DESC = item.meta.description;
-    baseEnv.TARGET_EXPOSURE = String(amount);
+  // Namespaced override (e.g., MYALGO_TARGET_EXPOSURE)
+  const envKey = `${String(item.name || systemId).replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}_TARGET_EXPOSURE`;
+  const mergedEnv = { ...baseEnv, [envKey]: String(amount) };
 
-  const envKey = `${item.name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}_TARGET_EXPOSURE`;
+  const name = pm2Name(systemId);
+
+  // Optional: log files next to the algo (requires outLogPath/errLogPath helpers)
+  const pm2CommonOpts: any = {
+    script: item.fullPath,
+    name,
+    env: mergedEnv,
+  };
+  try {
+    // If you added per-algo logging helpers, keep these lines.
+    // Otherwise, you can remove them safely.
+    pm2CommonOpts.merge_logs = false;
+    pm2CommonOpts.out_file = outLogPath(item);
+    pm2CommonOpts.error_file = errLogPath(item);
+    pm2CommonOpts.log_date_format = 'YYYY-MM-DD HH:mm:ss.SSS';
+  } catch {
+    // helpers not present; ignore
+  }
 
   await withPm2(async () => {
+    // Check if process exists; if so, merge with prior env and restart
     await new Promise<void>((res, rej) => {
-      pm2().start(
-        {
-          script: item.fullPath,
-          name: pm2Name(systemId),
-          env: { [envKey]: String(amount) },  // ✅ namespaced env
-        },
-        (err: any) => {
-          if (err && err.message?.includes('process name already exists')) {
-            pm2().restart(
-              {
-                name: pm2Name(systemId),
-                env: { [envKey]: String(amount) },
-                /* @ts-ignore */ updateEnv: true,
-              } as any,
-              (e: any) => (e ? rej(e) : res())
-            );
-          } else if (err) {
-            rej(err);
-          } else {
-            res();
-          }
+      pm2().describe(name, (dErr: any, descList: any[]) => {
+        if (dErr) return rej(dErr);
+
+        const exists = Array.isArray(descList) && descList.length > 0;
+        if (!exists) {
+          // START fresh
+          pm2().start(pm2CommonOpts, (err: any) => (err ? rej(err) : res()));
+          return;
         }
-      );
+
+        // RESTART with merged env (preserve prior)
+        const priorEnv = (descList[0]?.pm2_env?.env ?? {}) as Record<string, any>;
+        const finalEnv = { ...priorEnv, ...mergedEnv };
+
+        pm2().restart(
+          {
+            name,
+            env: finalEnv,
+            // keep logging directives if available
+            merge_logs: pm2CommonOpts.merge_logs,
+            out_file: pm2CommonOpts.out_file,
+            error_file: pm2CommonOpts.error_file,
+            log_date_format: pm2CommonOpts.log_date_format,
+            /* @ts-ignore */
+            updateEnv: true,
+          } as any,
+          (e: any) => (e ? rej(e) : res())
+        );
+      });
     });
   });
 
+  // Update index
   item.status = 'running';
   item.amount = amount;
   await writeIndex(list);
 
-  return reply.send({ ok: true });
+  return reply.send({
+    ok: true,
+    // surface log paths if available
+    logs: ((): any => {
+      try {
+        return { out: outLogPath(item), err: errLogPath(item) };
+      } catch {
+        return undefined;
+      }
+    })(),
+  });
 }
+
 
 /** GET /api/algo/discovery */
 export async function discoveryAlgo(request: FastifyRequest, reply: FastifyReply) {
-  console.log('inside discover algo ')
   const list = await readIndex();
+  console.log('inside discover algo '+JSON.stringify(list))
   return reply.send(
     list.map(i => ({
       id: i.id,
@@ -746,3 +842,30 @@ export async function runningAlgo(request: FastifyRequest, reply: FastifyReply) 
 
   return reply.send(running);
 }
+
+// ====== LOG HELPERS (safe to paste once) ======
+function algoBaseDir(item: any): string {
+  // If your fullPath is .../trading-algos/<systemId>/index.js,
+  // this lands on .../trading-algos/<systemId>
+  return path.dirname(item.fullPath);
+}
+
+function logsDir(item: any): string {
+  const dir = path.join(algoBaseDir(item), 'logs');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+function outLogPath(item: any): string { return path.join(logsDir(item), 'out.log'); }
+function errLogPath(item: any): string { return path.join(logsDir(item), 'err.log'); }
+
+function tailFile(file: string, lines = 200): string {
+  try {
+    if (!fs.existsSync(file)) return '';
+    const data = fs.readFileSync(file, 'utf8');
+    const arr = data.split(/\r?\n/);
+    return arr.slice(Math.max(0, arr.length - lines)).join('\n');
+  } catch (e: any) {
+    return `[tail error] ${e.message}`;
+  }
+}
+

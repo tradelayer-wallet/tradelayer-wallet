@@ -147,13 +147,17 @@ export class MainApiService {
       );
     }
 
-
-    runAlgo(systemId: string): Observable<{ ok: boolean }> {
-      return this.http.post<{ ok: boolean }>(
-        this.apiUrl + 'algo/run',
-        { systemId }
-      );
-    }
+    runAlgo(body: {
+          systemId: string;
+          network: string;
+          host: string;
+          port: string;
+          test: boolean;
+          addr: string;
+          pub: string;
+        }): Observable<{ ok: boolean }> {
+          return this.http.post<{ ok: boolean }>(this.apiUrl + 'algo/run', body);
+        }
 
     stopAlgo(systemId: string): Observable<{ ok: boolean }> {
       return this.http.post<{ ok: boolean }>(
