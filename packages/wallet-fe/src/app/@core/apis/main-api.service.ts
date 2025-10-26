@@ -171,7 +171,9 @@ export class MainApiService {
     }
 
     fetchRunning() {
-      return this.http.get<any[]>(this.apiUrl + 'algo/running');
+        const running = this.http.get<any[]>(this.apiUrl + 'algo/running');
+        console.log('running algos '+running)
+      return running
     }
 
     allocate(body: { systemId: string; amount: number }) {

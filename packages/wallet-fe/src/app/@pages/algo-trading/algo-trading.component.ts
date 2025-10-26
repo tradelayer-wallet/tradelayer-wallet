@@ -157,54 +157,49 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
   }
 
   allocateConfirm(): void {
-    if (!this.selectedSystemId) return;
-    if (this.allocationForm.invalid) {
-      this.allocationForm.markAllAsTouched();
-      return;
-    }
+      if (!this.selectedSystemId) return;
+      if (this.allocationForm.invalid) {
+        this.allocationForm.markAllAsTouched();
+        return;
+      }
 
-    const { amount } = this.allocationForm.value;
-    const systemId = this.selectedSystemId;
-    const amountNum = Number(amount);
+      const { amount, apiKey, apiSecret } = this.allocationForm.value;
+      const systemId = this.selectedSystemId;
+      const amountNum = Number(amount) || 0;
 
-    // quick local check first
-    const runningLocal =
-      Array.isArray(this.svc.running$.value) &&
-      this.svc.running$.value.some(r =>
-        r.name === systemId || r.runId === systemId || (r as any).systemId === systemId
+      // detect if already running
+      const runningList = this.svc.running$.value || [];
+      const isRunning = runningList.some(
+        (r) =>
+          r.name === systemId ||
+          r.runId === systemId ||
+          (r as any).systemId === systemId
       );
 
-    const ensureRunning$ = runningLocal
-      ? of(true)
-      : this.svc.fetchRunning().pipe(
-          take(1),
-          map(() => {
-            const list = this.svc.running$.value || [];
-            return list.some(r =>
-              r.name === systemId || r.runId === systemId || (r as any).systemId === systemId
-            );
-          }),
-          switchMap(isRunning => (isRunning ? of(true) : this.svc.runSystem(systemId)))
-        );
+      const action$ = isRunning
+        ? this.svc.allocate(systemId, amountNum, {
+            counterVenue: { name: 'default', apiKey, apiSecret },
+          })
+        : this.svc.runSystem(systemId).pipe(
+            switchMap(() =>
+              this.svc.allocate(systemId, amountNum, {
+                counterVenue: { name: 'default', apiKey, apiSecret },
+              })
+            )
+          );
 
-    ensureRunning$
-      .pipe(
-        switchMap(() => this.svc.allocate(systemId, amountNum)),
-        take(1)
-      )
-      .subscribe({
+      action$.pipe(take(1)).subscribe({
         next: () => {
-          this.toast.success('Allocation created');
+          this.toast.success(isRunning ? 'Allocation updated' : 'System started');
           this.closeAllocate();
-          this.svc.fetchRunning().pipe(take(1)).subscribe(); // refresh list
+          this.svc.fetchRunning().pipe(take(1)).subscribe();
         },
         error: (e) => {
-          console.error('[algo-ui] allocate error', e);
-          this.toast.error('Failed to allocate');
+          console.error('[algo-ui] allocateConfirm error', e);
+          this.toast.error('Failed to execute allocation');
         },
       });
-  }
-
+    }
 
   // ------------------------------------------------------------
   // Withdraw flow

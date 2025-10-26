@@ -185,3 +185,31 @@
     margin-top: 12px;
   }
 }
+
+:host {
+  display: block;
+  height: 100%;
+}
+
+/* Page-level scroll if content exceeds viewport */
+.algo-page {
+  min-height: 100vh;
+  overflow-y: auto; /* ✅ vertical scrollbar */
+}
+
+/* Optional: scroll just the table area (both tabs) */
+.discovery .table,
+.running   .table {
+  max-height: calc(100vh - 240px); /* tweak margin for your header/filters */
+  overflow: auto;                   /* shows scrollbar when needed */
+  padding-bottom: 8px;
+}
+
+/* Optional: keep table header visible while body scrolls */
+.table .thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  /* match your theme bg */
+  background: #0f1220;
+}

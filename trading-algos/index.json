@@ -44,9 +44,59 @@
     "name": "quick_env.js",
     "fileName": "quick_env.js",
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\quick_env.js",
-    "size": 2053,
+    "size": 2171,
     "createdAt": 1761319250870.8904,
     "status": "running",
     "amount": 1
+  },
+  {
+    "id": "4d1d9a03",
+    "name": "run_bbo_tracker.js",
+    "fileName": "run_bbo_tracker.js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\run_bbo_tracker.js",
+    "size": 7619,
+    "createdAt": 1760553227911.644,
+    "status": "stopped",
+    "amount": 0
+  },
+  {
+    "id": "42f46f8c",
+    "name": "quick_env - copia (2).js",
+    "fileName": "quick_env - copia (2).js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\quick_env - copia (2).js",
+    "size": 2171,
+    "createdAt": 1761493821453.8298,
+    "status": "stopped",
+    "amount": 0
+  },
+  {
+    "id": "42e6580b",
+    "name": "quick_env - copia (3).js",
+    "fileName": "quick_env - copia (3).js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\quick_env - copia (3).js",
+    "size": 2171,
+    "createdAt": 1761493821453.8298,
+    "status": "stopped",
+    "amount": 0
+  },
+  {
+    "id": "42d8408a",
+    "name": "quick_env - copia (4).js",
+    "fileName": "quick_env - copia (4).js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\quick_env - copia (4).js",
+    "size": 2171,
+    "createdAt": 1761493821453.8298,
+    "status": "stopped",
+    "amount": 0
+  },
+  {
+    "id": "350efced",
+    "name": "quick_env - copia.js",
+    "fileName": "quick_env - copia.js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\quick_env - copia.js",
+    "size": 2171,
+    "createdAt": 1761493821453.8298,
+    "status": "stopped",
+    "amount": 0
   }
 ]

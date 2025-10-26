@@ -88,7 +88,11 @@ export class AlgoTradingService {
   /** Fetch discovery list with optional filters */
   fetchDiscovery(filters: Dict) {
     return this.mainApi.fetchDiscovery(filters)
-      .pipe(tap(rows => this.discovery$.next(rows)));
+      .pipe(tap(rows => {
+          const runningIds = new Set(this.running$.value.map(r => r.name));
+          rows.forEach(r => { if (r.status === 'running' && !runningIds.has(r.name)) r.status = 'stopped'; });
+          this.discovery$.next(rows);
+        }));
   }
 
   fetchRunning() {
@@ -129,8 +133,8 @@ runSystem(systemId: string) {
   const cfg = ENDPOINTS[network as keyof typeof ENDPOINTS];
 
   // extract host & port from ws://host:port/ws
-  const [hostPart] = cfg.orderbookApiUrl.split('/ws');
-  const [, hostAndPort] = hostPart.split('://');
+  const obBase = (this.api.orderbookUrl || cfg.orderbookApiUrl || '').replace(/\/ws\/?$/, '');
+  const [, hostAndPort = ''] = obBase.split('://');
   const [host, port] = hostAndPort.split(':');
 
   const addr = this.auth.activeMainKey.address;       // <-- keep address
