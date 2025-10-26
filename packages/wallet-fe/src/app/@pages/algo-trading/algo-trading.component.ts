@@ -157,49 +157,64 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
   }
 
   allocateConfirm(): void {
-      if (!this.selectedSystemId) return;
-      if (this.allocationForm.invalid) {
-        this.allocationForm.markAllAsTouched();
-        return;
-      }
-
-      const { amount, apiKey, apiSecret } = this.allocationForm.value;
-      const systemId = this.selectedSystemId;
-      const amountNum = Number(amount) || 0;
-
-      // detect if already running
-      const runningList = this.svc.running$.value || [];
-      const isRunning = runningList.some(
-        (r) =>
-          r.name === systemId ||
-          r.runId === systemId ||
-          (r as any).systemId === systemId
-      );
-
-      const action$ = isRunning
-        ? this.svc.allocate(systemId, amountNum, {
-            counterVenue: { name: 'default', apiKey, apiSecret },
-          })
-        : this.svc.runSystem(systemId).pipe(
-            switchMap(() =>
-              this.svc.allocate(systemId, amountNum, {
-                counterVenue: { name: 'default', apiKey, apiSecret },
-              })
-            )
-          );
-
-      action$.pipe(take(1)).subscribe({
-        next: () => {
-          this.toast.success(isRunning ? 'Allocation updated' : 'System started');
-          this.closeAllocate();
-          this.svc.fetchRunning().pipe(take(1)).subscribe();
-        },
-        error: (e) => {
-          console.error('[algo-ui] allocateConfirm error', e);
-          this.toast.error('Failed to execute allocation');
-        },
-      });
+    if (!this.selectedSystemId) return;
+    if (this.allocationForm.invalid) {
+      this.allocationForm.markAllAsTouched();
+      return;
     }
+
+    const { amount, apiKey, apiSecret } = this.allocationForm.value;
+    const systemId = this.selectedSystemId!;
+    const amountNum = Number(amount) || 0;
+
+    // Is it already running?
+    const list = this.svc.running$.value || [];
+    const isRunning = list.some(
+      (r) => r.name === systemId || r.runId === systemId || (r as any).systemId === systemId
+    );
+
+    const allocate = () => {
+      this.svc
+        .allocate(systemId, amountNum, {
+          counterVenue: { name: 'default', apiKey, apiSecret },
+        })
+        .pipe(take(1))
+        .subscribe({
+          next: () => {
+            this.toast.success(isRunning ? 'Allocation updated' : 'System started');
+            this.closeAllocate();
+            this.svc.fetchRunning().pipe(take(1)).subscribe();
+          },
+          error: (e: any) => {
+            console.error('[algo-ui] allocate error', e);
+            this.toast.error('Failed to allocate');
+          },
+        });
+    };
+
+    if (isRunning) {
+      allocate();
+      return;
+    }
+
+    // Not running: start it, then allocate
+    try {
+      this.svc
+        .runSystem(systemId)
+        .pipe(take(1))
+        .subscribe({
+          next: () => allocate(),
+          error: (e: any) => {
+            console.error('[algo-ui] runSystem error', e);
+            this.toast.error('Failed to start system');
+          },
+        });
+    } catch (e: any) {
+      console.error('[algo-ui] runSystem precondition failed', e);
+      this.toast.error('Connect a wallet first');
+    }
+  }
+
 
   // ------------------------------------------------------------
   // Withdraw flow

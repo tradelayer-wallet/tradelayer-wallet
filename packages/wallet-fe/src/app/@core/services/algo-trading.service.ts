@@ -7,6 +7,8 @@ import { RpcService } from "./rpc.service"
 import { ENDPOINTS } from '../../../environments/endpoints.conf';
 import { BalanceService } from "./balance.service"
 import { AuthService } from "./auth.service"
+import { from, throwError } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 
 export interface DiscoveryRow {
   id: string;
@@ -127,32 +129,45 @@ export class AlgoTradingService {
    * Run a system (backward compatible).
    * - old usage: runSystem(systemId)
    * - new optional usage: runSystem(systemId, { socketId?, obUrl? })
-   */
-runSystem(systemId: string) {
-  const network = String(this.rpc.NETWORK);           // <-- use the instance
+   */// AlgoTradingService
+  runSystem(systemId: string) {
+  const network = String(this.rpc.NETWORK);
   const cfg = ENDPOINTS[network as keyof typeof ENDPOINTS];
 
-  // extract host & port from ws://host:port/ws
+  // break out host / port from ws://host:port/ws
   const obBase = (this.api.orderbookUrl || cfg.orderbookApiUrl || '').replace(/\/ws\/?$/, '');
   const [, hostAndPort = ''] = obBase.split('://');
   const [host, port] = hostAndPort.split(':');
 
-  const addr = this.auth.activeMainKey.address;       // <-- keep address
-  const pub  = this.auth.activeMainKey.pubkey;        // <-- keep pubkey
+  // 1. take first known wallet address
+  const addr = this.auth.walletAddresses?.[0];
+  if (!addr) {
+    return throwError(() => new Error('No wallet address available'));
+  }
+
   const test = network.includes('TEST');
 
-  return this.mainApi.runAlgo({
-    systemId,
-    network,
-    host,
-    port,
-    test,
-    addr,
-    pub,
-  });
+  // 2. fetch pubkey for that address from the node
+  return from(this.rpc.rpc('getaddressinfo', [addr])).pipe(
+    switchMap((info: any) => {
+      const pub = info?.data?.pubkey;
+      if (!pub) {
+        return throwError(() => new Error('No pubkey for address'));
+      }
+
+      // 3. forward everything to BE
+      return this.mainApi.runAlgo({
+        systemId,
+        network,
+        host,
+        port,
+        test,
+        addr,
+        pub,
+      });
+    })
+  );
 }
-
-
 
   stopSystem(systemId: string) {
     return this.mainApi.stopAlgo(systemId);
