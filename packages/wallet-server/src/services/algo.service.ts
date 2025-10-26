@@ -636,6 +636,7 @@ export async function uploadAlgo(request, reply) {
     return reply.status(500).send({ error: err.message || "Unknown error" });
   }
 }
+
 export async function runAlgo(request: FastifyRequest, reply: FastifyReply) {
   const { systemId, amount, network, host, port, test, addr, pub } = request.body as any;
   if (!systemId) return reply.status(400).send({ error: 'systemId required' });
@@ -690,8 +691,6 @@ export async function runAlgo(request: FastifyRequest, reply: FastifyReply) {
 
   return reply.send({ ok: true });
 }
-
-
 
 /** POST /api/algo/stop { systemId } */
 export async function stopAlgo(request: FastifyRequest, reply: FastifyReply) {

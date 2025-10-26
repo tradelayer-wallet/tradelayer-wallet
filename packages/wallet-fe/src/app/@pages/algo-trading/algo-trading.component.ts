@@ -157,23 +157,25 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
   }
 
   allocateConfirm(): void {
-    if (!this.selectedSystemId) return;
-    if (this.allocationForm.invalid) {
-      this.allocationForm.markAllAsTouched();
-      return;
-    }
+  if (!this.selectedSystemId) return;
+  if (this.allocationForm.invalid) {
+    this.allocationForm.markAllAsTouched();
+    return;
+  }
 
-    const { amount, apiKey, apiSecret } = this.allocationForm.value;
-    const systemId = this.selectedSystemId!;
-    const amountNum = Number(amount) || 0;
+  const { amount, apiKey, apiSecret } = this.allocationForm.value;
+  const systemId = this.selectedSystemId!;
+  const amountNum = Number(amount) || 0;
 
-    // Is it already running?
-    const list = this.svc.running$.value || [];
-    const isRunning = list.some(
-      (r) => r.name === systemId || r.runId === systemId || (r as any).systemId === systemId
-    );
+  // helper: refresh + toast + close modal
+  const finishOk = (msg: string) => {
+    this.toast.success(msg);
+    this.closeAllocate();
+    this.svc.fetchRunning().pipe(take(1)).subscribe();
+  };
 
-    const allocate = () => {
+  // helper: do allocation (top-up / first funding)
+  const doAllocate = () => {
       this.svc
         .allocate(systemId, amountNum, {
           counterVenue: { name: 'default', apiKey, apiSecret },
@@ -181,39 +183,57 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
         .pipe(take(1))
         .subscribe({
           next: () => {
-            this.toast.success(isRunning ? 'Allocation updated' : 'System started');
-            this.closeAllocate();
-            this.svc.fetchRunning().pipe(take(1)).subscribe();
+            finishOk('Allocation updated');
           },
           error: (e: any) => {
             console.error('[algo-ui] allocate error', e);
             this.toast.error('Failed to allocate');
+            // still close modal because bot is already running
+            this.closeAllocate();
           },
         });
     };
 
+    // is it already running?
+    const list = this.svc.running$.value || [];
+    const isRunning = list.some(
+      (r) => r.name === systemId || r.runId === systemId || (r as any).systemId === systemId
+    );
+
     if (isRunning) {
-      allocate();
+      // already live -> just allocate and then close
+      doAllocate();
       return;
     }
 
-    // Not running: start it, then allocate
+    // not running -> start, then allocate (if any), then close
     try {
       this.svc
         .runSystem(systemId)
         .pipe(take(1))
         .subscribe({
-          next: () => allocate(),
+          next: () => {
+            if (amountNum > 0) {
+              // fund it, modal closes in doAllocate()
+              doAllocate();
+            } else {
+              // no allocation requested, close immediately
+              finishOk('System started');
+            }
+          },
           error: (e: any) => {
             console.error('[algo-ui] runSystem error', e);
             this.toast.error('Failed to start system');
+            // leave modal open so user can retry / change amount
           },
         });
     } catch (e: any) {
       console.error('[algo-ui] runSystem precondition failed', e);
       this.toast.error('Connect a wallet first');
+      // leave modal so they see why
     }
   }
+
 
 
   // ------------------------------------------------------------
