@@ -142,6 +142,22 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
   // ------------------------------------------------------------
   // Allocate flow
   // ------------------------------------------------------------
+  stopSystem(runId: string): void {
+  console.log('runId '+runId)
+  if (!runId) return;
+  this.svc.stopSystem(runId).pipe(take(1)).subscribe({
+    next: () => {
+      this.toast.success('System stopped');
+      this.svc.fetchRunning().pipe(take(1)).subscribe();
+    },
+    error: (e: any) => {
+      console.error('[algo-ui] stopSystem error', e);
+      this.toast.error('Failed to stop system');
+    },
+  });
+}
+
+
   onCopy(row: DiscoveryRow): void {
     // Open the allocate dialog populated with meta from the clicked row
     this.selectedMeta = row?.meta ?? null;
@@ -259,7 +275,7 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
     const { amount } = this.withdrawForm.value;
 
     // RunningSystem has runId; if your API expects systemId, adapt here
-    const systemId = (this.withdrawFor as any).runId ?? (this.withdrawFor as any).id ?? '';
+    const systemId = (this.withdrawFor as any).id ?? '';
     if (!systemId) {
       this.toast.error('Missing system identifier');
       return;

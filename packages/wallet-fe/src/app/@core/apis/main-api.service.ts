@@ -160,6 +160,7 @@ export class MainApiService {
         }
 
     stopAlgo(systemId: string): Observable<{ ok: boolean }> {
+      console.log('stop algo route '+systemId)
       return this.http.post<{ ok: boolean }>(
         this.apiUrl + 'algo/stop',
         { systemId }

@@ -146,7 +146,7 @@
           </div>
           <div class="td w-220">{{ s.startedAt | date:'yyyy-MM-dd HH:mm' }}</div>
           <div class="td w-160 right">
-            <button mat-stroked-button color="primary" (click)="stopSystem(s.runId)">Stop</button>
+            <button mat-stroked-button color="primary" (click)="stopSystem(s.id)">Stop</button>
             <button mat-stroked-button (click)="openWithdraw(s)" style="margin-left:8px;">Withdraw</button>
           </div>
         </div>

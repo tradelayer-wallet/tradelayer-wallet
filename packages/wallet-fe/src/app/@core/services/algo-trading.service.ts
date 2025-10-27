@@ -169,9 +169,24 @@ export class AlgoTradingService {
   );
 }
 
-  stopSystem(systemId: string) {
-    return this.mainApi.stopAlgo(systemId);
-  }
+  // AlgoTradingService
+stopSystem(systemId: string) {
+  return this.mainApi.stopAlgo(systemId).pipe(
+    tap(() => {
+      const cur = this.running$.value || [];
+      const next = cur.filter(
+        (r) => r.runId !== systemId && r.name !== systemId && (r as any).systemId !== systemId
+      );
+      this.running$.next(next);
+      // flip status in discovery list too
+      const rows = this.discovery$.value || [];
+      this.discovery$.next(rows.map((r: any) =>
+        (r.id === systemId || r.name === systemId) ? { ...r, status: 'stopped' } : r
+      ));
+    })
+  );
+}
+
 
   /**
    * Allocate exposure (backward compatible).

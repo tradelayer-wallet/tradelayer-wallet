@@ -18,6 +18,62 @@
  * Run: node run_bbo_tracker.js
  */
 
+// ---- Algo Env Header (paste at top) ---------------------------------
+
+const pick = (...xs) => xs.find(v => v !== undefined && v !== '') ?? undefined;
+const toBool = (v, d=false) => (v === undefined ? d : /^(1|true|yes|on)$/i.test(String(v)));
+const toNum  = (v, d) => (v === undefined ? d : Number(v));
+
+const required = (label, ...candidates) => {
+  const v = pick(...candidates);
+  if (v === undefined) throw new Error(`Missing env: ${label}`);
+  return v;
+};
+
+// Source envs (prefer TL_*, fallback to legacy)
+const TL_HOST    = pick(process.env.TL_HOST,    process.env.OB_HOST);
+const TL_PORT    = pick(process.env.TL_PORT,    process.env.OB_PORT);
+const TL_TEST    = pick(process.env.TL_TEST,    process.env.IS_TESTNET); // 'true'|'false' or '1'|'0'
+const TL_ADDR    = pick(process.env.TL_ADDRESS, process.env.USER_ADDR);
+const TL_PUB     = pick(process.env.TL_PUBKEY,  process.env.USER_PUB);
+const TL_NET     = pick(process.env.TL_NETWORK, process.env.NETWORK);
+
+// Optional sizing
+const SIZE       = pick(process.env.SIZE, process.env.QTY, process.env.TARGET_EXPOSURE, process.env.QUICKENVJS_TARGET_EXPOSURE);
+
+// Build normalized config
+const CFG = Object.freeze({
+  NETWORK: required('TL_NETWORK/NETWORK', TL_NET),
+  HOST:    required('TL_HOST/OB_HOST', TL_HOST),
+  PORT:    toNum(required('TL_PORT/OB_PORT', TL_PORT), 3001),
+  TESTNET: toBool(TL_TEST, true),           // accepts 'true'/'1'/'false'/'0'
+  ADDRESS: required('TL_ADDRESS/USER_ADDR', TL_ADDR),
+  PUBKEY:  required('TL_PUBKEY/USER_PUB',   TL_PUB),
+  SIZE:    toNum(SIZE, 0.1),
+
+  // Derived
+  ORDERBOOK_WS() {                          // ws URL builder
+    const host = this.HOST.startsWith('ws') ? this.HOST : `ws://${this.HOST}`;
+    return `${host}:${this.PORT}/ws`;
+  }
+});
+
+// Optional: one-time sanity log
+console.log('[env-check]', {
+  NETWORK: CFG.NETWORK,
+  HOST: CFG.HOST, PORT: CFG.PORT,
+  TESTNET: CFG.TESTNET,
+  ADDRESS: CFG.ADDRESS,
+  PUBKEY: (CFG.PUBKEY || '').slice(0, 8) + '…',
+  SIZE: CFG.SIZE,
+  WS: CFG.ORDERBOOK_WS(),
+});
+
+// Export or attach where needed
+global.CFG = CFG;
+
+// ---------------------------------------------------------------------
+
 
 const ccxt = require('ccxt');
 const ApiWrapper = require('./algoAPI.js');

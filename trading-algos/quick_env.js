@@ -45,9 +45,9 @@ const api = new ApiWrapper(HOST, PORT, TESTNET, TL_ON, ADDRESS, PUBKEY, NETWORK)
 
   const order = {
     type: 'SPOT',
-    action: 'SELL',
+    action: 'SUY',
     isLimitOrder: true,
-    keypair: { address: ADDRESS, pubkey: PUBKEY },
+    keypair: { address: 'tltc1qn006lvcx89zjnhuzdmj0rjcwnfuqn7eycw40yf' /*ADDRESS*/, pubkey: '03670d8f2109ea83ad09142839a55c77a6f044dab8cb8724949931ae8ab1316677'/*PUBKEY*/ },
     props: { id_for_sale: 0, id_desired: 5, price: 100, amount: 0.1, transfer: false }
   };
 

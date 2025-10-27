@@ -6,6 +6,8 @@ import type { ProcessDescription } from 'pm2';
 import { v4 as uuidv4 } from 'uuid';
 import * as os from 'os';
 import { OBSocketService } from './ob-sockets.service';
+import * as crypto from 'crypto';
+import type { Dirent } from 'fs';
 
 let _pm2: any;
 function pm2() {
@@ -13,6 +15,9 @@ function pm2() {
   if (!_pm2) _pm2 = (eval('require') as NodeRequire)('pm2');
   return _pm2;
 }
+
+// lightweight pm2 describe/list shape – avoids needing @types/pm2
+type PM2Desc = { name?: string; pm_id?: number; pm2_env?: any };
 
 function* iterMatches(src: string, re: RegExp): Generator<RegExpExecArray, void, unknown> {
   // Ensure global flag so exec() advances
@@ -652,18 +657,29 @@ export async function runAlgo(request: FastifyRequest, reply: FastifyReply) {
   const setIf = (k: string, v: any) => { if (v !== undefined && v !== null && v !== '') env[k] = String(v); };
 
   // Required for algo to actually connect
-  setIf('NETWORK', network);
-  setIf('OB_HOST', host);
-  setIf('OB_PORT', port);           // keep as string
-  setIf('IS_TESTNET', test ? '1' : '0');
-  setIf('USER_ADDR', addr);
-  setIf('USER_PUB', pub);
+    setIf('TL_NETWORK', network);
+    setIf('TL_HOST', host);
+    setIf('TL_PORT', port);
+    setIf('TL_TEST', test ? 'true' : 'false');
+    setIf('TL_TLON', 'true');
+    setIf('TL_ADDRESS', addr);
+    setIf('TL_PUBKEY', pub);
 
-  // Optional size
-  setIf('SIZE', amount ?? item.amount ?? 0);
+    // --- Keep legacy names too (back-compat) ---
+    setIf('NETWORK', network);
+    setIf('OB_HOST', host);
+    setIf('OB_PORT', port);
+    setIf('IS_TESTNET', test ? '1' : '0');
+    setIf('USER_ADDR', addr);
+    setIf('USER_PUB', pub);
 
-  // Make shared modules resolvable
-  setIf('NODE_PATH', nodePath);
+    // sizing
+    const size = amount ?? item.amount ?? 0;
+    setIf('SIZE', size);
+    setIf('QTY', size);
+
+    // module resolution
+    setIf('NODE_PATH', nodePath);
 
   console.log('[runAlgo env]', env, 'script:', item.fullPath);
 
@@ -692,125 +708,226 @@ export async function runAlgo(request: FastifyRequest, reply: FastifyReply) {
   return reply.send({ ok: true });
 }
 
-/** POST /api/algo/stop { systemId } */
-export async function stopAlgo(request: FastifyRequest, reply: FastifyReply) {
-  const { systemId }: StopBody = request.body as StopBody;
-  if (!systemId) return reply.status(400).send({ error: 'systemId required' });
+  /** POST /api/algo/stop { systemId } */
+  export async function stopAlgo(request: FastifyRequest, reply: FastifyReply) {
+    const { systemId } = (request.body as StopBody) || {};
+    if (!systemId) return reply.status(400).send({ error: 'systemId required' });
 
-  const list = await readIndex();
-  const item = byId(list, systemId);
-  if (!item) return reply.status(404).send({ error: 'system not found' });
+    // Accept "id" or "algo:id"
+    const raw = String(systemId).trim();
+    const id = raw.startsWith('algo:') ? raw.slice('algo:'.length) : raw;
+    const canonicalName = pm2Name(id); // "algo:<id>"
 
-  await withPm2(async () => {
-    await new Promise<void>((res, rej) => {
-      pm2().delete(pm2Name(systemId), err => (err ? rej(err) : res()));
-    });
-    return;
-  });
+    console.log('[stop] raw:', raw, 'id:', id, 'canonical:', canonicalName);
 
-  item.status = 'stopped';
-  await writeIndex(list);
+    try {
+      // List processes to find the best match
+      const procs = await withPm2(
+        () =>
+          new Promise<PM2Desc[]>((res, rej) =>
+            pm2().list((err, list) => (err ? rej(err) : res(list || [])))
+          )
+      );
 
-  return reply.send({ ok: true });
-}/** POST /api/algo/allocate { systemId, amount } */
-export async function allocateAlgo(request: FastifyRequest, reply: FastifyReply) {
-  const { systemId, amount } = request.body as { systemId?: string; amount?: number };
-  if (!systemId || typeof amount !== 'number' || Number.isNaN(amount)) {
-    return reply.status(400).send({ error: 'systemId and numeric amount required' });
+      const match =
+        procs.find(p => p.name === canonicalName) ||
+        procs.find(p => (p.name ?? '').endsWith(id)) ||
+        procs.find(p => (p.name ?? '').includes(id)) ||
+        procs.find(p => (p.pm2_env as any)?.SYSTEM_ID === id);
+
+      const nameToStop = match?.name ?? canonicalName;
+      console.log('[stop] stopping:', nameToStop);
+
+      await withPm2(
+        () =>
+          new Promise<void>((res, rej) =>
+            pm2().stop(nameToStop, err => (err ? rej(err) : res()))
+          )
+      );
+      console.log('[stop] pm2.stop OK');
+
+      // Mark index as stopped
+      const list = await readIndex();
+      const i = list.findIndex(x => x.id === id);
+      if (i >= 0) {
+        list[i].status = 'stopped';
+        await writeIndex(list);
+        console.log('[stop] index updated for', id);
+      }
+
+      // Optional: confirm state after stop
+      const after = await withPm2(
+        () =>
+          new Promise<PM2Desc[]>((res, rej) =>
+            pm2().describe(nameToStop, (err, d) => (err ? rej(err) : res(d || [])))
+          )
+      );
+
+      return reply.send({ ok: true, id, pm2: nameToStop, after });
+    } catch (e: any) {
+      console.warn('[stop] error', e?.message || e);
+      return reply.status(500).send({ error: e?.message || 'stop failed', id });
+    }
   }
 
-  const list = await readIndex();
-  const item = byId(list, systemId);
-  if (!item) return reply.status(404).send({ error: 'system not found' });
+  /** POST /api/algo/allocate { systemId, amount } */
+  export async function allocateAlgo(request: FastifyRequest, reply: FastifyReply) {
+    const { systemId, amount } = request.body as { systemId?: string; amount?: number };
+    if (!systemId || typeof amount !== 'number' || Number.isNaN(amount)) {
+      return reply.status(400).send({ error: 'systemId and numeric amount required' });
+    }
 
-  // Base env for the process
-  const baseEnv: Record<string, string> = {
-    SIZE: String(amount),
-    TARGET_EXPOSURE: String(amount),
-  };
-  if (item.meta?.name)        baseEnv.ALGO_NAME = String(item.meta.name);
-  if (item.meta?.description) baseEnv.ALGO_DESC = String(item.meta.description);
+    const list = await readIndex();
+    const item = byId(list, systemId);
+    if (!item) return reply.status(404).send({ error: 'system not found' });
 
-  // Namespaced override (e.g., MYALGO_TARGET_EXPOSURE)
-  const envKey = `${String(item.name || systemId).replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}_TARGET_EXPOSURE`;
-  const mergedEnv = { ...baseEnv, [envKey]: String(amount) };
+    // Base env for the process
+    const baseEnv: Record<string, string> = {
+      SIZE: String(amount),
+      TARGET_EXPOSURE: String(amount),
+    };
+    if (item.meta?.name)        baseEnv.ALGO_NAME = String(item.meta.name);
+    if (item.meta?.description) baseEnv.ALGO_DESC = String(item.meta.description);
 
-  const name = pm2Name(systemId);
+    // Namespaced override (e.g., MYALGO_TARGET_EXPOSURE)
+    const envKey = `${String(item.name || systemId).replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}_TARGET_EXPOSURE`;
+    const mergedEnv = { ...baseEnv, [envKey]: String(amount) };
 
-  // Optional: log files next to the algo (requires outLogPath/errLogPath helpers)
-  const pm2CommonOpts: any = {
-    script: item.fullPath,
-    name,
-    env: mergedEnv,
-  };
-  try {
-    // If you added per-algo logging helpers, keep these lines.
-    // Otherwise, you can remove them safely.
-    pm2CommonOpts.merge_logs = false;
-    pm2CommonOpts.out_file = outLogPath(item);
-    pm2CommonOpts.error_file = errLogPath(item);
-    pm2CommonOpts.log_date_format = 'YYYY-MM-DD HH:mm:ss.SSS';
-  } catch {
-    // helpers not present; ignore
-  }
+    const name = pm2Name(systemId);
 
-  await withPm2(async () => {
-    // Check if process exists; if so, merge with prior env and restart
-    await new Promise<void>((res, rej) => {
-      pm2().describe(name, (dErr: any, descList: any[]) => {
-        if (dErr) return rej(dErr);
+    // Optional: log files next to the algo (requires outLogPath/errLogPath helpers)
+    const pm2CommonOpts: any = {
+      script: item.fullPath,
+      name,
+      env: mergedEnv,
+    };
+    try {
+      // If you added per-algo logging helpers, keep these lines.
+      // Otherwise, you can remove them safely.
+      pm2CommonOpts.merge_logs = false;
+      pm2CommonOpts.out_file = outLogPath(item);
+      pm2CommonOpts.error_file = errLogPath(item);
+      pm2CommonOpts.log_date_format = 'YYYY-MM-DD HH:mm:ss.SSS';
+    } catch {
+      // helpers not present; ignore
+    }
 
-        const exists = Array.isArray(descList) && descList.length > 0;
-        if (!exists) {
-          // START fresh
-          pm2().start(pm2CommonOpts, (err: any) => (err ? rej(err) : res()));
-          return;
-        }
+    await withPm2(async () => {
+      // Check if process exists; if so, merge with prior env and restart
+      await new Promise<void>((res, rej) => {
+        pm2().describe(name, (dErr: any, descList: any[]) => {
+          if (dErr) return rej(dErr);
 
-        // RESTART with merged env (preserve prior)
-        const priorEnv = (descList[0]?.pm2_env?.env ?? {}) as Record<string, any>;
-        const finalEnv = { ...priorEnv, ...mergedEnv };
+          const exists = Array.isArray(descList) && descList.length > 0;
+          if (!exists) {
+            // START fresh
+            pm2().start(pm2CommonOpts, (err: any) => (err ? rej(err) : res()));
+            return;
+          }
 
-        pm2().restart(
-          {
-            name,
-            env: finalEnv,
-            // keep logging directives if available
-            merge_logs: pm2CommonOpts.merge_logs,
-            out_file: pm2CommonOpts.out_file,
-            error_file: pm2CommonOpts.error_file,
-            log_date_format: pm2CommonOpts.log_date_format,
-            /* @ts-ignore */
-            updateEnv: true,
-          } as any,
-          (e: any) => (e ? rej(e) : res())
-        );
+          // RESTART with merged env (preserve prior)
+          const priorEnv = (descList[0]?.pm2_env?.env ?? {}) as Record<string, any>;
+          const finalEnv = { ...priorEnv, ...mergedEnv };
+
+          pm2().restart(
+            {
+              name,
+              env: finalEnv,
+              // keep logging directives if available
+              merge_logs: pm2CommonOpts.merge_logs,
+              out_file: pm2CommonOpts.out_file,
+              error_file: pm2CommonOpts.error_file,
+              log_date_format: pm2CommonOpts.log_date_format,
+              /* @ts-ignore */
+              updateEnv: true,
+            } as any,
+            (e: any) => (e ? rej(e) : res())
+          );
+        });
       });
     });
-  });
 
-  // Update index
-  item.status = 'running';
-  item.amount = amount;
-  await writeIndex(list);
+    // Update index
+    item.status = 'running';
+    item.amount = amount;
+    await writeIndex(list);
 
-  return reply.send({
-    ok: true,
-    // surface log paths if available
-    logs: ((): any => {
-      try {
-        return { out: outLogPath(item), err: errLogPath(item) };
-      } catch {
-        return undefined;
-      }
-    })(),
-  });
+    return reply.send({
+      ok: true,
+      // surface log paths if available
+      logs: ((): any => {
+        try {
+          return { out: outLogPath(item), err: errLogPath(item) };
+        } catch {
+          return undefined;
+        }
+      })(),
+    });
+  }
+
+
+
+/**
+ * Scan the algos directory and reconcile it against index.json:
+ * - add new .js files
+ * - remove entries for files that no longer exist
+ * - update size/createdAt if changed
+ * - keep prior status/amount for existing entries
+ */export async function refreshIndex(): Promise<AlgoIndexItem[]> {
+  const entries: Dirent[] = await fsp.readdir(baseDir, { withFileTypes: true });
+  const jsFiles = entries.filter(e => e.isFile() && e.name.toLowerCase().endsWith('.js'));
+
+  const current = await readIndex();
+  const byFile = new Map(current.map(i => [i.fileName, i]));
+
+  const next: AlgoIndexItem[] = [];
+  for (const f of jsFiles) {
+    const fileName = f.name;
+    const fullPath = path.join(baseDir, fileName);
+    const st = await fsp.stat(fullPath); // promises API
+
+    const existing = byFile.get(fileName);
+    const id = existing?.id ?? crypto.randomBytes(4).toString('hex');
+    const status = existing?.status ?? 'stopped';
+    const amount = existing?.amount ?? 0;
+
+    next.push({
+      id,
+      name: fileName.replace(/\.js$/i, ''),
+      fileName,
+      fullPath,
+      size: st.size,
+      createdAt: (st as any).birthtimeMs ?? (st as any).ctimeMs ?? Date.now(),
+      status,
+      amount,
+    });
+
+    byFile.delete(fileName);
+  }
+
+  // write only if changed (ignore non-identity fields in comparison if you want)
+  if (JSON.stringify(current.map(strip)) !== JSON.stringify(next.map(strip))) {
+    await writeIndex(next);
+  }
+
+  return next;
+
+  function strip(i: AlgoIndexItem) {
+    return {
+      id: i.id,
+      fileName: i.fileName,
+      size: i.size,
+      createdAt: i.createdAt,
+      status: i.status ?? 'stopped',
+      amount: i.amount ?? 0,
+    };
+  }
 }
 
 
 /** GET /api/algo/discovery */
 export async function discoveryAlgo(request: FastifyRequest, reply: FastifyReply) {
-  const list = await readIndex();
+  const list = await refreshIndex(); 
   console.log('inside discover algo '+JSON.stringify(list))
   return reply.send(
     list.map(i => ({

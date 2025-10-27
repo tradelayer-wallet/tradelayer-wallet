@@ -181,9 +181,16 @@ fastify.post('start-wallet-node', async (request, reply) => {
       catch (e: any) { reply.status(500).send({ error: e?.message || 'Run failed' }); }
     });
 
-    fastify.post('algo/stop', async (request, reply) => {
-      try { await stopAlgo(request, reply); }
-      catch (e: any) { reply.status(500).send({ error: e?.message || 'Stop failed' }); }
+    fastify.post('/algo/stop', async (request, reply) => {
+      try {
+        // SAFE logging (no stringify of request/reply)
+        console.log('[BE] /algo/stop hit body=', request.body);
+
+        await stopAlgo(request, reply);  // this will send the reply
+      } catch (e: any) {
+        console.error('[BE] /algo/stop error:', e?.message || e);
+        if (!reply.sent) reply.status(500).send({ error: e?.message || 'Stop failed' });
+      }
     });
 
     fastify.post('algo/allocate', async (request, reply) => {
