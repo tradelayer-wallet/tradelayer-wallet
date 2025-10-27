@@ -24,11 +24,16 @@ export interface DiscoveryRow {
 }
 
 export interface RunningSystem {
-  runId: string;
-  name: string;
-  allocated: number;
-  pnl: number;
-  startedAt: string | number | Date;
+  id?: string;                                 // ← BE field
+  name?: string;
+  amount?: number;                             // ← BE field
+  status?: 'running' | 'stopped';              // ← BE field
+  startedAt?: number | string | Date;
+
+  // legacy/optional fields (so old code still compiles if referenced somewhere)
+  runId?: string;
+  allocated?: number;
+  pnl?: number;
   counterVenuePct?: number;
 }
 

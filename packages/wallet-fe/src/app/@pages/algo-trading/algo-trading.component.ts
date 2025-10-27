@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectionStrategy, OnDestroy } from '@angular/
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Subscription, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, take, map, switchMap } from 'rxjs/operators';
+import { ChangeDetectorRef, NgZone } from '@angular/core';
 
 import {
   AlgoTradingService,
@@ -68,6 +69,7 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
     private svc: AlgoTradingService,
     private dialog: MatDialog,
     private toast: ToastrService,
+    private cdr: ChangeDetectorRef, private zone: NgZone,
   ) {}
 
   // ------------------------------------------------------------
@@ -147,7 +149,10 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
   if (!runId) return;
   this.svc.stopSystem(runId).pipe(take(1)).subscribe({
     next: () => {
+      this.running = (this.running || []).filter(r => r.id !== runId);
+      console.log('this.running '+JSON.stringify(this.running))
       this.toast.success('System stopped');
+       this.cdr.markForCheck();  
       this.svc.fetchRunning().pipe(take(1)).subscribe();
     },
     error: (e: any) => {
@@ -156,7 +161,6 @@ export class AlgoTradingPageComponent implements OnInit, OnDestroy {
     },
   });
 }
-
 
   onCopy(row: DiscoveryRow): void {
     // Open the allocate dialog populated with meta from the clicked row
