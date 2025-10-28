@@ -8,40 +8,44 @@ import * as os from 'os';
 import { OBSocketService } from './ob-sockets.service';
 import * as crypto from 'crypto';
 import type { Dirent } from 'fs';
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
 import { spawn } from 'child_process';
+
 export async function ensureAlgoDeps(algoDir: string): Promise<void> {
-  const nm = path.join(algoDir, 'node_modules');
+  const nm  = path.join(algoDir, 'node_modules');
   const pkg = path.join(algoDir, 'package.json');
-  const lock = path.join(algoDir, 'package-lock.json');
-  console.log('inside ensure deps', algoDir);
+  if (existsSync(nm) || !existsSync(pkg)) return; // already installed or no manifest
 
-  // Already installed → skip
-  if (existsSync(nm)) return;
+  // Prevent parallel installs in the same folder (optional)
+  const lock = path.join(algoDir, '.install.lock');
+  if (existsSync(lock)) return;
+  try { writeFileSync(lock, String(Date.now())); } catch {}
 
-  // No manifest → skip gracefully
-  if (!existsSync(pkg)) {
-    console.warn(`[ensureAlgoDeps] No package.json in ${algoDir}, skipping install.`);
-    return;
-  }
+  const cmd  = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const args = [
+    'install',
+    '--omit=dev',
+    '--omit=optional',
+    '--legacy-peer-deps', // friendlier on Node 14 trees
+    '--no-audit',
+    '--no-fund',
+    '--loglevel=error',
+  ];
 
-  const cmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  // If lockfile missing, use install; otherwise ci
-  const args = ['install', '--omit=dev', '--omit=optional'];
+  await new Promise<void>((resolve) => {
+    const p = spawn(cmd, args, { cwd: algoDir, stdio: 'inherit', env: process.env });
 
-  console.log(`[ensureAlgoDeps] running ${cmd} ${args.join(' ')} in ${algoDir}`);
-
-  await new Promise<void>((resolve, reject) => {
-    const p = spawn(cmd, args, {
-      cwd: algoDir,
-      stdio: 'inherit',
-      env: process.env,
+    // NEVER reject; just log and continue
+    p.on('exit', (code) => {
+      if (code && code !== 0) console.warn(`[ensureAlgoDeps] npm i exit ${code} in ${algoDir} (continuing)`);
+      try { writeFileSync(lock, ''); } catch {}
+      resolve();
     });
-    p.on('exit', code => {
-      if (code === 0) return resolve();
-      reject(new Error(`npm ${args[0]} failed (code ${code}) in ${algoDir}`));
+    p.on('error', (err) => {
+      console.warn('[ensureAlgoDeps] spawn error (continuing):', err?.message);
+      try { writeFileSync(lock, ''); } catch {}
+      resolve();
     });
-    p.on('error', reject);
   });
 }
 
