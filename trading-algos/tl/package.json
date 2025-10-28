@@ -1,0 +1,29 @@
+{
+  "name": "tl-algo-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=14" },
+  "type": "commonjs",
+  "scripts": {
+    "postinstall": "npm dedupe && npm prune --omit=dev --omit=optional"
+  },
+  "overrides": {
+    "ws": "7.5.9"                    // keep ws on v7 for Node 14
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bignumber.js": "^9.1.2",
+    "bitcoinjs-lib": "^5.2.0",
+    "ecpair": "^2.1.0",
+    "isomorphic-ws": "^5.0.0",
+    "socket.io-client": "^4.7.5",
+    "tiny-secp256k1": "^1.1.6",
+    "dotenv": "^16.3.1",
+    "ws": "7.5.9"
+       "bitcore-lib-ltc": "^10.0.21",
+       "ccxt": "^3.1.92",            // 3.x is friendlier to old Node
+       "tradelayer": "^1.5.2",
+       "litecoin": "^2.0.5",
+  }
+}

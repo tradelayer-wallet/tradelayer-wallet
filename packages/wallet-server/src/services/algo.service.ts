@@ -8,6 +8,43 @@ import * as os from 'os';
 import { OBSocketService } from './ob-sockets.service';
 import * as crypto from 'crypto';
 import type { Dirent } from 'fs';
+import { existsSync } from 'fs';
+import { spawn } from 'child_process';
+export async function ensureAlgoDeps(algoDir: string): Promise<void> {
+  const nm = path.join(algoDir, 'node_modules');
+  const pkg = path.join(algoDir, 'package.json');
+  const lock = path.join(algoDir, 'package-lock.json');
+  console.log('inside ensure deps', algoDir);
+
+  // Already installed → skip
+  if (existsSync(nm)) return;
+
+  // No manifest → skip gracefully
+  if (!existsSync(pkg)) {
+    console.warn(`[ensureAlgoDeps] No package.json in ${algoDir}, skipping install.`);
+    return;
+  }
+
+  const cmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  // If lockfile missing, use install; otherwise ci
+  const args = ['install', '--omit=dev', '--omit=optional'];
+
+  console.log(`[ensureAlgoDeps] running ${cmd} ${args.join(' ')} in ${algoDir}`);
+
+  await new Promise<void>((resolve, reject) => {
+    const p = spawn(cmd, args, {
+      cwd: algoDir,
+      stdio: 'inherit',
+      env: process.env,
+    });
+    p.on('exit', code => {
+      if (code === 0) return resolve();
+      reject(new Error(`npm ${args[0]} failed (code ${code}) in ${algoDir}`));
+    });
+    p.on('error', reject);
+  });
+}
+
 
 let _pm2: any;
 function pm2() {
@@ -927,6 +964,7 @@ export async function runAlgo(request: FastifyRequest, reply: FastifyReply) {
 
 /** GET /api/algo/discovery */
 export async function discoveryAlgo(request: FastifyRequest, reply: FastifyReply) {
+  ensureAlgoDeps(baseDir)
   const list = await refreshIndex(); 
   console.log('inside discover algo '+JSON.stringify(list))
   return reply.send(

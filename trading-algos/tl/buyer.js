@@ -210,7 +210,7 @@ class BuySwapper {
 
    async onStep3(cpId, commitUTXO) {
   const startStep3Time = Date.now();
-  try {
+  //try {
     // --- guards ---
     if (cpId !== this.cpInfo?.socketId) throw new Error(`Error with p2p connection`);
     if (!this.multySigChannelData?.address) throw new Error(`Wrong Multisig Data Provided`);
@@ -240,7 +240,7 @@ class BuySwapper {
     } catch (_) {
       // keep default isA = 1
     }
-
+    console.log('inside step 3'+isSpot+' '+JSON.stringify(props))
     // =========================
     // SPOT
     // =========================
@@ -467,10 +467,10 @@ class BuySwapper {
     }
 
     throw new Error(`Unrecognized Trade Type: ${this.typeTrade}`);
-  } catch (error) {
-    const errorMessage = error?.message || 'Undefined Error';
-    this.terminateTrade(`Step 3: ${errorMessage}`);
-  }
+  //} catch (error) {
+  //  const errorMessage = error?.message || 'Undefined Error';
+  //  this.terminateTrade(`Step 3: ${errorMessage}`);
+  //}
 }
 
 

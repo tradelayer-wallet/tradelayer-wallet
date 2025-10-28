@@ -1,7 +1,8 @@
 // runAlgo.js
 require('dotenv').config(); // optional: reads .env if present
 
-const ApiWrapper = require('./tl/algoAPI.js');
+// prefer local ./tl, fall back to npm 'tradelayer'
+let ApiWrapper; try { ApiWrapper = require('./tl'); } catch { ApiWrapper = require('tradelayer'); }
 
 const toBool = (v, d=false) =>
   v === undefined ? d :
@@ -15,15 +16,17 @@ const required = (name, def) => {
   return v;
 };
 
+
+
 // ---- ENV CONFIG ----
 const HOST     = required('TL_HOST', '172.81.181.19'); // includes ws:// ws://172.26.37.103
 const PORT     = Number(process.env.TL_PORT ?? 3001);
 const TESTNET  = toBool(process.env.TL_TEST, true);          // true | false
 const TL_ON    = toBool(process.env.TL_TLON, true);          // your "tlAlreadyOn"
-const ADDRESS  = required('TL_ADDRESS', 'tltc1qn006lvcx89zjnhuzdmj0rjcwnfuqn7eycw40yf');
-const PUBKEY   = required('TL_PUBKEY',  '03670d8f2109ea83ad09142839a55c77a6f044dab8cb8724949931ae8ab1316677');
+const ADDRESS  = 'tltc1qn006lvcx89zjnhuzdmj0rjcwnfuqn7eycw40yf' //required('TL_ADDRESS', 'tltc1qn006lvcx89zjnhuzdmj0rjcwnfuqn7eycw40yf');
+const PUBKEY   = '03670d8f2109ea83ad09142839a55c77a6f044dab8cb8724949931ae8ab1316677' //required('TL_PUBKEY',  '03670d8f2109ea83ad09142839a55c77a6f044dab8cb8724949931ae8ab1316677');
 const NETWORK  = required('TL_NETWORK', 'LTCTEST');          // e.g., LTCTEST | BTCTEST | LTC
-
+const SIZE = required('SIZE', 0.1)
 console.log('env config '+HOST+' '+PORT+' '+TESTNET+' '+TL_ON+' '+ADDRESS+' '+PUBKEY+' '+NETWORK)
 
 // ---- INIT ----
@@ -45,10 +48,10 @@ const api = new ApiWrapper(HOST, PORT, TESTNET, TL_ON, ADDRESS, PUBKEY, NETWORK)
 
   const order = {
     type: 'SPOT',
-    action: 'SUY',
+    action: 'BUY',
     isLimitOrder: true,
     keypair: { address: 'tltc1qn006lvcx89zjnhuzdmj0rjcwnfuqn7eycw40yf' /*ADDRESS*/, pubkey: '03670d8f2109ea83ad09142839a55c77a6f044dab8cb8724949931ae8ab1316677'/*PUBKEY*/ },
-    props: { id_for_sale: 0, id_desired: 5, price: 100, amount: 0.1, transfer: false }
+    props: { id_for_sale: 0, id_desired: 5, price: 100, amount: SIZE, transfer: false }
   };
 
   const uuid = await api.sendOrder(order);

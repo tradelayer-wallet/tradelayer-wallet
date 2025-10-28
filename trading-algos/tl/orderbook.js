@@ -105,7 +105,7 @@ class OrderbookSession {
                         console.log('Initiating Buy Swap...');
                         await this.initiateBuySwap(type, tradeInfo, buyer, seller);
                     } else if (this.myInfo.keypair.address === seller.keypair.address){
-                        console.log('Initiating Sell Swap...');
+                        console.log('Initiating Sell Swap...'+this.myInfo.keypair.address+' '+seller.keypair.address);
                         await this.initiateSellSwap(type, tradeInfo, buyer, seller);
                     } else {
                         console.log('Address mismatch, cannot proceed with swap.');

@@ -24,10 +24,10 @@
     "name": "quick_env",
     "fileName": "quick_env.js",
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\quick_env.js",
-    "size": 2293,
+    "size": 2558,
     "createdAt": 1761319250632.6284,
-    "status": "stopped",
-    "amount": 0.1
+    "status": "running",
+    "amount": 0.025
   },
   {
     "id": "4d1d9a03",
