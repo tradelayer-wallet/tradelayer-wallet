@@ -982,24 +982,41 @@ export async function discoveryAlgo(request: FastifyRequest, reply: FastifyReply
   );
 }
 
-/** GET /api/algo/running */
-export async function runningAlgo(request: FastifyRequest, reply: FastifyReply) {
-  const list = await readIndex();
+/** GET /api/algo/running */export async function runningAlgo(request: FastifyRequest, reply: FastifyReply) {
+  const list  = await readIndex();
   const names = new Set(list.map(i => pm2Name(i.id)));
 
   const runningNames = await withPm2(async () => {
     const procs = await new Promise<ProcessDescription[]>((res, rej) => {
       pm2().list((err: any, list: ProcessDescription[]) => (err ? rej(err) : res(list)));
     });
-    return new Set((procs || []).filter(p => p?.name && names.has(p.name!)).map(p => p.name!));
+
+    const ONLINE = new Set(['online', 'launching']); // what we consider "running"
+
+    return new Set(
+      (procs || [])
+        .filter(p => {
+          if (!p?.name || !names.has(p.name!)) return false;
+          const env: any = p.pm2_env || {};
+          const status = env.status || (p as any).status;
+          return ONLINE.has(status);
+        })
+        .map(p => p.name!)
+    );
   });
 
   const running = list
     .filter(i => runningNames.has(pm2Name(i.id)))
-    .map(i => ({ id: i.id, name: i.name, amount: i.amount ?? 0, status: 'running' as const }));
+    .map(i => ({
+      id: i.id,
+      name: i.name,
+      amount: i.amount ?? 0,
+      status: 'running' as const,
+    }));
 
   return reply.send(running);
 }
+
 
 // ====== LOG HELPERS (safe to paste once) ======
 function algoBaseDir(item: any): string {

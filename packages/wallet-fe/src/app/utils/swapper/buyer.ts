@@ -6,7 +6,6 @@ import { ENCODER } from '../payloads/encoder';
 import { ToastrService } from "ngx-toastr";
 import BigNumber from 'bignumber.js';
 
-
 export class BuySwapper extends Swap {
     private tradeStartTime: number;
 

@@ -5,7 +5,7 @@
     "fileName": "apiEx.js",
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\apiEx.js",
     "size": 2474,
-    "createdAt": 1759342564590.9548,
+    "createdAt": 1761746850951.6619,
     "status": "stopped",
     "amount": 0
   },
@@ -15,7 +15,7 @@
     "fileName": "calendarHedger.js",
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\calendarHedger.js",
     "size": 14086,
-    "createdAt": 1759342564590.9548,
+    "createdAt": 1761746850971.252,
     "status": "stopped",
     "amount": 0
   },
@@ -26,17 +26,27 @@
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\quick_env.js",
     "size": 2558,
     "createdAt": 1761319250632.6284,
-    "status": "running",
-    "amount": 0.025
+    "status": "stopped",
+    "amount": 0.01
   },
   {
     "id": "4d1d9a03",
     "name": "run_bbo_tracker",
     "fileName": "run_bbo_tracker.js",
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\run_bbo_tracker.js",
-    "size": 9822,
+    "size": 9817,
     "createdAt": 1761490347624.3774,
     "status": "stopped",
     "amount": 0
+  },
+  {
+    "id": "3547a05b",
+    "name": "spam_screamer",
+    "fileName": "spam_screamer.js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\spam_screamer.js",
+    "size": 5553,
+    "createdAt": 1762202111013.9978,
+    "status": "running",
+    "amount": 0.01
   }
 ]

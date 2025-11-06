@@ -17,6 +17,7 @@ export class OBSocketService {
   private _handlers: { [event: string]: (data: any) => void } = {};
   private _onAnyHandler?: (event: string, data: any) => void;
 
+
   constructor(private options: IOBSocketServiceOptions) {
     this.bridgeWalletToServer();
     this.connect();
@@ -132,6 +133,10 @@ export class OBSocketService {
 
     // Relay all other events as OB_SOCKET::<event>
     this.walletSocket?.emit(`${eventPrefix}::${msg.event}`, msg);
+  }
+
+  private getTradeUUID(tradeInfo: ITradeInfo): string {
+    return `${tradeInfo.buyer.uuid}-${tradeInfo.seller.uuid}`;
   }
 
   private handleNewChannel(msg: any) {
