@@ -72,8 +72,8 @@ export class SwapService {
             const { transfer } = props as ISpotTradeProps;
 
             const swapper = isBuyer
-                ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService)
-                : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService);
+                ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService,key)
+                : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService,key);
 
             swapper.eventSubs$.subscribe(eventData => {
                 this.toastrService.info(eventData.eventName, 'Trade Info', { timeOut: 3000 });
@@ -85,8 +85,8 @@ export class SwapService {
             const { transfer } = props as IFuturesTradeProps;
 
             const swapper = isBuyer
-                ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService)
-                : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService);
+                ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService,key)
+                : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService,key);
 
             swapper.eventSubs$.subscribe(eventData => {
                 this.toastrService.info(eventData.eventName, 'Trade Info', { timeOut: 3000 });

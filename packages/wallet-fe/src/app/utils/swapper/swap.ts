@@ -15,6 +15,7 @@ export abstract class Swap {
         public client: TClient,
         public socket: SocketClient,
         public txsService: TxsService,
+        public tradeUUID: string
     ) { }
 
     onReady() {

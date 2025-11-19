@@ -8,6 +8,7 @@ import { ITradeInfo } from "src/app/utils/swapper";
 import { ISpotTradeProps } from "src/app/utils/swapper/common";
 import { wrangleObMessageInPlace } from 'src/app/@core/utils/ob-normalize';
 import { Injectable, NgZone } from "@angular/core";
+import { RpcService } from "../rpc.service"
 
 type Side = 'bids' | 'asks' | 'both';
 // spot-orders.component.ts (imports)
@@ -65,6 +66,7 @@ export class SpotOrderbookService {
         private loadingService: LoadingService,
         private authService: AuthService,
         private ngZone: NgZone, 
+        private rpcService: RpcService 
     ) {}
 
     get activeSpotKey() {
@@ -130,8 +132,9 @@ export class SpotOrderbookService {
 
         this.socket.on(`${obEventPrefix}::connected`, (message: string) => {
             this.toastrService.success('Connected to orderbook server')
+            const net = this.rpcService.Network()
             const newKey = this.normalizeKey(this.marketFilter.first_token,this.marketFilter.second_token);
-            this.socket.emit('orderbook:join', { marketKey: newKey })
+            this.socket.emit('orderbook:join', { marketKey: newKey, network: net })
         });
         
         this.socket.on(`${obEventPrefix}::order:error`, (message: string) => {
@@ -158,13 +161,14 @@ export class SpotOrderbookService {
               this.marketFilter.first_token,
               this.marketFilter.second_token
             );
-
+            const net = this.rpcService.Network()
             // Build the payload (include state hints for the server)
             const payload = {
               ...this.marketFilter,         // { type, first_token, second_token, depth, side, includeTrades, ... }
               marketKey,                    // current target key (normalized)
               activeKey: this.activeKey ?? marketKey,
               lastRequestedKey: this._lastRequestedKey ?? null,
+              network: net
             };
 
             // Fire the request
@@ -292,7 +296,8 @@ export class SpotOrderbookService {
 
   // Leave old
   if (this.activeKey && this.activeKey !== newKey) {
-    this.socket.emit('orderbook:leave', { marketKey: this.activeKey });
+    const net = this.rpcService.Network()
+    this.socket.emit('orderbook:leave', { marketKey: this.activeKey, network: net });
   }
 
   this.activeKey = newKey;
@@ -306,11 +311,12 @@ export class SpotOrderbookService {
       depth: String(p?.depth ?? 50),
       side: p?.side ?? 'both',
       includeTrades: String(p?.includeTrades ?? false),
+      network: net
     },
   });
 
   // Join for live deltas
-  this.socket.emit('orderbook:join', { marketKey: newKey });
+  this.socket.emit('orderbook:join', { marketKey: newKey, network: net });
 }
 
 }

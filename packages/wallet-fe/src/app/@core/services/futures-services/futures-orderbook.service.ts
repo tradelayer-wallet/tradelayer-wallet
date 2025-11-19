@@ -9,6 +9,7 @@ import { IFuturesTradeProps } from "src/app/utils/swapper/common";
 import { BehaviorSubject } from 'rxjs';
 import { wrangleFuturesObMessageInPlace } from 'src/app/@core/utils/ob-normalize';
 import { Injectable, NgZone } from "@angular/core";
+import { RpcService } from "../rpc.service"
 
 type Side = 'bids' | 'asks' | 'both';
 
@@ -90,6 +91,7 @@ export class FuturesOrderbookService {
         private toastrService: ToastrService,
         private loadingService: LoadingService,
         private authService: AuthService,
+        private rpcService: RpcService, 
         private ngZone: NgZone, 
     ) {}
 
@@ -168,10 +170,10 @@ export class FuturesOrderbookService {
     ) {
       this.bindOnce();
       const newKey = this.key(type, contract_id);
-
+      const net = this.rpcService.Network()
       if (this.activeKey && this.activeKey !== newKey) {
         this.socket.emit(
-          JSON.stringify({ event: 'orderbook:leave', marketKey: this.outboundMarketKeyForFutures(contract_id) })
+          JSON.stringify({ event: 'orderbook:leave', marketKey: this.outboundMarketKeyForFutures(contract_id), network: net })
         );
       }
       this.activeKey = newKey;
@@ -187,13 +189,14 @@ export class FuturesOrderbookService {
             depth: String(p?.depth ?? 50),
             side: p?.side ?? 'both',
             includeTrades: String(p?.includeTrades ?? false),
+            network: net
           },
         })
       );
 
       // 2. Join the market room for live deltas
       this.socket.emit(
-        JSON.stringify({ event: 'orderbook:join', marketKey: this.outboundMarketKeyForFutures(contract_id) })
+        JSON.stringify({ event: 'orderbook:join', marketKey: this.outboundMarketKeyForFutures(contract_id), network: net })
       );
     }
 
@@ -214,7 +217,8 @@ export class FuturesOrderbookService {
         this.socket.on(`${obEventPrefix}::connected`, (message: string) => {
             this.toastrService.success('Connected to orderbook server')
             const newKey = this.marketFilter.contract_id
-            this.socket.emit('orderbook:join', { marketKey: this.outboundMarketKeyForFutures(this.marketFilter.contract_id) })
+            const net = this.rpcService.Network()
+            this.socket.emit('orderbook:join', { marketKey: this.outboundMarketKeyForFutures(this.marketFilter.contract_id), network: net })
         });
 
         this.socket.on(`${obEventPrefix}::order:error`, (message: string) => {
@@ -238,7 +242,8 @@ export class FuturesOrderbookService {
 
 
         this.socket.on(`${obEventPrefix}::update-orders-request`, () => {
-            this.socket.emit('update-orderbook', this.marketFilter)
+            const net = this.rpcService.Network()
+            this.socket.emit('update-orderbook', { ...this.marketFilter, network: net })
         });
 
         console.log('[time]', Date.now(), 'set up listener for orderbook-data');

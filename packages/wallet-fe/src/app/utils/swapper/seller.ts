@@ -17,9 +17,10 @@ export class SellSwapper extends Swap {
         client: TClient,
         socket: SocketClient,
         txsService: TxsService,
-        private toastrService: ToastrService
+        private toastrService: ToastrService,
+        tradeUUID: string   
     ) {
-        super(typeTrade, tradeInfo, sellerInfo, buyerInfo, client, socket, txsService);
+        super(typeTrade, tradeInfo, sellerInfo, buyerInfo, client, socket, txsService,tradeUUID);
         this.handleOnEvents();
         this.tradeStartTime = Date.now(); // Start time of the trade
         this.onReady();
@@ -40,6 +41,9 @@ export class SellSwapper extends Swap {
             this.eventSubs$.next(eventData);
             const { socketId, data } = eventData;
             console.log('event data '+JSON.stringify(eventData))
+            if (eventData.data?.tradeUUID && eventData.data.tradeUUID !== this.tradeUUID){
+                return;
+            }
             switch (eventData.eventName){
                 case 'TERMINATE_TRADE':
                     this.onTerminateTrade.bind(this)(socketId, data);

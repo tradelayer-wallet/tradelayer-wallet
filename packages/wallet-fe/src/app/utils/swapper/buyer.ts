@@ -17,9 +17,10 @@ export class BuySwapper extends Swap {
         client: TClient,
         socket: SocketClient,
         txsService: TxsService,
-        private toastrService: ToastrService
+        private toastrService: ToastrService,
+        tradeUUID: string
     ) {
-        super(typeTrade, tradeInfo, buyerInfo, sellerInfo, client, socket, txsService);
+        super(typeTrade, tradeInfo, buyerInfo, sellerInfo, client, socket, txsService,tradeUUID);
         this.handleOnEvents();
         this.tradeStartTime = Date.now();
         this.onReady();
@@ -30,11 +31,6 @@ export class BuySwapper extends Swap {
         console.log(`Time taken for ${stage}: ${currentTime - this.tradeStartTime} ms`);
     }
 
-    private makeTradeUUID(ti) {
-      return `${ti.buyer.uuid}-${ti.seller.uuid}`;
-    }
-
-
     private handleOnEvents() {
         this.removePreviuesListeners();
         const _eventName = `${this.cpInfo.socketId}::swap`;
@@ -42,6 +38,9 @@ export class BuySwapper extends Swap {
             console.log('event name '+_eventName+' swap event '+JSON.stringify(eventData))
             const { socketId, data } = eventData;
             this.eventSubs$.next(eventData);
+            if (eventData.data?.tradeUUID && eventData.data.tradeUUID !== this.tradeUUID){
+                return;
+            }
 
             switch (eventData.eventName) {
                 case 'TERMINATE_TRADE':

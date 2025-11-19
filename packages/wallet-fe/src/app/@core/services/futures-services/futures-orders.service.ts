@@ -3,6 +3,7 @@ import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
 import { IFuturesOrder } from "./futures-orderbook.service";
 import { FuturesMarketService  } from "./futures-markets.service";
+import { RpcService } from "../rpc.service"
 
 interface ITradeConf {
     keypair: {
@@ -50,7 +51,8 @@ private _orderHistory: any[] = [];
     constructor(
         private socketService: SocketService,
         private loadingService: LoadingService,
-        private futureMarketService: FuturesMarketService
+        private futureMarketService: FuturesMarketService,
+        private rpcService: RpcService, 
     ) { }
 
     get socket() {
@@ -85,17 +87,22 @@ private _orderHistory: any[] = [];
     newOrder(orderConf: IFuturesTradeConf) {
         //this.loadingService.tradesLoading = true;
         console.log('emitting new order '+JSON.stringify(orderConf))
-        this.socket.emit('new-order', orderConf);
+        const net = this.rpcService.Network()
+        const msg = { ...orderConf, network: net } satisfies IFuturesTradeConf & { network: string };
+
+        this.socket.emit('new-order', msg);
     }
 
-    addLiquidity(orders: IFuturesTradeConf[]) {
-        this.socket.emit('many-orders', orders);
+    addLiquidity(orders: IFuturesTradeConf[]){
+        const net = this.rpcService.Network()
+        this.socket.emit('many-orders', {orders, network: net);
     }
 
     closeOpenedOrder(uuid: string) {
-         const sel = this.selectedMarket;
+        const sel = this.selectedMarket;
         const contractId  = sel?.contract_id;
-        this.socket.emit('close-order', { orderUUID: uuid, contractId });
+        const net = this.rpcService.Network()
+        this.socket.emit('close-order', { orderUUID: uuid, contractId,network: net });
     }
 
     closeAllOrders() {

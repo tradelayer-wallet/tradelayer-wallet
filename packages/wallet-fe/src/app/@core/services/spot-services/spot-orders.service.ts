@@ -3,6 +3,7 @@ import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
 import { ISpotOrder } from "./spot-orderbook.service";
 import { SpotMarketsService, IMarket  } from "./spot-markets.service";
+import { RpcService } from "../rpc.service"
 
 interface ITradeConf {
     keypair: {
@@ -36,7 +37,8 @@ export class SpotOrdersService {
     constructor(
         private socketService: SocketService,
         private loadingService: LoadingService,
-        private spotMarketService: SpotMarketsService
+        private spotMarketService: SpotMarketsService,
+        private rpcService: RpcService 
     ) { }
 
     get socket() {
@@ -66,7 +68,10 @@ export class SpotOrdersService {
     newOrder(orderConf: ISpotTradeConf) {
         //this.loadingService.tradesLoading = true;
         console.log('inside new order '+JSON.stringify(orderConf))
-        this.socket.emit('new-order', orderConf);
+        const net = this.rpcService.Network()
+        const msg = { ...orderConf, network: net } satisfies ISpotTradeConf & { network: string };
+
+        this.socket.emit('new-order', msg);
     }
 
     addLiquidity(orders: ISpotTradeConf[]) {
@@ -78,7 +83,8 @@ export class SpotOrdersService {
         const sel = this.selectedMarket;
         const base  = sel?.first_token?.propertyId;
         const quote = sel?.second_token?.propertyId;
-        this.socket.emit('close-order', { orderUUID: uuid, id_for_sale: base, id_desired: quote });
+        const net = this.rpcService.Network()
+        this.socket.emit('close-order', { orderUUID: uuid, id_for_sale: base, id_desired: quote, network: net });
     }
 
     closeAllOrders() {
