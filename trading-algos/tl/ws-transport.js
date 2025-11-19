@@ -135,104 +135,101 @@ class WsTransport extends EventEmitter {
    * Connects to WebSocket. If url omitted, uses ctor url.
    * Resolves on 'open', rejects on error/close before open.
    */
-  connect(url) {
-    const target = url || this.url;
-    if (!target) return Promise.reject(new Error('WebSocket URL not provided'));
+ connect(url) {
+  const target = url || this.url;
+  if (!target) return Promise.reject(new Error('WebSocket URL not provided'));
 
-    // Already open?
-    if (this.ws && this.ws.readyState === (WS.OPEN || 1)) return Promise.resolve();
+  // Already open?
+  if (this.ws && this.ws.readyState === (WS.OPEN || 1)) return Promise.resolve();
 
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      try {
-        const ws = (typeof window === 'undefined')
-          ? new WS(target, { headers: this.opts.headers })
-          : new WS(target);
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    try {
+      const ws = (typeof window === 'undefined')
+        ? new WS(target, { headers: this.opts.headers })
+        : new WS(target);
 
-        this.ws = ws;
+      this.ws = ws;
+      this._bridgeBound = false;
+
+      const handleMessage = (raw) => {
+        // --- normalize inbound raw/text ---
+        const txt =
+          typeof raw === 'string'
+            ? raw
+            : (raw?.data != null
+                ? (typeof raw.data === 'string' ? raw.data : raw.data.toString())
+                : raw?.toString?.());
+        if (!txt) return;
+
+        const frame = safeParse(txt);
+        if (!frame || typeof frame.event !== 'string') return;
+
+        const ev = frame.event;
+        let norm = (frame.data !== undefined ? frame.data : frame);
+
+        // --- flatten legacy <socketId>::swap frames ---
+        if (ev.endsWith('::swap')) {
+          if (
+            norm && typeof norm === 'object' &&
+            'data' in norm && typeof norm.data === 'object' &&
+            norm.eventName === undefined && norm.socketId === undefined
+          ) {
+            const inner = norm.data;
+            norm = { ...norm, ...inner };
+          }
+        }
+
+        _emitLocal(this, ev, norm);
+        _emitLocal(this, 'message', { event: ev, data: norm });
+
+        // clear one-time listeners
+        if (AUTO_ONCE_EVENTS.has(ev)) {
+          const set = this._listenerSet.get(ev);
+          if (set && set.size) {
+            for (const fn of Array.from(set)) {
+              const orig = fn.__orig || fn;
+              if (!orig?.persist) this.off(ev, fn);
+            }
+          }
+        }
+      };
+
+      ws.onopen = () => {
+        this._bindBridgeOnce(ws, handleMessage);
+        console.log('[WS] connected to', target);
+        if (!settled) { settled = true; resolve(); }
+        _emitLocal(this, 'connected', { url: target });
+        _emitLocal(this, 'connect', { url: target });
+      };
+
+      ws.on('message', handleMessage);
+
+
+      ws.onerror = (e) => {
+        const err = e?.error instanceof Error ? e.error : new Error(e?.message || 'ws error');
+        console.error('[WS] error', err);
+        _emitLocal(this, 'ws-error', err);
+        if (!settled && ws.readyState !== (WS.OPEN || 1)) {
+          settled = true; reject(err);
+        }
+      };
+
+      ws.onclose = (ev) => {
+        console.warn('[WS] closed');
         this._bridgeBound = false;
-
-        const handleMessage = (raw) => {
-          // --- normalize inbound raw/text ---
-          const txt =
-            typeof raw === 'string'
-              ? raw
-              : (raw?.data != null
-                  ? (typeof raw.data === 'string' ? raw.data : raw.data.toString())
-                  : raw?.toString?.());
-          if (!txt) return;
-
-          const frame = safeParse(txt);
-          if (!frame || typeof frame.event !== 'string') return;
-
-          const ev = frame.event;
-          // Use 'data' if provided; otherwise pass the whole frame
-          let norm = (frame.data !== undefined ? frame.data : frame);
-
-          // --- restore legacy behavior for <socketId>::swap frames ---
-          // Server sends: { event: "<id>::swap", data: { eventName, socketId, data } }
-          // Older FE flattened one nesting level when payload itself contained a { data: {...} } object.
-          if (ev.endsWith('::swap')) {
-            if (
-              norm && typeof norm === 'object' &&
-              'data' in norm && typeof norm.data === 'object' &&
-              norm.eventName === undefined && norm.socketId === undefined
-            ) {
-              const inner = norm.data;            // { eventName, socketId, data }
-              norm = { ...norm, ...inner };       // flatten one level
-            }
-          }
-
-          // Emit normalized payload to the exact event listeners
-          _emitLocal(this, ev, norm);
-
-          // Also emit generic 'message' tap with { event, data } for logging/metrics
-          _emitLocal(this, 'message', { event: ev, data: norm });
-
-          // After resolving order:saved / order:error, sweep any non-persistent leftovers
-          if (AUTO_ONCE_EVENTS.has(ev)) {
-            const set = this._listenerSet.get(ev);
-            if (set && set.size) {
-              for (const fn of Array.from(set)) {
-                const orig = fn.__orig || fn;
-                if (!orig?.persist) this.off(ev, fn);
-              }
-            }
-          }
-        };
-
-
-        ws.onopen = () => {
-          this._bindBridgeOnce(ws, handleMessage);
-          console.log('[WS] connected to', target);
-          if (!settled) { settled = true; resolve(); }
-          _emitLocal(this, 'connected', { url: target });
-          _emitLocal(this, 'connect',   { url: target });
-        };
-
-        ws.onmessage = handleMessage;
-        if (typeof ws.on === 'function') ws.on('message', (buf) => handleMessage(buf));
-
-        ws.onerror = (e) => {
-          const err = e?.error instanceof Error ? e.error : new Error(e?.message || 'ws error');
-          console.error('[WS] error', err);
-          _emitLocal(this, 'ws-error', err);
-          if (!settled && ws.readyState !== (WS.OPEN || 1)) { settled = true; reject(err); }
-        };
-
-        ws.onclose = (ev) => {
-          console.warn('[WS] closed');
-          this._bridgeBound = false;
-          // don’t nuke _listenerSet here; we only clean non-persistent on event fire
-          _emitLocal(this, 'disconnect', { code: ev?.code, reason: ev?.reason });
-          if (!settled) { settled = true; reject(new Error(`closed before open (${ev?.code || ''})`)); }
-        };
-      } catch (e) {
-        console.error('[WS] create error', e);
-        reject(e);
-      }
-    });
-  }
+        _emitLocal(this, 'disconnect', { code: ev?.code, reason: ev?.reason });
+        if (!settled) {
+          settled = true;
+          reject(new Error(`closed before open (${ev?.code || ''})`));
+        }
+      };
+    } catch (e) {
+      console.error('[WS] create error', e);
+      reject(e);
+    }
+  });
+}
 
   _bindBridgeOnce(ws, /* message fn already bound */) {
     if (this._bridgeBound) return;

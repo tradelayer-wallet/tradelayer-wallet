@@ -135,7 +135,7 @@ export class OBSocketService {
     this.walletSocket?.emit(`${eventPrefix}::${msg.event}`, msg);
   }
 
-  private getTradeUUID(tradeInfo: ITradeInfo): string {
+  private getTradeUUID(tradeInfo: any): string {
     return `${tradeInfo.buyer.uuid}-${tradeInfo.seller.uuid}`;
   }
 
@@ -185,18 +185,18 @@ export class OBSocketService {
     this.walletSocket.on(`${eventPrefix}::new-channel`, this._handlers[`${eventPrefix}::new-channel`]);
 
     // ON ANY EVENT
-    if (this._onAnyHandler) this.walletSocket.offAny(this._onAnyHandler);
-    this._onAnyHandler = (event: string, data: any) => {
-      if (event.endsWith('::swap')) {
-        console.log('[OB WS] forwarding swap', event, data);
-        this.emitToServer(event, {
-          eventName: data.eventName,
-          socketId: data.socketId,
-          data: data.data,
-        });
-      }
-    };
-    this.walletSocket.onAny(this._onAnyHandler);
+    if (!this._onAnyHandler) {
+      this._onAnyHandler = (event: string, data: any) => {
+        if (event.endsWith('::swap')) {
+          this.emitToServer(event, {
+            eventName: data.eventName,
+            socketId: data.socketId,
+            data: data.data,
+          });
+        }
+      };
+      this.walletSocket.onAny(this._onAnyHandler);
+    }
   }
 
   private cleanupWalletSocketListeners() {

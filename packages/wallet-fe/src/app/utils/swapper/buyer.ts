@@ -30,6 +30,11 @@ export class BuySwapper extends Swap {
         console.log(`Time taken for ${stage}: ${currentTime - this.tradeStartTime} ms`);
     }
 
+    private makeTradeUUID(ti) {
+      return `${ti.buyer.uuid}-${ti.seller.uuid}`;
+    }
+
+
     private handleOnEvents() {
         this.removePreviuesListeners();
         const _eventName = `${this.cpInfo.socketId}::swap`;
