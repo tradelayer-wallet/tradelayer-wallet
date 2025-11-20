@@ -132,7 +132,7 @@ export class SpotOrderbookService {
 
         this.socket.on(`${obEventPrefix}::connected`, (message: string) => {
             this.toastrService.success('Connected to orderbook server')
-            const net = this.rpcService.Network()
+            const net = this.rpcService.NETWORK
             const newKey = this.normalizeKey(this.marketFilter.first_token,this.marketFilter.second_token);
             this.socket.emit('orderbook:join', { marketKey: newKey, network: net })
         });
@@ -161,7 +161,7 @@ export class SpotOrderbookService {
               this.marketFilter.first_token,
               this.marketFilter.second_token
             );
-            const net = this.rpcService.Network()
+            const net = this.rpcService.NETWORK
             // Build the payload (include state hints for the server)
             const payload = {
               ...this.marketFilter,         // { type, first_token, second_token, depth, side, includeTrades, ... }
@@ -293,15 +293,14 @@ export class SpotOrderbookService {
   const newKey = this.normalizeKey(first_token, second_token);
 
   this._lastRequestedKey = this.activeKey;
-
+  
+  const net = this.rpcService.NETWORK
   // Leave old
   if (this.activeKey && this.activeKey !== newKey) {
-    const net = this.rpcService.Network()
     this.socket.emit('orderbook:leave', { marketKey: this.activeKey, network: net });
   }
 
   this.activeKey = newKey;
-
   // Ask server for snapshot
   this.socket.emit('update-orderbook', {
     filter: {

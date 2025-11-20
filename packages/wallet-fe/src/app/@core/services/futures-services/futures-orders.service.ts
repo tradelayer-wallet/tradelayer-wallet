@@ -87,21 +87,19 @@ private _orderHistory: any[] = [];
     newOrder(orderConf: IFuturesTradeConf) {
         //this.loadingService.tradesLoading = true;
         console.log('emitting new order '+JSON.stringify(orderConf))
-        const net = this.rpcService.Network()
-        const msg = { ...orderConf, network: net } satisfies IFuturesTradeConf & { network: string };
-
-        this.socket.emit('new-order', msg);
+        const net = this.rpcService.NETWORK
+        this.socket.emit('new-order', { ...orderConf, network: net });
     }
 
     addLiquidity(orders: IFuturesTradeConf[]){
-        const net = this.rpcService.Network()
-        this.socket.emit('many-orders', {orders, network: net);
+        const net = this.rpcService.NETWORK
+        this.socket.emit('many-orders', {orders, network: net});
     }
 
     closeOpenedOrder(uuid: string) {
         const sel = this.selectedMarket;
         const contractId  = sel?.contract_id;
-        const net = this.rpcService.Network()
+        const net = this.rpcService.NETWORK
         this.socket.emit('close-order', { orderUUID: uuid, contractId,network: net });
     }
 

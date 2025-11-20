@@ -170,7 +170,7 @@ export class FuturesOrderbookService {
     ) {
       this.bindOnce();
       const newKey = this.key(type, contract_id);
-      const net = this.rpcService.Network()
+      const net = this.rpcService.NETWORK
       if (this.activeKey && this.activeKey !== newKey) {
         this.socket.emit(
           JSON.stringify({ event: 'orderbook:leave', marketKey: this.outboundMarketKeyForFutures(contract_id), network: net })
@@ -217,7 +217,7 @@ export class FuturesOrderbookService {
         this.socket.on(`${obEventPrefix}::connected`, (message: string) => {
             this.toastrService.success('Connected to orderbook server')
             const newKey = this.marketFilter.contract_id
-            const net = this.rpcService.Network()
+            const net = this.rpcService.NETWORK
             this.socket.emit('orderbook:join', { marketKey: this.outboundMarketKeyForFutures(this.marketFilter.contract_id), network: net })
         });
 
@@ -242,7 +242,7 @@ export class FuturesOrderbookService {
 
 
         this.socket.on(`${obEventPrefix}::update-orders-request`, () => {
-            const net = this.rpcService.Network()
+            const net = this.rpcService.NETWORK
             this.socket.emit('update-orderbook', { ...this.marketFilter, network: net })
         });
 

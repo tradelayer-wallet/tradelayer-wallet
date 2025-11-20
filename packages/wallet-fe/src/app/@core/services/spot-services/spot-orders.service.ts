@@ -68,8 +68,8 @@ export class SpotOrdersService {
     newOrder(orderConf: ISpotTradeConf) {
         //this.loadingService.tradesLoading = true;
         console.log('inside new order '+JSON.stringify(orderConf))
-        const net = this.rpcService.Network()
-        const msg = { ...orderConf, network: net } satisfies ISpotTradeConf & { network: string };
+        const net = this.rpcService.NETWORK
+        const msg = { ...orderConf, network: net }
 
         this.socket.emit('new-order', msg);
     }
@@ -83,7 +83,7 @@ export class SpotOrdersService {
         const sel = this.selectedMarket;
         const base  = sel?.first_token?.propertyId;
         const quote = sel?.second_token?.propertyId;
-        const net = this.rpcService.Network()
+        const net = this.rpcService.NETWORK
         this.socket.emit('close-order', { orderUUID: uuid, id_for_sale: base, id_desired: quote, network: net });
     }
 
