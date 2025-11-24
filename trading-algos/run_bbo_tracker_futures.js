@@ -24,11 +24,11 @@ const pick = (...xs) => xs.find(v => v !== undefined && v !== '') ?? undefined;
 const toBool = (v, d=false) => (v === undefined ? d : /^(1|true|yes|on)$/i.test(String(v)));
 const toNum  = (v, d) => (v === undefined ? d : Number(v));
 
-const required = (label, ...candidates) => {
-  const v = pick(...candidates);
-  if (v === undefined) throw new Error(`Missing env: ${label}`);
-  return v;
-};
+function required(label, v, fallback) {
+  if (v !== undefined && v !== '') return v;
+  if (fallback !== undefined) return fallback;
+  throw new Error(`Missing env: ${label}`);
+}
 
 // Source envs (prefer TL_*, fallback to legacy)
 const TL_HOST    = pick(process.env.TL_HOST,    process.env.OB_HOST);
@@ -41,36 +41,28 @@ const TL_NET     = pick(process.env.TL_NETWORK, process.env.NETWORK);
 // Optional sizing
 const SIZE       = pick(process.env.SIZE, process.env.QTY, process.env.TARGET_EXPOSURE, process.env.QUICKENVJS_TARGET_EXPOSURE);
 
-// Build normalized config
-const CFG = Object.freeze({
-  NETWORK: required('TL_NETWORK/NETWORK', TL_NET),
-  HOST:    required('TL_HOST/OB_HOST', TL_HOST),
-  PORT:    toNum(required('TL_PORT/OB_PORT', TL_PORT), 3001),
-  TESTNET: toBool(TL_TEST, true),           // accepts 'true'/'1'/'false'/'0'
-  ADDRESS: required('TL_ADDRESS/USER_ADDR', TL_ADDR),
-  PUBKEY:  required('TL_PUBKEY/USER_PUB',   TL_PUB),
-  SIZE:    toNum(SIZE, 0.1),
 
-  // Derived
-  ORDERBOOK_WS() {                          // ws URL builder
+
+// Optional: one-time sanity log
+
+// Build normalized config
+const BaseCFG = Object.freeze({
+  NETWORK: required('TL_NETWORK/NETWORK', TL_NET, 'LTCTEST'),
+  HOST:    required('TL_HOST/OB_HOST', TL_HOST, '172.81.181.19'),
+  PORT:    toNum(required('TL_PORT/OB_PORT', TL_PORT, 3001), 3001),
+  TESTNET: toBool(TL_TEST ?? true),
+  ADDRESS: required('TL_ADDRESS/USER_ADDR', TL_ADDR, 'tltc1qdummyaddress...'),
+  PUBKEY:  required('TL_PUBKEY/USER_PUB',   TL_PUB,  '02dummydefault...'),
+  SIZE:    toNum(SIZE ?? 0.1, 0.1),
+
+  ORDERBOOK_WS() {
     const host = this.HOST.startsWith('ws') ? this.HOST : `ws://${this.HOST}`;
     return `${host}:${this.PORT}/ws`;
   }
 });
 
-// Optional: one-time sanity log
-console.log('[env-check]', {
-  NETWORK: CFG.NETWORK,
-  HOST: CFG.HOST, PORT: CFG.PORT,
-  TESTNET: CFG.TESTNET,
-  ADDRESS: CFG.ADDRESS,
-  PUBKEY: (CFG.PUBKEY || '').slice(0, 8) + '…',
-  SIZE: CFG.SIZE,
-  WS: CFG.ORDERBOOK_WS(),
-});
 
-// Export or attach where needed
-global.CFG = CFG;
+global.CFG = BaseCFG;
 
 // ---------------------------------------------------------------------
 
@@ -79,37 +71,52 @@ const ccxt = require('ccxt');
 const ApiWrapper = require('./algoAPI.js');
 
 // ===== Config =====
-const CFG = {
-  // TL / server
+// ========================================================================================
+// Algo-specific settings (market maker)
+// ========================================================================================
+const MM_CFG = Object.freeze({
   TL_WS_HOST: '172.26.37.103',
   TL_WS_PORT: 3001,
   TL_NETWORK: 'LTCTEST',
   TL_ADDR: 'tltc1qh4se4w23draju8ef82vdvelz3zj8egflrg2gve',
   TL_PUB: '0342ded4128b00d324eee8bba8c716fc84db004adb63adbeb19b5ac06f8f3b2ab9',
   CONTRACT: 5,
-  //BASE_ID: 0,    // LTC
-  //QUOTE_ID: 5,   // USDTt
 
-  // Market source
   SYMBOL_CCXT: 'LTC/USDT',
 
-  // Behavior
-  POLL_MS: 50,              // Binance poll interval
-  SIZE: 0.10,               // order size
-  TICK: 0.0001,             // price tick
-  EDGE_BPS: 0.0,            // pad off BBO (0 = exact mirror)
+  POLL_MS: 50,
+  SIZE: 0.10,
+  TICK: 0.0001,
+  EDGE_BPS: 0.0,
 
-  // HF stability
-  STALE_MS: 250,            // if BBO older than this, skip
-  MIN_REPLACE_MS: 50,       // min gap per-side between replaces
-  TICK_TOL: 1.0,            // require >= this many ticks to replace
-  MAX_OPS_PER_SEC: 200,     // global cap (place+cancel) across both sides
-  CANCEL_PLACE_GAP_MS: 10,  // small delay after cancel before place
+  STALE_MS: 250,
+  MIN_REPLACE_MS: 50,
+  TICK_TOL: 1.0,
+  MAX_OPS_PER_SEC: 200,
+  CANCEL_PLACE_GAP_MS: 10,
 
-  // Timeouts
   PLACE_TIMEOUT_MS: 5000,
   CANCEL_TIMEOUT_MS: 5000,
-};
+});
+
+// Attach to global CFG without mutation:
+global.CFG = Object.freeze({
+  ...global.CFG,
+  MM: MM_CFG
+});
+
+// Optional sanity log
+console.log('[env-check]', {
+  NET: CFG.NETWORK,
+  ADDR: CFG.ADDRESS,
+  PUB: CFG.PUBKEY.slice(0, 10),
+  MM: {
+    HOST: CFG.MM.TL_WS_HOST,
+    PORT: CFG.MM.TL_WS_PORT,
+    SYMBOL: CFG.MM.SYMBOL_CCXT,
+    CONTRACT: CFG.MM.CONTRACT
+  }
+});
 
 // ===== Helpers =====
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));

@@ -24,11 +24,12 @@ const pick = (...xs) => xs.find(v => v !== undefined && v !== '') ?? undefined;
 const toBool = (v, d=false) => (v === undefined ? d : /^(1|true|yes|on)$/i.test(String(v)));
 const toNum  = (v, d) => (v === undefined ? d : Number(v));
 
-const required = (label, ...candidates) => {
-  const v = pick(...candidates);
-  if (v === undefined) throw new Error(`Missing env: ${label}`);
-  return v;
-};
+function required(label, v, fallback) {
+  if (v !== undefined && v !== '') return v;
+  if (fallback !== undefined) return fallback;
+  throw new Error(`Missing env: ${label}`);
+}
+
 
 // Source envs (prefer TL_*, fallback to legacy)
 const TL_HOST    = pick(process.env.TL_HOST,    process.env.OB_HOST);
@@ -40,76 +41,94 @@ const TL_NET     = pick(process.env.TL_NETWORK, process.env.NETWORK);
 
 // Optional sizing
 const SIZE       = pick(process.env.SIZE, process.env.QTY, process.env.TARGET_EXPOSURE, process.env.QUICKENVJS_TARGET_EXPOSURE);
+// ======================================================================
+// 1. ENV CONFIG (unchanged)
+// ======================================================================
 
-// Build normalized config
-const CFG = Object.freeze({
-  NETWORK: required('TL_NETWORK/NETWORK', TL_NET),
-  HOST:    required('TL_HOST/OB_HOST', TL_HOST),
-  PORT:    toNum(required('TL_PORT/OB_PORT', TL_PORT), 3001),
-  TESTNET: toBool(TL_TEST, true),           // accepts 'true'/'1'/'false'/'0'
-  ADDRESS: required('TL_ADDRESS/USER_ADDR', TL_ADDR),
-  PUBKEY:  required('TL_PUBKEY/USER_PUB',   TL_PUB),
-  SIZE:    toNum(SIZE, 0.1),
+const BaseCFG = Object.freeze({
+  NETWORK: required('TL_NETWORK/NETWORK', TL_NET, 'LTCTEST'),
+  HOST:    required('TL_HOST/OB_HOST', TL_HOST, '127.0.0.1'),
+  PORT:    toNum(required('TL_PORT/OB_PORT', TL_PORT, 3001), 3001),
+  TESTNET: toBool(TL_TEST ?? true),
+  ADDRESS: required('TL_ADDRESS/USER_ADDR', TL_ADDR, 'tltc1qdummyaddress...'),
+  PUBKEY:  required('TL_PUBKEY/USER_PUB',   TL_PUB,  '02dummydefault...'),
+  SIZE:    toNum(SIZE ?? 0.1, 0.1),
 
-  // Derived
-  ORDERBOOK_WS() {                          // ws URL builder
+  ORDERBOOK_WS() {
     const host = this.HOST.startsWith('ws') ? this.HOST : `ws://${this.HOST}`;
     return `${host}:${this.PORT}/ws`;
   }
 });
 
+
 // Optional: one-time sanity log
 console.log('[env-check]', {
-  NETWORK: CFG.NETWORK,
-  HOST: CFG.HOST, PORT: CFG.PORT,
-  TESTNET: CFG.TESTNET,
-  ADDRESS: CFG.ADDRESS,
-  PUBKEY: (CFG.PUBKEY || '').slice(0, 8) + '…',
-  SIZE: CFG.SIZE,
-  WS: CFG.ORDERBOOK_WS(),
+  NETWORK: BaseCFG.NETWORK,
+  HOST: BaseCFG.HOST, PORT: BaseCFG.PORT,
+  TESTNET: BaseCFG.TESTNET,
+  ADDRESS: BaseCFG.ADDRESS,
+  PUBKEY: (BaseCFG.PUBKEY || '').slice(0, 8) + '…',
+  SIZE: BaseCFG.SIZE,
+  WS: BaseCFG.ORDERBOOK_WS(),
 });
 
-// Export or attach where needed
-global.CFG = CFG;
+// Attach env layer globally (temporary)
+global.CFG = BaseCFG;
 
-// ---------------------------------------------------------------------
+// ======================================================================
+// 2. MM CONFIG (formerly the second CFG block)
+// ======================================================================
 
-
-const ccxt = require('ccxt');
-const ApiWrapper = require('./algoAPI.js');
-
-// ===== Config =====
-const CFG = {
+const MM_CFG = Object.freeze({
   // TL / server
   TL_WS_HOST: '172.26.37.103',
   TL_WS_PORT: 3001,
   TL_NETWORK: 'LTCTEST',
   TL_ADDR: 'tltc1qh4se4w23draju8ef82vdvelz3zj8egflrg2gve',
   TL_PUB: '0342ded4128b00d324eee8bba8c716fc84db004adb63adbeb19b5ac06f8f3b2ab9',
-  CONTRACT: 5,
-  //BASE_ID: 0,    // LTC
-  //QUOTE_ID: 5,   // USDTt
 
-  // Market source
+  BASE_ID: 0,      // LTC
+  QUOTE_ID: 5,     // USDTt
+
   SYMBOL_CCXT: 'LTC/USDT',
 
   // Behavior
-  POLL_MS: 50,              // Binance poll interval
-  SIZE: 0.10,               // order size
-  TICK: 0.0001,             // price tick
-  EDGE_BPS: 0.0,            // pad off BBO (0 = exact mirror)
+  POLL_MS: 50,
+  SIZE: 0.10,
+  TICK: 0.0001,
+  EDGE_BPS: 0.0,
 
-  // HF stability
-  STALE_MS: 250,            // if BBO older than this, skip
-  MIN_REPLACE_MS: 50,       // min gap per-side between replaces
-  TICK_TOL: 1.0,            // require >= this many ticks to replace
-  MAX_OPS_PER_SEC: 200,     // global cap (place+cancel) across both sides
-  CANCEL_PLACE_GAP_MS: 10,  // small delay after cancel before place
+  // HF safety
+  STALE_MS: 250,
+  MIN_REPLACE_MS: 50,
+  TICK_TOL: 1.0,
+  MAX_OPS_PER_SEC: 200,
+  CANCEL_PLACE_GAP_MS: 10,
 
   // Timeouts
   PLACE_TIMEOUT_MS: 5000,
   CANCEL_TIMEOUT_MS: 5000,
-};
+});
+
+// ======================================================================
+// 3. Merge: BaseCFG + MM under namespace
+// ======================================================================
+
+global.CFG = Object.freeze({
+  ...global.CFG,   // preserve env vars
+  MM: MM_CFG       // add strategy config
+});
+
+// ======================================================================
+// USAGE
+// ======================================================================
+
+// Example:
+//   CFG.NETWORK
+//   CFG.ADDRESS
+//   CFG.MM.SIZE
+//   CFG.MM.BASE_ID
+//   CFG.MM.SYMBOL_CCXT
 
 // ===== Helpers =====
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -131,15 +150,15 @@ function pxChanged(oldPx, newPx, tick, tolTicks) {
 // ===== TL order builders (canonical TL shape via props) =====
 function toTLBuy(cfg, price, amount) {
   return {
-    type: 'FUTURES',
+    type: 'SPOT',
     action: 'BUY',
     keypair: {
     address: cfg.TL_ADDR,
     pubkey: cfg.TL_PUB
     },
     props: {
-      contract_id: cfg.CONTRACT,   // selling quote (USDTt)
-      //id_desired:  cfg.QUOTE_ID,    // buying base (TLTC)
+      id_for_sale: cfg.BASE_ID,   // selling quote (USDTt)
+      id_desired:  cfg.QUOTE_ID,    // buying base (TLTC)
       price: Number(price),
       amount: Number(amount),
       transfer: false,
@@ -151,14 +170,15 @@ function toTLBuy(cfg, price, amount) {
 
 function toTLSell(cfg, price, amount) {
   return {
-    type: 'FUTURES',
+    type: 'SPOT',
     action: 'SELL',
     keypair: {
     address: cfg.TL_ADDR,
     pubkey: cfg.TL_PUB
     },
     props: {
-      contract_id: cfg.CONTRACT,  
+      id_for_sale: cfg.QUOTE_ID,    // selling base (TLTC)
+      id_desired:  cfg.BASE_ID,   // receiving quote (USDTt)
       price: Number(price),
       amount: Number(amount),
       transfer: false,

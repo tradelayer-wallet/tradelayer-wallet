@@ -26,16 +26,36 @@
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\quick_env.js",
     "size": 2558,
     "createdAt": 1761319250632.6284,
-    "status": "running",
-    "amount": 0.02
+    "status": "stopped",
+    "amount": 0.01
   },
   {
     "id": "4d1d9a03",
     "name": "run_bbo_tracker",
     "fileName": "run_bbo_tracker.js",
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\run_bbo_tracker.js",
-    "size": 9817,
+    "size": 9822,
     "createdAt": 1761490347624.3774,
+    "status": "stopped",
+    "amount": 0
+  },
+  {
+    "id": "5997a16e",
+    "name": "run_bbo_tracker_futures",
+    "fileName": "run_bbo_tracker_futures.js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\run_bbo_tracker_futures.js",
+    "size": 9691,
+    "createdAt": 1764023516965.453,
+    "status": "running",
+    "amount": 0.1
+  },
+  {
+    "id": "142a0816",
+    "name": "run_bbo_tracker_spot",
+    "fileName": "run_bbo_tracker_spot.js",
+    "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\run_bbo_tracker_spot.js",
+    "size": 10336,
+    "createdAt": 1764023549219.2158,
     "status": "stopped",
     "amount": 0
   },
@@ -47,6 +67,6 @@
     "size": 5553,
     "createdAt": 1762202111013.9978,
     "status": "running",
-    "amount": 0.01
+    "amount": 0.1
   }
 ]

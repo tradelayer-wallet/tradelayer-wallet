@@ -6,7 +6,7 @@ const webpack = require('webpack');
 const osPATH = {
   WINDOWS: [
     path.resolve(__dirname, 'src', 'core', 'litecoind.exe'),
-    // path.resolve(__dirname, 'src', 'core', 'bitcoind.exe'),
+    path.resolve(__dirname, 'src', 'core', 'bitcoind.exe'),
   ],
   LINUX: [
     path.resolve(__dirname, 'src', 'core', 'litecoind'),
