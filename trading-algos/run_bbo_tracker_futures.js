@@ -89,7 +89,7 @@ const MM_CFG = Object.freeze({
   TL_NETWORK: 'LTCTEST',
   TL_ADDR: 'tltc1qh4se4w23draju8ef82vdvelz3zj8egflrg2gve',
   TL_PUB: '0342ded4128b00d324eee8bba8c716fc84db004adb63adbeb19b5ac06f8f3b2ab9',
-  CONTRACT: 5,
+  CONTRACT: 3,
   SYMBOL_CCXT: 'LTC/USDT',
   POLL_MS: 50,
   SIZE: 0.10,

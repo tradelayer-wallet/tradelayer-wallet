@@ -26,8 +26,8 @@
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\quick_env.js",
     "size": 2498,
     "createdAt": 1761319250632.6284,
-    "status": "running",
-    "amount": 1
+    "status": "stopped",
+    "amount": 0.01
   },
   {
     "id": "4d1d9a03",
@@ -46,7 +46,7 @@
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\run_bbo_tracker_futures.js",
     "size": 9905,
     "createdAt": 1764023516965.453,
-    "status": "stopped",
+    "status": "running",
     "amount": 1
   },
   {
