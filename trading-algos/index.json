@@ -24,10 +24,10 @@
     "name": "quick_env",
     "fileName": "quick_env.js",
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\quick_env.js",
-    "size": 2558,
+    "size": 2498,
     "createdAt": 1761319250632.6284,
-    "status": "stopped",
-    "amount": 0.01
+    "status": "running",
+    "amount": 1
   },
   {
     "id": "4d1d9a03",
@@ -44,10 +44,10 @@
     "name": "run_bbo_tracker_futures",
     "fileName": "run_bbo_tracker_futures.js",
     "fullPath": "C:\\Users\\patri\\tradelayer-wallet\\trading-algos\\run_bbo_tracker_futures.js",
-    "size": 9691,
+    "size": 9905,
     "createdAt": 1764023516965.453,
-    "status": "running",
-    "amount": 0.1
+    "status": "stopped",
+    "amount": 1
   },
   {
     "id": "142a0816",

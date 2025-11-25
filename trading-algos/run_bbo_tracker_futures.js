@@ -1,4 +1,13 @@
 'use strict';
+
+/* @algo
+{
+  "name": "run_bbo_tracker_futures",
+  "symbol": "3-perp",
+  "mode": "FUTURES",
+  "timeframe": "1m",
+  "description": "BBO tracker for contract 3-perp"
+} */
 /**
  * bbo_tracker_hf.js
  * Keeps exactly 2 live orders (1 BUY at best bid, 1 SELL at best ask).
@@ -68,22 +77,20 @@ global.CFG = BaseCFG;
 
 
 const ccxt = require('ccxt');
-const ApiWrapper = require('./algoAPI.js');
 
+let ApiWrapper = require('tradelayer');
 // ===== Config =====
 // ========================================================================================
 // Algo-specific settings (market maker)
 // ========================================================================================
 const MM_CFG = Object.freeze({
-  TL_WS_HOST: '172.26.37.103',
+  TL_WS_HOST: '172.81.181.19',
   TL_WS_PORT: 3001,
   TL_NETWORK: 'LTCTEST',
   TL_ADDR: 'tltc1qh4se4w23draju8ef82vdvelz3zj8egflrg2gve',
   TL_PUB: '0342ded4128b00d324eee8bba8c716fc84db004adb63adbeb19b5ac06f8f3b2ab9',
   CONTRACT: 5,
-
   SYMBOL_CCXT: 'LTC/USDT',
-
   POLL_MS: 50,
   SIZE: 0.10,
   TICK: 0.0001,
@@ -141,16 +148,16 @@ function toTLBuy(cfg, price, amount) {
     type: 'FUTURES',
     action: 'BUY',
     keypair: {
-    address: cfg.TL_ADDR,
-    pubkey: cfg.TL_PUB
+    address: cfg.MM.TL_ADDR,
+    pubkey: cfg.MM.TL_PUB
     },
     props: {
-      contract_id: cfg.CONTRACT,   // selling quote (USDTt)
+      contract_id: cfg.MM.CONTRACT,   // selling quote (USDTt)
       //id_desired:  cfg.QUOTE_ID,    // buying base (TLTC)
       price: Number(price),
       amount: Number(amount),
       transfer: false,
-      network: cfg.TL_NETWORK
+      network: cfg.MM.TL_NETWORK
     },
     isLimitOrder: true
   };
@@ -161,15 +168,15 @@ function toTLSell(cfg, price, amount) {
     type: 'FUTURES',
     action: 'SELL',
     keypair: {
-    address: cfg.TL_ADDR,
-    pubkey: cfg.TL_PUB
+    address: cfg.MM.TL_ADDR,
+    pubkey: cfg.MM.TL_PUB
     },
     props: {
-      contract_id: cfg.CONTRACT,  
+      contract_id: cfg.MM.CONTRACT,  
       price: Number(price),
       amount: Number(amount),
       transfer: false,
-      network: cfg.TL_NETWORK
+      network: cfg.MM.TL_NETWORK
     },
     isLimitOrder: true
   };
@@ -179,13 +186,13 @@ function toTLSell(cfg, price, amount) {
 // ===== External deps =====
 const binance = new ccxt.binance({ enableRateLimit: true });
 const api = new ApiWrapper(
-  CFG.TL_WS_HOST,
-  CFG.TL_WS_PORT,
-  true,                 // debug (or tlOn) — unchanged
-  true,                 // autoConnect      — unchanged
-  CFG.TL_ADDR,
-  CFG.TL_PUB,
-  CFG.TL_NETWORK
+  CFG.MM.TL_WS_HOST,
+  CFG.MM.TL_WS_PORT,
+  true,   // debug / tlOn
+  true,   // autoConnect
+  CFG.MM.TL_ADDR,
+  CFG.MM.TL_PUB,
+  CFG.MM.TL_NETWORK
 );
 
 // ===== Token-bucket rate limiter =====
@@ -200,7 +207,7 @@ class TokenBucket {
     return false;
   }
 }
-const bucket = new TokenBucket(CFG.MAX_OPS_PER_SEC);
+const bucket = new TokenBucket(CFG.MM.MAX_OPS_PER_SEC);
 
 // ===== State =====
 let live = { BUY: null, SELL: null };      // { uuid, px }
@@ -217,7 +224,7 @@ async function place(side, px, sz) {
   try {
     const det = side === 'BUY' ? toTLBuy(CFG, px, sz) : toTLSell(CFG, px, sz);
     console.log('[TL] sendOrder request', det);
-    const uuid = await withTimeout(api.sendOrder(det), CFG.PLACE_TIMEOUT_MS, 'place');
+    const uuid = await withTimeout(api.sendOrder(det), CFG.MM.PLACE_TIMEOUT_MS, 'place');
     const id = uuid?.orderUuid || uuid;
     live[side] = { uuid: id, px };
     sideLast[side] = Date.now();
@@ -236,7 +243,7 @@ async function cancel(side, reason) {
   if (!bucket.take()) return;
   sideBusy[side] = true;
   try {
-    await withTimeout(api.cancelOrder(cur.uuid), CFG.CANCEL_TIMEOUT_MS, 'cancel');
+    await withTimeout(api.cancelOrder(cur.uuid), CFG.MM.CANCEL_TIMEOUT_MS, 'cancel');
     console.log('CANCELED', side, num(cur.px, 6), 'uuid=', cur.uuid, 'reason=', reason);
     live[side] = null;
   } catch (e) {
@@ -247,22 +254,22 @@ async function cancel(side, reason) {
 }
 
 function targetsFromBBO(bid, ask) {
-  const b = Math.max(0, roundDown(bid * (1 - (CFG.EDGE_BPS / 10000.0)), CFG.TICK));
-  const a = Math.max(0, roundUp(  ask * (1 + (CFG.EDGE_BPS / 10000.0)), CFG.TICK));
+  const b = Math.max(0, roundDown(bid * (1 - (CFG.MM.EDGE_BPS / 10000.0)), CFG.MM.TICK));
+  const a = Math.max(0, roundUp(  ask * (1 + (CFG.MM.EDGE_BPS / 10000.0)), CFG.MM.TICK));
   return { buyPx: b, sellPx: a };
 }
 
 // ===== Main loop =====
 async function tickOnce() {
   // 1) Fetch BBO
-  const tkr = await binance.fetchTicker(CFG.SYMBOL_CCXT);
+  const tkr = await binance.fetchTicker(CFG.MM.SYMBOL_CCXT);
   const bid = Number(tkr.bid), ask = Number(tkr.ask);
   if (!isFinite(bid) || !isFinite(ask)) return;
   lastBBO = { bid, ask }; lastBBOts = Date.now();
-  console.log(`[BINANCE] ${CFG.SYMBOL_CCXT} bid=${bid} ask=${ask}`);
+  console.log(`[BINANCE] ${CFG.MM.SYMBOL_CCXT} bid=${bid} ask=${ask}`);
 
   // 2) Freshness check
-  if (Date.now() - lastBBOts > CFG.STALE_MS) return;
+  if (Date.now() - lastBBOts > CFG.MM.STALE_MS) return;
 
   // 3) Compute targets
   const { buyPx, sellPx } = targetsFromBBO(bid, ask);
@@ -270,22 +277,22 @@ async function tickOnce() {
   // 4) BUY side replace logic
   if (!sideBusy.BUY) {
     const old = live.BUY?.px ?? null;
-    const ageOk = Date.now() - sideLast.BUY >= CFG.MIN_REPLACE_MS;
-    if (ageOk && pxChanged(old, buyPx, CFG.TICK, CFG.TICK_TOL)) {
+    const ageOk = Date.now() - sideLast.BUY >= CFG.MM.MIN_REPLACE_MS;
+    if (ageOk && pxChanged(old, buyPx, CFG.MM.TICK, CFG.MM.TICK_TOL)) {
       await cancel('BUY', 'replace');
-      if (CFG.CANCEL_PLACE_GAP_MS) await sleep(CFG.CANCEL_PLACE_GAP_MS);
-      await place('BUY', buyPx, CFG.SIZE);
+      if (CFG.MM.CANCEL_PLACE_GAP_MS) await sleep(CFG.MM.CANCEL_PLACE_GAP_MS);
+      await place('BUY', buyPx, CFG.MM.SIZE);
     }
   }
 
   // 5) SELL side replace logic
   if (!sideBusy.SELL) {
     const old = live.SELL?.px ?? null;
-    const ageOk = Date.now() - sideLast.SELL >= CFG.MIN_REPLACE_MS;
-    if (ageOk && pxChanged(old, sellPx, CFG.TICK, CFG.TICK_TOL)) {
+    const ageOk = Date.now() - sideLast.SELL >= CFG.MM.MIN_REPLACE_MS;
+    if (ageOk && pxChanged(old, sellPx, CFG.MM.TICK, CFG.MM.TICK_TOL)) {
       await cancel('SELL', 'replace');
-      if (CFG.CANCEL_PLACE_GAP_MS) await sleep(CFG.CANCEL_PLACE_GAP_MS);
-      await place('SELL', sellPx, CFG.SIZE);
+      if (CFG.MM.CANCEL_PLACE_GAP_MS) await sleep(CFG.MM.CANCEL_PLACE_GAP_MS);
+      await place('SELL', sellPx, CFG.MM.SIZE);
     }
   }
 }
@@ -298,6 +305,6 @@ async function tickOnce() {
     } catch (e) {
       console.log('Loop error:', e.message || e);
     }
-    await sleep(CFG.POLL_MS);
+    await sleep(CFG.MM.POLL_MS);
   }
 })();

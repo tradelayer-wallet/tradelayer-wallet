@@ -178,8 +178,10 @@ export class SpotOrderbookService {
       this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
         this.ngZone.run(() => { 
           console.log('[Spot OB] update ' + JSON.stringify(orderbookData));
-          if (Array.isArray(orderbookData.orders)) {
-            return; // don't let it wipe the book
+          if (!Array.isArray(orderbookData.orders.bids) ||
+  !Array.isArray(orderbookData.orders.asks)){
+            console.log('rejected at the rim! '+JSON.stringify(orderbookData))
+            return; 
           }
 
           orderbookData = wrangleObMessageInPlace(orderbookData)

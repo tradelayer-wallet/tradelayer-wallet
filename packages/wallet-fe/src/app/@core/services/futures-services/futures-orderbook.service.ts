@@ -251,9 +251,11 @@ export class FuturesOrderbookService {
         this.ngZone.run(() => {
           console.log('[Futures OB] update ' + JSON.stringify(orderbookData));
 
-          // 1) Spot-style guard BEFORE wrangle (prevents wiping the book)
-          if (Array.isArray(orderbookData.orders)) return;
-
+          /*// 1) Spot-style guard BEFORE wrangle (prevents wiping the book)
+        	if (!Array.isArray(orderbookData.orders.bids) ||
+  !Array.isArray(orderbookData.orders.asks)) {
+		      return; 
+		    }*/
           // 2) Wrangle snapshot -> array + normalize "*-perp" key
           orderbookData = wrangleFuturesObMessageInPlace(orderbookData);
           console.log('normalized futures book ' + JSON.stringify(orderbookData));

@@ -44,13 +44,27 @@ export class FuturesOrdersComponent implements OnInit, OnDestroy {
   // ----- symbol classification -----
   private classifySymbol(sym: string): 'SPOT' | 'FUTURES' | 'UNKNOWN' {
     if (!sym) return 'UNKNOWN';
-    if (/^\d+-\d+$/.test(sym)) return 'SPOT';              // e.g. "0-5"
-    if (/^\d+$/.test(sym)) return 'FUTURES';               // e.g. "5"
+
+    // SPOT → "0-5"
+    if (/^\d+-\d+$/.test(sym)) return 'SPOT';
+
+    // FUTURES → "3-perp", "5-perp"
+    if (/^\d+-perp$/i.test(sym)) return 'FUTURES';
+
+    // FUTURES → plain contractId number "5"
+    if (/^\d+$/.test(sym)) return 'FUTURES';
+
+    // FUTURES → multi-segment "3-btc-perp"
+    if (/perp$/i.test(sym)) return 'FUTURES';
+
+    // existing fallbacks:
     if ((sym.match(/-/g) || []).length >= 2) return 'FUTURES';
     if (/-FUT\b/i.test(sym)) return 'FUTURES';
     if (/(?:^|-)C(?:-|$)/i.test(sym) || /(?:^|-)P(?:-|$)/i.test(sym)) return 'FUTURES';
+
     return 'UNKNOWN';
   }
+
   private isSpotSymbol(sym: string)    { return this.classifySymbol(sym) === 'SPOT'; }
   private isFuturesSymbol(sym: string) { return this.classifySymbol(sym) === 'FUTURES'; }
 

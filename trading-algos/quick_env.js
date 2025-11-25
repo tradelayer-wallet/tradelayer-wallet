@@ -2,7 +2,7 @@
 require('dotenv').config(); // optional: reads .env if present
 
 // prefer local ./tl, fall back to npm 'tradelayer'
-let ApiWrapper; try { ApiWrapper = require('./tl'); } catch { ApiWrapper = require('tradelayer'); }
+let ApiWrapper = require('tradelayer');
 
 const toBool = (v, d=false) =>
   v === undefined ? d :

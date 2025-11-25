@@ -115,11 +115,11 @@ export class SpotOrdersComponent implements OnInit, OnDestroy {
 
     // placed-orders -> { openedOrders: [], orderHistory: [] } in *new* native shape
     sock.on(`${obEventPrefix}::placed-orders`, (msg: any) => {
-    console.log('raw order payload '+JSON.stringify(msg))
-      const opened = Array.isArray(msg?.openedOrders) ? msg.openedOrders : [];
-      const hist = typeof msg?.orderHistory === 'string'
-        ? JSON.parse(msg.orderHistory)
-        : (Array.isArray(msg?.orderHistory) ? msg.orderHistory : []);
+      console.log('raw order payload '+JSON.stringify(msg))
+        const opened = Array.isArray(msg?.openedOrders) ? msg.openedOrders : [];
+        const hist = typeof msg?.orderHistory === 'string'
+          ? JSON.parse(msg.orderHistory)
+          : (Array.isArray(msg?.orderHistory) ? msg.orderHistory : []);
 
       const openedSpot = opened
         .filter((o: any) => this.isSpotSymbol(o.symbol))
