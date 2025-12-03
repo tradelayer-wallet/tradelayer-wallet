@@ -1,4 +1,5 @@
-import { Subject } from "rxjs";
+import { Subject, BehaviorSubject, Subscription } from "rxjs";
+import { takeUntil, auditTime } from 'rxjs/operators';
 import { obEventPrefix, SocketService } from "../socket.service";
 import { ToastrService } from "ngx-toastr";
 import { LoadingService } from "../loading.service";
@@ -6,9 +7,8 @@ import { AuthService } from "../auth.service";
 import { FuturesMarketService, IFutureMarket } from "./futures-markets.service";
 import { ITradeInfo } from "src/app/utils/swapper";
 import { IFuturesTradeProps } from "src/app/utils/swapper/common";
-import { BehaviorSubject } from 'rxjs';
 import { wrangleFuturesObMessageInPlace } from 'src/app/@core/utils/ob-normalize';
-import { Injectable, NgZone } from "@angular/core";
+import { Injectable, NgZone, OnDestroy } from "@angular/core";
 import { RpcService } from "../rpc.service"
 
 type Side = 'bids' | 'asks' | 'both';
@@ -49,8 +49,7 @@ export interface IFuturesOrder {
 @Injectable({
     providedIn: 'root',
 })
-
-export class FuturesOrderbookService {
+export class FuturesOrderbookService implements OnDestroy {
     private activeKey: string | null = null;
     private books: Record<string, IFuturesOrderbookData> = {};
     private bound = false;
@@ -61,6 +60,14 @@ export class FuturesOrderbookService {
     sellOrderbooks$ = new BehaviorSubject<{ amount: number, price: number }[]>([]);
     tradeHistory: IFuturesHistoryTrade[] = [];
     currentPrice: number = 1;
+
+    // === NEW: Proper subscription management ===
+    private destroy$ = new Subject<void>();
+    private subscriptions: Subscription[] = [];
+    private isSubscribed = false;
+
+    // === NEW: Throttled update subject ===
+    private updateTrigger$ = new Subject<void>();
 
     // === futures symbol edge-normalization (keep internal futures key numeric) ===
     private inboundToContractId(sym?: string | null): number | null {
@@ -81,7 +88,7 @@ export class FuturesOrderbookService {
     private outboundMarketKeyForFutures(id: number | string): string {
       return `${id}-perp`;
     }
-        lastPrice: number = 1;
+    lastPrice: number = 1;
     private _lastRequestedKey: string | null = null;
     onUpdate?: () => void;
 
@@ -93,7 +100,26 @@ export class FuturesOrderbookService {
         private authService: AuthService,
         private rpcService: RpcService, 
         private ngZone: NgZone, 
-    ) {}
+    ) {
+        // === NEW: Throttled updates at ~30fps max ===
+        this.updateTrigger$.pipe(
+            auditTime(32), // ~30fps max, prevents CD storms
+            takeUntil(this.destroy$)
+        ).subscribe(() => {
+            this.onUpdate?.();
+        });
+    }
+
+    ngOnDestroy() {
+        this.destroy$.next();
+        this.destroy$.complete();
+        this.cleanupSubscriptions();
+    }
+
+    private cleanupSubscriptions() {
+        this.subscriptions.forEach(s => s.unsubscribe());
+        this.subscriptions = [];
+    }
 
     get activeFuturesKey() {
         return this.authService.activeFuturesKey;
@@ -134,31 +160,23 @@ export class FuturesOrderbookService {
     /** FUTURES: if activeKey is unset, adopt it from the incoming OB message/service. */
     private ensureActiveFuturesKey(msg: any): void {
       if (this.activeKey) return;
-
-      // Prefer explicit marketKey if present
       const mk =
         (typeof msg?.marketKey === 'string' && msg.marketKey.trim())
           ? msg.marketKey.trim()
           : null;
-
-      // Or from a snapshot object: orders = { symbol: '...' } (before/after wrangler)
       const sym =
         (msg?.orders && !Array.isArray(msg.orders) && typeof msg.orders?.symbol === 'string')
           ? msg.orders.symbol.trim()
           : null;
-
-      // Or from your markets service's selected market (if you have it on this service)
       const selSym: string | undefined =
         (this.futuresMarketService as any)?.selectedMarket?.symbol;
-
       this.activeKey = mk ?? sym ?? (selSym?.trim() ?? null);
     }
-
 
     private bindOnce() {
       if (this.bound) return; this.bound = true;
         this.socket.on('ORDERBOOK_DATA', (msg: any) => {
-          if (!msg?.marketKey || msg.marketKey !== this.activeKey) return; // guard
+          if (!msg?.marketKey || msg.marketKey !== this.activeKey) return;
           this.books[msg.marketKey] = { orders: msg.orders, history: msg.history };
         });
     }
@@ -179,7 +197,6 @@ export class FuturesOrderbookService {
       this.activeKey = newKey;
       this._lastRequestedKey = newKey;
 
-      // 1. Ask server for a fresh snapshot (WS)
       this.socket.emit(
         JSON.stringify({
           event: 'update-orderbook',
@@ -194,26 +211,31 @@ export class FuturesOrderbookService {
         })
       );
 
-      // 2. Join the market room for live deltas
       this.socket.emit(
         JSON.stringify({ event: 'orderbook:join', marketKey: this.outboundMarketKeyForFutures(contract_id), network: net })
       );
     }
 
    getContractMeta(contract_id: number) {
-        // Use FuturesMarketService.getMarketByContractId()
         const market = this.futuresMarketService.getMarketByContractId(contract_id);
         if (!market) return { contractSize: 1, isInverse: false };
-        // Note: Derive contractSize, isInverse from your market model
         return {
-            contractSize: market.notional || 1,           // <-- Use .notional for contract size
-            isInverse: !!market.inverse                   // <-- Use .inverse for inverse contracts
+            contractSize: market.notional || 1,
+            isInverse: !!market.inverse
         };
     }
 
     subscribeForOrderbook() {
+        // === FIX: Prevent duplicate subscriptions ===
+        if (this.isSubscribed) {
+            console.log('[FuturesOB] Already subscribed, skipping');
+            return;
+        }
+        
         this.endOrderbookSubscription();
+        this.isSubscribed = true;
 
+        // === FIX: Use socket service's shared streams where possible ===
         this.socket.on(`${obEventPrefix}::connected`, (message: string) => {
             this.toastrService.success('Connected to orderbook server')
             const newKey = this.marketFilter.contract_id
@@ -232,14 +254,11 @@ export class FuturesOrderbookService {
         });
 
         this.socket.on(`${obEventPrefix}::disconnect`, () => {
-            // Clear ALL local orderbook state
             this._rawOrderbookData = [];
             console.log('cleared ob after disconnect '+JSON.stringify(this._rawOrderbookData))
             this.structureOrderBook();
-            // Optionally: notify the user
             this.toastrService.info('Disconnected from orderbook server. Orders cleared.');
         });
-
 
         this.socket.on(`${obEventPrefix}::update-orders-request`, () => {
             const net = this.rpcService.NETWORK
@@ -247,64 +266,54 @@ export class FuturesOrderbookService {
         });
 
         console.log('[time]', Date.now(), 'set up listener for orderbook-data');
-      this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
-        this.ngZone.run(() => {
-          console.log('[Futures OB] update ' + JSON.stringify(orderbookData));
+        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
+            this.ngZone.run(() => {
+                console.log('[Futures OB] update ' + JSON.stringify(orderbookData));
 
-          /*// 1) Spot-style guard BEFORE wrangle (prevents wiping the book)
-        	if (!Array.isArray(orderbookData.orders.bids) ||
-  !Array.isArray(orderbookData.orders.asks)) {
-		      return; 
-		    }*/
-          // 2) Wrangle snapshot -> array + normalize "*-perp" key
-          orderbookData = wrangleFuturesObMessageInPlace(orderbookData);
-          console.log('normalized futures book ' + JSON.stringify(orderbookData));
+                orderbookData = wrangleFuturesObMessageInPlace(orderbookData);
+                console.log('normalized futures book ' + JSON.stringify(orderbookData));
 
-          const ts = Date.now();
-          console.log(`[Futures OB tick start ${ts}] ` + JSON.stringify({
-            orders: Array.isArray(orderbookData?.orders) ? orderbookData.orders.length : 0,
-            isDelta: !!orderbookData?.isDelta,
-            history: Array.isArray(orderbookData?.history) ? orderbookData.history.length : 0
-          }));
+                const ts = Date.now();
+                console.log(`[Futures OB tick start ${ts}] ` + JSON.stringify({
+                    orders: Array.isArray(orderbookData?.orders) ? orderbookData.orders.length : 0,
+                    isDelta: !!orderbookData?.isDelta,
+                    history: Array.isArray(orderbookData?.history) ? orderbookData.history.length : 0
+                }));
 
-          // 3) Active key gating — same as Spot
-          const mk = orderbookData?.marketKey || this.activeKey;
-          console.log('[Futures OB] active vs mk ' + JSON.stringify({ activeKey: this.activeKey, mk }));
-          if (mk && this.activeKey && mk !== this.activeKey) return;
+                const mk = orderbookData?.marketKey || this.activeKey;
+                console.log('[Futures OB] active vs mk ' + JSON.stringify({ activeKey: this.activeKey, mk }));
+                if (mk && this.activeKey && mk !== this.activeKey) return;
 
-          // 4) Delta merge / overwrite — same as Spot
-          if (orderbookData.isDelta) {
-            this.rawOrderbookData = this.mergeOrders(
-              this.rawOrderbookData,
-              orderbookData.orders as IFuturesOrder[]
-            );
-          } else {
-            this.rawOrderbookData = orderbookData.orders as IFuturesOrder[];
-          }
+                if (orderbookData.isDelta) {
+                    this.rawOrderbookData = this.mergeOrders(
+                        this.rawOrderbookData,
+                        orderbookData.orders as IFuturesOrder[]
+                    );
+                } else {
+                    this.rawOrderbookData = orderbookData.orders as IFuturesOrder[];
+                }
 
-          // 5) History + price — same pattern
-          this.tradeHistory = orderbookData.history || [];
-          const lastTrade = this.tradeHistory[0];
-          this.currentPrice = (typeof lastTrade?.props?.price === 'number'
-            ? lastTrade.props.price
-            : this.rawOrderbookData?.[0]?.props?.price) || 1;
+                this.tradeHistory = orderbookData.history || [];
+                const lastTrade = this.tradeHistory[0];
+                this.currentPrice = (typeof lastTrade?.props?.price === 'number'
+                    ? lastTrade.props.price
+                    : this.rawOrderbookData?.[0]?.props?.price) || 1;
 
-          console.log('[Futures OB after structure] ' + JSON.stringify({
-            ms: Date.now() - ts, orders: this.rawOrderbookData?.length ?? 0, price: this.currentPrice
-          }));
+                console.log('[Futures OB after structure] ' + JSON.stringify({
+                    ms: Date.now() - ts, orders: this.rawOrderbookData?.length ?? 0, price: this.currentPrice
+                }));
 
-          this.onUpdate?.();
+                // === FIX: Throttled update trigger instead of direct onUpdate ===
+                this.updateTrigger$.next();
+            });
         });
-      });
     }
 
     /**
      * Merge incoming futures orders into current snapshot.
-     * Uses `uuid` (or txid if you prefer) as the unique key.
      */
     private mergeOrders(current: IFuturesOrder[], deltas: IFuturesOrder[]): IFuturesOrder[] {
       const map = new Map(current.map(o => [o.uuid, o]));
-
       for (const d of deltas) {
         if (d.props.amount === 0 || d.state === "CANCELED") {
           map.delete(d.uuid);
@@ -312,13 +321,14 @@ export class FuturesOrderbookService {
           map.set(d.uuid, d);
         }
       }
-
       return Array.from(map.values());
     }
 
     endOrderbookSubscription() {
-        ['update-orders-request', 'orderbook-data', 'order:error', 'order:saved']
+        // === FIX: Remove ALL listeners we added ===
+        ['update-orders-request', 'orderbook-data', 'order:error', 'order:saved', 'connected', 'disconnect']
             .forEach(m => this.socket.off(`${obEventPrefix}::${m}`));
+        this.isSubscribed = false;
     }
 
     private structureOrderBook() {
@@ -328,49 +338,47 @@ export class FuturesOrderbookService {
     }
 
     private _structureOrderbook(isBuy: boolean) {
-         const contract_id = this.selectedMarket.contract_id;
-      const { contractSize, isInverse } = this.getContractMeta(contract_id);
+        const contract_id = this.selectedMarket.contract_id;
+        const { contractSize, isInverse } = this.getContractMeta(contract_id);
 
-      const filteredOrderbook = this.rawOrderbookData.filter(
-        (o) => o.props.contract_id === contract_id && o.action === (isBuy ? "BUY" : "SELL")
-      );
+        const filteredOrderbook = this.rawOrderbookData.filter(
+            (o) => o.props.contract_id === contract_id && o.action === (isBuy ? "BUY" : "SELL")
+        );
 
-      const range = 1000;
-      const result: { price: number; amount: number }[] = [];
+        const range = 1000;
+        const result: { price: number; amount: number }[] = [];
 
-      filteredOrderbook.forEach((o) => {
-        const _price = Math.trunc(o.props.price * range);
+        filteredOrderbook.forEach((o) => {
+            const _price = Math.trunc(o.props.price * range);
+            const normalizedAmount = isInverse
+                ? parseFloat((o.props.amount * o.props.price * contractSize).toFixed(8))
+                : parseFloat((o.props.amount * contractSize).toFixed(8));
 
-        // Convert amount to notional quote value
-        const normalizedAmount = isInverse
-          ? parseFloat((o.props.amount * o.props.price * contractSize).toFixed(8))
-          : parseFloat((o.props.amount * contractSize).toFixed(8));
+            const existing = result.find((_o) => Math.trunc(_o.price * range) === _price);
+            if (existing) {
+                existing.amount += normalizedAmount;
+            } else {
+                result.push({
+                    price: parseFloat(o.props.price.toFixed(4)),
+                    amount: normalizedAmount,
+                });
+            }
+        });
 
-        const existing = result.find((_o) => Math.trunc(_o.price * range) === _price);
-        if (existing) {
-          existing.amount += normalizedAmount;
-        } else {
-          result.push({
-            price: parseFloat(o.props.price.toFixed(4)),
-            amount: normalizedAmount,
-          });
+        if (!isBuy) {
+            this.lastPrice =
+                result.sort((a, b) => b.price - a.price)?.[result.length - 1]?.price ||
+                this.currentPrice ||
+                1;
         }
-      });
 
-      if (!isBuy) {
-        this.lastPrice =
-          result.sort((a, b) => b.price - a.price)?.[result.length - 1]?.price ||
-          this.currentPrice ||
-          1;
-      }
-
-      return isBuy
-        ? result.sort((a, b) => b.price - a.price).slice(0, 9)
-        : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
+        // === FIX: Slice to max 50 levels (already sliced to 9, but good practice) ===
+        return isBuy
+            ? result.sort((a, b) => b.price - a.price).slice(0, 9)
+            : result.sort((a, b) => b.price - a.price).slice(Math.max(result.length - 9, 0));
     }
 
     switchFuturesMarket(contract_id: number, opts?: { depth?: number; side?:'bids'|'asks'|'both'; includeTrades?: boolean }) {
         return this.switchMarket('FUTURES', contract_id, opts);
     }
-
 }

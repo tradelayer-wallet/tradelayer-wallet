@@ -1,8 +1,9 @@
 import { Component, Input, ViewChild, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Subject } from 'rxjs';
+import { takeUntil, auditTime } from 'rxjs/operators';
 import { FuturesMarketService } from 'src/app/@core/services/futures-services/futures-markets.service';
 import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
 import { FuturesOrdersService } from 'src/app/@core/services/futures-services/futures-orders.service';
-
 
 export interface PeriodicElement {
   price: number;
@@ -15,15 +16,17 @@ export interface PeriodicElement {
   styleUrls: ['./orderbook-card.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-
 export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     @ViewChild('sellOrdersContainer') sellOrdersContainer: any;
-    private alive = true;
+    
+    // === FIX: Replace boolean with Subject for proper cleanup ===
+    private destroy$ = new Subject<void>();
 
     buyOrderbooks$ = this.futuresOrderbookService.buyOrderbooks$;
     sellOrderbooks$ = this.futuresOrderbookService.sellOrderbooks$;
     displayedColumns: string[] = ['price', 'amount', 'total'];
     clickedRows = new Set<PeriodicElement>();
+
     constructor(
       private futuresOrderbookService: FuturesOrderbookService,
       private futuresOrdersService: FuturesOrdersService,
@@ -33,10 +36,11 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
 
     ngOnInit() {
       this.futuresOrderbookService.subscribeForOrderbook();
+      
+      // === FIX: The service now handles throttling internally ===
+      // We just need to trigger CD when it tells us to
       this.futuresOrderbookService.onUpdate = () => {
-        if (this.alive) {
-          this.cd.markForCheck();
-        }
+        this.cd.markForCheck();
       };
     }
 
@@ -45,7 +49,6 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     get lastPrice() {
-      //return 0;
       return this.futuresOrderbookService.lastPrice;
     }
 
@@ -73,17 +76,13 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
       });
     }
 
-    /*get buyOrderbooks() {
-      return this.futuresOrderbookService.buyOrderbooks;
-    }
-
-    get sellOrderbooks() {
-      this.scrollToBottom();
-      return this.futuresOrderbookService.sellOrderbooks;
-    }*/
-
     get selectedMarket() {
       return this.futuresMarketService.selectedMarket;
+    }
+
+    // === NEW: trackBy functions to prevent DOM reconstruction ===
+    trackByPrice(index: number, item: { price: number; amount: number }): number {
+      return item.price;
     }
 
     scrollToBottom() {
@@ -97,19 +96,13 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy() {
-      this.futuresOrderbookService.endOrderbookSubscription()
-      this.alive = false;
+      this.destroy$.next();
+      this.destroy$.complete();
+      this.futuresOrderbookService.endOrderbookSubscription();
       this.futuresOrderbookService.onUpdate = undefined;
     }
 
     fillBuySellPrice(price: number) {
       if (price) this.futuresOrderbookService.outsidePriceHandler.next(price);
     }
-
-    // haveOpenedOrdersOnThisPrice(isBuy: boolean, price: number) {
-    //   const positions = isBuy
-    //     ? this.openedBuyOrders
-    //     : this.openedSellOrders;
-    //   return positions.map(e => e.props.price).some(e => e >= price && (e < price + 0.01));
-    // }
 }

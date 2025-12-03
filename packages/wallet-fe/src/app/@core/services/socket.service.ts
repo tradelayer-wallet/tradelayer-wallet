@@ -1,10 +1,12 @@
-import { Injectable } from "@angular/core";
+import { Injectable, OnDestroy } from "@angular/core";
 import { Router } from "@angular/router";
 import { ToastrService } from "ngx-toastr";
 import { Socket } from "socket.io-client";
 import { io } from 'socket.io-client'
 import { environment } from '../../../environments/environment';
 import { ApiService } from "./api.service";
+import { Subject, fromEvent, Observable } from 'rxjs';
+import { takeUntil, share, shareReplay } from 'rxjs/operators';
 
 export enum SocketEmits {
     LTC_INSTANT_TRADE = 'LTC_INSTANT_TRADE',
@@ -15,19 +17,32 @@ export const obEventPrefix = 'OB_SOCKET';
 @Injectable({
     providedIn: 'root',
 })
-
-export class SocketService {
+export class SocketService implements OnDestroy {
     private _socket: Socket | null = null;
     private _obSocketConnected: boolean = false;
     private hyperExpressId: string = ''
     private mainSocketWaiting: boolean = false;
     private obServerWaiting: boolean = false;
+    
+    // === NEW: Centralized event streams (share across subscribers) ===
+    private destroy$ = new Subject<void>();
+    private eventStreams = new Map<string, Observable<any>>();
 
     constructor(
         private toasterService: ToastrService,
         private router: Router,
         private apiService: ApiService,
     ) {}
+
+    ngOnDestroy() {
+        this.destroy$.next();
+        this.destroy$.complete();
+        this.eventStreams.clear();
+        if (this._socket) {
+            this._socket.disconnect();
+            this._socket = null;
+        }
+    }
 
     get socketsLoading() {
         return this.mainSocketWaiting || this.obServerWaiting;
@@ -58,6 +73,34 @@ export class SocketService {
         return this.apiService.marketApi;
     }
 
+    /**
+     * NEW: Get a shared observable for a socket event.
+     * This prevents listener accumulation - multiple subscribers share ONE listener.
+     */
+    fromEvent$<T = any>(event: string): Observable<T> {
+        if (!this.eventStreams.has(event)) {
+            const stream$ = new Observable<T>(observer => {
+                const handler = (data: T) => observer.next(data);
+                this.socket.on(event, handler);
+                return () => {
+                    this.socket.off(event, handler);
+                };
+            }).pipe(
+                takeUntil(this.destroy$),
+                shareReplay({ bufferSize: 1, refCount: true })
+            );
+            this.eventStreams.set(event, stream$);
+        }
+        return this.eventStreams.get(event)!;
+    }
+
+    /**
+     * NEW: Clean up a specific event stream (call on market switch)
+     */
+    clearEventStream(event: string) {
+        this.eventStreams.delete(event);
+    }
+
     mainSocketConnect() {
         this.mainSocketWaiting = true;
         this._socket = io(this.mainSocketUrl, { reconnection: false });
@@ -76,9 +119,9 @@ export class SocketService {
     }
 
     private handleMainSocketEvents() {
-            this.socket.on('connect', () => this.mainSocketWaiting = false);
-            this.socket.on('connect_error', () => this.mainSocketWaiting = false);
-            this.socket.on('disconnect', () => this.mainSocketWaiting = false);
+        this.socket.on('connect', () => this.mainSocketWaiting = false);
+        this.socket.on('connect_error', () => this.mainSocketWaiting = false);
+        this.socket.on('disconnect', () => this.mainSocketWaiting = false);
     }
 
     private handleMainOBSocketEvents() {
@@ -91,7 +134,6 @@ export class SocketService {
         this.socket.on(`${obEventPrefix}::connected`, (data) => {
             this._obSocketConnected = true;
             this.obServerWaiting = false;
-
             console.log('connected fired 0'+JSON.stringify(data))
             this.socketId = data.id
         });

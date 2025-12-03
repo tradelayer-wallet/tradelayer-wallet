@@ -1,4 +1,5 @@
-import { Subject } from "rxjs";
+import { Subject, Subscription } from "rxjs";
+import { takeUntil, auditTime } from 'rxjs/operators';
 import { SpotMarketsService, IMarket  } from "./spot-markets.service";
 import { obEventPrefix, SocketService } from "../socket.service";
 import { ToastrService } from "ngx-toastr";
@@ -7,11 +8,10 @@ import { AuthService } from "../auth.service";
 import { ITradeInfo } from "src/app/utils/swapper";
 import { ISpotTradeProps } from "src/app/utils/swapper/common";
 import { wrangleObMessageInPlace } from 'src/app/@core/utils/ob-normalize';
-import { Injectable, NgZone } from "@angular/core";
+import { Injectable, NgZone, OnDestroy } from "@angular/core";
 import { RpcService } from "../rpc.service"
 
 type Side = 'bids' | 'asks' | 'both';
-// spot-orders.component.ts (imports)
 
 interface ISpotOrderbookData {
     orders: ISpotOrder[],
@@ -46,8 +46,7 @@ export interface ISpotOrder {
 @Injectable({
     providedIn: 'root',
 })
-
-export class SpotOrderbookService {
+export class SpotOrderbookService implements OnDestroy {
     private _rawOrderbookData: ISpotOrder[] = [];
     outsidePriceHandler: Subject<number> = new Subject();
     buyOrderbooks: { amount: number, price: number }[] = [];
@@ -59,6 +58,14 @@ export class SpotOrderbookService {
     private _lastRequestedKey: string | null = null;
     onUpdate?: () => void;
 
+    // === NEW: Proper subscription management ===
+    private destroy$ = new Subject<void>();
+    private subscriptions: Subscription[] = [];
+    private isSubscribed = false;
+
+    // === NEW: Throttled update subject ===
+    private updateTrigger$ = new Subject<void>();
+
     constructor(
         private socketService: SocketService,
         private spotMarketService: SpotMarketsService,
@@ -67,7 +74,26 @@ export class SpotOrderbookService {
         private authService: AuthService,
         private ngZone: NgZone, 
         private rpcService: RpcService 
-    ) {}
+    ) {
+        // === NEW: Throttled updates at ~30fps max ===
+        this.updateTrigger$.pipe(
+            auditTime(32), // ~30fps max, prevents CD storms
+            takeUntil(this.destroy$)
+        ).subscribe(() => {
+            this.onUpdate?.();
+        });
+    }
+
+    ngOnDestroy() {
+        this.destroy$.next();
+        this.destroy$.complete();
+        this.cleanupSubscriptions();
+    }
+
+    private cleanupSubscriptions() {
+        this.subscriptions.forEach(s => s.unsubscribe());
+        this.subscriptions = [];
+    }
 
     get activeSpotKey() {
         return this.authService.activeSpotKey;
@@ -107,18 +133,15 @@ export class SpotOrderbookService {
     };
 
     /** If activeKey is not set, try to infer it from the incoming OB message. */
-    /** If activeKey is not set, adopt it from the incoming OB message or selectedMarket. */
     private ensureActiveKeyFromMessage(msg: any): void {
       if (this.activeKey) return;
 
-      // Prefer protocol-format marketKey "id-id" if present
       const mk = (typeof msg?.marketKey === 'string' && /^\d+-\d+$/.test(msg.marketKey))
         ? msg.marketKey
         : null;
 
       if (mk) { this.activeKey = mk; return; }
 
-      // Fall back to currently selected market from the markets service
       const sel = this.selectedMarket;
       const base  = sel?.first_token?.propertyId;
       const quote = sel?.second_token?.propertyId;
@@ -128,7 +151,14 @@ export class SpotOrderbookService {
     }
 
     subscribeForOrderbook() {
-        this.endOrderbookSbuscription();
+        // === FIX: Prevent duplicate subscriptions ===
+        if (this.isSubscribed) {
+            console.log('[SpotOB] Already subscribed, skipping');
+            return;
+        }
+
+        this.endOrderbookSubscription();
+        this.isSubscribed = true;
 
         this.socket.on(`${obEventPrefix}::connected`, (message: string) => {
             this.toastrService.success('Connected to orderbook server')
@@ -143,10 +173,8 @@ export class SpotOrderbookService {
         });
 
         this.socket.on(`${obEventPrefix}::disconnect`, () => {
-            // Clear ALL local orderbook state
             this._rawOrderbookData = [];
             this.structureOrderBook();
-            // Optionally: notify the user
             this.toastrService.info('Disconnected from orderbook server. Orders cleared.');
         });
 
@@ -156,77 +184,73 @@ export class SpotOrderbookService {
         });
 
         this.socket.on(`${obEventPrefix}::update-orders-request`, () => {
-            // Derive the key we’re requesting a snapshot for
             const marketKey = this.normalizeKey(
               this.marketFilter.first_token,
               this.marketFilter.second_token
             );
             const net = this.rpcService.NETWORK
-            // Build the payload (include state hints for the server)
             const payload = {
-              ...this.marketFilter,         // { type, first_token, second_token, depth, side, includeTrades, ... }
-              marketKey,                    // current target key (normalized)
+              ...this.marketFilter,
+              marketKey,
               activeKey: this.activeKey ?? marketKey,
               lastRequestedKey: this._lastRequestedKey ?? null,
               network: net
             };
-
-            // Fire the request
             this.socket.emit('update-orderbook', payload);
           });    
 
-      this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
-        this.ngZone.run(() => { 
-          console.log('[Spot OB] update ' + JSON.stringify(orderbookData));
-          /*if (!Array.isArray(orderbookData.orders.bids) ||
-  !Array.isArray(orderbookData.orders.asks)){
-            console.log('rejected at the rim! '+JSON.stringify(orderbookData))
-            return; 
-          }*/
+        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: any) => {
+            this.ngZone.run(() => { 
+                console.log('[Spot OB] update ' + JSON.stringify(orderbookData));
 
-          orderbookData = wrangleObMessageInPlace(orderbookData)
-          console.log('normalized spot book '+JSON.stringify(orderbookData))
-          const ts = Date.now();
-          console.log(`[OB tick start ${ts}]`, {
-          orders: orderbookData?.orders?.length ?? 0,
-          isDelta: orderbookData?.isDelta ?? false,
-          history: orderbookData?.history?.length ?? 0})
-          this.ensureActiveKeyFromMessage(orderbookData);
+                orderbookData = wrangleObMessageInPlace(orderbookData)
+                console.log('normalized spot book '+JSON.stringify(orderbookData))
+                const ts = Date.now();
+                console.log(`[OB tick start ${ts}]`, {
+                    orders: orderbookData?.orders?.length ?? 0,
+                    isDelta: orderbookData?.isDelta ?? false,
+                    history: orderbookData?.history?.length ?? 0
+                })
+                this.ensureActiveKeyFromMessage(orderbookData);
 
+                const mk = orderbookData?.marketKey || this.activeKey;
+                console.log('this active key and market key '+this.activeKey+' '+mk)
+                if (mk && this.activeKey && mk !== this.activeKey) return;
+                
+                if (orderbookData.isDelta) {
+                    this.rawOrderbookData = this.mergeOrders(
+                        this.rawOrderbookData,
+                        orderbookData.orders as ISpotOrder[]
+                    );
+                } else {
+                    console.log('ook assigning raw orderbook')
+                    this.rawOrderbookData = orderbookData.orders as ISpotOrder[];
+                }
 
-          const mk = orderbookData?.marketKey || this.activeKey;
-          console.log('this active key and market key '+this.activeKey+' '+mk)
-          if (mk && this.activeKey && mk !== this.activeKey) return;
-            if (orderbookData.isDelta) {
-              this.rawOrderbookData = this.mergeOrders(
-                this.rawOrderbookData,
-                orderbookData.orders as ISpotOrder[]
-              );
-            } else {
-              console.log('ook assigning raw orderbook')
-              this.rawOrderbookData = orderbookData.orders as ISpotOrder[];
-            }
+                this.tradeHistory = orderbookData.history || [];
+                const lastTrade = this.tradeHistory[0];
 
-          this.tradeHistory = orderbookData.history || [];
-          const lastTrade = this.tradeHistory[0];
+                if (!lastTrade) {
+                    this.currentPrice = 1;
+                } else {
+                    const { amountForSale, amountDesired } = lastTrade.props;
+                    this.currentPrice =
+                        parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
+                }
 
-          if (!lastTrade) {
-            this.currentPrice = 1;
-          } else {
-            const { amountForSale, amountDesired } = lastTrade.props;
-            this.currentPrice =
-              parseFloat((amountForSale / amountDesired).toFixed(6)) || 1;
-          }
-
-          console.log(`[OB after structure] ${Date.now() - ts}ms`);
-          this.onUpdate?.();
-          })
+                console.log(`[OB after structure] ${Date.now() - ts}ms`);
+                
+                // === FIX: Throttled update trigger instead of direct onUpdate ===
+                this.updateTrigger$.next();
+            })
         });
     }
 
-    endOrderbookSbuscription() {
-        ['update-orders-request', 'orderbook-data', 'order:error', 'order:saved']
+    endOrderbookSubscription() {
+        // === FIX: Remove ALL listeners we added (was missing 'connected' and 'disconnect') ===
+        ['update-orders-request', 'orderbook-data', 'order:error', 'order:saved', 'connected', 'disconnect']
             .forEach(m => this.socket.off(`${obEventPrefix}::${m}`));
+        this.isSubscribed = false;
     }
 
     private structureOrderBook() {
@@ -235,12 +259,10 @@ export class SpotOrderbookService {
     }
 
     private _structureOrderbook(isBuy: boolean) {
-
-        const baseId  = this.selectedMarket.first_token.propertyId;   // normalized: base < quote
+        const baseId  = this.selectedMarket.first_token.propertyId;
         const quoteId = this.selectedMarket.second_token.propertyId;
         const myKey   = this.normalizeKey(baseId, quoteId);
 
-        // BUY: for_sale === baseId;  SELL: for_sale === quoteId
         const filteredOrderbook = (this.rawOrderbookData || []).filter(o =>
           this.normalizeKey(o?.props?.id_for_sale, o?.props?.id_desired) === myKey &&
           (isBuy ? o?.props?.id_for_sale === quoteId : o?.props?.id_for_sale === baseId)
@@ -271,11 +293,11 @@ export class SpotOrderbookService {
       const map = new Map(current.map(o => [o.uuid, o]));
    
       for (const d of deltas) {
-       d.props.amount = d.props.amount
+        d.props.amount = d.props.amount
         if (d.props.amount === 0 || d.state === "CANCELED") {
-          map.delete(d.uuid); // remove if canceled
+          map.delete(d.uuid);
         } else {
-          map.set(d.uuid, d); // upsert
+          map.set(d.uuid, d);
         }
       }
 
@@ -283,41 +305,36 @@ export class SpotOrderbookService {
     }
     
     /** Normalize spot keys using p1<p2 rule */
-      private normalizeKey(p1: number, p2: number): string {
+    private normalizeKey(p1: number, p2: number): string {
         return p1 < p2 ? `${p1}-${p2}` : `${p2}-${p1}`;
-      }
+    }
 
-   async switchMarket(
-  first_token: number,
-  second_token: number,
-  p?: { depth?: number; side?: 'bids' | 'asks' | 'both'; includeTrades?: boolean }
-) {
-  const newKey = this.normalizeKey(first_token, second_token);
+    async switchMarket(
+        first_token: number,
+        second_token: number,
+        p?: { depth?: number; side?: 'bids' | 'asks' | 'both'; includeTrades?: boolean }
+    ) {
+        const newKey = this.normalizeKey(first_token, second_token);
+        this._lastRequestedKey = this.activeKey;
+        
+        const net = this.rpcService.NETWORK
+        if (this.activeKey && this.activeKey !== newKey) {
+            this.socket.emit('orderbook:leave', { marketKey: this.activeKey, network: net });
+        }
 
-  this._lastRequestedKey = this.activeKey;
-  
-  const net = this.rpcService.NETWORK
-  // Leave old
-  if (this.activeKey && this.activeKey !== newKey) {
-    this.socket.emit('orderbook:leave', { marketKey: this.activeKey, network: net });
-  }
+        this.activeKey = newKey;
+        this.socket.emit('update-orderbook', {
+            filter: {
+                type: 'SPOT',
+                first_token,
+                second_token,
+                depth: String(p?.depth ?? 50),
+                side: p?.side ?? 'both',
+                includeTrades: String(p?.includeTrades ?? false),
+                network: net
+            },
+        });
 
-  this.activeKey = newKey;
-  // Ask server for snapshot
-  this.socket.emit('update-orderbook', {
-    filter: {
-      type: 'SPOT',
-      first_token,
-      second_token,
-      depth: String(p?.depth ?? 50),
-      side: p?.side ?? 'both',
-      includeTrades: String(p?.includeTrades ?? false),
-      network: net
-    },
-  });
-
-  // Join for live deltas
-  this.socket.emit('orderbook:join', { marketKey: newKey, network: net });
-}
-
+        this.socket.emit('orderbook:join', { marketKey: newKey, network: net });
+    }
 }

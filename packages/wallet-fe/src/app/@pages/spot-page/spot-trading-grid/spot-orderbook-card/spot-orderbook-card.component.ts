@@ -1,4 +1,6 @@
 import { Component, Input, ViewChild, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Subject } from 'rxjs';
+import { takeUntil, auditTime } from 'rxjs/operators';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
@@ -14,13 +16,15 @@ export interface PeriodicElement {
   styleUrls: ['./orderbook-card.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-
 export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     @ViewChild('sellOrdersContainer') sellOrdersContainer: any;
-    private alive = true;
+    
+    // === FIX: Replace boolean with Subject for proper cleanup ===
+    private destroy$ = new Subject<void>();
 
     displayedColumns: string[] = ['price', 'amount', 'total'];
     clickedRows = new Set<PeriodicElement>();
+
     constructor(
       private spotOrderbookService: SpotOrderbookService,
       private spotOrdersService: SpotOrdersService,
@@ -74,13 +78,18 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     get selectedMarket() {
       return this.spotMarketsService.selectedMarket;
     }
+
+    // === NEW: trackBy functions to prevent DOM reconstruction ===
+    trackByPrice(index: number, item: { price: number; amount: number }): number {
+      return item.price;
+    }
   
     ngOnInit() {
       this.spotOrderbookService.subscribeForOrderbook();
+      
+      // === FIX: The service now handles throttling internally ===
       this.spotOrderbookService.onUpdate = () => {
-        if (this.alive) {
-          this.cd.markForCheck();
-        }
+        this.cd.markForCheck();
       };
     }
 
@@ -91,19 +100,13 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy() {
-      this.spotOrderbookService.endOrderbookSubscription()
-      this.alive = false;
+      this.destroy$.next();
+      this.destroy$.complete();
+      this.spotOrderbookService.endOrderbookSubscription();
       this.spotOrderbookService.onUpdate = undefined;
     }
 
     fillBuySellPrice(price: number) {
       if (price) this.spotOrderbookService.outsidePriceHandler.next(price);
     }
-
-    // haveOpenedOrdersOnThisPrice(isBuy: boolean, price: number) {
-    //   const positions = isBuy
-    //     ? this.openedBuyOrders
-    //     : this.openedSellOrders;
-    //   return positions.map(e => e.props.price).some(e => e >= price && (e < price + 0.01));
-    // }
 }
