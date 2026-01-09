@@ -229,8 +229,14 @@ export class BuySwapper extends Swap {
                 );
             }
        } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {// 1) Unpack your trade info
-        const { contract_id, amount, price, initMargin, collateral, transfer = false,sellerIsMaker } = this.tradeInfo as IFuturesTradeProps;
+        const { contract_id, amount, price, transfer = false,sellerIsMaker } = this.tradeInfo as IFuturesTradeProps;
+        
+        const {initMargin, collateral} = await this.txsService.computeMargin(contract_id,amount,price)
+
         console.log(' futures trade props '+contract_id +' '+ amount+' '+price+' '+ initMargin+' '+collateral+' '+transfer)
+
+
+        console.log('about to predict column' +this.multySigChannelData.address+' '+this.myInfo.keypair.address+' '+this.cpInfo.keypair.address)
 
         // 2) Compute initial margin
         const column = await this.txsService.predictColumn(
@@ -281,7 +287,7 @@ export class BuySwapper extends Swap {
         if (commitTxSendRes.error || !commitTxSendRes.data) {
           throw new Error(`Failed to send transaction`);
         }
-        const commitTxid = commitTxSendRes.data;
+        const commitTxId = commitTxSendRes.data;
 
         // 6) Decode raw TX to extract channel-locked UTXO
         const drtRes = await this.client("decoderawtransaction", [rawtx]);
@@ -297,7 +303,7 @@ export class BuySwapper extends Swap {
         const commitUTXO: IUTXO = {
           amount: vout.value,
           vout: vout.n,
-          txid: commitTxid,
+          txid: commitTxId,
           scriptPubKey: this.multySigChannelData.scriptPubKey || "",
           redeemScript: this.multySigChannelData.redeemScript,
           confirmations:0
@@ -329,7 +335,7 @@ export class BuySwapper extends Swap {
         // 9) Emit BUYER:STEP4 with psbt + commit txid
         const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, {
           psbtHex,
-          commitTxId: commitTxid
+          commitTxId: commitTxId
         });
         this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
         } else {

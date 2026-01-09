@@ -138,10 +138,10 @@ export class SellSwapper extends Swap {
         contract_id,
         amount,
         price,
-        initMargin,
-        collateral,
         transfer = false
       } = this.tradeInfo as IFuturesTradeProps;
+
+     const {initMargin, collateral} = await this.txsService.computeMargin(contract_id,amount,price)
 
       console.log('checking params for commit '+amount + ' '+collateral+' '+initMargin)
 

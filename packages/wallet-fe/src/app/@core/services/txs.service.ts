@@ -88,6 +88,23 @@ export class TxsService {
         return this.rpcService.rpc('dumpprivkey', [address]);
     }
 
+    async getContractInfo(contractId: number) {
+      const res = await axios.get(
+        'http://localhost:3000/tl_getContractInfo',
+        { params: { contractId } }
+      );
+      return res.data;
+    }
+
+    async getInitMarginPerContract(contractId: number, price: number) {
+      const res = await axios.get(
+        'http://localhost:3000/tl_getInitMargin',
+        { params: { contractId, price } }
+      );
+      return Number(res.data);
+    }
+
+
     async buildLTCITTx(
         buildTxConfig: IBuildLTCITTxConfig,
     ): Promise<{ data?: { rawtx: string; inputs: IUTXO[], psbtHex?: string }, error?: string }> {
@@ -287,6 +304,37 @@ export class TxsService {
         }
         return _sendTxWithRetry(rawTx, 15, 800);
     }
+
+    async computeMargin(
+      contractId: number,
+      amount: number,
+      price: number
+    ) {
+      const [contractInfo, perContractMargin] = await Promise.all([
+        this.getContractInfo(contractId),
+        this.getInitMarginPerContract(contractId, price),
+      ]);
+
+      if (!contractInfo || !perContractMargin) {
+        throw new Error('Failed to compute futures margin');
+      }
+
+      const initMargin = perContractMargin * amount;
+      const collateral = contractInfo.collateralPropertyId;
+
+      if (!collateral || initMargin <= 0) {
+        throw new Error('Invalid futures margin parameters');
+      }
+
+      return {
+        collateral,
+        initMargin,
+        perContractMargin,
+        inverse: contractInfo.inverse,
+        leverage: contractInfo.leverage,
+      };
+    }
+
 }
 
   

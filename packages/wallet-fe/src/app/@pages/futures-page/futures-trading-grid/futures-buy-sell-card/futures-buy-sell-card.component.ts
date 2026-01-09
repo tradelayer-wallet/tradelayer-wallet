@@ -169,7 +169,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     const market = this.selectedMarket;
       console.log('selected market '+market)
     const propId = market?.collateral?.propertyId;
-    if (!propId) return 0;
+    if (market?.collateral?.propertyId == null) return 0;
     const tokenBalanceObj = this.balanceService.getTokensBalancesByAddress(this.futureAddress)?.find((t: any) => t.propertyid === propId);
     let availableBalance = 0;
     let channelBalance = 0;
