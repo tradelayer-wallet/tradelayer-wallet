@@ -121,7 +121,6 @@ type FuturesRow = {
   type: 'FUTURES';
   uuid: string;
 };
-
 export function wrangleFuturesObMessageInPlace<M extends Record<string, any>>(msg: M): M {
   if (!msg || typeof msg !== 'object') return msg;
   const anyMsg = msg as Record<string, any>;
@@ -170,7 +169,6 @@ export function wrangleFuturesObMessageInPlace<M extends Record<string, any>>(ms
     for (let i = 0; i < (snap.bids?.length ?? 0); i++) arr.push(mapRow(snap.bids![i], 'BUY', i));
     for (let j = 0; j < (snap.asks?.length ?? 0); j++) arr.push(mapRow(snap.asks![j], 'SELL', j));
 
-    // Keep it untyped here; service can cast as IFuturesOrder[] where needed
     anyMsg.orders = arr;
   }
 
@@ -188,5 +186,32 @@ export function wrangleFuturesObMessageInPlace<M extends Record<string, any>>(ms
     if (mk2) anyMsg.marketKey = mk2;
   }
 
+  // ============================================================
+  // 5) FUTURES → UI semantic normalization (THE FIX)
+  // ============================================================
+  if (Array.isArray(anyMsg.orders)) {
+    for (const o of anyMsg.orders) {
+      // side / sell normalization
+      if (o.action === 'BUY') {
+        o.sell = false;
+        o.side = 'long';
+      } else if (o.action === 'SELL') {
+        o.sell = true;
+        o.side = 'short';
+      }
+
+      // size normalization
+      if (o.contracts == null && o.props?.amount != null) {
+        o.contracts = Number(o.props.amount);
+      }
+
+      // price normalization
+      if (o.price == null && o.props?.price != null) {
+        o.price = Number(o.props.price);
+      }
+    }
+  }
+
   return msg;
 }
+

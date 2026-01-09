@@ -182,39 +182,46 @@ export class FuturesOrderbookService implements OnDestroy {
     }
 
     async switchMarket(
-      type: 'FUTURES' | 'SPOT',
-      contract_id: number,
-      p?: { depth?: number; side?: 'bids' | 'asks' | 'both'; includeTrades?: boolean }
-    ) {
-      this.bindOnce();
-      const newKey = this.key(type, contract_id);
-      const net = this.rpcService.NETWORK
-      if (this.activeKey && this.activeKey !== newKey) {
-        this.socket.emit(
-          JSON.stringify({ event: 'orderbook:leave', marketKey: this.outboundMarketKeyForFutures(contract_id), network: net })
-        );
-      }
-      this.activeKey = newKey;
-      this._lastRequestedKey = newKey;
+	  type: 'FUTURES' | 'SPOT',
+	  contract_id: number,
+	  p?: { depth?: number; side?: 'bids' | 'asks' | 'both'; includeTrades?: boolean }
+	) {
+	  this.bindOnce();
 
-      this.socket.emit(
-        JSON.stringify({
-          event: 'update-orderbook',
-          filter: {
-            type,
-            contract_id,
-            depth: String(p?.depth ?? 50),
-            side: p?.side ?? 'both',
-            includeTrades: String(p?.includeTrades ?? false),
-            network: net
-          },
-        })
-      );
+	  const net = this.rpcService.NETWORK;
 
-      this.socket.emit(
-        JSON.stringify({ event: 'orderbook:join', marketKey: this.outboundMarketKeyForFutures(contract_id), network: net })
-      );
-    }
+	  // IMPORTANT: futures activeKey must match inbound marketKey format
+	  const newKey = this.outboundMarketKeyForFutures(contract_id); // "2-perp"
+
+	  // leave old market (if any)
+	  if (this.activeKey && this.activeKey !== newKey) {
+	    this.socket.emit('orderbook:leave', { marketKey: this.activeKey, network: net });
+	  }
+
+	  // reset local state on switch (Spot behavior effectively does this via replacement)
+	  this._rawOrderbookData = [];
+	  this.tradeHistory = [];
+	  this.currentPrice = 1;
+	  this.structureOrderBook();
+
+	  this.activeKey = newKey;
+	  this._lastRequestedKey = newKey;
+
+	  // request snapshot
+	  this.socket.emit('update-orderbook', {
+	    filter: {
+	      type,
+	      contract_id,
+	      depth: String(p?.depth ?? 50),
+	      side: p?.side ?? 'both',
+	      includeTrades: String(p?.includeTrades ?? false),
+	      network: net,
+	    },
+	  });
+
+	  // join market stream
+	  this.socket.emit('orderbook:join', { marketKey: newKey, network: net });
+	}
 
    getContractMeta(contract_id: number) {
         const market = this.futuresMarketService.getMarketByContractId(contract_id);
@@ -272,7 +279,7 @@ export class FuturesOrderbookService implements OnDestroy {
 
                 orderbookData = wrangleFuturesObMessageInPlace(orderbookData);
                 console.log('normalized futures book ' + JSON.stringify(orderbookData));
-
+                this.ensureActiveFuturesKey(orderbookData);
                 const ts = Date.now();
                 console.log(`[Futures OB tick start ${ts}] ` + JSON.stringify({
                     orders: Array.isArray(orderbookData?.orders) ? orderbookData.orders.length : 0,
