@@ -16,6 +16,36 @@ export class FuturesPositionsComponent implements OnInit {
       private futuresMarketService: FuturesMarketService,
     ) {}
 
+    // -------------------------------------------------------------------------
+    // UI helpers (bar color + pending deltas)
+    // -------------------------------------------------------------------------
+    private toNum(v: any): number {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    get pendingPositionDelta(): number {
+      return this.futuresPositionsService.pendingPositionDelta;
+    }
+
+    get pendingUpnlDelta(): number {
+      return this.futuresPositionsService.pendingUpnlDelta;
+    }
+
+    positionNum(p: IPosition): number {
+      return this.toNum(p?.position);
+    }
+
+    upnlNum(p: IPosition): number {
+      return this.toNum(p?.upnl);
+    }
+
+    signClass(n: number): string {
+      if (n > 0) return 'pos-positive';
+      if (n < 0) return 'pos-negative';
+      return 'pos-flat';
+    }
+
     get openedPositions() {
       if (this.futuresPositionsService.openedPosition) {
         return [this.futuresPositionsService.openedPosition];
@@ -27,7 +57,7 @@ export class FuturesPositionsComponent implements OnInit {
     get marketName() {
       return this.futuresMarketService.selectedMarket.contractName;
     }
-  
+
     ngOnInit() {
       this.futuresPositionsService.onInit();
     }

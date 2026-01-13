@@ -22,12 +22,32 @@ export class FuturesPositionsService {
     private _openedPosition: IPosition | null = null;
     private _selectedContractId: string | null = null;
     private subs$: Subscription | null = null;
+
+    // Pending (mempool) + realtime (mark) deltas for UI parentheses
+    private _pendingPositionDelta: number = 0;
+    private _pendingUpnlDelta: number = 0;
+    private _markPrice: number | null = null;
+
     constructor(
         private rpcService: RpcService,
         private authService: AuthService,
         private toastrService: ToastrService,
         private apiService: ApiService,
     ) {}
+
+    get pendingPositionDelta() {
+        return this._pendingPositionDelta;
+    }
+
+    get pendingUpnlDelta() {
+        return this._pendingUpnlDelta;
+    }
+
+    // Hook for TradingView (or any price feed) to set current mark price
+    set markPrice(v: number | null) {
+        this._markPrice = (typeof v === 'number' && Number.isFinite(v)) ? v : null;
+        this.recomputeRealtimeUpnlDelta();
+    }
 
     get selectedContractId() {
         return this._selectedContractId;
@@ -51,6 +71,7 @@ export class FuturesPositionsService {
 
     set openedPosition(value: IPosition | null) {
         this._openedPosition = value;
+        this.recomputeRealtimeUpnlDelta();
     }
 
     onInit(){
@@ -62,7 +83,7 @@ export class FuturesPositionsService {
             this.updatePositions();
         });
     }
-    
+
     async updatePositions() {
         if (!this.activeFutureAddress || !this.selectedContractId) return;
 
@@ -77,6 +98,8 @@ export class FuturesPositionsService {
             if (res.error || !res.data) {
                 this.toastrService.error(res.error || 'Error getting opened position', 'Error');
                 this.openedPosition = null;
+                this._pendingPositionDelta = 0;
+                this._pendingUpnlDelta = 0;
                 return;
             }
 
@@ -95,11 +118,59 @@ export class FuturesPositionsService {
                 };
             } else {
                 this.openedPosition = null;
+                this._pendingPositionDelta = 0;
+                this._pendingUpnlDelta = 0;
             }
+
+            // Refresh mempool delta (if endpoint exists)
+            await this.scanMempoolPending();
 
         } catch (err) {
             console.error('❌ RPC error in updatePositions:', err);
             this.toastrService.error('Network error fetching position', 'Error');
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Mempool scanner hook: returns net contracts delta if all unconfirmed fills confirm
+    // Expected shapes supported:
+    //   res.data.contractsDelta
+    //   res.data.positionDelta
+    // -------------------------------------------------------------------------
+    async scanMempoolPending() {
+        try {
+            const params = { address: this.activeFutureAddress, contractId: this.selectedContractId };
+            const res = await this.tlApi.rpc('mempoolPositionDelta', params).toPromise();
+            const rawDelta = res?.data?.contractsDelta ?? res?.data?.positionDelta ?? 0;
+            const delta = Number(rawDelta);
+            this._pendingPositionDelta = Number.isFinite(delta) ? delta : 0;
+        } catch (_e) {
+            // If not wired yet, keep UI stable
+            this._pendingPositionDelta = 0;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Realtime UPNL delta: (approxRealtimeUpnl - backendUpnl)
+    // NOTE: Simplified linear approximation; adjust if you use multipliers/quanto.
+    // -------------------------------------------------------------------------
+    private recomputeRealtimeUpnlDelta() {
+        if (!this._openedPosition || this._markPrice === null) {
+            this._pendingUpnlDelta = 0;
+            return;
+        }
+
+        const contracts = Number(this._openedPosition.position);
+        const entry = Number(this._openedPosition.entry_price);
+        const backendUpnl = Number(this._openedPosition.upnl);
+
+        if (!Number.isFinite(contracts) || !Number.isFinite(entry) || !Number.isFinite(backendUpnl)) {
+            this._pendingUpnlDelta = 0;
+            return;
+        }
+
+        const approxRealtimeUpnl = (this._markPrice - entry) * contracts;
+        const delta = approxRealtimeUpnl - backendUpnl;
+        this._pendingUpnlDelta = Number.isFinite(delta) ? delta : 0;
     }
 }

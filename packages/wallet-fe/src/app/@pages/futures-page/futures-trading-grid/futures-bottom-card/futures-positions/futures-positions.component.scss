@@ -30,4 +30,34 @@ table {
         font-weight: 300;
         background-color: var(--darkBlue2);
     }
+
+    // -------------------------------------------------------------------------
+    // Position/UPNL top color bar + pending parentheses
+    // -------------------------------------------------------------------------
+    .value-with-bar {
+        display: inline-block;
+        min-width: 90px;
+    }
+
+    .top-bar {
+        height: 6px;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        opacity: 0.95;
+    }
+
+    .value-line {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+    }
+
+    .pending {
+        opacity: 0.8;
+        font-size: 0.75rem;
+    }
+
+    .pos-positive .top-bar { background: #22c55e; }
+    .pos-negative .top-bar { background: #ef4444; }
+    .pos-flat .top-bar { background: rgba(148, 163, 184, 0.6); }
 }
