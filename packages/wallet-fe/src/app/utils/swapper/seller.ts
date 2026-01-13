@@ -92,14 +92,14 @@ export class SellSwapper extends Swap {
     }
 
    private async onStep2(cpId: string) {
-  this.logTime('Step 2 Start');
-  //try {
-    if (!this.multySigChannelData?.address) {
-      throw new Error(`Error with finding Multisig Address`);
-    }
-    if (cpId !== this.cpInfo.socketId) {
-      throw new Error(`Error with p2p connection`);
-    }
+      this.logTime('Step 2 Start');
+    //try {
+      if (!this.multySigChannelData?.address) {
+        throw new Error(`Error with finding Multisig Address`);
+      }
+      if (cpId !== this.cpInfo.socketId) {
+        throw new Error(`Error with p2p connection`);
+      }
 
     const fromKeyPair = { address: this.myInfo.keypair.address };
     const toKeyPair   = { address: this.multySigChannelData.address };
@@ -132,7 +132,7 @@ export class SellSwapper extends Swap {
             channelAddress: this.multySigChannelData.address,
           });
 
-    } else if (this.typeTrade === ETradeType.FUTURES && 'collateral' in this.tradeInfo) {
+    } else if (this.typeTrade === ETradeType.FUTURES) {
       // ── FUTURES ───────────────────────────────────────
       const {
         contract_id,

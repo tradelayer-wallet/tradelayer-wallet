@@ -132,8 +132,8 @@ type EncodeTradeContractParams = {
 
 const encodeTradeContractChannel = (params: EncodeTradeContractParams): string => {
   const payload = [
-    params.contractId.toString(36),
-    encodeAmount(params.price),
+    params.contractId.toString(36),    
+    new BigNumber(params.price).times(1e8).integerValue(BigNumber.ROUND_HALF_UP).toString(36),
     params.amount.toString(36),
     params.columnAIsSeller,
     params.expiryBlock.toString(36),

@@ -15,7 +15,7 @@ import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { safeNumber } from 'src/app/utils/common.util';
 
-const minFeeLtcPerKb = 0.002;
+const minFeeLtcPerKb = 0.0001;
 const minVOutAmount = 0.000036;
 
 @Component({
@@ -151,10 +151,10 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       const allAmounts = [minVOutAmount, ...coinBalances.utxos.map(u => u.amount).sort((a, b) => b - a)];
       allAmounts.forEach(u => {
         const amountSum = safeNumber(finalInputs.reduce((a, b) => a + b, 0));
-        const _fee = (0.3 * minFeeLtcPerKb) * (finalInputs.length + 1);
+        const _fee = (0.12 * minFeeLtcPerKb) * (finalInputs.length + 1);
         if (amountSum < (_amount + _fee)) finalInputs.push(u);
       });
-      return (0.3 * minFeeLtcPerKb) * (finalInputs.length);
+      return (0.12 * minFeeLtcPerKb) * (finalInputs.length);
     } catch (err) {
       console.error('Error in calculateFee:', err);
       return 0;
