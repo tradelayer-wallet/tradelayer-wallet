@@ -4,7 +4,7 @@ import { AuthService } from "../auth.service";
 import { RpcService } from "../rpc.service";
 import { ApiService } from "../api.service";
 
-import { Subscription } from 'rxjs';  
+import { Subscription, interval } from 'rxjs';  
 
 export interface IPosition {
     "entry_price": string;
@@ -22,6 +22,7 @@ export class FuturesPositionsService {
     private _openedPosition: IPosition | null = null;
     private _selectedContractId: string | null = null;
     private subs$: Subscription | null = null;
+    private mempoolSubs$: Subscription | null = null;
 
     // Pending (mempool) + realtime (mark) deltas for UI parentheses
     private _pendingPositionDelta: number = 0;
@@ -43,7 +44,7 @@ export class FuturesPositionsService {
         return this._pendingUpnlDelta;
     }
 
-    // Hook for TradingView (or any price feed) to set current mark price
+    // Hook for TradingView/quote chart (or any price feed) to set current mark price
     set markPrice(v: number | null) {
         this._markPrice = (typeof v === 'number' && Number.isFinite(v)) ? v : null;
         this.recomputeRealtimeUpnlDelta();
@@ -75,13 +76,21 @@ export class FuturesPositionsService {
     }
 
     onInit(){
-        console.log('this sub '+this.subs$)
         if (this.subs$) return;
-        this.subs$ = this.rpcService.blockSubs$.subscribe(block => {
-            console.log("BLOCK RECEIVED, activeFutureAddress:", this.activeFutureAddress, "selectedContractId:", this.selectedContractId);
+
+        this.subs$ = this.rpcService.blockSubs$.subscribe(_block => {
             if (!this.activeFutureAddress || !this.selectedContractId) return;
             this.updatePositions();
         });
+
+        // Poll mempool delta even if blocks are mined fast (so you still see (projected))
+        if (!this.mempoolSubs$) {
+            this.mempoolSubs$ = interval(750).subscribe(() => {
+                if (!this.activeFutureAddress || !this.selectedContractId) return;
+                this.scanMempoolPending();
+                this.recomputeRealtimeUpnlDelta();
+            });
+        }
     }
 
     async updatePositions() {
@@ -94,7 +103,6 @@ export class FuturesPositionsService {
 
         try {
             const res = await this.tlApi.rpc('contractPosition', params).toPromise();
-            console.log('position update ' + JSON.stringify(res.data));
             if (res.error || !res.data) {
                 this.toastrService.error(res.error || 'Error getting opened position', 'Error');
                 this.openedPosition = null;
@@ -105,7 +113,6 @@ export class FuturesPositionsService {
 
             const raw = res.data;
 
-            // Change here: map backend keys to what the UI expects
             const positionValue = parseFloat(raw.contracts || "0");
 
             if (positionValue) {
@@ -121,9 +128,6 @@ export class FuturesPositionsService {
                 this._pendingPositionDelta = 0;
                 this._pendingUpnlDelta = 0;
             }
-
-            // Refresh mempool delta (if endpoint exists)
-            await this.scanMempoolPending();
 
         } catch (err) {
             console.error('❌ RPC error in updatePositions:', err);
@@ -145,7 +149,6 @@ export class FuturesPositionsService {
             const delta = Number(rawDelta);
             this._pendingPositionDelta = Number.isFinite(delta) ? delta : 0;
         } catch (_e) {
-            // If not wired yet, keep UI stable
             this._pendingPositionDelta = 0;
         }
     }

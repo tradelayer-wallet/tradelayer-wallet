@@ -6,8 +6,9 @@
 table {
     width: 100%;
     background-color: unset;
+
     tr {
-        height: 1.75rem;
+        height: 1.6rem;
     }
 
     tr:nth-child(odd) {
@@ -18,43 +19,71 @@ table {
         background-color: var(--darkBlu2) !important;
     }
 
+    // tighten spacing so it fits without scrolling
+    .mat-cell, .mat-header-cell {
+        padding: 0 8px;
+    }
+
     td {
         color: var(--white);
-        font-size: 0.75rem;
+        font-size: 0.9rem;
         font-weight: 300;
+        line-height: 1.1rem;
+        vertical-align: middle;
+        white-space: nowrap;
     }
 
     th {
         color: var(--hardGrey);
-        font-size: 0.75rem;;
+        font-size: 0.9rem;
         font-weight: 300;
         background-color: var(--darkBlue2);
+        white-space: nowrap;
+    }
+
+    // Center key numeric columns
+    td.mat-column-position,
+    th.mat-column-position,
+    td.mat-column-upnl,
+    th.mat-column-upnl {
+        text-align: center;
     }
 
     // -------------------------------------------------------------------------
     // Position/UPNL top color bar + pending parentheses
     // -------------------------------------------------------------------------
     .value-with-bar {
-        display: inline-block;
-        min-width: 90px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;  // centers bar over the number
+        justify-content: center;
+        min-width: 70px;
     }
 
     .top-bar {
         height: 6px;
+        width: 78px;          // fixed width so it lines up nicely
         border-radius: 6px;
-        margin-bottom: 6px;
+        margin: 0 0 4px 0;
         opacity: 0.95;
     }
 
     .value-line {
         display: flex;
         align-items: baseline;
+        justify-content: center;
         gap: 6px;
     }
 
+    .main-val {
+        display: inline-block;
+        text-align: center;
+        min-width: 16px;
+    }
+
     .pending {
-        opacity: 0.8;
-        font-size: 0.75rem;
+        opacity: 0.85;
+        font-size: 0.85rem;
     }
 
     .pos-positive .top-bar { background: #22c55e; }

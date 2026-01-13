@@ -17,7 +17,7 @@ export class FuturesPositionsComponent implements OnInit {
     ) {}
 
     // -------------------------------------------------------------------------
-    // UI helpers (bar color + pending deltas)
+    // UI helpers (bar color + pending projections)
     // -------------------------------------------------------------------------
     private toNum(v: any): number {
       const n = Number(v);
@@ -38,6 +38,14 @@ export class FuturesPositionsComponent implements OnInit {
 
     upnlNum(p: IPosition): number {
       return this.toNum(p?.upnl);
+    }
+
+    projectedPosition(p: IPosition): number {
+      return this.positionNum(p) + this.pendingPositionDelta;
+    }
+
+    projectedUpnl(p: IPosition): number {
+      return this.upnlNum(p) + this.pendingUpnlDelta;
     }
 
     signClass(n: number): string {

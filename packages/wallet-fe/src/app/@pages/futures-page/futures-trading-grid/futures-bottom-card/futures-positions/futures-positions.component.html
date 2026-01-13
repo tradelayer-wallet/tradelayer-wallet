@@ -10,9 +10,9 @@
         <div class="value-with-bar" [ngClass]="signClass(positionNum(element))">
           <div class="top-bar"></div>
           <div class="value-line">
-            <span>{{ element['position'] || '-' }}</span>
+            <span class="main-val">{{ element['position'] || '-' }}</span>
             <span class="pending" *ngIf="pendingPositionDelta !== 0">
-              ({{ pendingPositionDelta > 0 ? '+' : '' }}{{ pendingPositionDelta }})
+              ({{ projectedPosition(element) }})
             </span>
           </div>
         </div>
@@ -40,9 +40,9 @@
         <div class="value-with-bar" [ngClass]="signClass(upnlNum(element))">
           <div class="top-bar"></div>
           <div class="value-line">
-            <span>{{ element['upnl'] || '-' }}</span>
+            <span class="main-val">{{ element['upnl'] || '-' }}</span>
             <span class="pending" *ngIf="pendingUpnlDelta !== 0">
-              ({{ pendingUpnlDelta > 0 ? '+' : '' }}{{ pendingUpnlDelta | number:'1.2-2' }})
+              ({{ projectedUpnl(element) | number:'1.2-2' }})
             </span>
           </div>
         </div>
