@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FuturesMarketService } from 'src/app/@core/services/futures-services/futures-markets.service';
 import { FuturesPositionsService, IPosition } from 'src/app/@core/services/futures-services/futures-positions.service';
 
@@ -7,71 +7,82 @@ import { FuturesPositionsService, IPosition } from 'src/app/@core/services/futur
   templateUrl: './futures-positions.component.html',
   styleUrls: ['./futures-positions.component.scss']
 })
+export class FuturesPositionsComponent implements OnInit, OnDestroy {
+  displayedColumns: string[] = ['market', 'position', 'price', 'liquidation', 'margin', 'upnl', 'close'];
 
-export class FuturesPositionsComponent implements OnInit {
+  constructor(
+    private futuresPositionsService: FuturesPositionsService,
+    private futuresMarketService: FuturesMarketService
+  ) {}
 
-    displayedColumns: string[] = ['market', 'position', 'price', 'liquidation', 'margin', 'upnl', 'close'];
-    constructor(
-      private futuresPositionsService: FuturesPositionsService,
-      private futuresMarketService: FuturesMarketService,
-    ) {}
+  private toNum(v: any): number {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
 
-    // -------------------------------------------------------------------------
-    // UI helpers (bar color + pending projections)
-    // -------------------------------------------------------------------------
-    private toNum(v: any): number {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : 0;
+  get activeContractId(): number {
+    return this.futuresMarketService.selectedMarket?.contractId;
+  }
+
+  get pendingPositionDelta(): number {
+    const cid = this.activeContractId;
+    return cid != null
+      ? this.futuresPositionsService.pendingPositionDeltaByContract[cid] ?? 0
+      : 0;
+  }
+
+  get pendingUpnlDelta(): number {
+    const cid = this.activeContractId;
+    return cid != null
+      ? this.futuresPositionsService.pendingUpnlDeltaByContract[cid] ?? 0
+      : 0;
+  }
+
+  positionNum(p: IPosition): number {
+    return this.toNum(p?.position);
+  }
+
+  upnlNum(p: IPosition): number {
+    return this.toNum(p?.upnl);
+  }
+
+  projectedPosition(p: IPosition): number {
+    return this.positionNum(p) + this.pendingPositionDelta;
+  }
+
+  projectedUpnl(p: IPosition): number {
+    return this.upnlNum(p) + this.pendingUpnlDelta;
+  }
+
+  signClass(n: number): string {
+    if (n > 0) return 'pos-positive';
+    if (n < 0) return 'pos-negative';
+    return 'pos-flat';
+  }
+
+  get openedPositions(): IPosition[] {
+    return this.futuresPositionsService.openedPosition
+      ? [this.futuresPositionsService.openedPosition]
+      : [];
+  }
+
+  get marketName(): string {
+    return this.futuresMarketService.selectedMarket.contractName;
+  }
+
+  ngOnInit() {
+    const addr = this.futuresPositionsService.activeAddress;
+    const cid = this.activeContractId;
+    if (addr && cid != null) {
+      this.futuresPositionsService.onInit(addr, cid);
     }
+  }
 
-    get pendingPositionDelta(): number {
-      return this.futuresPositionsService.pendingPositionDelta;
-    }
+  ngOnDestroy() {
+    // service cleans itself up
+  }
 
-    get pendingUpnlDelta(): number {
-      return this.futuresPositionsService.pendingUpnlDelta;
-    }
-
-    positionNum(p: IPosition): number {
-      return this.toNum(p?.position);
-    }
-
-    upnlNum(p: IPosition): number {
-      return this.toNum(p?.upnl);
-    }
-
-    projectedPosition(p: IPosition): number {
-      return this.positionNum(p) + this.pendingPositionDelta;
-    }
-
-    projectedUpnl(p: IPosition): number {
-      return this.upnlNum(p) + this.pendingUpnlDelta;
-    }
-
-    signClass(n: number): string {
-      if (n > 0) return 'pos-positive';
-      if (n < 0) return 'pos-negative';
-      return 'pos-flat';
-    }
-
-    get openedPositions() {
-      if (this.futuresPositionsService.openedPosition) {
-        return [this.futuresPositionsService.openedPosition];
-      } else {
-        return [];
-      }
-    }
-
-    get marketName() {
-      return this.futuresMarketService.selectedMarket.contractName;
-    }
-
-    ngOnInit() {
-      this.futuresPositionsService.onInit();
-    }
-
-    closePosition(position: IPosition) {
-      console.log("CLOSE");
-      console.log(position);
-    }
+  closePosition(position: IPosition) {
+    console.log('CLOSE', position);
+  }
 }
