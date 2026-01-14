@@ -36,11 +36,10 @@ export const chartOptions: DeepPartial<ChartOptions> = {
   },
   crosshair: { mode: 0 },
   timeScale: {
-    rightOffset: 50,
-    tickMarkFormatter: (t: any) => {
-      const date = new Date(Number(`${t}000`)).toString().split(' ');
-      return `${date[1]} ${date[2]} ${date[4]}`;
-    },
+    timeVisible: true,
+    secondsVisible: true,
+    rightBarStaysOnScroll: true,
+    borderVisible: false,
   },
 };
 
@@ -64,7 +63,7 @@ export class SpotChartCardComponent
   private maxBars = 600;
 
   private quotePoll: any = null;
-  private pollMs = 250;
+  private pollMs = 150;
 
   constructor(private spotOrderbookService: SpotOrderbookService) {}
 
@@ -133,7 +132,6 @@ export class SpotChartCardComponent
           : bid ?? ask ?? null;
 
       if (mid == null) return;
-
       this.upsertBarFromMid(mid, Date.now());
     }, this.pollMs);
   }
@@ -165,6 +163,7 @@ export class SpotChartCardComponent
     this.lastBar.close = mid;
 
     this.candleStickSeries?.update(this.lastBar as any);
+    this.chart?.timeScale().scrollToRealTime();
   }
 
   private getBestBidAsk(svc: any): { bid?: number; ask?: number } {

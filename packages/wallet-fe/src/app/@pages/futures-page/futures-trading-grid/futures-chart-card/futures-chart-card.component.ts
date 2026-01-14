@@ -36,11 +36,10 @@ export const chartOptions: DeepPartial<ChartOptions> = {
   },
   crosshair: { mode: 0 },
   timeScale: {
-    rightOffset: 50,
-    tickMarkFormatter: (t: any) => {
-      const date = new Date(Number(`${t}000`)).toString().split(' ');
-      return `${date[1]} ${date[2]} ${date[4]}`;
-    },
+    timeVisible: true,
+    secondsVisible: true,
+    rightBarStaysOnScroll: true,
+    borderVisible: false,
   },
 };
 
@@ -67,7 +66,7 @@ export class FuturesChartCardComponent
   private maxBars = 600;
 
   private quotePoll: any = null;
-  private pollMs = 250;
+  private pollMs = 150;
 
   constructor(private futuresOrderbookService: FuturesOrderbookService) {}
 
@@ -188,6 +187,7 @@ export class FuturesChartCardComponent
     this.lastBar.close = mid;
 
     this.candleStickSeries?.update(this.lastBar as any);
+    this.chart?.timeScale().scrollToRealTime();
   }
 
   // ---------------------------------------------------------------------------
