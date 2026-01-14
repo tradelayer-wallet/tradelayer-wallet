@@ -21,7 +21,7 @@ export class FuturesPositionsComponent implements OnInit, OnDestroy {
   }
 
   get activeContractId(): number {
-    return this.futuresMarketService.selectedMarket?.contractId;
+    return this.futuresMarketService.selectedMarket?.contract_id;
   }
 
   get pendingPositionDelta(): number {

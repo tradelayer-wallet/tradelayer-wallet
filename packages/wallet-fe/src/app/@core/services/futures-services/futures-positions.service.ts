@@ -3,8 +3,8 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { Observable, forkJoin, of, timer, Subscription } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
-import { RpcService } from './rpc.service';
-import { TlApiService } from './tl-api.service';
+import { RpcService } from 'src/app/@core/services/rpc.service';
+import { TlApiService } from 'src/app/@core/services/tl-api.service';
 
 type DecodedTx = any;
 
@@ -16,8 +16,17 @@ type TlMempoolMeaning = {
   sellerAddress: string;
 };
 
+export interface IPosition {
+    "entry_price": string;
+    "position": string;
+    "BANKRUPTCY_PRICE": string;
+    "position_margin": string;
+    "upnl": string;
+}
+
+
 @Injectable({ providedIn: 'root' })
-export class PositionService implements OnDestroy {
+export class FuturesPositionService implements OnDestroy {
   private txCache = new Map<string, { at: number; tx: DecodedTx }>();
   private pollSub?: Subscription;
 
@@ -77,8 +86,8 @@ export class PositionService implements OnDestroy {
               )
             );
 
-            return forkJoin(meaning$).pipe(
-              map((meanings: TlMempoolMeaning[]) => {
+            return forkJoin(meaning$ as Observable<TlMempoolMeaning>[]).pipe(
+                map(meanings => {
                 let delta = 0;
                 for (const m of meanings) {
                   if (!m?.ok) continue;
@@ -130,7 +139,7 @@ export class PositionService implements OnDestroy {
     );
 
     return forkJoin(reqs).pipe(
-      map(lists => lists.flat())
+      map(lists => lists.reduce((a, b) => a.concat(b), []))
     );
   }
 
