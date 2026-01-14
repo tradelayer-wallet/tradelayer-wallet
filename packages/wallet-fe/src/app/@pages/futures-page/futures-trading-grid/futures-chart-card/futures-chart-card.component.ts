@@ -1,7 +1,19 @@
-import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, Renderer2, ViewChild } from '@angular/core';
-import { ChartOptions, createChart, DeepPartial, IChartApi, ISeriesApi } from 'lightweight-charts';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  HostListener,
+  OnDestroy,
+  ViewChild
+} from '@angular/core';
+import {
+  ChartOptions,
+  createChart,
+  DeepPartial,
+  IChartApi,
+  ISeriesApi
+} from 'lightweight-charts';
 
-// Futures orderbook service (used to source best bid/ask quotes)
 import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
 
 export interface ICandle {
@@ -11,75 +23,64 @@ export interface ICandle {
   high: number;
   low: number;
   volume: number;
-};
+}
 
 export const chartOptions: DeepPartial<ChartOptions> = {
   layout: {
-      backgroundColor: "#1B1E34",
-      textColor: "white",
+    backgroundColor: '#1B1E34',
+    textColor: 'white',
   },
   grid: {
-      vertLines: {
-          color: "rgba(255, 255, 255, 0.2)"
-      },
-      horzLines: {
-          color: "rgba(255, 255, 255, 0.2)"
-      }
+    vertLines: { color: 'rgba(255, 255, 255, 0.2)' },
+    horzLines: { color: 'rgba(255, 255, 255, 0.2)' },
   },
-  crosshair: {
-      mode: 0,
-  },
+  crosshair: { mode: 0 },
   timeScale: {
-      rightOffset: 50,
-      tickMarkFormatter: (t: any) => {
-          const date = new Date(parseFloat(`${t}000`)).toString();
-          const arr = date.split(" ");
-          const month = arr[1];
-          const day = arr[2];
-          const time = arr[4];
-          return `${month} ${day} ${time}`;
-      },
+    rightOffset: 50,
+    tickMarkFormatter: (t: any) => {
+      const date = new Date(Number(`${t}000`)).toString().split(' ');
+      return `${date[1]} ${date[2]} ${date[4]}`;
+    },
   },
 };
 
 @Component({
   selector: 'tl-futures-chart-card',
-  templateUrl: '../../../spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.html',
-  styleUrls: ['../../../spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.scss']
+  templateUrl:
+    '../../../spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.html',
+  styleUrls: [
+    '../../../spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.scss',
+  ],
 })
-export class FuturesChartCardComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('chart') chartElement: ElementRef | undefined;
+export class FuturesChartCardComponent
+  implements AfterViewInit, OnDestroy
+{
+  @ViewChild('chart', { static: true }) chartElement!: ElementRef;
 
-  private chart: IChartApi | undefined;
-  private candleStickseries: ISeriesApi<'Candlestick'> | undefined;
+  private chart?: IChartApi;
+  private candleStickSeries?: ISeriesApi<'Candlestick'>;
 
   private bars: ICandle[] = [];
   private lastBar: ICandle | null = null;
 
-  private candleIntervalSec: number = 1;
-  private maxBars: number = 600;
+  private candleIntervalSec = 1;
+  private maxBars = 600;
 
   private quotePoll: any = null;
-  private pollMs: number = 250;
+  private pollMs = 250;
 
-  constructor(
-    private renderer2: Renderer2,
-    private futuresOrderbookService: FuturesOrderbookService
-  ) {}
+  constructor(private futuresOrderbookService: FuturesOrderbookService) {}
 
-  @HostListener('window:resize', ['$event'])
-  private onResize = (_event: any) => {
-    const { offsetWidth, offsetHeight } = this.chartContainer;
-    if (this.chart) this.chart.resize(offsetWidth, offsetHeight, true);
-  };
-
-  get chartContainer() {
-    return this.chartElement?.nativeElement;
-  }
-
+  // ---------------------------------------------------------------------------
+  // lifecycle
+  // ---------------------------------------------------------------------------
   ngAfterViewInit(): void {
-    this.createChart();
-    this.startQuotePolling();
+    // allow mat-card / tabs / layout to settle
+    setTimeout(() => {
+      this.createChart();
+      this.forceResize();
+      this.startQuotePolling();
+    }, 0);
   }
 
   ngOnDestroy(): void {
@@ -87,94 +88,85 @@ export class FuturesChartCardComponent implements AfterViewInit, OnDestroy {
       clearInterval(this.quotePoll);
       this.quotePoll = null;
     }
-    if (this.chart) {
-      this.chart.remove();
-      this.chart = undefined;
+    this.destroyChart();
+  }
+
+  // ---------------------------------------------------------------------------
+  // resize handling
+  // ---------------------------------------------------------------------------
+  @HostListener('window:resize')
+  onResize() {
+    this.forceResize();
+  }
+
+  private forceResize() {
+    if (!this.chart || !this.chartContainer) return;
+
+    const w = this.chartContainer.offsetWidth;
+    const h = this.chartContainer.offsetHeight;
+
+    if (w > 0 && h > 0) {
+      this.chart.resize(w, h, true);
+      this.chart.timeScale().fitContent();
     }
   }
 
-  private createChart() {
-    this.chart = createChart(this.chartContainer, chartOptions);
-    this.candleStickseries = this.chart.addCandlestickSeries();
-    this.candleStickseries.setData([]);
+  get chartContainer(): HTMLElement {
+    return this.chartElement.nativeElement;
   }
 
+  // ---------------------------------------------------------------------------
+  // chart init / destroy
+  // ---------------------------------------------------------------------------
+  private createChart() {
+    this.destroyChart();
+
+    if (!this.chartContainer) return;
+
+    this.chart = createChart(this.chartContainer, chartOptions);
+    this.candleStickSeries = this.chart.addCandlestickSeries();
+    this.candleStickSeries.setData([]);
+  }
+
+  private destroyChart() {
+    if (this.chart) {
+      try {
+        this.chart.remove();
+      } catch {}
+      this.chart = undefined;
+      this.candleStickSeries = undefined;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // polling + candles
+  // ---------------------------------------------------------------------------
   private startQuotePolling() {
     if (this.quotePoll) return;
+
     this.quotePoll = setInterval(() => {
-      const { bid, ask } = this.getBestBidAsk(this.futuresOrderbookService as any);
+      const { bid, ask } = this.getBestBidAsk(
+        this.futuresOrderbookService as any
+      );
 
-      const mid = (bid !== undefined && ask !== undefined)
-        ? (bid + ask) / 2
-        : (bid !== undefined ? bid : (ask !== undefined ? ask : null));
+      const mid =
+        bid !== undefined && ask !== undefined
+          ? (bid + ask) / 2
+          : bid ?? ask ?? null;
 
-      if (mid === null) return;
+      if (mid == null) return;
 
       this.upsertBarFromMid(mid, Date.now());
     }, this.pollMs);
   }
 
-  private getBestBidAsk(svc: any): { bid?: number; ask?: number } {
-    if (Array.isArray(svc?.bids) || Array.isArray(svc?.asks)) {
-      const bid = this.extractTopPrice(svc?.bids, 'bid');
-      const ask = this.extractTopPrice(svc?.asks, 'ask');
-      return { bid, ask };
-    }
-
-    if (svc?.orderbook && (Array.isArray(svc.orderbook.bids) || Array.isArray(svc.orderbook.asks))) {
-      const bid = this.extractTopPrice(svc.orderbook.bids, 'bid');
-      const ask = this.extractTopPrice(svc.orderbook.asks, 'ask');
-      return { bid, ask };
-    }
-
-    if (Array.isArray(svc?.rawOrderbookData)) {
-      let bestBid: number | undefined = undefined;
-      let bestAsk: number | undefined = undefined;
-
-      for (const r of svc.rawOrderbookData) {
-        const px = Number(r?.price ?? r?.rate ?? r?.p);
-        if (!Number.isFinite(px)) continue;
-
-        const isAsk = !!(r?.sell ?? r?.isAsk ?? (r?.side === 'sell'));
-        if (isAsk) {
-          if (bestAsk === undefined || px < bestAsk) bestAsk = px;
-        } else {
-          if (bestBid === undefined || px > bestBid) bestBid = px;
-        }
-      }
-      return { bid: bestBid, ask: bestAsk };
-    }
-
-    return {};
-  }
-
-  private extractTopPrice(arr: any, side: 'bid' | 'ask'): number | undefined {
-    if (!Array.isArray(arr) || arr.length === 0) return undefined;
-
-    let best: number | undefined = undefined;
-
-    for (const it of arr) {
-      const px = Array.isArray(it) ? Number(it[0]) : Number(it?.price ?? it?.rate ?? it?.p);
-      if (!Number.isFinite(px)) continue;
-
-      if (best === undefined) {
-        best = px;
-      } else {
-        best = side === 'bid' ? Math.max(best, px) : Math.min(best, px);
-      }
-    }
-
-    return best;
-  }
-
   private upsertBarFromMid(mid: number, tsMs: number) {
     const tSec = Math.floor(tsMs / 1000);
-    const interval = Math.max(1, Math.floor(this.candleIntervalSec));
-    const bucketSec = Math.floor(tSec / interval) * interval;
+    const bucket = Math.floor(tSec / this.candleIntervalSec) * this.candleIntervalSec;
 
-    if (!this.lastBar || this.lastBar.time !== bucketSec) {
+    if (!this.lastBar || this.lastBar.time !== bucket) {
       const bar: ICandle = {
-        time: bucketSec,
+        time: bucket,
         open: mid,
         high: mid,
         low: mid,
@@ -185,11 +177,9 @@ export class FuturesChartCardComponent implements AfterViewInit, OnDestroy {
       this.lastBar = bar;
       this.bars.push(bar);
 
-      if (this.bars.length > this.maxBars) {
-        this.bars.shift();
-      }
+      if (this.bars.length > this.maxBars) this.bars.shift();
 
-      this.candleStickseries?.setData(this.bars as any);
+      this.candleStickSeries?.setData(this.bars as any);
       return;
     }
 
@@ -197,6 +187,54 @@ export class FuturesChartCardComponent implements AfterViewInit, OnDestroy {
     this.lastBar.low = Math.min(this.lastBar.low, mid);
     this.lastBar.close = mid;
 
-    this.candleStickseries?.update(this.lastBar as any);
+    this.candleStickSeries?.update(this.lastBar as any);
+  }
+
+  // ---------------------------------------------------------------------------
+  // orderbook helpers (unchanged logic)
+  // ---------------------------------------------------------------------------
+  private getBestBidAsk(svc: any): { bid?: number; ask?: number } {
+    if (Array.isArray(svc?.bids) || Array.isArray(svc?.asks)) {
+      return {
+        bid: this.extractTopPrice(svc.bids, 'bid'),
+        ask: this.extractTopPrice(svc.asks, 'ask'),
+      };
+    }
+
+    if (svc?.orderbook) {
+      return {
+        bid: this.extractTopPrice(svc.orderbook.bids, 'bid'),
+        ask: this.extractTopPrice(svc.orderbook.asks, 'ask'),
+      };
+    }
+
+    if (Array.isArray(svc?.rawOrderbookData)) {
+      let bid: number | undefined;
+      let ask: number | undefined;
+
+      for (const r of svc.rawOrderbookData) {
+        const px = Number(r?.price ?? r?.rate ?? r?.p);
+        if (!Number.isFinite(px)) continue;
+
+        const isAsk = !!(r?.sell ?? r?.isAsk ?? r?.side === 'sell');
+        if (isAsk) ask = ask == null ? px : Math.min(ask, px);
+        else bid = bid == null ? px : Math.max(bid, px);
+      }
+      return { bid, ask };
+    }
+
+    return {};
+  }
+
+  private extractTopPrice(arr: any[], side: 'bid' | 'ask'): number | undefined {
+    if (!Array.isArray(arr) || !arr.length) return undefined;
+
+    let best: number | undefined;
+    for (const it of arr) {
+      const px = Array.isArray(it) ? Number(it[0]) : Number(it?.price ?? it?.p);
+      if (!Number.isFinite(px)) continue;
+      best = best == null ? px : side === 'bid' ? Math.max(best, px) : Math.min(best, px);
+    }
+    return best;
   }
 }
