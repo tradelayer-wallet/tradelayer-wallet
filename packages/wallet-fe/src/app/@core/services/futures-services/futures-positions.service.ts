@@ -1,232 +1,239 @@
-import { Injectable, OnDestroy } from '@angular/core';
-import { Observable, forkJoin, of, timer, Subscription } from 'rxjs';
-import { catchError, map, switchMap } from 'rxjs/operators';
+import { Injectable } from "@angular/core";
+import { ToastrService } from "ngx-toastr";
+import { AuthService } from "../auth.service";
+import { RpcService } from "../rpc.service";
+import { ApiService } from "../api.service";
 
-import { RpcService } from '../rpc.service';
-import { ApiService } from '../api.service';
-
-type DecodedTx = any;
-
-type TlMempoolMeaning = {
-  ok: boolean;
-  contractId: number;
-  contracts: number;
-  buyerAddress: string;
-  sellerAddress: string;
-};
+import { Subscription, interval } from 'rxjs';  
 
 export interface IPosition {
-  entry_price: string;
-  position: string;
-  BANKRUPTCY_PRICE: string;
-  position_margin: string;
-  upnl: string;
+    "entry_price": string;
+    "position": string;
+    "BANKRUPTCY_PRICE": string;
+    "position_margin": string;
+    "upnl": string;
 }
 
-@Injectable({ providedIn: 'root' })
-export class FuturesPositionsService implements OnDestroy {
-  // ---------------------------------------------------------------------------
-  // compatibility surface (USED BY OTHER SERVICES / COMPONENTS)
-  // ---------------------------------------------------------------------------
-  selectedContractId?: string;
-  activeAddress?: string;
-  openedPosition?: IPosition;
+@Injectable({
+    providedIn: 'root',
+})
 
-  // ---------------------------------------------------------------------------
-  // internal state
-  // ---------------------------------------------------------------------------
-  private txCache = new Map<string, { at: number; tx: DecodedTx }>();
-  private pollSub?: Subscription;
+export class FuturesPositionsService {
+    private _openedPosition: IPosition | null = null;
+    private _selectedContractId: string | null = null;
+    private subs$: Subscription | null = null;
+    private mempoolSubs$: Subscription | null = null;
 
-  pendingPositionDeltaByContract: Record<number, number> = {};
-  pendingUpnlDeltaByContract: Record<number, number> = {};
+    // Pending (mempool) + realtime (mark) deltas for UI parentheses
+    private _pendingPositionDelta: number = 0;
+    private _pendingUpnlDelta: number = 0;
+    private _markPrice: number | null = null;
 
-  constructor(
-    private rpc: RpcService,
-    private api: ApiService
-  ) {}
+    constructor(
+        private rpcService: RpcService,
+        private authService: AuthService,
+        private toastrService: ToastrService,
+        private apiService: ApiService,
+    ) {}
 
-  // ---------------------------------------------------------------------------
-  // lifecycle-style control (called externally)
-  // ---------------------------------------------------------------------------
-  onInit(address: string, contractId: number) {
-    this.activeAddress = address;
-    this.selectedContractId = String(contractId);
-
-    this.pollSub?.unsubscribe();
-
-    this.pollSub = this.mempoolContractsDelta$(
-      address,
-      contractId
-    ).subscribe(delta => {
-      if (delta === 0) {
-        delete this.pendingPositionDeltaByContract[contractId];
-      } else {
-        this.pendingPositionDeltaByContract[contractId] = delta;
-      }
-    });
-  }
-
-  updatePositions() {
-  if (!this.activeAddress || !this.selectedContractId) return;
-
-  // IMPORTANT:
-  // Confirmed positions are populated elsewhere.
-  // We do NOT refetch or overwrite them here.
-
-  // Just restart mempool overlay polling
-  this.onInit(this.activeAddress, Number(this.selectedContractId));
-}
-
-
-
-  ngOnDestroy() {
-    this.pollSub?.unsubscribe();
-  }
-
-  // ---------------------------------------------------------------------------
-  // mempool poller
-  // ---------------------------------------------------------------------------
-    mempoolContractsDelta$(
-      address: string,
-      contractId: number,
-      pollMs = 1500,
-      maxTx = 80,
-      cacheMs = 8000
-    ): Observable<number> {
-      return timer(0, pollMs).pipe(
-        switchMap(() => this.getMempoolVerbose$()),
-        switchMap(mempoolVerbose => {
-          const txids = this.pickTxids(mempoolVerbose, maxTx);
-          if (!txids.length) return of(0);
-
-          return this.fetchTlCandidates$(txids, contractId, cacheMs).pipe(
-            map(tlCandidates => {
-              // simple overlay: count pending TL txs touching this contract
-              return tlCandidates.length;
-            }),
-            catchError(() => of(0))
-          );
-        }),
-        catchError(() => of(0))
-      );
+    get pendingPositionDelta() {
+        return this._pendingPositionDelta;
     }
 
+    get pendingUpnlDelta() {
+        return this._pendingUpnlDelta;
+    }
 
-  // ---------------------------------------------------------------------------
-  // core rpc
-  // ---------------------------------------------------------------------------
-  private getMempoolVerbose$(): Observable<any> {
-    return this.rpc.rpc('getrawmempool', [true]) as any;
-  }
+    // Hook for TradingView/quote chart (or any price feed) to set current mark price
+    set markPrice(v: number | null) {
+        this._markPrice = (typeof v === 'number' && Number.isFinite(v)) ? v : null;
+        this.recomputeRealtimeUpnlDelta();
+    }
 
-  private getRawTransactionDecoded$(txid: string): Observable<DecodedTx> {
-    return this.rpc.rpc('getrawtransaction', [txid, true]) as any;
-  }
+    get selectedContractId() {
+        return this._selectedContractId;
+    }
 
-  // ---------------------------------------------------------------------------
-  // candidate extraction
-  // ---------------------------------------------------------------------------
-  private fetchTlCandidates$(
-    txids: string[],
-    contractId: number,
-    cacheMs: number
-  ): Observable<Array<{ txid: string; payloadUtf8: string }>> {
-    const reqs = txids.map(txid =>
-      this.getDecodedCached$(txid, cacheMs).pipe(
-        map(decoded => {
-          const payloads = this.extractTlPayloadsFromDecodedTx(decoded);
-          const matching = payloads.filter(p => {
-            const hdr = this.parseTlHeader(p);
-            return !!hdr && hdr.contractId === contractId;
-          });
-          return matching.map(payloadUtf8 => ({ txid, payloadUtf8 }));
-        }),
-        catchError(() => of([]))
-      )
-    );
+    set selectedContractId(value: string | null) {
+        this._selectedContractId = value;
+    }
 
-    return forkJoin(reqs).pipe(
-      map(lists =>
-        lists.reduce<Array<{ txid: string; payloadUtf8: string }>>(
-          (a, b) => a.concat(b),
-          []
-        )
-      )
-    );
-  }
+    get activeFutureAddress() {
+        return this.authService.walletAddresses[0];
+    }
 
-  private getDecodedCached$(txid: string, cacheMs: number): Observable<DecodedTx> {
-    const now = Date.now();
-    const hit = this.txCache.get(txid);
-    if (hit && now - hit.at <= cacheMs) return of(hit.tx);
+     get tlApi() {
+        return this.apiService.newTlApi;
+    }
 
-    return this.getRawTransactionDecoded$(txid).pipe(
-      map(tx => {
-        this.txCache.set(txid, { at: now, tx });
-        if (this.txCache.size > 300) {
-          for (const [k, v] of this.txCache) {
-            if (now - v.at > cacheMs) this.txCache.delete(k);
-          }
+    get openedPosition() {
+        return this._openedPosition;
+    }
+
+    set openedPosition(value: IPosition | null) {
+        this._openedPosition = value;
+        this.recomputeRealtimeUpnlDelta();
+    }
+
+    onInit(){
+        if (this.subs$) return;
+
+        this.subs$ = this.rpcService.blockSubs$.subscribe(_block => {
+            if (!this.activeFutureAddress || !this.selectedContractId) return;
+            this.updatePositions();
+        });
+
+        // Poll mempool delta even if blocks are mined fast (so you still see (projected))
+        if (!this.mempoolSubs$) {
+            this.mempoolSubs$ = interval(750).subscribe(() => {
+                if (!this.activeFutureAddress || !this.selectedContractId) return;
+                this.scanMempoolPending();
+                this.recomputeRealtimeUpnlDelta();
+            });
         }
-        return tx;
-      })
-    );
-  }
-
-  private pickTxids(mempoolVerbose: any, maxTx: number): string[] {
-    if (!mempoolVerbose) return [];
-
-    if (typeof mempoolVerbose === 'object' && !Array.isArray(mempoolVerbose)) {
-      const txids = Object.keys(mempoolVerbose);
-      txids.sort((a, b) => {
-        const ta = Number(mempoolVerbose[a]?.time ?? 0);
-        const tb = Number(mempoolVerbose[b]?.time ?? 0);
-        return tb - ta;
-      });
-      return txids.slice(0, maxTx);
     }
 
-    if (Array.isArray(mempoolVerbose)) {
-      return mempoolVerbose.slice(0, maxTx);
+    async updatePositions() {
+        if (!this.activeFutureAddress || !this.selectedContractId) return;
+
+        const params = {
+            address: this.activeFutureAddress,
+            contractId: this.selectedContractId
+        };
+
+        try {
+            const res = await this.tlApi.rpc('contractPosition', params).toPromise();
+            if (res.error || !res.data) {
+                this.toastrService.error(res.error || 'Error getting opened position', 'Error');
+                this.openedPosition = null;
+                this._pendingPositionDelta = 0;
+                this._pendingUpnlDelta = 0;
+                return;
+            }
+
+            const raw = res.data;
+
+            const positionValue = parseFloat(raw.contracts || "0");
+
+            if (positionValue) {
+                this.openedPosition = {
+                    position: raw.contracts,
+                    entry_price: raw.avgPrice,
+                    BANKRUPTCY_PRICE: raw.bankruptcyPrice,
+                    position_margin: raw.margin,
+                    upnl: raw.unrealizedPNL,
+                };
+            } else {
+                this.openedPosition = null;
+                this._pendingPositionDelta = 0;
+                this._pendingUpnlDelta = 0;
+            }
+
+        } catch (err) {
+            console.error('❌ RPC error in updatePositions:', err);
+            this.toastrService.error('Network error fetching position', 'Error');
+        }
     }
 
-    return [];
-  }
+    // -------------------------------------------------------------------------
+    // Mempool scanner hook: returns net contracts delta if all unconfirmed fills confirm
+    // Expected shapes supported:
+    //   res.data.contractsDelta
+    //   res.data.positionDelta
+    // -------------------------------------------------------------------------
+    async scanMempoolPending() {
+        if (!this.activeFutureAddress || !this.selectedContractId) {
+            this._pendingPositionDelta = 0;
+            return;
+        }
 
-  // ---------------------------------------------------------------------------
-  // TL parsing helpers
-  // ---------------------------------------------------------------------------
-  private extractTlPayloadsFromDecodedTx(decoded: any): string[] {
-    const out: string[] = [];
-    const vouts = decoded?.vout || [];
-    for (const v of vouts) {
-      const asm: string = v?.scriptPubKey?.asm || '';
-      if (!asm.startsWith('OP_RETURN')) continue;
-      const parts = asm.split(' ');
-      if (parts.length < 2) continue;
-      try {
-        const s = Buffer.from(parts[1], 'hex').toString('utf8');
-        if (s?.startsWith('tl')) out.push(s);
-      } catch {}
+        // --- Preferred path: backend consensus-aware result (CURRENT WORKING PATH)
+        if (!this.USE_FE_MEMPOOL) {
+            try {
+                const params = {
+                    address: this.activeFutureAddress,
+                    contractId: this.selectedContractId
+                };
+                const res = await this.tlApi.rpc('mempoolPositionDelta', params).toPromise();
+                const rawDelta =
+                    res?.data?.contractsDelta ??
+                    res?.data?.positionDelta ??
+                    0;
+
+                const delta = Number(rawDelta);
+                this._pendingPositionDelta = Number.isFinite(delta) ? delta : 0;
+                return;
+            } catch {
+                this._pendingPositionDelta = 0;
+                return;
+            }
+        }
+
+        // --- Optional FE-only fallback (count presence only)
+        try {
+            const mempool = await this.rpcService
+                .rpc('getrawmempool', [true])
+                .toPromise();
+
+            const txids = Object.keys(mempool || {});
+            let count = 0;
+
+            for (const txid of txids.slice(0, 80)) {
+                try {
+                    const tx = await this.rpcService
+                        .rpc('getrawtransaction', [txid, true])
+                        .toPromise();
+
+                    const vouts = tx?.vout || [];
+                    for (const v of vouts) {
+                        const asm = v?.scriptPubKey?.asm || '';
+                        if (!asm.startsWith('OP_RETURN')) continue;
+
+                        const hex = asm.split(' ')[1];
+                        if (!hex) continue;
+
+                        const payload = Buffer.from(hex, 'hex').toString('utf8');
+                        if (!payload.startsWith('tl')) continue;
+
+                        const comma = payload.indexOf(',');
+                        if (comma === -1) continue;
+
+                        const cid = parseInt(payload.slice(3, comma), 36);
+                        if (String(cid) === this.selectedContractId) {
+                            count += 1;
+                        }
+                    }
+                } catch {}
+            }
+
+            this._pendingPositionDelta = count;
+        } catch {
+            this._pendingPositionDelta = 0;
+        }
     }
-    return out;
-  }
 
-  private parseTlHeader(payload: string): { channel: string; contractId: number } | null {
-    const comma = payload.indexOf(',');
-    if (!payload.startsWith('tl') || comma === -1) return null;
 
-    const channel = payload[2];
-    const contractId = parseInt(payload.slice(3, comma), 36);
-    if (!Number.isFinite(contractId)) return null;
+    // -------------------------------------------------------------------------
+    // Realtime UPNL delta: (approxRealtimeUpnl - backendUpnl)
+    // NOTE: Simplified linear approximation; adjust if you use multipliers/quanto.
+    // -------------------------------------------------------------------------
+    private recomputeRealtimeUpnlDelta() {
+        if (!this._openedPosition || this._markPrice === null) {
+            this._pendingUpnlDelta = 0;
+            return;
+        }
 
-    return { channel, contractId };
-  }
+        const contracts = Number(this._openedPosition.position);
+        const entry = Number(this._openedPosition.entry_price);
+        const backendUpnl = Number(this._openedPosition.upnl);
 
-  private signedDeltaForAddress(m: TlMempoolMeaning, address: string): number {
-    if (m.buyerAddress === address) return +m.contracts;
-    if (m.sellerAddress === address) return -m.contracts;
-    return 0;
-  }
+        if (!Number.isFinite(contracts) || !Number.isFinite(entry) || !Number.isFinite(backendUpnl)) {
+            this._pendingUpnlDelta = 0;
+            return;
+        }
+
+        const approxRealtimeUpnl = (this._markPrice - entry) * contracts;
+        const delta = approxRealtimeUpnl - backendUpnl;
+        this._pendingUpnlDelta = Number.isFinite(delta) ? delta : 0;
+    }
 }
