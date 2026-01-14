@@ -50,9 +50,11 @@ export class FuturesChannelsComponent implements OnInit, OnDestroy {
 
   address$ = new BehaviorSubject<string>('');
 
-  refreshFuturesCommitChannels(): void { this.futSvc.refreshFuturesChannels(); }
+  refreshFuturesCommitChannels(): void { this.futSvc.loadOnce(); }
 
   ngOnInit() {
+   console.log('[FuturesChannelsComponent] ngOnInit fired');
+  console.log('[FuturesChannelsComponent] futSvc =', this.futSvc);
     // Futures requires address + selectedMarket; polling avoids init race
     this.futSvc.startPolling(5000);
   }
@@ -147,52 +149,43 @@ export class FuturesChannelsComponent implements OnInit, OnDestroy {
   async withdrawAll() {
     if (this.working) return;
 
-    const targetRows = (this.activeChannelsCommits || []).filter(r =>
-      (!this.propertyId && r.amount > 0) ||
-      (this.propertyId != null && r.propertyId === this.propertyId && r.amount > 0)
-    );
+    const rows = this.activeChannelsCommits || [];
+    if (!rows.length) return;
 
-    if (!targetRows.length) return;
+    const propertyId = rows[0].propertyId; // all same property
+    this.address = this.resolveAddress();
 
     this.working = true;
     this.error = undefined;
 
     try {
-      for (const row of targetRows) {
-        const columnNum = row.column === 'A' ? 0 : 1;
-        this.address = this.resolveAddress();
+      const payload = ENCODER.encodeWithdrawal({
+        withdrawAll: 1,
+        propertyId,
+        amountOffered: 0,
+        column: 0,
+        channelAddress: this.address
+      });
 
-        const payload = ENCODER.encodeWithdrawal({
-          withdrawAll: 1,
-          propertyId: row.propertyId,
-          amountOffered: row.amount,
-          column: columnNum,
-          channelAddress: row.channel
-        });
+      const buildCfg = {
+        fromKeyPair: { address: this.address },
+        toKeyPair:   { address: this.address },
+        payload
+      };
 
-        const buildCfg = {
-          fromKeyPair: { address: this.address },
-          toKeyPair:   { address: row.channel },
-          payload
-        };
+      const res = await this.txs.buildSingSendTx(buildCfg as any);
+      if (res?.error) throw new Error(res.error);
 
-        const res = await this.txs.buildSingSendTx(buildCfg as any);
-        if (res?.error) {
-          return this.toastrService.error('WithdrawalAll failed: ' + res.error);
-        }
-
-        await new Promise(r => setTimeout(r, 200));
-      }
-
+      this.toastrService.success(`WithdrawAll TX: ${res.data}`, 'Success');
       this.futSvc.loadOnce();
-      return true;
     } catch (err: any) {
       this.error = err?.message || 'Withdraw All failed';
-      return console.error('[WithdrawAll] error:', this.error);
+      console.error('[WithdrawAll] error:', this.error);
     } finally {
       this.working = false;
     }
   }
+
 
   transferAll() {
     if (!this.activeChannelsCommits.length) return;
