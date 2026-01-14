@@ -1,10 +1,9 @@
-// position.service.ts
-
 import { Injectable, OnDestroy } from '@angular/core';
 import { Observable, forkJoin, of, timer, Subscription } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
-import { RpcService } from 'src/app/@core/services/rpc.service';
-import { TlApiService } from 'src/app/@core/services/tl-api.service';
+
+import { RpcService } from '../rpc.service';
+import { ApiService } from '../api.service';
 
 type DecodedTx = any;
 
@@ -17,16 +16,25 @@ type TlMempoolMeaning = {
 };
 
 export interface IPosition {
-    "entry_price": string;
-    "position": string;
-    "BANKRUPTCY_PRICE": string;
-    "position_margin": string;
-    "upnl": string;
+  entry_price: string;
+  position: string;
+  BANKRUPTCY_PRICE: string;
+  position_margin: string;
+  upnl: string;
 }
 
-
 @Injectable({ providedIn: 'root' })
-export class FuturesPositionService implements OnDestroy {
+export class FuturesPositionsService implements OnDestroy {
+  // ---------------------------------------------------------------------------
+  // compatibility surface (USED BY OTHER SERVICES / COMPONENTS)
+  // ---------------------------------------------------------------------------
+  selectedContractId?: string;
+  activeAddress?: string;
+  openedPosition?: IPosition;
+
+  // ---------------------------------------------------------------------------
+  // internal state
+  // ---------------------------------------------------------------------------
   private txCache = new Map<string, { at: number; tx: DecodedTx }>();
   private pollSub?: Subscription;
 
@@ -35,13 +43,16 @@ export class FuturesPositionService implements OnDestroy {
 
   constructor(
     private rpc: RpcService,
-    private tlApi: TlApiService
+    private api: ApiService
   ) {}
 
   // ---------------------------------------------------------------------------
-  // lifecycle
+  // lifecycle-style control (called externally)
   // ---------------------------------------------------------------------------
   onInit(address: string, contractId: number) {
+    this.activeAddress = address;
+    this.selectedContractId = String(contractId);
+
     this.pollSub?.unsubscribe();
 
     this.pollSub = this.mempoolContractsDelta$(
@@ -56,6 +67,19 @@ export class FuturesPositionService implements OnDestroy {
     });
   }
 
+  updatePositions() {
+  if (!this.activeAddress || !this.selectedContractId) return;
+
+  // IMPORTANT:
+  // Confirmed positions are populated elsewhere.
+  // We do NOT refetch or overwrite them here.
+
+  // Just restart mempool overlay polling
+  this.onInit(this.activeAddress, Number(this.selectedContractId));
+}
+
+
+
   ngOnDestroy() {
     this.pollSub?.unsubscribe();
   }
@@ -63,47 +87,31 @@ export class FuturesPositionService implements OnDestroy {
   // ---------------------------------------------------------------------------
   // mempool poller
   // ---------------------------------------------------------------------------
-  mempoolContractsDelta$(
-    address: string,
-    contractId: number,
-    pollMs = 1500,
-    maxTx = 80,
-    cacheMs = 8000
-  ): Observable<number> {
-    return timer(0, pollMs).pipe(
-      switchMap(() => this.getMempoolVerbose$()),
-      switchMap(mempoolVerbose => {
-        const txids = this.pickTxids(mempoolVerbose, maxTx);
-        if (!txids.length) return of(0);
+    mempoolContractsDelta$(
+      address: string,
+      contractId: number,
+      pollMs = 1500,
+      maxTx = 80,
+      cacheMs = 8000
+    ): Observable<number> {
+      return timer(0, pollMs).pipe(
+        switchMap(() => this.getMempoolVerbose$()),
+        switchMap(mempoolVerbose => {
+          const txids = this.pickTxids(mempoolVerbose, maxTx);
+          if (!txids.length) return of(0);
 
-        return this.fetchTlCandidates$(txids, contractId, cacheMs).pipe(
-          switchMap(tlCandidates => {
-            if (!tlCandidates.length) return of(0);
+          return this.fetchTlCandidates$(txids, contractId, cacheMs).pipe(
+            map(tlCandidates => {
+              // simple overlay: count pending TL txs touching this contract
+              return tlCandidates.length;
+            }),
+            catchError(() => of(0))
+          );
+        }),
+        catchError(() => of(0))
+      );
+    }
 
-            const meaning$ = tlCandidates.map(c =>
-              this.tlApi.checkValidMempoolTx$(c.txid, c.payloadUtf8).pipe(
-                catchError(() => of({ ok: false } as any))
-              )
-            );
-
-            return forkJoin(meaning$ as Observable<TlMempoolMeaning>[]).pipe(
-                map(meanings => {
-                let delta = 0;
-                for (const m of meanings) {
-                  if (!m?.ok) continue;
-                  if (m.contractId !== contractId) continue;
-                  delta += this.signedDeltaForAddress(m, address);
-                }
-                return delta;
-              })
-            );
-          }),
-          catchError(() => of(0))
-        );
-      }),
-      catchError(() => of(0))
-    );
-  }
 
   // ---------------------------------------------------------------------------
   // core rpc
@@ -139,7 +147,12 @@ export class FuturesPositionService implements OnDestroy {
     );
 
     return forkJoin(reqs).pipe(
-      map(lists => lists.reduce((a, b) => a.concat(b), []))
+      map(lists =>
+        lists.reduce<Array<{ txid: string; payloadUtf8: string }>>(
+          (a, b) => a.concat(b),
+          []
+        )
+      )
     );
   }
 
@@ -182,7 +195,7 @@ export class FuturesPositionService implements OnDestroy {
   }
 
   // ---------------------------------------------------------------------------
-  // tl parsing helpers
+  // TL parsing helpers
   // ---------------------------------------------------------------------------
   private extractTlPayloadsFromDecodedTx(decoded: any): string[] {
     const out: string[] = [];
