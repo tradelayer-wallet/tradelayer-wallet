@@ -98,9 +98,10 @@ export class BuySwapper extends Swap {
             let { propIdDesired, amountDesired, amountForSale, propIdForSale, transfer, sellerIsMaker} = this.tradeInfo
             
             const column = await this.txsService.predictColumn(this.multySigChannelData.address,this.myInfo.keypair.address, this.cpInfo.keypair.address);
-                    let isA = column === 'A' ? 1 : 0;
-                    let columnAIsMaker = isA === 1 ? (sellerIsMaker ? 1 : 0)
-                                      : (!sellerIsMaker ? 1 : 0); // seller is B
+                    let isA = column === 'A' ? 0 : 1;
+            const columnAIsMaker = (isA === 1)
+            ? (sellerIsMaker ? 1 : 0)     // seller is A
+            : (!sellerIsMaker ? 1 : 0);   // seller is B
 
             console.log('column isA'+isA +' '+column)
             //let { transfer } = this.tradeInfo as ITradeInfo<ISpotTradeProps>;

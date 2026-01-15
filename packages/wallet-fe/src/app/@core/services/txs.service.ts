@@ -138,7 +138,7 @@ export class TxsService {
         }
     }
 
-   async buildSingSendTx(
+    async buildSingSendTx(
             buildTxConfig: IBuildTxConfig,
         ): Promise<{ data?: string, error?: string }> {
             try {
@@ -245,8 +245,7 @@ export class TxsService {
     async sendTx(rawTx: string) {
         const result = await this.rpcService.rpc('sendrawtransaction', [rawTx]);
         //if(typeof this.balanceService.updateBalances==='function'){ 
-        //console.log('checking balance service obj ' +JSON.stringify(this.balanceService)); // Check if balanceService is available
-        
+        //console.log('checking balance service obj ' +JSON.stringify(this.balanceService)); // Check if balanceService is available        
         
         //this.balanceService.updateBalances();
         //}else{
