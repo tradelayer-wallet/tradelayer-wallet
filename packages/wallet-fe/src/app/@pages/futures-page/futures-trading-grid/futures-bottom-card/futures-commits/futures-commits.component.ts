@@ -127,9 +127,12 @@ export class FuturesChannelsComponent implements OnInit, OnDestroy {
         channelAddress: row.channel
       });
 
+      const DUST = 546; // litoshi
+
       const buildCfg = {
         fromKeyPair: { address: this.address },
-        toKeyPair:   { address: row.channel },
+        toKeyPair:   { address: this.address },
+        amount: DUST,                           
         payload
       };
 
@@ -166,12 +169,16 @@ export class FuturesChannelsComponent implements OnInit, OnDestroy {
         column: 0,
         channelAddress: this.address
       });
+      
+      const DUST = 546; // litoshi
 
       const buildCfg = {
         fromKeyPair: { address: this.address },
-        toKeyPair:   { address: this.address },
+        toKeyPair:   { address: this.address }, // OK now
+        amount: DUST,                            // 🔥 REQUIRED
         payload
       };
+
 
       const res = await this.txs.buildSingSendTx(buildCfg as any);
       if (res?.error) throw new Error(res.error);

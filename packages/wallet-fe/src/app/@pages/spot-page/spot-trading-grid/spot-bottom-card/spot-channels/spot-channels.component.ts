@@ -136,9 +136,12 @@ export class SpotChannelsComponent implements OnInit, OnDestroy {
         channelAddress: row.channel
       });
 
+      const DUST = 546;
+
       const buildCfg = {
         fromKeyPair: { address: this.address },
-        toKeyPair:   { address: row.channel },
+        toKeyPair:   { address: this.address }, // OK now
+        amount: DUST,       
         payload
       };
 
@@ -176,9 +179,12 @@ export class SpotChannelsComponent implements OnInit, OnDestroy {
         channelAddress: this.address
       });
 
+      const DUST = 546; // litoshi
+
       const buildCfg = {
         fromKeyPair: { address: this.address },
-        toKeyPair:   { address: this.address },
+        toKeyPair:   { address: this.address }, 
+        amount: DUST,                            
         payload
       };
 

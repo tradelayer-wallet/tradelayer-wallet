@@ -3,16 +3,21 @@
     height: 100%;
 }
 
-
 mat-card {
     background-color: var(--darkBlue2);
     width: 100%;
     height: 100%;
     color: var(--white);
     padding: unset;
+
+    display: flex;
+    flex-direction: column;
+
     mat-card-title {
         padding: 24px 16px;
         height: 3rem;
+        flex: 0 0 auto;
+
         .header-wrapper {
             width: 100%;
             height: 100%;
@@ -21,18 +26,27 @@ mat-card {
             align-items: center;
             padding-bottom: 1.5rem;
             border-bottom: 1px solid var(--darkBlue);
+
             .title-text {
                 display: flex;
                 font-size: 0.75rem;
                 white-space: nowrap;
                 font-weight: 400;
+
                 .contract {
                     margin-left: 3px;
                 }
             }
+
+            .controls {
+                display: flex;
+                align-items: center;
+            }
+
             .icons {
                 display: flex;
                 align-items: center;
+
                 mat-icon {
                     width: 16px;
                     height: 16px;
@@ -42,12 +56,47 @@ mat-card {
             }
         }
     }
+
     mat-card-content {
         height: calc(100% - (3rem + 8px));
+        flex: 1 1 auto;
+        min-height: 0; // critical for charts
         display: flex;
+
         .chart-container {
+            flex: 1;
             width: 100%;
             height: 100%;
-            }
+        }
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Timeframe select polish
+   -------------------------------------------------------------------------- */
+
+.tf-select {
+    background-color: var(--darkBlue);
+    color: var(--white);
+    border: 1px solid var(--darkBlue);
+    font-size: 0.7rem;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+
+    &:hover {
+        border-color: var(--accentBlue);
+    }
+
+    &:focus {
+        border-color: var(--accentBlue);
+        box-shadow: 0 0 0 1px rgba(80, 120, 255, 0.4);
+    }
+
+    option {
+        background-color: var(--darkBlue2);
+        color: var(--white);
     }
 }

@@ -161,15 +161,22 @@ export class FuturesPositionsService {
     // ---------------------------------------------------------------------
     scanMempoolPending() {
         if (!this.activeFutureAddress || !this.selectedContractId) {
+            console.warn('[MP] missing address or contractId', {
+                address: this.activeFutureAddress,
+                cid: this.selectedContractId
+            });
             this.clearPending();
             return;
         }
 
         const cid = Number(this.selectedContractId);
+        console.log('[MP] scan start', { cid, address: this.activeFutureAddress });
 
         this.rpcService.rpc('getrawmempool', [true])
             .then((mempool: any) => {
                 const txids = Object.keys(mempool || {});
+                console.log('[MP] mempool size', txids.length);
+
                 if (!txids.length) {
                     this.clearPending();
                     return;
@@ -177,52 +184,103 @@ export class FuturesPositionsService {
 
                 let count = 0;
                 let checked = 0;
-                const limit = Math.min(txids.length, 80); // safety cap
+                const limit = Math.min(txids.length, 80);
 
                 for (const txid of txids.slice(0, limit)) {
                     this.rpcService.rpc('getrawtransaction', [txid, true])
                         .then(async (tx: any) => {
                             checked++;
 
-                            try {
-                                // channel address is vin[0]
-                                const channelAddress = tx?.vin?.[0]?.address;
-                                if (!channelAddress) return;
+                            if (!tx) {
+                                console.warn('[MP] null tx', txid);
+                                return;
+                            }
 
-                                // 🔑 USE YOUR HELPER
-                                const side = await this.resolveChannelSide(channelAddress);
-                                if (!side) return; // not our channel
+                            const channelAddress =
+                                tx?.vin?.[0]?.address ??
+                                tx?.vin?.[0]?.prevout?.scriptPubKey?.address;
 
-                                // parse OP_RETURN TL payloads
-                                for (const v of tx?.vout || []) {
-                                    const asm = v?.scriptPubKey?.asm || '';
-                                    if (!asm.startsWith('OP_RETURN')) continue;
+                            if (!channelAddress) {
+                                console.debug('[MP] no channel address', txid);
+                                return;
+                            }
 
-                                    const hex = asm.split(' ')[1];
-                                    if (!hex) continue;
+                            console.log('[MP] tx channel candidate', {
+                                txid,
+                                channelAddress
+                            });
 
-                                    const payload = Buffer.from(hex, 'hex').toString('utf8');
-                                    if (!payload.startsWith('tl')) continue;
+                            const side = await this.resolveChannelSide(channelAddress);
+                            if (!side) {
+                                console.debug('[MP] not our channel', channelAddress);
+                                return;
+                            }
 
-                                    const comma = payload.indexOf(',');
-                                    if (comma === -1) continue;
+                            console.log('[MP] matched channel', {
+                                txid,
+                                channelAddress,
+                                side
+                            });
 
-                                    const parsedCid = parseInt(payload.slice(3, comma), 36);
-                                    if (parsedCid === cid) {
-                                        count++;
-                                    }
+                            for (const v of tx?.vout || []) {
+                                const asm = v?.scriptPubKey?.asm || '';
+                                if (!asm.startsWith('OP_RETURN')) continue;
+
+                                const hex = asm.split(' ')[1];
+                                if (!hex) continue;
+
+                                let payload: string;
+                                try {
+                                    payload = Buffer.from(hex, 'hex').toString('utf8');
+                                } catch {
+                                    console.warn('[MP] hex decode failed', hex);
+                                    continue;
                                 }
-                            } catch {
-                                // fake UX → swallow
+
+                                if (!payload.startsWith('tl')) {
+                                    console.debug('[MP] non-TL OP_RETURN', payload);
+                                    continue;
+                                }
+
+                                const comma = payload.indexOf(',');
+                                if (comma === -1) {
+                                    console.warn('[MP] malformed TL payload', payload);
+                                    continue;
+                                }
+
+                                const parsedCid = parseInt(payload.slice(3, comma), 36);
+
+                                console.debug('[MP] TL payload', {
+                                    payload,
+                                    parsedCid,
+                                    expectedCid: cid
+                                });
+
+                                if (parsedCid === cid) {
+                                    count++;
+                                    console.log('[MP] ✔ pending delta++', {
+                                        txid,
+                                        count
+                                    });
+                                }
                             }
 
                             if (checked >= limit) {
+                                console.log('[MP] scan complete', {
+                                    checked,
+                                    count
+                                });
                                 this._pendingPositionDelta = count;
                                 this.pendingPositionDeltaByContract[cid] = count;
                             }
                         })
-                        .catch(() => {
+                        .catch(err => {
                             checked++;
+                            console.error('[MP] getrawtransaction failed', {
+                                txid,
+                                err
+                            });
+
                             if (checked >= limit) {
                                 this._pendingPositionDelta = count;
                                 this.pendingPositionDeltaByContract[cid] = count;
@@ -230,29 +288,48 @@ export class FuturesPositionsService {
                         });
                 }
             })
-            .catch(() => {
+            .catch(err => {
+                console.error('[MP] getrawmempool failed', err);
                 this.clearPending();
             });
     }
 
+    private async resolveChannelSide(
+        channelAddress: string
+        ): Promise<'A' | 'B' | null> {
+            try {
+                console.debug('[CH] resolve channel', channelAddress);
 
-    private async resolveChannelSide(channelAddress: string): Promise<'A' | 'B' | null> {
-        try {
-            const res = await this.apiService.tlApi.rpc('tl_getChannel', [channelAddress]);
+                const res: any = await (this.apiService.tlApi
+                    .rpc('tl_getChannel', [channelAddress]) as any).toPromise();
 
-            const channel = res?.data;
-            if (!channel?.participants) return null;
+                const channel = res?.data ?? res;
+                const participants = channel?.participants ?? channel?.data?.participants;
 
-            const { A, B } = channel.participants;
+                if (!participants) {
+                    console.warn('[CH] no participants', channelAddress, channel);
+                    return null;
+                }
 
-            if (A === this.activeFutureAddress) return 'A';
-            if (B === this.activeFutureAddress) return 'B';
+                const { A, B } = participants;
 
-            return null;
-        } catch (_err) {
-            return null;
+                console.debug('[CH] channel participants', {
+                    channelAddress,
+                    A,
+                    B,
+                    me: this.activeFutureAddress
+                });
+
+                if (A === this.activeFutureAddress) return 'A';
+                if (B === this.activeFutureAddress) return 'B';
+
+                console.debug('[CH] address not in channel', channelAddress);
+                return null;
+            } catch (err) {
+                console.error('[CH] resolve failed', channelAddress, err);
+                return null;
+            }
         }
-    }
 
 
     // ---------------------------------------------------------------------

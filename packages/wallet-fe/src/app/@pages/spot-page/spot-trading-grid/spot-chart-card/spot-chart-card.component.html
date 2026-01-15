@@ -1,16 +1,26 @@
-<mat-card>
-    <mat-card-title>
-      <div class="header-wrapper">
-        <div class="title-text">
-          <span>Chart</span>
-        </div>
-        <div class="icons">
-          <!-- <mat-icon svgIcon="resize"></mat-icon>
-          <mat-icon svgIcon="close"></mat-icon> -->
-        </div>
+<mat-card class="chart-card">
+  <mat-card-title>
+    <div class="header-wrapper">
+      <div class="title-text">
+        <span>Chart</span>
       </div>
-    </mat-card-title>
-    <mat-card-content>
-      <div #chart class="chart-container"></div>
-    </mat-card-content>
+
+      <div class="controls">
+        <select
+          class="tf-select"
+          [value]="timeframeSec"
+          (change)="setTimeframe($any($event.target).value)"
+        >
+          <option value="1">1s</option>
+          <option value="5">5s</option>
+          <option value="60">1m</option>
+          <option value="300">5m</option>
+        </select>
+      </div>
+    </div>
+  </mat-card-title>
+
+  <mat-card-content>
+    <div #chart class="chart-container"></div>
+  </mat-card-content>
 </mat-card>

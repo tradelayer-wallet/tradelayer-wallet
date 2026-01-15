@@ -15,6 +15,8 @@ import {
 } from 'lightweight-charts';
 
 import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
+import { FuturesMarketService } from 'src/app/@core/services/futures-services/futures-markets.service';
+
 
 export interface ICandle {
   time: any;
@@ -62,22 +64,28 @@ export class FuturesChartCardComponent
   private bars: ICandle[] = [];
   private lastBar: ICandle | null = null;
 
-  private candleIntervalSec = 1;
+  private candleIntervalSec = 60;
   private maxBars = 600;
+
+  get timeframeSec(): number {
+  return this.candleIntervalSec;
+  }
+
 
   private quotePoll: any = null;
   private pollMs = 150;
 
-  constructor(private futuresOrderbookService: FuturesOrderbookService) {}
+  constructor(private futuresOrderbookService: FuturesOrderbookService,
+    private futuresMarketService: FuturesMarketService) {}
 
   // ---------------------------------------------------------------------------
   // lifecycle
   // ---------------------------------------------------------------------------
   ngAfterViewInit(): void {
-    // allow mat-card / tabs / layout to settle
-    setTimeout(() => {
+    setTimeout(async () => {
       this.createChart();
       this.forceResize();
+      await this.loadFuturesHistory();
       this.startQuotePolling();
     }, 0);
   }
@@ -98,6 +106,73 @@ export class FuturesChartCardComponent
     this.forceResize();
   }
 
+  setTimeframe(sec: number) {
+    const next = Number(sec);
+    if (!Number.isFinite(next) || next <= 0) return;
+
+    // No-op if unchanged
+    if (this.candleIntervalSec === next) return;
+
+    this.candleIntervalSec = next;
+
+    // Reset candle state cleanly
+    this.bars = [];
+    this.lastBar = null;
+
+    this.candleStickSeries?.setData([]);
+
+    // Optional: refit view
+    this.chart?.timeScale().fitContent();
+  }
+
+  private async loadHistory(symbol: string, intervalSec: number) {
+  if (!this.candleStickSeries) return;
+
+  try {
+    const cbSymbol = this.normalizeSymbolForCoinbase(symbol);
+
+    const now = Math.floor(Date.now() / 1000);
+    const lookbackBars = this.maxBars;
+    const start = now - lookbackBars * intervalSec;
+
+    const url =
+      `https://api.exchange.coinbase.com/products/${cbSymbol}/candles` +
+      `?granularity=${intervalSec}` +
+      `&start=${new Date(start * 1000).toISOString()}` +
+      `&end=${new Date(now * 1000).toISOString()}`;
+
+    const res = await fetch(url);
+    if (!res.ok) return;
+
+    const raw = await res.json();
+    if (!Array.isArray(raw)) return;
+
+    const candles: ICandle[] = raw
+      .map((c: any[]) => ({
+        time: c[0],
+        low: Number(c[1]),
+        high: Number(c[2]),
+        open: Number(c[3]),
+        close: Number(c[4]),
+        volume: Number(c[5] ?? 0),
+      }))
+      .sort((a, b) => a.time - b.time)
+      .slice(-this.maxBars);
+
+    if (!candles.length) return;
+
+    this.bars = candles;
+    this.lastBar = candles[candles.length - 1];
+
+    this.candleStickSeries.setData(this.bars as any);
+
+    this.chart?.timeScale().fitContent();
+  } catch (err) {
+    console.warn('History load failed:', err);
+  }
+}
+
+
   private forceResize() {
     if (!this.chart || !this.chartContainer) return;
 
@@ -113,6 +188,40 @@ export class FuturesChartCardComponent
   get chartContainer(): HTMLElement {
     return this.chartElement.nativeElement;
   }
+
+  private normalizeSymbolForCoinbase(symbol: string): string | null {
+  if (!symbol) return null;
+
+  // 1) Trim testnet prefix
+  if (symbol.startsWith('t')) {
+    symbol = symbol.slice(1);
+  }
+
+  // 2) Futures perps → underlying spot
+  // BTC/USDT, BTC-PERP, etc → BTC-USD
+  symbol = symbol
+    .replace('/USDT', '-USD')
+    .replace('/USD', '-USD')
+    .replace('USDT', 'USD')
+    .replace('_PERP', '')
+    .replace('-PERP', '');
+
+  // Coinbase expects DASH
+  symbol = symbol.replace('/', '-');
+
+  return symbol;
+}
+
+  private async loadFuturesHistory() {
+  const rawSymbol =
+  this.futuresMarketService?.selectedMarket?.contractName
+
+  const cbSymbol = this.normalizeSymbolForCoinbase(rawSymbol);
+  if (!cbSymbol) return;
+
+  await this.loadHistory(cbSymbol, 60);
+}
+
 
   // ---------------------------------------------------------------------------
   // chart init / destroy

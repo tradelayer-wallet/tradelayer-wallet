@@ -15,6 +15,8 @@ import {
 } from 'lightweight-charts';
 
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
+import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
+
 
 export interface ICandle {
   time: any;
@@ -61,16 +63,22 @@ export class SpotChartCardComponent
 
   private candleIntervalSec = 1;
   private maxBars = 600;
+  get timeframeSec(): number {
+    return this.candleIntervalSec;
+  }
+
 
   private quotePoll: any = null;
   private pollMs = 150;
 
-  constructor(private spotOrderbookService: SpotOrderbookService) {}
+  constructor(private spotOrderbookService: SpotOrderbookService,
+    private spotMarketsService: SpotMarketsService) {}
 
   ngAfterViewInit(): void {
-    setTimeout(() => {
+    setTimeout(async () => {
       this.createChart();
       this.forceResize();
+      await this.loadSpotHistory();
       this.startQuotePolling();
     }, 0);
   }
@@ -104,6 +112,41 @@ export class SpotChartCardComponent
     }
   }
 
+  private normalizeSymbolForCoinbase(symbol: string): string | null {
+  if (!symbol) return null;
+
+  // 1) Trim testnet prefix
+  if (symbol.startsWith('t')) {
+    symbol = symbol.slice(1);
+  }
+
+  // 2) Futures perps → underlying spot
+  // BTC/USDT, BTC-PERP, etc → BTC-USD
+  symbol = symbol
+    .replace('/USDT', '-USD')
+    .replace('/USD', '-USD')
+    .replace('USDT', 'USD')
+    .replace('_PERP', '')
+    .replace('-PERP', '');
+
+  // Coinbase expects DASH
+  symbol = symbol.replace('/', '-');
+
+  return symbol;
+}
+
+private async loadSpotHistory() {
+  const rawSymbol = this.spotMarketsService?.selectedMarket?.pairString
+
+
+  const cbSymbol = this.normalizeSymbolForCoinbase(rawSymbol);
+  if (!cbSymbol) return;
+
+  await this.loadHistory(cbSymbol, 60);
+}
+
+
+
   private createChart() {
     this.destroyChart();
     this.chart = createChart(this.chartContainer, chartOptions);
@@ -135,6 +178,26 @@ export class SpotChartCardComponent
       this.upsertBarFromMid(mid, Date.now());
     }, this.pollMs);
   }
+
+  setTimeframe(sec: number) {
+    const next = Number(sec);
+    if (!Number.isFinite(next) || next <= 0) return;
+
+    // No-op if unchanged
+    if (this.candleIntervalSec === next) return;
+
+    this.candleIntervalSec = next;
+
+    // Reset candle state cleanly
+    this.bars = [];
+    this.lastBar = null;
+
+    this.candleStickSeries?.setData([]);
+
+    // Optional: refit view
+    this.chart?.timeScale().fitContent();
+  }
+
 
   private upsertBarFromMid(mid: number, tsMs: number) {
     const tSec = Math.floor(tsMs / 1000);
@@ -198,6 +261,54 @@ export class SpotChartCardComponent
 
     return {};
   }
+
+  private async loadHistory(symbol: string, intervalSec: number) {
+  if (!this.candleStickSeries) return;
+
+  try {
+    const cbSymbol = this.normalizeSymbolForCoinbase(symbol);
+
+    const now = Math.floor(Date.now() / 1000);
+    const lookbackBars = this.maxBars;
+    const start = now - lookbackBars * intervalSec;
+
+    const url =
+      `https://api.exchange.coinbase.com/products/${cbSymbol}/candles` +
+      `?granularity=${intervalSec}` +
+      `&start=${new Date(start * 1000).toISOString()}` +
+      `&end=${new Date(now * 1000).toISOString()}`;
+
+    const res = await fetch(url);
+    if (!res.ok) return;
+
+    const raw = await res.json();
+    if (!Array.isArray(raw)) return;
+
+    const candles: ICandle[] = raw
+      .map((c: any[]) => ({
+        time: c[0],
+        low: Number(c[1]),
+        high: Number(c[2]),
+        open: Number(c[3]),
+        close: Number(c[4]),
+        volume: Number(c[5] ?? 0),
+      }))
+      .sort((a, b) => a.time - b.time)
+      .slice(-this.maxBars);
+
+    if (!candles.length) return;
+
+    this.bars = candles;
+    this.lastBar = candles[candles.length - 1];
+
+    this.candleStickSeries.setData(this.bars as any);
+
+    this.chart?.timeScale().fitContent();
+  } catch (err) {
+    console.warn('History load failed:', err);
+  }
+}
+
 
   private extractTopPrice(arr: any[], side: 'bid' | 'ask'): number | undefined {
     if (!Array.isArray(arr) || !arr.length) return undefined;
