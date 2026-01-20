@@ -127,16 +127,15 @@ export class FuturesChannelsComponent implements OnInit, OnDestroy {
         channelAddress: row.channel
       });
 
-      const DUST = 546; // litoshi
-
       const buildCfg = {
-        fromKeyPair: { address: this.address },
-        toKeyPair:   { address: this.address },
-        amount: DUST,                           
-        payload
+      fromKeyPair: { address: this.address },
+      toKeyPair: { address: row.channel }, 
+      amount: 0.00000560, // Dust output to channel (ref:0)
+      payload
       };
 
       const res = await this.txs.buildSingSendTx(buildCfg as any);
+      console.log('withdrawal res in withdraw all'+JSON.stringify(res))
       if (res?.error) throw new Error(res.error);
       this.toastrService.success(`Withdrawal TX: ${res.data}`, 'Success');
 
@@ -149,42 +148,49 @@ export class FuturesChannelsComponent implements OnInit, OnDestroy {
     }
   }
 
-  async withdrawAll() {
+  async withdrawAll(): Promise<void> {
     if (this.working) return;
 
-    const rows = this.activeChannelsCommits || [];
-    if (!rows.length) return;
+    const targetRows = (this.activeChannelsCommits || []).filter(r =>
+      (!this.propertyId && r.amount > 0) ||
+      (this.propertyId != null && r.propertyId === this.propertyId && r.amount > 0)
+    );
 
-    const propertyId = rows[0].propertyId; // all same property
+
     this.address = this.resolveAddress();
 
     this.working = true;
     this.error = undefined;
 
     try {
-      const payload = ENCODER.encodeWithdrawal({
-        withdrawAll: 1,
-        propertyId,
-        amountOffered: 0,
-        column: 0,
-        channelAddress: this.address
-      });
-      
-      const DUST = 546; // litoshi
+      for (const row of targetRows) {
+        const columnNum = row.column === 'A' ? 0 : 1;
+        this.address = this.resolveAddress();
 
-      const buildCfg = {
-        fromKeyPair: { address: this.address },
-        toKeyPair:   { address: this.address }, // OK now
-        amount: DUST,                            // 🔥 REQUIRED
-        payload
-      };
+        const payload = ENCODER.encodeWithdrawal({
+          withdrawAll: 1,
+          propertyId: row.propertyId,
+          amountOffered: row.amount,
+          column: columnNum,
+          channelAddress: row.channel
+        });
 
+        const buildCfg = {
+          fromKeyPair: { address: this.address },
+          toKeyPair:   { address: row.channel },
+          amount: 0.00000560,
+          payload
+        };
 
-      const res = await this.txs.buildSingSendTx(buildCfg as any);
-      if (res?.error) throw new Error(res.error);
+        const res = await this.txs.buildSingSendTx(buildCfg as any);
+        if (res?.error) {
+          this.toastrService.error('WithdrawalAll failed: ' + res.error);
+          return
+        }
 
-      this.toastrService.success(`WithdrawAll TX: ${res.data}`, 'Success');
-      this.futSvc.loadOnce();
+        await new Promise(r => setTimeout(r, 200));
+        this.futSvc.loadOnce();
+      }
     } catch (err: any) {
       this.error = err?.message || 'Withdraw All failed';
       console.error('[WithdrawAll] error:', this.error);
