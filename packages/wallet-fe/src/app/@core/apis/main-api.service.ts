@@ -55,6 +55,15 @@ export class MainApiService {
         return this.http.post(this.apiUrl + 'new-config', body);
     };
 
+    // main-api.service.ts
+	computeMultisig(
+	  body: { m: number; pubKeys: string[]; network: string },
+	  _isApiMode: boolean
+	) {
+	  return this.http.post(this.apiUrl + 'compute-multisig', body);
+	}
+
+
     rpcCall(method: string, params?: any[]): Observable<{
         data?: any;
         error?: string;

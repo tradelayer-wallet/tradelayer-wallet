@@ -75,11 +75,12 @@ export class SwapService {
                 ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService,key)
                 : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService,key);
 
-            swapper.eventSubs$.subscribe(eventData => {
+            const sub1 = swapper.eventSubs$.subscribe(eventData => {
                 this.toastrService.info(eventData.eventName, 'Trade Info', { timeOut: 3000 });
             });
 
             const res = await swapper.onReady();
+            sub1.unsubscribe();
             return res;
         } else if (type === "FUTURES") {
             const { transfer } = props as IFuturesTradeProps;
@@ -88,11 +89,12 @@ export class SwapService {
                 ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService,key)
                 : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.toastrService,key);
 
-            swapper.eventSubs$.subscribe(eventData => {
+            const sub2 = swapper.eventSubs$.subscribe(eventData => {
                 this.toastrService.info(eventData.eventName, 'Trade Info', { timeOut: 3000 });
             });
 
             const res = await swapper.onReady();
+            sub2.unsubscribe();
             return res;
             // Add futures swapper logic if needed here
             //throw new Error("Futures trading not supported yet.");

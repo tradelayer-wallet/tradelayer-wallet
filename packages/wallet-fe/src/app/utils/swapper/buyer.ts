@@ -69,10 +69,11 @@ export class BuySwapper extends Swap {
                     pubKeys = [this.myInfo.keypair.pubkey, this.cpInfo.keypair.pubkey];
                 }
             }
-
-            const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
+            const amaRes = await this.txsService.computeMultisig(2, pubKeys);
+            console.log('multisig generated '+JSON.stringify(amaRes))
+            //const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
             if (amaRes.error) throw new Error(`addmultisigaddress: ${amaRes.error}`);
-            if (amaRes.data.redeemScript !== msData.redeemScript) throw new Error(`redeemScript of Multisig is not matching`);
+           if (amaRes.data.redeemScript !== msData.redeemScript) throw new Error(`redeemScript of Multisig is not matching`);
             this.multySigChannelData = msData;
             console.log('this multisig ' + JSON.stringify(this.multySigChannelData));
             const swapEvent = new SwapEvent('BUYER:STEP2', this.myInfo.socketId);
@@ -266,6 +267,7 @@ export class BuySwapper extends Swap {
             });
 
         // 4) Build the commit TX
+        console.log('multySigChannelData:', JSON.stringify(this.multySigChannelData)+' '+JSON.stringify(this.myInfo.keypair.address));
         const commitRes = await this.txsService.buildTx({
           fromKeyPair: { address: this.myInfo.keypair.address },
           toKeyPair: { address: this.multySigChannelData.address },

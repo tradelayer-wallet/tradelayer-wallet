@@ -178,9 +178,12 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       channelBalance = safeNumber(tokenBalanceObj.channel || 0);
     }
     const tokenBalance = Math.max(availableBalance, channelBalance);
+    const inOrder = this.getInOrderAmount(propId);
+    const netCollateral = safeNumber(tokenBalance - inOrder);
+    if (netCollateral <= 0) return 0;
     const leverage = market.leverage || 10;
     const notional = market.notional || 1;
-    return safeNumber((tokenBalance * leverage) / (price * notional));
+    return safeNumber((netCollateral * leverage) / (price * notional));
   }
 
   handleBuySellBuy(): void {
@@ -276,6 +279,15 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
   closeAll() {
     this.futuresOrdersService.closeAllOrders();
+  }
+
+  private getInOrderAmount(propertyId: number): number {
+    const num = this.futuresOrdersService.openedOrders.map(o => {
+      const { amount, price, collateral } = o.props;
+      if (collateral === propertyId) return safeNumber(amount * price);
+      return 0;
+    }).reduce((a, b) => a + b, 0);
+    return safeNumber(num);
   }
 
   ngOnDestroy() {

@@ -151,12 +151,6 @@ export class SpotOrderbookService implements OnDestroy {
     }
 
     subscribeForOrderbook() {
-        // === FIX: Prevent duplicate subscriptions ===
-        if (this.isSubscribed) {
-            console.log('[SpotOB] Already subscribed, skipping');
-            return;
-        }
-
         this.endOrderbookSubscription();
         this.isSubscribed = true;
 

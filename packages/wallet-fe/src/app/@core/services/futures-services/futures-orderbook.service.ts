@@ -233,12 +233,6 @@ export class FuturesOrderbookService implements OnDestroy {
     }
 
     subscribeForOrderbook() {
-        // === FIX: Prevent duplicate subscriptions ===
-        if (this.isSubscribed) {
-            console.log('[FuturesOB] Already subscribed, skipping');
-            return;
-        }
-        
         this.endOrderbookSubscription();
         this.isSubscribed = true;
 

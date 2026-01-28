@@ -67,14 +67,15 @@ export class SellSwapper extends Swap {
     private async initTrade() {
         try {
             let pubKeys = [this.myInfo.keypair.pubkey, this.cpInfo.keypair.pubkey];
-        if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
-            let { propIdDesired, propIdForSale} = this.tradeInfo
-            if(propIdDesired==0||propIdForSale==0){
-                pubKeys = [this.cpInfo.keypair.pubkey,this.myInfo.keypair.pubkey]
-            }
-        }
+	        if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
+	            let { propIdDesired, propIdForSale} = this.tradeInfo
+	            if(propIdDesired==0||propIdForSale==0){
+	                pubKeys = [this.cpInfo.keypair.pubkey,this.myInfo.keypair.pubkey]
+	            }
+	        }
             console.log('showing pubkeys before adding multisig '+JSON.stringify(pubKeys))
-            const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
+            const amaRes = await this.txsService.computeMultisig(2, pubKeys);
+            //const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
             if (amaRes.error || !amaRes.data) throw new Error(`addmultisigaddress: ${amaRes.error}`);
             this.multySigChannelData = amaRes.data as IMSChannelData;
 

@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { fasitfyServer } from "../index";
 import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
-import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
+import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx, computeMultisigNative } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
 import { backOff, BackoffOptions } from "exponential-backoff";
 import { TradeLayerService } from '../services/tradelayer.service';  // Correctly import the named export
@@ -84,8 +84,18 @@ fastify.post('start-wallet-node', async (request, reply) => {
         }
     });
 
+    // main-routes.ts (Fastify)
+	fastify.post('compute-multisig', async (request, reply) => {
+	  try {
+	    const { m, pubKeys, network } = request.body as any;
+	    const result = await computeMultisigNative(m, pubKeys, network);
+	    reply.status(200).send({data: result});
+	  } catch (error: any) {
+	    reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+	  }
+	});
+
     fastify.post('init-tradelayer', async (request, reply) => {
-    
         try {
             // Call the init method from TradeLayerService instance
             const result = await tradeLayerService.init();

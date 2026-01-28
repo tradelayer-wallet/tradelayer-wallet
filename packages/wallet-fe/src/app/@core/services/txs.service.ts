@@ -119,6 +119,26 @@ export class TxsService {
         }
     }
 
+   // txs.service.ts
+	async computeMultisig(
+	  m: number,
+	  pubKeys: string[]
+	): Promise<{ data?: any; error?: string }> {
+	  try {
+		const network = this.rpcService.NETWORK ?? 'LTC';
+	    const isApiMode = this.rpcService.isApiMode;
+
+	    const result = await this.mainApi
+	      .computeMultisig({ m, pubKeys, network }, isApiMode)
+	      .toPromise();
+
+	    return result;
+	  } catch (e: any) {
+	    return { error: e.message };
+	  }
+	}
+
+
    async buildTx(
         buildTxConfig: IBuildTxConfig
     ): Promise<{ data?: { rawtx: string; inputs: IUTXO[], psbtHex?: string }, error?: string }> {

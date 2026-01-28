@@ -9,6 +9,58 @@ interface ApiRes {
     error: string;
 }
 
+const networkMap = {
+   BTC: {
+    messagePrefix: '\x18Bitcoin Signed Message:\n',
+    bech32: 'bc',
+    bip32: {
+      public: 0x0488b21e,
+      private: 0x0488ade4,
+    },
+    pubKeyHash: 0x00,
+    scriptHash: 0x05,
+    wif: 0x80,
+  },
+
+  // -----------------------------
+  // BITCOIN TESTNET / SIGNET
+  // -----------------------------
+  BTCTEST: {
+    messagePrefix: '\x18Bitcoin Signed Message:\n',
+    bech32: 'tb',
+    bip32: {
+      public: 0x043587cf,
+      private: 0x04358394,
+    },
+    pubKeyHash: 0x6f,
+    scriptHash: 0xc4,
+    wif: 0xef,
+  },
+  LTC: {
+    messagePrefix: '\x19Litecoin Signed Message:\n',
+    bip32: {
+      public: 0x019da462,
+      private: 0x019d9cfe,
+    },
+    pubKeyHash: 0x30,
+    scriptHash: 0x32,
+    wif: 0xb0,
+    bech32: 'ltc', // Add this
+  },
+  LTCTEST: {
+    messagePrefix: '\x19Litecoin Signed Message:\n',
+    bip32: {
+      public: 0x043587cf,
+      private: 0x04358394,
+    },
+    pubKeyHash: 0x6f,
+    scriptHash: 0x3a,
+    wif: 0xef,
+    bech32: 'tltc', // Add this
+  },
+};
+
+
 export type TClient = (method: string, ...args: any[]) => Promise<ApiRes>;
 
 export interface IBuildTxConfig {
@@ -67,6 +119,43 @@ export interface IInput {
 };
 
 const minFeeLtcPerKb = 0.00015;
+
+// native/multisig.ts (Node environment)
+import * as bitcoin from 'bitcoinjs-lib';
+
+export async function computeMultisigNative(
+  m: number,
+  pubKeys: string[],
+  network: string
+) {
+  const net = networkMap[network];
+  if (!net) throw new Error(`Unknown network: ${network}`);
+  if (!Array.isArray(pubKeys) || pubKeys.length < m) throw new Error('Invalid pubKeys');
+
+  // ✅ BIP67 canonicalization here
+  const pubBufs = pubKeys
+    .map(k => Buffer.from(k, 'hex'))
+    .sort(Buffer.compare);
+
+  const p2ms = bitcoin.payments.p2ms({ m, pubkeys: pubBufs });
+  if (!p2ms.output) throw new Error('Failed to build witness script');
+
+  const p2wsh = bitcoin.payments.p2wsh({
+    redeem: { output: p2ms.output },
+    network: net,
+  });
+
+  if (!p2wsh.address || !p2wsh.output) throw new Error('Failed to compute p2wsh');
+
+  return {
+    m,
+    pubKeys: pubBufs.map(b => b.toString('hex')), // canonical pubkeys
+    redeemScript: p2ms.output.toString('hex'),
+    scriptPubKey: p2wsh.output.toString('hex'),
+    address: p2wsh.address,
+  };
+}
+
 
 
 export const smartRpc: TClient = async (method: string, params: any[] = [], api: boolean = false) => {
@@ -149,8 +238,10 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
         const { fromKeyPair, toKeyPair, amount, payload, inputs, addPsbt, network } = txConfig;
         const fromAddress = fromKeyPair.address;
         const toAddress = toKeyPair.address;
+        console.log('validate address 1 '+fromAddress)
         const vaRes1 = await smartRpc('validateaddress', [fromAddress], isApiMode);
         if (vaRes1.error || !vaRes1.data?.isvalid) throw new Error(`validateaddress: ${vaRes1.error}`);
+        console.log('validate address 2 '+toAddress)
         const vaRes2 = await smartRpc('validateaddress', [toAddress], isApiMode);
         if (vaRes2.error || !vaRes2.data?.isvalid) throw new Error(`validateaddress: ${vaRes2.error}`);
         console.log('About to call listunspent in buildTx '+ fromAddress)
