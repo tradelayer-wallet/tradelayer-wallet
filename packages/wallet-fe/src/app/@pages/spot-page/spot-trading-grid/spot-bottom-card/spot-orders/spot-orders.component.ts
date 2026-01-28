@@ -82,6 +82,7 @@ export class SpotOrdersComponent implements OnInit, OnDestroy {
     props: {                               // used by {{ element.props.amount/price }}
       amount: String(o.amount ?? 0),
       price:  String(o.price  ?? 0),
+      ...this.deriveSpotIds(o),
     },
   };
 }
@@ -145,5 +146,19 @@ export class SpotOrdersComponent implements OnInit, OnDestroy {
       }
     });
     this.subsArray.push(subs);
+  }
+
+  // Derive id_for_sale/id_desired from symbol ("base-quote") + side
+  private deriveSpotIds(o: any): { id_for_sale?: number; id_desired?: number } {
+    const sym = o.symbol ?? o.marketKey ?? '';
+    const parts = String(sym).split('-');
+    if (parts.length < 2) return {};
+    const base = Number(parts[0]);
+    const quote = Number(parts[1]);
+    if (!Number.isFinite(base) || !Number.isFinite(quote)) return {};
+    const side = (o.side ?? '').toUpperCase();
+    return side === 'SELL'
+      ? { id_for_sale: base, id_desired: quote }
+      : { id_for_sale: quote, id_desired: base };
   }
 }

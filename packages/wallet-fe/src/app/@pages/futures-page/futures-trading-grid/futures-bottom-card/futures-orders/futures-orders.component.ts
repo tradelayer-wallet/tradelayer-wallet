@@ -95,6 +95,9 @@ export class FuturesOrdersComponent implements OnInit, OnDestroy {
     props: {                               // used by {{ element.props.amount/price }}
       amount: String(o.amount ?? 0),
       price:  String(o.price  ?? 0),
+      collateral: o.collateral ?? o.props?.collateral,
+      margin: o.margin ?? o.props?.margin ?? o.props?.initMargin,
+      contract_id: o.contract_id ?? o.props?.contract_id,
     },
   };
 }

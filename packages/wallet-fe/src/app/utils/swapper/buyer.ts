@@ -224,8 +224,7 @@ export class BuySwapper extends Swap {
                     socketId:  this.myInfo.socketId,
                     data: {
                       psbtHex: rawHexRes.data.psbtHex,
-                      commitHex: signedHex,
-                      commitTxId
+                      commitTx: signedHex
                     }
                   } as any
                 );
@@ -335,10 +334,10 @@ export class BuySwapper extends Swap {
                     const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
         const psbtHex = rawHexRes.data?.psbtHex;
 
-        // 9) Emit BUYER:STEP4 with psbt + commit txid
+        // 9) Emit BUYER:STEP4 with psbt + signed commit hex for RBF check
         const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, {
           psbtHex,
-          commitTxId: commitTxId
+          commitTx: signedHex
         });
         this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
         } else {

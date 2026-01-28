@@ -282,10 +282,21 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
   }
 
   private getInOrderAmount(propertyId: number): number {
+    const market = this.selectedMarket;
+    const leverage = market?.leverage || 10;
+    const notional = market?.notional || 1;
+    const isInverse = !!market?.inverse;
+
     const num = this.futuresOrdersService.openedOrders.map(o => {
-      const { amount, price, collateral } = o.props;
-      if (collateral === propertyId) return safeNumber(amount * price);
-      return 0;
+      const { collateral, margin, amount, price } = o.props;
+      if (collateral != null && Number(collateral) !== propertyId) return 0;
+      if (margin) return safeNumber(Number(margin));
+      const a = Number(amount) || 0;
+      const p = Number(price) || 0;
+      if (!a || !p) return 0;
+      return isInverse
+        ? safeNumber((a * notional) / p / leverage)
+        : safeNumber((a * notional * p) / leverage);
     }).reduce((a, b) => a + b, 0);
     return safeNumber(num);
   }

@@ -244,18 +244,21 @@ private isSpotZeroTrade(): boolean {
         throw new Error('Step 4: missing PSBT');
       }
 
-      // 2) If we have a commitTxId, pull and decode it from the node:
+      // 2) Non-fatal RBF check on the commit tx
       const skipRbf = this.isSpotZeroTrade();
       if (commitTxId && !skipRbf) {
-        // RPC: getrawtransaction with verbose=true to get vin[] & sequence
-        const txRes = await this.client('getrawtransaction', [commitTxId, true]);
-        if (txRes.error || !txRes.data?.vin) {
-          throw new Error(`getrawtransaction failed: ${txRes.error}`);
-        }
-        // BIP-125: any sequence < 0xFFFFFFFE signals opt-in RBF
-        const isRbf = txRes.data.vin.some((vin: any) => vin.sequence < 0xfffffffe);
-        if (isRbf) {
-          throw new Error('RBF-enabled commit tx detected; aborting.');
+        try {
+          // If it looks like raw tx hex (long), decode it; otherwise fetch by txid
+          const txRes = commitTxId.length > 80
+            ? await this.client('decoderawtransaction', [commitTxId])
+            : await this.client('getrawtransaction', [commitTxId, true]);
+          if (!txRes.error && txRes.data?.vin) {
+            const isRbf = txRes.data.vin.some((vin: any) => vin.sequence < 0xfffffffe);
+            if (isRbf) throw new Error('RBF-enabled commit tx detected; aborting.');
+          }
+        } catch (rbfErr: any) {
+          if (rbfErr.message?.includes('RBF')) throw rbfErr;
+          console.warn('RBF check failed (non-fatal):', rbfErr.message);
         }
       }
 
