@@ -288,9 +288,9 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     const isInverse = !!market?.inverse;
 
     const num = this.futuresOrdersService.openedOrders.map(o => {
-      const { collateral, margin, amount, price } = o.props;
-      if (collateral != null && Number(collateral) !== propertyId) return 0;
-      if (margin) return safeNumber(Number(margin));
+      const { collateral, amount, price } = o.props;
+		if (collateral != null && Number(collateral) !== propertyId) return 0;
+
       const a = Number(amount) || 0;
       const p = Number(price) || 0;
       if (!a || !p) return 0;

@@ -2,3 +2,5 @@ node_modules
 release
 *.log
 dist
+claude.exe
+install-claude.ps1

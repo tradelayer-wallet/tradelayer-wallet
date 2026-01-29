@@ -13,6 +13,13 @@ export interface FuturesTradeRow {
   yourRole: string;
   yourFee?: number;
   txid?: string;
+  counterparty?: string;
+  // UI aliases
+  amount?: number;
+  total?: number;
+  role?: string;
+  fee?: number;
+  tx?: string;
   buyer?: string;
   seller?: string;
   // you can add other fields your template might use
@@ -124,13 +131,38 @@ export class FuturesTradeHistoryService {
 
       // normalize backend → UI
       const rows: FuturesTradeRow[] = rawRows.map((r: any) => {
-        // Many backends expose buyer/seller for futures fills as well.
-        // If yours uses "long/short" or "maker/taker" instead, tweak here.
-        const side: 'BUY' | 'SELL' | string =
-          r?.buyer && addr ? (r.buyer === addr ? 'BUY' : 'SELL') : (r?.side ?? '');
+        const addrL = String(addr || '').toLowerCase();
+
+        const buyerAddr = String(
+          r?.buyerAddress ??
+          r?.buyer ??
+          r?.trade?.buyerAddress ??
+          r?.trade?.buyer ??
+          ''
+        );
+
+        const sellerAddr = String(
+          r?.sellerAddress ??
+          r?.seller ??
+          r?.trade?.sellerAddress ??
+          r?.trade?.seller ??
+          ''
+        );
+
+        const isBuyer = buyerAddr.toLowerCase() === addrL;
+        const isSeller = sellerAddr.toLowerCase() === addrL;
+
+        const rawSide = r?.side ?? r?.trade?.side;
+        const side =
+          isBuyer ? 'BUY' :
+          isSeller ? 'SELL' :
+          rawSide === 1 || rawSide === 'buy' ? 'BUY' :
+          rawSide === 2 || rawSide === 'sell' ? 'SELL' :
+          String(rawSide ?? '');
 
         const qty = Number(
           r?.amount ??
+          r?.trade?.amount ??
           r?.quantity ??
           r?.qty ??
           r?.baseAmount ??
@@ -139,21 +171,65 @@ export class FuturesTradeHistoryService {
           0
         );
 
-        const price = Number(r?.price ?? r?.fillPrice ?? r?.tradePrice ?? 0);
+        const price = Number(
+          r?.price ??
+          r?.trade?.price ??
+          r?.fillPrice ??
+          r?.tradePrice ??
+          0
+        );
         const baseAmount = Math.abs(qty);
         const totalQuote = baseAmount * price;
 
+        const yourRole = isBuyer ? 'Buyer' : isSeller ? 'Seller' : '';
+
+        const yourFee = Number(
+          isBuyer ? r?.trade?.buyerFee :
+          isSeller ? r?.trade?.sellerFee :
+          0
+        );
+
+        const txid = String(
+          (isBuyer ? r?.buyerTx ?? r?.trade?.buyerTx : undefined) ??
+          (isSeller ? r?.sellerTx ?? r?.trade?.sellerTx : undefined) ??
+          r?.txid ??
+          r?.trade?.txid ??
+          r?._id ??
+          ''
+        );
+
+        const counterparty = String(
+          isBuyer ? sellerAddr :
+          isSeller ? buyerAddr :
+          r?.counterparty ??
+          r?.trade?.counterparty ??
+          ''
+        );
+
         return {
-          block: Number(r?.block ?? r?.height ?? 0),
+          block: Number(
+            r?.block ??
+            r?.blockHeight ??
+            r?.height ??
+            r?.trade?.block ??
+            r?.trade?.blockHeight ??
+            0
+          ),
           side,
           baseAmount,
           price,
           totalQuote,
-          yourRole: side,                 // mirrors spot; adjust if you show "Maker/Taker" instead
-          yourFee: Number(r?.takerFee ?? r?.fee ?? 0),
-          txid: r?.txid ?? r?._id ?? '',
-          buyer: r?.buyer,
-          seller: r?.seller,
+          yourRole,
+          yourFee,
+          txid,
+          counterparty,
+          amount: baseAmount,
+          total: totalQuote,
+          role: yourRole,
+          fee: yourFee,
+          tx: txid,
+          buyer: buyerAddr || r?.buyer,
+          seller: sellerAddr || r?.seller,
         };
       });
 

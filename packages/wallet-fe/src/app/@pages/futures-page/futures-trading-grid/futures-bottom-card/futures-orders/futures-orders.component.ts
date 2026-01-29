@@ -96,7 +96,7 @@ export class FuturesOrdersComponent implements OnInit, OnDestroy {
       amount: String(o.amount ?? 0),
       price:  String(o.price  ?? 0),
       collateral: o.collateral ?? o.props?.collateral,
-      margin: o.margin ?? o.props?.margin ?? o.props?.initMargin,
+      margin: o.margin ?? o.props?.margin,
       contract_id: o.contract_id ?? o.props?.contract_id,
     },
   };
