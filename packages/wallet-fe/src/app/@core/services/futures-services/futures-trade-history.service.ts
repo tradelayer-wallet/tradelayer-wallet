@@ -181,7 +181,18 @@ export class FuturesTradeHistoryService {
         const baseAmount = Math.abs(qty);
         const totalQuote = baseAmount * price;
 
-        const yourRole = isBuyer ? 'Buyer' : isSeller ? 'Seller' : '';
+        let yourRole = '';
+
+        const buyerFee = Number(r?.trade?.buyerFee ?? 0);
+        const sellerFee = Number(r?.trade?.sellerFee ?? 0);
+
+        if (buyerFee === sellerFee) {
+          yourRole = 'Split';
+        } else if (isBuyer) {
+          yourRole = buyerFee > sellerFee ? 'Taker' : 'Maker';
+        } else if (isSeller) {
+          yourRole = sellerFee > buyerFee ? 'Taker' : 'Maker';
+        }
 
         const yourFee = Number(
           isBuyer ? r?.trade?.buyerFee :
