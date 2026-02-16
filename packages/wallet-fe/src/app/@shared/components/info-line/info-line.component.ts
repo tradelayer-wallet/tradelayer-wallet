@@ -2,6 +2,7 @@ import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 // import { SocketService } from 'src/app/@core/services/socket.service';
 import { IWindow, WindowsService } from 'src/app/@core/services/windows.service';
+declare const require: any;
 const mainPackageJson = require('../../../../../../../package.json');
 
 @Component({

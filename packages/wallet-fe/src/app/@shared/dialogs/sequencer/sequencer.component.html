@@ -1,0 +1,145 @@
+<custom-window title='Host Sequencer'>
+    <div class="dialog-container">
+        <mat-dialog-content class="mat-typography">
+            <div class="content-container">
+                <mat-tab-group>
+                    <mat-tab label="P2P Collator (WebRTC)">
+                        <div class="servers-conteiner">
+                            <div class="title">Status</div>
+                            <div style="font-size: 12px; opacity: 0.9;">
+                                <div>running: {{ status?.running ? 'yes' : 'no' }}</div>
+                                <div>pid: {{ status?.pid || '-' }}</div>
+                                <div>wsUrl: {{ status?.wsUrl || wsUrl || '-' }}</div>
+                                <div>dataDir: {{ status?.dataDir || '-' }}</div>
+                                <div>entryPath: {{ status?.entryPath || '-' }}</div>
+                                <div *ngIf="status?.lastExit">
+                                    lastExit: code={{ status?.lastExit?.code }} signal={{ status?.lastExit?.signal }} at={{ status?.lastExit?.atMs }}
+                                </div>
+                            </div>
+                            <div class="buttons" style="visibility: visible; margin-top: 8px;">
+                                <button class='greenButton' mat-button (click)="refresh()">Refresh</button>
+                                <button class='greenButton' mat-button (click)="useAsCollator()">Use As P2P Collator</button>
+                            </div>
+                        </div>
+
+                        <div class="servers-conteiner">
+                            <div class="title">Start Options</div>
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>Port</mat-label>
+                                <input matInput type="number" [(ngModel)]="port" />
+                            </mat-form-field>
+
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>WS Path</mat-label>
+                                <input matInput type="text" [(ngModel)]="wsPath" placeholder="/ws" />
+                            </mat-form-field>
+
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>Data Dir (optional)</mat-label>
+                                <input matInput type="text" [(ngModel)]="dataDir" placeholder="(default: ./data/p2p-collator)" />
+                            </mat-form-field>
+
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>Collator Entry Path (optional)</mat-label>
+                                <input matInput type="text" [(ngModel)]="entryPath" placeholder="C:\projects\tl-collator\dist\index.js" />
+                            </mat-form-field>
+
+                            <div style="margin: 6px 0 6px 0;">
+                                <mat-checkbox [(ngModel)]="clearlistEnforce">Enable clearlist enforcement (optional)</mat-checkbox>
+                            </div>
+                            <mat-form-field appearance="fill" style="width: 100%;" *ngIf="clearlistEnforce">
+                                <mat-label>Clearlist URL</mat-label>
+                                <input matInput type="text" [(ngModel)]="clearlistUrl" placeholder="http(s)://relayer.example" />
+                            </mat-form-field>
+                            <mat-form-field appearance="fill" style="width: 100%;" *ngIf="clearlistEnforce">
+                                <mat-label>Clearlist Fail Mode</mat-label>
+                                <mat-select [(ngModel)]="clearlistFailMode">
+                                    <mat-option value="closed">closed</mat-option>
+                                    <mat-option value="open">open</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <div class="buttons" style="visibility: visible;">
+                                <button class='greenButton' mat-button (click)="start()">Start</button>
+                                <button class='redButton' mat-button (click)="stop()">Stop</button>
+                            </div>
+                        </div>
+
+                        <div class="servers-conteiner">
+                            <div class="title">Logs (tail)</div>
+                            <textarea
+                                class="input_url"
+                                style="width: 100%; height: 160px; font-family: monospace; font-size: 11px;"
+                                readonly
+                                [ngModel]="(status?.logsTail || []).join('\n')"
+                            ></textarea>
+                        </div>
+                    </mat-tab>
+
+                    <mat-tab label="Rust Sequencer (High TPS)">
+                        <div class="servers-conteiner">
+                            <div class="title">Status</div>
+                            <div style="font-size: 12px; opacity: 0.9;">
+                                <div>running: {{ rustStatus?.running ? 'yes' : 'no' }}</div>
+                                <div>pid: {{ rustStatus?.pid || '-' }}</div>
+                                <div>wsUrl: {{ rustStatus?.wsUrl || '-' }}</div>
+                                <div>dataDir: {{ rustStatus?.dataDir || '-' }}</div>
+                                <div>exePath: {{ rustStatus?.exePath || '-' }}</div>
+                                <div *ngIf="rustStatus?.lastExit">
+                                    lastExit: code={{ rustStatus?.lastExit?.code }} signal={{ rustStatus?.lastExit?.signal }} at={{ rustStatus?.lastExit?.atMs }}
+                                </div>
+                            </div>
+                            <div class="buttons" style="visibility: visible; margin-top: 8px;">
+                                <button class='greenButton' mat-button (click)="refreshRust()">Refresh</button>
+                                <button class='greenButton' mat-button (click)="useAsOrderbookServer()">Show Endpoint</button>
+                            </div>
+                        </div>
+
+                        <div class="servers-conteiner">
+                            <div class="title">Start Options</div>
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>Port</mat-label>
+                                <input matInput type="number" [(ngModel)]="rustPort" />
+                            </mat-form-field>
+
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>WS Path</mat-label>
+                                <input matInput type="text" [(ngModel)]="rustWsPath" placeholder="/ws" />
+                            </mat-form-field>
+
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>Data Dir (optional)</mat-label>
+                                <input matInput type="text" [(ngModel)]="rustDataDir" placeholder="(default: ./data/rust-sequencer)" />
+                            </mat-form-field>
+
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>Exe Path (optional)</mat-label>
+                                <input matInput type="text" [(ngModel)]="rustExePath" placeholder="C:\Users\patri\tl-orderbook-server\dist\index.js" />
+                            </mat-form-field>
+
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>Args (optional)</mat-label>
+                                <input matInput type="text" [(ngModel)]="rustArgs" placeholder="--some-flag value" />
+                            </mat-form-field>
+
+                            <div class="buttons" style="visibility: visible;">
+                                <button class='greenButton' mat-button (click)="startRust()">Start</button>
+                                <button class='redButton' mat-button (click)="stopRust()">Stop</button>
+                            </div>
+                        </div>
+
+                        <div class="servers-conteiner">
+                            <div class="title">Logs (tail)</div>
+                            <textarea
+                                class="input_url"
+                                style="width: 100%; height: 160px; font-family: monospace; font-size: 11px;"
+                                readonly
+                                [ngModel]="(rustStatus?.logsTail || []).join('\n')"
+                            ></textarea>
+                        </div>
+                    </mat-tab>
+                </mat-tab-group>
+            </div>
+        </mat-dialog-content>
+    </div>
+</custom-window>

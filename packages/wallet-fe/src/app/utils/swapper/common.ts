@@ -35,6 +35,7 @@ export interface IMSChannelData {
     address: string;
     redeemScript: string;
     scriptPubKey?: string;
+    clearlistGroupId?: string;
 };
 
 export interface IBuyerSellerKeyPair {

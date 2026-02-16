@@ -12,8 +12,9 @@ export class SellSwapper extends Swap {
         client: TClient,
         socket: SocketClient,
         txsService: TxsService,
+        clearlistService?: any,
     ) {
-        super(typeTrade, tradeInfo, sellerInfo, buyerInfo, client, socket, txsService);
+        super(typeTrade, tradeInfo, sellerInfo, buyerInfo, client, socket, txsService, clearlistService);
         this.handleOnEvents();
         this.onReady();
         this.initTrade();
@@ -72,6 +73,8 @@ export class SellSwapper extends Swap {
             const fromKeyPair = { address: this.myInfo.keypair.address };
             const toKeyPair = { address: this.multySigChannelData.address };
             const commitTxConfig: IBuildTxConfig = { fromKeyPair, toKeyPair };
+
+            await this.requireClearlistedIfNeeded(this.multySigChannelData);
 
             const ctcpParams = [];
             if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {

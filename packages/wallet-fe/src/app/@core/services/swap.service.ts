@@ -8,6 +8,7 @@ import { BuySwapper, SellSwapper, ITradeInfo } from 'src/app/utils/swapper';
 import { ISpotOrder } from "./spot-services/spot-orderbook.service";
 import { IFuturesOrder } from "./futures-services/futures-orderbook.service";
 import { ESounds, SoundsService } from "./sound.service";
+import { ClearlistService } from "./clearlist.service";
 
 interface IChannelSwapData {
     tradeInfo: ITradeInfo;
@@ -27,6 +28,7 @@ export class SwapService {
         private toastrService: ToastrService,
         private loadingService: LoadingService,
         private soundsService: SoundsService,
+        private clearlistService: ClearlistService,
     ) {}
 
     private get socket() {
@@ -56,8 +58,8 @@ export class SwapService {
     private async channelSwap(tradeInfo: ITradeInfo, isBuyer: boolean) {
         const { buyer, seller, props, type } = tradeInfo;
         const swapper = isBuyer
-            ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService)
-            : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService);
+            ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.clearlistService)
+            : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService, this.clearlistService);
         swapper.eventSubs$.subscribe(eventData => {
             this.toastrService.info(eventData.eventName, 'Trade Info', { timeOut: 3000 });
         });

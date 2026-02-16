@@ -2,6 +2,8 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FuturesMarketService } from 'src/app/@core/services/futures-services/futures-markets.service';
 import { FuturesOrderbookService } from 'src/app/@core/services/futures-services/futures-orderbook.service';
 import { FuturesOrdersService } from 'src/app/@core/services/futures-services/futures-orders.service';
+import { P2PSettingsService } from 'src/app/@core/services/p2p-settings.service';
+import { P2POrderbookService } from 'src/app/@core/services/p2p-orderbook.service';
 
 
 export interface PeriodicElement {
@@ -24,18 +26,25 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
       private futuresOrderbookService: FuturesOrderbookService,
       private futuresOrdersService: FuturesOrdersService,
       private futuresMarketService: FuturesMarketService,
+      private p2pSettings: P2PSettingsService,
+      private p2pOb: P2POrderbookService,
     ) {}
+
+    get isP2P(): boolean {
+      return this.p2pSettings.mode !== 'CENTRAL';
+    }
 
     get upTrend() {
       return this.lastPrice > this.marketPrice;
     }
 
     get lastPrice() {
-      return 0;
+      if (this.isP2P) return this.marketPrice;
       return this.futuresOrderbookService.lastPrice;
     }
 
     get marketPrice() {
+      if (this.isP2P) return this.p2pOb.getMarketPrice('FUTURES', this.selectedMarket?.pairString);
       return this.futuresOrderbookService.currentPrice;
     }
 
@@ -60,11 +69,13 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     get buyOrderbooks() {
+      if (this.isP2P) return this.p2pOb.getLevels('FUTURES', this.selectedMarket?.pairString).buy;
       return this.futuresOrderbookService.buyOrderbooks;
     }
 
     get sellOrderbooks() {
       this.scrollToBottom();
+      if (this.isP2P) return this.p2pOb.getLevels('FUTURES', this.selectedMarket?.pairString).sell;
       return this.futuresOrderbookService.sellOrderbooks;
     }
 
@@ -73,7 +84,7 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     }
   
     ngOnInit() {
-      this.futuresOrderbookService.subscribeForOrderbook();
+      if (!this.isP2P) this.futuresOrderbookService.subscribeForOrderbook();
     }
 
     scrollToBottom() {
@@ -83,7 +94,7 @@ export class FuturesOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy() {
-      this.futuresOrderbookService.endOrderbookSbuscription()
+      if (!this.isP2P) this.futuresOrderbookService.endOrderbookSbuscription()
     }
 
     fillBuySellPrice(price: number) {

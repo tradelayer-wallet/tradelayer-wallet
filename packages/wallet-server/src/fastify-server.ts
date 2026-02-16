@@ -4,6 +4,7 @@ import { RpcClient } from 'tl-rpc';
 import { SocketService } from './services/socket.service';
 import { IOBSocketServiceOptions, OBSocketService } from './services/ob-sockets.service';
 import * as killPort from 'kill-port';
+import { CollatorService } from './services/collator.service';
 
 export class FastifyServer {
     private _server: FastifyInstance;
@@ -11,6 +12,7 @@ export class FastifyServer {
     public rpcPort: number;
     public mainSocketService: SocketService;
     public obSocketService: OBSocketService;
+    public collatorService: CollatorService;
 
     public relayerApiUrl: string | null = null;
 
@@ -21,6 +23,7 @@ export class FastifyServer {
     ) {
         this._server = Fastify(options);
         this.mainSocketService = new SocketService();
+        this.collatorService = new CollatorService();
     }
 
     get server() {
@@ -35,6 +38,10 @@ export class FastifyServer {
     }
 
     async stop() {
+        try {
+            await this.collatorService?.stop();
+            await this.collatorService?.stopRust();
+        } catch {}
         if (this.rpcClient) {
             const isConnectedRes = await this.rpcClient.call('getblockchaininfo');
             const isConnected = !!isConnectedRes.data;

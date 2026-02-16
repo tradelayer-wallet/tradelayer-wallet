@@ -1,0 +1,22 @@
+.dialog-container {
+  color: #000;
+}
+
+.dialog-container mat-dialog-content .content-container {
+  display: flex;
+  flex-direction: column;
+  padding-top: 1rem;
+  min-width: 25rem;
+  align-items: center;
+}
+
+.servers-conteiner {
+  width: 100%;
+  padding-bottom: 1.25rem;
+}
+
+.title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+

@@ -84,6 +84,168 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="servers-conteiner">
+                    <div class="title">Connectivity Mode</div>
+                    <div class="server" [ngStyle]="{ 'cursor': isP2PConnected ? 'unset' : 'pointer' }">
+                        <div class="is-selected" style="visibility: visible;">
+                            <p [ngStyle]="{'background-color': isP2PConnected ? 'green' : 'red'}"></p>
+                        </div>
+
+                        <div class="url">
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>Mode</mat-label>
+                                <mat-select
+                                    [value]="p2pMode"
+                                    [disabled]="isP2PConnected"
+                                    (selectionChange)="onP2PModeChange($event.value)"
+                                >
+                                    <mat-option value="CENTRAL">Central</mat-option>
+                                    <mat-option value="HYBRID">Hybrid (Double Route)</mat-option>
+                                    <mat-option value="P2P">P2P (WebRTC)</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>Collator Signaling URLs (wss://... one per line)</mat-label>
+                                <textarea
+                                    matInput
+                                    rows="4"
+                                    [disabled]="isP2PConnected"
+                                    [(ngModel)]="collatorUrlsText"
+                                    placeholder="wss://collator1.example/ws&#10;wss://collator2.example/ws"
+                                ></textarea>
+                            </mat-form-field>
+
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>Allowed Collator IDs (optional, one per line)</mat-label>
+                                <textarea
+                                    matInput
+                                    rows="3"
+                                    [disabled]="isP2PConnected"
+                                    [(ngModel)]="allowedCollatorIdsText"
+                                    placeholder="sha256(pubkeyHex)&#10;sha256(pubkeyHex)"
+                                ></textarea>
+                            </mat-form-field>
+
+                            <div style="margin: 6px 0 10px 0;">
+                                <mat-checkbox
+                                    [disabled]="isP2PConnected"
+                                    [(ngModel)]="requireVerifiedManifest"
+                                    (change)="onRequireVerifiedManifestChange(requireVerifiedManifest)"
+                                >
+                                    Require verified collator manifest (TL-CSv1)
+                                </mat-checkbox>
+                            </div>
+
+                            <div style="margin: 0 0 10px 0;">
+                                <mat-checkbox
+                                    [disabled]="isP2PConnected"
+                                    [(ngModel)]="enforceClearlistSubmitter"
+                                    (change)="onEnforceClearlistSubmitterChange(enforceClearlistSubmitter)"
+                                >
+                                    Enforce clearlist on submitter (MM-only, optional)
+                                </mat-checkbox>
+                            </div>
+
+                            <div style="margin: 0 0 10px 0;">
+                                <mat-checkbox
+                                    [disabled]="isP2PConnected"
+                                    [(ngModel)]="requireInfraAttestation"
+                                    (change)="onRequireInfraAttestationChange(requireInfraAttestation)"
+                                >
+                                    Require infra attestation (curated mode, signed by clearlist admin)
+                                </mat-checkbox>
+                            </div>
+
+                            <mat-form-field appearance="fill" style="width: 100%;">
+                                <mat-label>Required clearlistId (protocol registry ID)</mat-label>
+                                <input
+                                    matInput
+                                    type="text"
+                                    [disabled]="isP2PConnected || !requireInfraAttestation"
+                                    [(ngModel)]="requiredClearlistId"
+                                    (ngModelChange)="onRequiredClearlistIdChange($event)"
+                                    placeholder="e.g. 42"
+                                />
+                            </mat-form-field>
+
+                            <div class="url" style="font-size: 12px; opacity: 0.85;">
+                                <div>Primary: {{ p2pPrimaryUrl || '-' }} (rtt={{ p2pRtt === null ? '-' : p2pRtt + 'ms' }})</div>
+                                <div>Backup: {{ p2pBackupUrl || '-' }}</div>
+                                <div *ngIf="p2pWarning" style="color: #ffcc66;">Warning: {{ p2pWarning }}</div>
+
+                                <div *ngIf="p2pPrimaryManifest" style="margin-top: 6px;">
+                                    <div>
+                                        Manifest (primary): {{ p2pPrimaryManifest.verified ? 'verified' : 'unverified' }}
+                                        <span *ngIf="!p2pPrimaryManifest.verified">({{ p2pPrimaryManifest.reason || 'unknown' }})</span>
+                                    </div>
+                                    <div *ngIf="p2pPrimaryManifest.manifest">
+                                        <div>collatorId: {{ p2pPrimaryManifest.manifest.collatorId }}</div>
+                                        <div>build: {{ p2pPrimaryManifest.manifest.build?.version || '-' }} {{ p2pPrimaryManifest.manifest.build?.gitSha || '' }}</div>
+                                        <div>
+                                            policy: clearlist={{ p2pPrimaryManifest.manifest.policy?.clearlist?.enforce ? 'on' : 'off' }},
+                                            ipLogging={{ p2pPrimaryManifest.manifest.policy?.network?.ipLogging || '-' }},
+                                            vpn={{ p2pPrimaryManifest.manifest.policy?.network?.vpnFilterMode || '-' }},
+                                            asn={{ p2pPrimaryManifest.manifest.policy?.network?.asnBlockMode || '-' }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div *ngIf="p2pPrimaryApproval && requireInfraAttestation" style="margin-top: 6px;">
+                                    <div>
+                                        Approval (primary):
+                                        {{ p2pPrimaryApproval.ok ? 'valid' : 'invalid' }}
+                                        <span *ngIf="!p2pPrimaryApproval.ok">({{ p2pPrimaryApproval.reason || 'unknown' }})</span>
+                                    </div>
+                                    <div *ngIf="p2pPrimaryApproval.ok">
+                                        <div>clearlistId: {{ p2pPrimaryApproval.clearlistId }}</div>
+                                        <div>expiresAt: {{ p2pPrimaryApproval.expiresAt }}</div>
+                                        <div>admin: {{ p2pPrimaryApproval.adminAddress }}</div>
+                                    </div>
+                                </div>
+
+                                <div *ngIf="p2pBackupApproval && requireInfraAttestation" style="margin-top: 6px;">
+                                    <div>
+                                        Approval (backup):
+                                        {{ p2pBackupApproval.ok ? 'valid' : 'invalid' }}
+                                        <span *ngIf="!p2pBackupApproval.ok">({{ p2pBackupApproval.reason || 'unknown' }})</span>
+                                    </div>
+                                    <div *ngIf="p2pBackupApproval.ok">
+                                        <div>clearlistId: {{ p2pBackupApproval.clearlistId }}</div>
+                                        <div>expiresAt: {{ p2pBackupApproval.expiresAt }}</div>
+                                        <div>admin: {{ p2pBackupApproval.adminAddress }}</div>
+                                    </div>
+                                </div>
+
+                                <div *ngIf="p2pBackupManifest" style="margin-top: 6px;">
+                                    <div>
+                                        Manifest (backup): {{ p2pBackupManifest.verified ? 'verified' : 'unverified' }}
+                                        <span *ngIf="!p2pBackupManifest.verified">({{ p2pBackupManifest.reason || 'unknown' }})</span>
+                                    </div>
+                                    <div *ngIf="p2pBackupManifest.manifest">
+                                        <div>collatorId: {{ p2pBackupManifest.manifest.collatorId }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="buttons" style="visibility: visible;">
+                            <button
+                                *ngIf="isP2PConnected"
+                                class='redButton'
+                                mat-button
+                                (click)="disconnectP2P()"
+                            > disconnect </button>
+                            <button
+                                *ngIf="!isP2PConnected"
+                                class='greenButton'
+                                mat-button
+                                (click)="connectP2P()"
+                            > Connect </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </mat-dialog-content>
     </div>

@@ -1,6 +1,9 @@
 import { Injectable } from "@angular/core";
 import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
+import { OrderRouterService } from "../order-router.service";
+import { P2PSettingsService } from "../p2p-settings.service";
+import { P2PMyOrdersService } from "../p2p-my-orders.service";
 import { IFuturesOrder } from "./futures-orderbook.service";
 
 interface ITradeConf {
@@ -35,6 +38,9 @@ export class FuturesOrdersService {
     constructor(
         private socketService: SocketService,
         private loadingService: LoadingService,
+        private orderRouter: OrderRouterService,
+        private p2pSettings: P2PSettingsService,
+        private p2pOrders: P2PMyOrdersService,
     ) { }
 
     get socket() {
@@ -42,6 +48,7 @@ export class FuturesOrdersService {
     }
 
     get openedOrders(): IFuturesOrder[] {
+        if (this.p2pSettings.mode !== 'CENTRAL') return this.p2pOrders.getOpened('FUTURES') as any;
         return this._openedOrders;
     }
 
@@ -60,15 +67,15 @@ export class FuturesOrdersService {
 
     newOrder(orderConf: IFuturesTradeConf) {
         this.loadingService.tradesLoading = true;
-        this.socket.emit('new-order', orderConf);
+        void this.orderRouter.submitNewOrder(orderConf);
     }
 
     addLiquidity(orders: IFuturesTradeConf[]) {
-        this.socket.emit('many-orders', orders);
+        void this.orderRouter.submitManyOrders(orders as any[]);
     }
 
     closeOpenedOrder(uuid: string) {
-        this.socket.emit('close-order', uuid);
+        this.orderRouter.closeOpenedOrder(uuid, 'FUTURES');
     }
 
     closeAllOrders() {

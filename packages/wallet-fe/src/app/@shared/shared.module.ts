@@ -14,6 +14,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox'
 import { MatProgressBarModule } from '@angular/material/progress-bar'; 
 import { MatIconModule } from '@angular/material/icon'; 
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select'; 
 import { MatTabsModule } from '@angular/material/tabs';
 
@@ -35,6 +36,7 @@ import { WithdrawDialog } from './dialogs/withdraw/withdraw.component';
 import { DepositDialog } from './dialogs/deposit/deposit.component';
 import { CommingSoonDialog } from './dialogs/comming-soon/comming-soon.componet';
 import { ServersDialog } from './dialogs/servers/servers.component';
+import { SequencerDialog } from './dialogs/sequencer/sequencer.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -46,6 +48,7 @@ const MAT_MODULES = [
     MatDialogModule,
     MatButtonModule,
     MatInputModule,
+    MatFormFieldModule,
     MatProgressSpinnerModule,
     MatSidenavModule,
     MatExpansionModule,
@@ -69,6 +72,7 @@ const DIALOGS = [
     DepositDialog,
     CommingSoonDialog,
     ServersDialog,
+    SequencerDialog,
 ];
 
 const COMPONENTS = [

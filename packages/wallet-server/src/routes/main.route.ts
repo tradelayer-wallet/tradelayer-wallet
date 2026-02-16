@@ -3,6 +3,7 @@ import { fasitfyServer } from "../index";
 import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
 import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
+import type { CollatorStartRequest, RustSequencerStartRequest } from "../services/collator.service";
 
 export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
     fastify.post('rpc-call', async (request, reply) => {
@@ -116,6 +117,62 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             reply.status(200).send(result);
         } catch (error) {
             reply.status(500).send({ error: error.message || 'Undefined Error' })
+        }
+    });
+
+    fastify.get('collator/status', async (_request, reply) => {
+        try {
+            const st = fasitfyServer.collatorService.status();
+            reply.status(200).send({ data: st });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || 'Undefined Error' });
+        }
+    });
+
+    fastify.post('collator/start', async (request, reply) => {
+        try {
+            const body = (request.body || {}) as CollatorStartRequest;
+            const st = await fasitfyServer.collatorService.start(body);
+            reply.status(200).send({ data: st });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || 'Undefined Error' });
+        }
+    });
+
+    fastify.post('collator/stop', async (_request, reply) => {
+        try {
+            const st = await fasitfyServer.collatorService.stop();
+            reply.status(200).send({ data: st });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || 'Undefined Error' });
+        }
+    });
+
+    fastify.get('rust/status', async (_request, reply) => {
+        try {
+            const st = fasitfyServer.collatorService.rustStatus();
+            reply.status(200).send({ data: st });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || 'Undefined Error' });
+        }
+    });
+
+    fastify.post('rust/start', async (request, reply) => {
+        try {
+            const body = (request.body || {}) as RustSequencerStartRequest;
+            const st = await fasitfyServer.collatorService.startRust(body);
+            reply.status(200).send({ data: st });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || 'Undefined Error' });
+        }
+    });
+
+    fastify.post('rust/stop', async (_request, reply) => {
+        try {
+            const st = await fasitfyServer.collatorService.stopRust();
+            reply.status(200).send({ data: st });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || 'Undefined Error' });
         }
     });
 

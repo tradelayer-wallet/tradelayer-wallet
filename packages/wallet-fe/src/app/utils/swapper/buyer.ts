@@ -12,8 +12,9 @@ export class BuySwapper extends Swap {
         client: TClient,
         socket: SocketClient,
         txsService: TxsService,
+        clearlistService?: any,
     ) {
-        super(typeTrade, tradeInfo, buyerInfo, sellerInfo, client, socket, txsService);
+        super(typeTrade, tradeInfo, buyerInfo, sellerInfo, client, socket, txsService, clearlistService);
         this.handleOnEvents();
         this.onReady();
     }
@@ -85,6 +86,7 @@ export class BuySwapper extends Swap {
                     const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
                     this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
                 } else {
+                    await this.requireClearlistedIfNeeded(this.multySigChannelData);
                     const ctcpParams = [propIdDesired, (amountDesired).toString()];
                     const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
                     if (cpctcRes.error || !cpctcRes.data) throw new Error(`tl_createpayload_commit_tochannel: ${cpctcRes.error}`);
@@ -141,6 +143,7 @@ export class BuySwapper extends Swap {
                 }
             } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {
                 const { contract_id, amount, price, } = this.tradeInfo;
+                await this.requireClearlistedIfNeeded(this.multySigChannelData);
                 const ctcpParams = [contract_id, (amount).toString()];
                 const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
                 if (cpctcRes.error || !cpctcRes.data) throw new Error(`tl_createpayload_commit_tochannel: ${cpctcRes.error}`);

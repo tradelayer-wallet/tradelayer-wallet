@@ -2,6 +2,8 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { SpotMarketsService } from 'src/app/@core/services/spot-services/spot-markets.service';
 import { SpotOrderbookService } from 'src/app/@core/services/spot-services/spot-orderbook.service';
 import { SpotOrdersService } from 'src/app/@core/services/spot-services/spot-orders.service';
+import { P2PSettingsService } from 'src/app/@core/services/p2p-settings.service';
+import { P2POrderbookService } from 'src/app/@core/services/p2p-orderbook.service';
 
 
 export interface PeriodicElement {
@@ -24,17 +26,25 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
       private spotOrderbookService: SpotOrderbookService,
       private spotOrdersService: SpotOrdersService,
       private spotMarketsService: SpotMarketsService,
+      private p2pSettings: P2PSettingsService,
+      private p2pOb: P2POrderbookService,
     ) {}
+
+    get isP2P(): boolean {
+      return this.p2pSettings.mode !== 'CENTRAL';
+    }
 
     get upTrend() {
       return this.lastPrice > this.marketPrice;
     }
 
     get lastPrice() {
+      if (this.isP2P) return this.marketPrice;
       return this.spotOrderbookService.lastPrice;
     }
 
     get marketPrice() {
+      if (this.isP2P) return this.p2pOb.getMarketPrice('SPOT', this.selectedMarket?.pairString);
       return this.spotOrderbookService.currentPrice;
     }
 
@@ -61,11 +71,13 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     get buyOrderbooks() {
+      if (this.isP2P) return this.p2pOb.getLevels('SPOT', this.selectedMarket?.pairString).buy;
       return this.spotOrderbookService.buyOrderbooks;
     }
 
     get sellOrderbooks() {
       this.scrollToBottom();
+      if (this.isP2P) return this.p2pOb.getLevels('SPOT', this.selectedMarket?.pairString).sell;
       return this.spotOrderbookService.sellOrderbooks;
     }
 
@@ -74,7 +86,7 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     }
   
     ngOnInit() {
-      this.spotOrderbookService.subscribeForOrderbook();
+      if (!this.isP2P) this.spotOrderbookService.subscribeForOrderbook();
     }
 
     scrollToBottom() {
@@ -84,7 +96,7 @@ export class SpotOrderbookCardComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy() {
-      this.spotOrderbookService.endOrderbookSbuscription()
+      if (!this.isP2P) this.spotOrderbookService.endOrderbookSbuscription()
     }
 
     fillBuySellPrice(price: number) {
