@@ -124,6 +124,8 @@ export class P2PTransportService {
     if (!urls.length) throw new Error('No collator URLs configured');
     const allowIds = new Set((this.settings.allowedCollatorIds || []).map((s) => String(s).trim()).filter(Boolean));
     const requireInfra = !!this.settings.requireInfraAttestation;
+    const requireVerifiedManifest = !!this.settings.requireVerifiedManifest;
+    const needManifestGate = requireVerifiedManifest || allowIds.size > 0 || requireInfra;
     const requiredClearlistIdRaw = String(this.settings.requiredClearlistId || '').trim();
     const requiredClearlistId = requiredClearlistIdRaw ? Number(requiredClearlistIdRaw) : null;
 
@@ -150,35 +152,43 @@ export class P2PTransportService {
     for (const url of urls) {
       if (connected.length >= 2) break;
 
-      // Curated-mode gate: require verified manifest + protocol match.
-      if (this.settings.requireVerifiedManifest) {
-        const mf = await this.manifests.fetch(url);
-        if (!mf.verified) {
-          this.auditSub.next({ ...this.auditSub.value, warning: `skipping collator (manifest unverified): ${url} (${mf.reason || 'unknown'})` });
-          continue;
-        }
-        const m: any = mf.manifest;
-        if (m?.protocol?.wireMsgVersion !== 1 || m?.protocol?.dataChannelLabel !== 'tl-bb') {
-          this.auditSub.next({ ...this.auditSub.value, warning: `skipping collator (protocol mismatch): ${url}` });
-          continue;
-        }
-        if (allowIds.size > 0 && !allowIds.has(String(m?.collatorId || ''))) {
-          this.auditSub.next({ ...this.auditSub.value, warning: `skipping collator (not in allowlist): ${url}` });
-          continue;
-        }
-        if (requireInfra) {
-          const vr = verifyManifestInfraAttestationForClearlist(
-            m,
-            url,
-            requiredClearlistId as number,
-            protocolAdminAddress as string
-          );
-          if (!vr.ok) {
-            this.auditSub.next({ ...this.auditSub.value, warning: `skipping collator (no valid infra attestation): ${url} (${vr.reason || 'unknown'})` });
+      // Manifest gate becomes mandatory if any manifest-dependent checks are enabled.
+      if (needManifestGate) {
+        try {
+          const mf = await this.manifests.fetch(url);
+          if (!mf.verified) {
+            this.auditSub.next({ ...this.auditSub.value, warning: `skipping collator (manifest unverified): ${url} (${mf.reason || 'unknown'})` });
             continue;
           }
+          const m: any = mf.manifest;
+          if (m?.protocol?.wireMsgVersion !== 1 || m?.protocol?.dataChannelLabel !== 'tl-bb') {
+            this.auditSub.next({ ...this.auditSub.value, warning: `skipping collator (protocol mismatch): ${url}` });
+            continue;
+          }
+          if (allowIds.size > 0 && !allowIds.has(String(m?.collatorId || ''))) {
+            this.auditSub.next({ ...this.auditSub.value, warning: `skipping collator (not in allowlist): ${url}` });
+            continue;
+          }
+          if (requireInfra) {
+            const vr = verifyManifestInfraAttestationForClearlist(
+              m,
+              url,
+              requiredClearlistId as number,
+              protocolAdminAddress as string
+            );
+            if (!vr.ok) {
+              this.auditSub.next({ ...this.auditSub.value, warning: `skipping collator (no valid infra attestation): ${url} (${vr.reason || 'unknown'})` });
+              continue;
+            }
+          }
+          this.manifestByUrl.set(url, mf);
+        } catch (e: any) {
+          this.auditSub.next({
+            ...this.auditSub.value,
+            warning: `skipping collator (manifest fetch failed): ${url} (${e?.message || 'unknown'})`,
+          });
+          continue;
         }
-        this.manifestByUrl.set(url, mf);
       }
 
       const fromSeq = (this.lastSeqByUrl[url] || 0) + 1;
@@ -267,7 +277,14 @@ export class P2PTransportService {
       for (const e of buf) this.onTape(slot, c.url, e);
     }
 
-    this.startHeartbeat(urls);
+    this.startHeartbeat(urls, {
+      requireVerifiedManifest,
+      allowIds,
+      requireInfra,
+      requiredClearlistId: requiredClearlistId as number | null,
+      protocolAdminAddress,
+      needManifestGate,
+    });
   }
 
   async stop(): Promise<void> {
@@ -296,7 +313,17 @@ export class P2PTransportService {
     this.orderMetaByOrderId.clear();
   }
 
-  private startHeartbeat(allUrls: string[]) {
+  private startHeartbeat(
+    allUrls: string[],
+    gate: {
+      requireVerifiedManifest: boolean;
+      allowIds: Set<string>;
+      requireInfra: boolean;
+      requiredClearlistId: number | null;
+      protocolAdminAddress: string | null;
+      needManifestGate: boolean;
+    }
+  ) {
     const deadAfterMs = 15000;
     this.heartbeatTimer = setInterval(async () => {
       try {
@@ -330,11 +357,22 @@ export class P2PTransportService {
         for (const url of allUrls) {
           if (used.has(url)) continue;
           try {
-            if (this.settings.requireVerifiedManifest) {
+            if (gate.needManifestGate) {
               const mf = await this.manifests.fetch(url);
               if (!mf.verified) continue;
               const m: any = mf.manifest;
               if (m?.protocol?.wireMsgVersion !== 1 || m?.protocol?.dataChannelLabel !== 'tl-bb') continue;
+              if (gate.allowIds.size > 0 && !gate.allowIds.has(String(m?.collatorId || ''))) continue;
+              if (gate.requireInfra) {
+                if (!Number.isInteger(gate.requiredClearlistId as number) || !gate.protocolAdminAddress) continue;
+                const vr = verifyManifestInfraAttestationForClearlist(
+                  m,
+                  url,
+                  gate.requiredClearlistId as number,
+                  gate.protocolAdminAddress
+                );
+                if (!vr.ok) continue;
+              }
               this.manifestByUrl.set(url, mf);
             }
             const fromSeq = (this.lastSeqByUrl[url] || 0) + 1;
