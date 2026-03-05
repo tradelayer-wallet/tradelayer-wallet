@@ -22,7 +22,8 @@
     "build:all:mac": "npm run fe:build && npm run server:build:mac && npm run electron:build",
     "test:bitvm-plan-a:uphold": "node scripts/run-bitvm-plan-a.js --verdict uphold",
     "test:bitvm-plan-a:reject": "node scripts/run-bitvm-plan-a.js --verdict reject",
-    "test:bitvm-plan-a:both": "node scripts/run-bitvm-plan-a.js --both"
+    "test:bitvm-plan-a:both": "node scripts/run-bitvm-plan-a.js --both",
+    "test:bitvm-watchtower": "node scripts/run-bitvm-watchtower.js"
   },
   "dependencies": {
     "abstract-level": "1.0.3",
