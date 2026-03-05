@@ -158,4 +158,23 @@ export class MainApiService {
     }> {
         return this.http.post<{ data?: any; error?: string }>(this.apiUrl + 'bitvm/emit-fraud-proof', body || {});
     }
+
+    getBitvmWatchtowerStatus(): Observable<{ data?: any; error?: string }> {
+        return this.http.get<{ data?: any; error?: string }>(this.apiUrl + 'bitvm/watchtower/status');
+    }
+
+    bitvmWatchtowerStart(body?: { intervalMs?: number; autoFraudProof?: boolean; propertyId?: number; dlcRef?: string }): Observable<{
+        data?: any;
+        error?: string;
+    }> {
+        return this.http.post<{ data?: any; error?: string }>(this.apiUrl + 'bitvm/watchtower/start', body || {});
+    }
+
+    bitvmWatchtowerStop(): Observable<{ data?: any; error?: string }> {
+        return this.http.post<{ data?: any; error?: string }>(this.apiUrl + 'bitvm/watchtower/stop', {});
+    }
+
+    bitvmWatchtowerScan(body?: { propertyId?: number; dlcRef?: string }): Observable<{ data?: any; error?: string }> {
+        return this.http.post<{ data?: any; error?: string }>(this.apiUrl + 'bitvm/watchtower/scan', body || {});
+    }
 }

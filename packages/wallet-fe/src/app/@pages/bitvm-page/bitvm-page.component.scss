@@ -28,6 +28,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .actions-row {
@@ -52,4 +53,12 @@
   color: whitesmoke;
   font-size: 0.85rem;
   opacity: 0.85;
+}
+
+.interval-field {
+  min-width: 220px;
+}
+
+.watchtower-actions {
+  margin-top: 0.75rem;
 }

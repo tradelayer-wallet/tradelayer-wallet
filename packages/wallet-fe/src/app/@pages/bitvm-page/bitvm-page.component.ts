@@ -9,6 +9,8 @@ import { BitvmRuntimeService, BitvmStatus } from 'src/app/@core/services/bitvm-r
 })
 export class BitvmPageComponent implements OnInit {
   status$: Observable<BitvmStatus>;
+  watchtowerIntervalMs: number = 15000;
+  watchtowerAutoFraudProof: boolean = false;
 
   constructor(private bitvmRuntime: BitvmRuntimeService) {
     this.status$ = this.bitvmRuntime.status$;
@@ -29,6 +31,19 @@ export class BitvmPageComponent implements OnInit {
 
   async refresh(): Promise<void> {
     await this.bitvmRuntime.refresh();
+  }
+
+  async startWatchtower(): Promise<void> {
+    await this.bitvmRuntime.startWatchtower({
+      intervalMs: this.watchtowerIntervalMs,
+      autoFraudProof: this.watchtowerAutoFraudProof,
+    });
+    await this.refresh();
+  }
+
+  async stopWatchtower(): Promise<void> {
+    await this.bitvmRuntime.stopWatchtower();
+    await this.refresh();
   }
 
   async tickWatchtower(): Promise<void> {

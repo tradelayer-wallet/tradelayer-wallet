@@ -38,6 +38,14 @@ export interface BitvmStatus {
     fraudProofEmitReady: boolean;
     payoutFinalizedReady: boolean;
   };
+  watchtower?: {
+    running: boolean;
+    intervalMs: number;
+    autoFraudProof: boolean;
+    lastRunAt: number;
+    lastError: string;
+    actions: Array<{ type: string; severity: string; message: string; autoApplied: boolean }>;
+  };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -110,6 +118,7 @@ export class BitvmRuntimeService {
     };
     try {
       const res = await this.mainApi.getBitvmStatus().toPromise();
+      const wtRes = await this.mainApi.getBitvmWatchtowerStatus().toPromise().catch(() => null);
       if (res?.data) {
         const remote = res.data as Partial<BitvmStatus>;
         const mergedRemote: BitvmStatus = {
@@ -131,6 +140,7 @@ export class BitvmRuntimeService {
             ...fallbackMerged.hooks,
             ...(remote.hooks || {}),
           },
+          watchtower: wtRes?.data ? wtRes.data : this.status.watchtower,
           featureEnabled: this.featureEnabled,
           commitScheme: this.featureEnabled ? 'experimental-binohash' : 'legacy-merkle',
           updatedAt: Date.now(),
@@ -146,9 +156,9 @@ export class BitvmRuntimeService {
 
   async runWatchtowerTick(): Promise<void> {
     try {
-      const res = await this.mainApi.bitvmWatchtowerTick().toPromise();
-      if (res?.data) {
-        const remote = res.data as Partial<BitvmStatus>;
+      const res = await this.mainApi.bitvmWatchtowerScan().toPromise();
+      if (res?.data?.status) {
+        const remote = res.data.status as Partial<BitvmStatus>;
         const next: BitvmStatus = {
           ...this.status,
           ...remote,
@@ -168,6 +178,7 @@ export class BitvmRuntimeService {
             ...this.status.hooks,
             ...(remote.hooks || {}),
           },
+          watchtower: res.data.watchtower || this.status.watchtower,
           updatedAt: Date.now(),
         };
         this.challengeObservedHooks.forEach((hook) => hook());
@@ -211,6 +222,7 @@ export class BitvmRuntimeService {
             ...this.status.hooks,
             ...(remote.hooks || {}),
           },
+          watchtower: this.status.watchtower,
           updatedAt: Date.now(),
         };
         this.fraudProofEmitHooks.forEach((hook) => hook());
@@ -291,6 +303,36 @@ export class BitvmRuntimeService {
         fraudProofEmitReady: false,
         payoutFinalizedReady: false,
       },
+      watchtower: {
+        running: false,
+        intervalMs: 15000,
+        autoFraudProof: false,
+        lastRunAt: 0,
+        lastError: '',
+        actions: [],
+      },
     };
+  }
+
+  async startWatchtower(opts?: { intervalMs?: number; autoFraudProof?: boolean }): Promise<void> {
+    const res = await this.mainApi.bitvmWatchtowerStart(opts || {}).toPromise();
+    if (res?.data) {
+      this.persistAndPublish({
+        ...this.status,
+        watchtower: res.data,
+        updatedAt: Date.now(),
+      });
+    }
+  }
+
+  async stopWatchtower(): Promise<void> {
+    const res = await this.mainApi.bitvmWatchtowerStop().toPromise();
+    if (res?.data) {
+      this.persistAndPublish({
+        ...this.status,
+        watchtower: res.data,
+        updatedAt: Date.now(),
+      });
+    }
   }
 }

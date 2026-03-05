@@ -2,10 +2,46 @@ import axios from 'axios';
 import { fasitfyServer } from '../index';
 
 type AnyObj = Record<string, any>;
+type WatchtowerQuery = { propertyId?: number; dlcRef?: string };
 
 const LOCAL_STATE = {
   watchtowerLastTick: 0,
   fraudProofsSubmittedDelta: 0,
+};
+
+type WatchtowerActionType =
+  | 'ALERT_EXPIRING_CHALLENGES'
+  | 'ALERT_ESCROW_PRESSURE'
+  | 'ALERT_SWEEP_PRESSURE'
+  | 'ALERT_COMMIT_SCHEME_MISMATCH'
+  | 'AUTO_EMIT_FRAUD_PROOF';
+
+interface WatchtowerAction {
+  type: WatchtowerActionType;
+  severity: 'info' | 'warn' | 'critical';
+  message: string;
+  autoApplied: boolean;
+}
+
+interface WatchtowerState {
+  running: boolean;
+  intervalMs: number;
+  autoFraudProof: boolean;
+  lastRunAt: number;
+  lastError: string;
+  actions: WatchtowerAction[];
+  query: WatchtowerQuery;
+}
+
+const WATCHTOWER: WatchtowerState & { timer: ReturnType<typeof setInterval> | null } = {
+  running: false,
+  intervalMs: Number(process.env.BITVM_WATCHTOWER_INTERVAL_MS || 15000),
+  autoFraudProof: process.env.BITVM_WATCHTOWER_AUTO_FRAUD_PROOF === '1',
+  lastRunAt: 0,
+  lastError: '',
+  actions: [],
+  query: {},
+  timer: null,
 };
 
 function trimSlash(url: string): string {
@@ -73,6 +109,128 @@ export async function fetchBitvmStatus(query?: { propertyId?: number; dlcRef?: s
   }
   const { data } = await axios.post(`${base}/tl_bitvmStatus`, body, { timeout: 7000 });
   return normalizeStatus(data || {});
+}
+
+function ratio(num: number, den: number): number {
+  if (!den || den <= 0) return 0;
+  return num / den;
+}
+
+function evaluateWatchtowerActions(status: AnyObj, autoFraudProof: boolean): WatchtowerAction[] {
+  const actions: WatchtowerAction[] = [];
+  const expiring = Number(status?.challenge?.expiringSoon || 0);
+  const pendingEscrow = Number(status?.cache?.pendingEscrow || 0);
+  const escrowCap = Number(status?.cache?.pendingEscrowCap || 0);
+  const sweeps = Number(status?.sweep?.sweepsThisWindow || 0);
+  const sweepCap = Number(status?.sweep?.maxSweepPerWindow || 0);
+  const featureEnabled = !!status?.featureEnabled;
+  const scheme = String(status?.commitScheme || '');
+
+  if (expiring > 0) {
+    actions.push({
+      type: 'ALERT_EXPIRING_CHALLENGES',
+      severity: 'critical',
+      message: `${expiring} challenge(s) nearing deadline`,
+      autoApplied: false,
+    });
+  }
+  if (ratio(pendingEscrow, escrowCap) >= 0.9 && escrowCap > 0) {
+    actions.push({
+      type: 'ALERT_ESCROW_PRESSURE',
+      severity: 'warn',
+      message: `Escrow pressure high (${pendingEscrow}/${escrowCap})`,
+      autoApplied: false,
+    });
+  }
+  if (ratio(sweeps, sweepCap) >= 0.9 && sweepCap > 0) {
+    actions.push({
+      type: 'ALERT_SWEEP_PRESSURE',
+      severity: 'warn',
+      message: `Sweep window near cap (${sweeps}/${sweepCap})`,
+      autoApplied: false,
+    });
+  }
+  if (featureEnabled && scheme !== 'experimental-binohash') {
+    actions.push({
+      type: 'ALERT_COMMIT_SCHEME_MISMATCH',
+      severity: 'warn',
+      message: 'State-root gate enabled while commit scheme is not binohash',
+      autoApplied: false,
+    });
+  }
+  if (autoFraudProof && expiring > 0) {
+    actions.push({
+      type: 'AUTO_EMIT_FRAUD_PROOF',
+      severity: 'info',
+      message: 'Auto fraud-proof emission policy triggered',
+      autoApplied: true,
+    });
+  }
+  return actions;
+}
+
+export function getBitvmWatchtowerStatus() {
+  return {
+    running: WATCHTOWER.running,
+    intervalMs: WATCHTOWER.intervalMs,
+    autoFraudProof: WATCHTOWER.autoFraudProof,
+    lastRunAt: WATCHTOWER.lastRunAt,
+    lastError: WATCHTOWER.lastError,
+    actions: WATCHTOWER.actions,
+    query: WATCHTOWER.query,
+  };
+}
+
+async function runWatchtowerScanOnce() {
+  const status = await bitvmWatchtowerTick(WATCHTOWER.query);
+  const actions = evaluateWatchtowerActions(status, WATCHTOWER.autoFraudProof);
+  WATCHTOWER.lastRunAt = Date.now();
+  WATCHTOWER.actions = actions;
+  WATCHTOWER.lastError = '';
+  if (WATCHTOWER.autoFraudProof && actions.some((a) => a.type === 'AUTO_EMIT_FRAUD_PROOF')) {
+    await bitvmEmitFraudProof(WATCHTOWER.query);
+  }
+  return { status, watchtower: getBitvmWatchtowerStatus() };
+}
+
+export async function bitvmWatchtowerScan(query?: WatchtowerQuery) {
+  if (query) WATCHTOWER.query = { ...WATCHTOWER.query, ...query };
+  return runWatchtowerScanOnce();
+}
+
+export function bitvmWatchtowerStart(opts?: {
+  intervalMs?: number;
+  autoFraudProof?: boolean;
+  propertyId?: number;
+  dlcRef?: string;
+}) {
+  if (opts?.intervalMs && Number.isFinite(opts.intervalMs) && opts.intervalMs >= 1000) {
+    WATCHTOWER.intervalMs = Math.floor(opts.intervalMs);
+  }
+  if (typeof opts?.autoFraudProof === 'boolean') {
+    WATCHTOWER.autoFraudProof = opts.autoFraudProof;
+  }
+  if (opts && (opts.propertyId || opts.dlcRef)) {
+    WATCHTOWER.query = {
+      propertyId: Number.isFinite(opts.propertyId) && Number(opts.propertyId) > 0 ? Number(opts.propertyId) : undefined,
+      dlcRef: opts.dlcRef ? String(opts.dlcRef).trim() : undefined,
+    };
+  }
+  if (WATCHTOWER.timer) clearInterval(WATCHTOWER.timer);
+  WATCHTOWER.running = true;
+  WATCHTOWER.timer = setInterval(() => {
+    runWatchtowerScanOnce().catch((err: any) => {
+      WATCHTOWER.lastError = err?.message || String(err || 'watchtower scan failed');
+    });
+  }, WATCHTOWER.intervalMs);
+  return getBitvmWatchtowerStatus();
+}
+
+export function bitvmWatchtowerStop() {
+  if (WATCHTOWER.timer) clearInterval(WATCHTOWER.timer);
+  WATCHTOWER.timer = null;
+  WATCHTOWER.running = false;
+  return getBitvmWatchtowerStatus();
 }
 
 export async function bitvmWatchtowerTick(query?: { propertyId?: number; dlcRef?: string }) {

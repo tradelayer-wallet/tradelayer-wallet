@@ -16,8 +16,19 @@
       </div>
       <div class="actions-row">
         <button mat-raised-button color="primary" (click)="refresh()">Refresh</button>
+        <button mat-raised-button color="primary" (click)="startWatchtower()">Start Watchtower</button>
+        <button mat-raised-button color="warn" (click)="stopWatchtower()">Stop Watchtower</button>
         <button mat-raised-button color="accent" (click)="tickWatchtower()">Watchtower Tick</button>
         <button mat-raised-button (click)="emitFraudProof()">Emit Fraud Proof (Stub)</button>
+      </div>
+      <div class="controls-row">
+        <mat-form-field appearance="fill" class="interval-field">
+          <mat-label>Watchtower Interval (ms)</mat-label>
+          <input matInput type="number" [(ngModel)]="watchtowerIntervalMs">
+        </mat-form-field>
+        <mat-slide-toggle [(ngModel)]="watchtowerAutoFraudProof">
+          Auto fraud-proof on expiring challenges
+        </mat-slide-toggle>
       </div>
       <div class="last-updated">
         Last updated: {{ status.updatedAt | date:'medium' }}
@@ -66,6 +77,24 @@
       </mat-card-content>
     </mat-card>
   </div>
+
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Watchtower Runtime</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div>Running: <strong>{{ status.watchtower?.running ? 'yes' : 'no' }}</strong></div>
+      <div>Interval: <strong>{{ status.watchtower?.intervalMs || 0 }}</strong> ms</div>
+      <div>Auto fraud-proof: <strong>{{ status.watchtower?.autoFraudProof ? 'enabled' : 'disabled' }}</strong></div>
+      <div>Last run: <strong>{{ status.watchtower?.lastRunAt ? (status.watchtower?.lastRunAt | date:'mediumTime') : 'never' }}</strong></div>
+      <div *ngIf="status.watchtower?.lastError">Last error: <strong>{{ status.watchtower?.lastError }}</strong></div>
+      <div class="watchtower-actions" *ngIf="status.watchtower?.actions?.length">
+        <div *ngFor="let action of status.watchtower?.actions">
+          <strong>[{{ action.severity }}]</strong> {{ action.message }}
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
 
   <mat-card>
     <mat-card-header>
