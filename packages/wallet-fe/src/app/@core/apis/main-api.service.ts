@@ -129,4 +129,33 @@ export class MainApiService {
             error?: string;  
         }>(this.apiUrl + 'sign-psbt', { ...buildPsbtConfig, network })
     }
+
+    getBitvmStatus(query?: { propertyId?: number; dlcRef?: string }): Observable<{
+        data?: any;
+        error?: string;
+    }> {
+        const params: string[] = [];
+        if (query && Number.isFinite(query.propertyId) && Number(query.propertyId) > 0) {
+            params.push(`propertyId=${Number(query.propertyId)}`);
+        }
+        if (query?.dlcRef) {
+            params.push(`dlcRef=${encodeURIComponent(String(query.dlcRef).trim())}`);
+        }
+        const qs = params.length ? `?${params.join('&')}` : '';
+        return this.http.get<{ data?: any; error?: string }>(this.apiUrl + `bitvm/status${qs}`);
+    }
+
+    bitvmWatchtowerTick(body?: { propertyId?: number; dlcRef?: string }): Observable<{
+        data?: any;
+        error?: string;
+    }> {
+        return this.http.post<{ data?: any; error?: string }>(this.apiUrl + 'bitvm/watchtower-tick', body || {});
+    }
+
+    bitvmEmitFraudProof(body?: { propertyId?: number; dlcRef?: string }): Observable<{
+        data?: any;
+        error?: string;
+    }> {
+        return this.http.post<{ data?: any; error?: string }>(this.apiUrl + 'bitvm/emit-fraud-proof', body || {});
+    }
 }

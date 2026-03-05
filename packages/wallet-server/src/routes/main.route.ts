@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { fasitfyServer } from "../index";
 import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
 import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
+import { bitvmEmitFraudProof, bitvmWatchtowerTick, fetchBitvmStatus } from "../services/bitvm.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
 import type { CollatorStartRequest, RustSequencerStartRequest } from "../services/collator.service";
 
@@ -117,6 +118,40 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             reply.status(200).send(result);
         } catch (error) {
             reply.status(500).send({ error: error.message || 'Undefined Error' })
+        }
+    });
+
+    fastify.get('bitvm/status', async (request, reply) => {
+        try {
+            const q = request.query as { propertyId?: string; dlcRef?: string };
+            const propertyId = Number(q?.propertyId || 0);
+            const status = await fetchBitvmStatus({
+                propertyId: Number.isFinite(propertyId) && propertyId > 0 ? propertyId : undefined,
+                dlcRef: q?.dlcRef,
+            });
+            reply.status(200).send({ data: status });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || 'Undefined Error' });
+        }
+    });
+
+    fastify.post('bitvm/watchtower-tick', async (request, reply) => {
+        try {
+            const body = (request.body || {}) as { propertyId?: number; dlcRef?: string };
+            const status = await bitvmWatchtowerTick(body);
+            reply.status(200).send({ data: status });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || 'Undefined Error' });
+        }
+    });
+
+    fastify.post('bitvm/emit-fraud-proof', async (request, reply) => {
+        try {
+            const body = (request.body || {}) as { propertyId?: number; dlcRef?: string };
+            const status = await bitvmEmitFraudProof(body);
+            reply.status(200).send({ data: status });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || 'Undefined Error' });
         }
     });
 

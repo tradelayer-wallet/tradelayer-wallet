@@ -7,6 +7,7 @@ import { FuturesPageComponent } from './@pages/futures-page/futures-page.compone
 
 import { HomePageComponent } from './@pages/home-page/home-page.component';
 import { LoginPageComponent } from './@pages/login-page/login-page.component';
+import { BitvmPageComponent } from './@pages/bitvm-page/bitvm-page.component';
 import { NodeRewardPageComponent } from './@pages/node-reward/node-reward-page.component';
 import { PortfolioPageComponent } from './@pages/portfolio-page/portfolio-page.component';
 import { SpotPageComponent } from './@pages/spot-page/spot-page.component';
@@ -32,6 +33,11 @@ export const routes: Routes = [
       {
         path: 'portfolio',
         component: PortfolioPageComponent,
+        canActivate: [],
+      },
+      {
+        path: 'bitvm',
+        component: BitvmPageComponent,
         canActivate: [],
       },
       // {

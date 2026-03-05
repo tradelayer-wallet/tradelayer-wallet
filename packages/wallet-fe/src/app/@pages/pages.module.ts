@@ -55,6 +55,7 @@ import { SendTxTabComponent } from './tx-builder-page/send-tab/send-tab.componen
 import { BuildTxTabComponent } from './tx-builder-page/build-tab/build-tab.component';
 import { SignTxTabComponent } from './tx-builder-page/sign-tab/sign-tab.component';
 import { DecodeTxTabComponent } from './tx-builder-page/decode-tab/decode-tab.component';
+import { BitvmPageComponent } from './bitvm-page/bitvm-page.component';
 
 const NG_MODULES = [
     CommonModule,
@@ -90,6 +91,7 @@ const PAGE_COMPONENTS = [
     SignTxTabComponent,
     SendTxTabComponent,
     DecodeTxTabComponent,
+    BitvmPageComponent,
 ];
 
 const SPOT_COMPONENTS = [

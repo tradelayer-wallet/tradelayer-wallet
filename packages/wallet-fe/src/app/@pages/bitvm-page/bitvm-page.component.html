@@ -1,0 +1,81 @@
+<div class="bitvm-page-container" *ngIf="status$ | async as status">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>BitVM Runtime</mat-card-title>
+      <mat-card-subtitle>Plan A cache/challenge/sweep monitor</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="controls-row">
+        <mat-slide-toggle
+          [checked]="status.featureEnabled"
+          (change)="onToggleFeature($event.checked)"
+        >
+          Enable experimental binohash mode
+        </mat-slide-toggle>
+        <span class="scheme-pill">{{ status.commitScheme }}</span>
+      </div>
+      <div class="actions-row">
+        <button mat-raised-button color="primary" (click)="refresh()">Refresh</button>
+        <button mat-raised-button color="accent" (click)="tickWatchtower()">Watchtower Tick</button>
+        <button mat-raised-button (click)="emitFraudProof()">Emit Fraud Proof (Stub)</button>
+      </div>
+      <div class="last-updated">
+        Last updated: {{ status.updatedAt | date:'medium' }}
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <div class="status-grid">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>BitVM Cache</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div>Open caches: <strong>{{ status.cache.openCaches }}</strong></div>
+        <div>Pending escrow: <strong>{{ status.cache.pendingEscrow }}</strong></div>
+        <div>Pending escrow / DLC: <strong>{{ status.cache.pendingEscrowPerDlc || 0 }}</strong></div>
+        <div>Escrow cap: <strong>{{ status.cache.pendingEscrowCap }}</strong></div>
+        <div>Per-DLC cap: <strong>{{ status.cache.pendingEscrowPerDlcCap }}</strong></div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Challenge Window</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div>Active challenges: <strong>{{ status.challenge.active }}</strong></div>
+        <div>Expiring soon: <strong>{{ status.challenge.expiringSoon }}</strong></div>
+        <div>Fraud proofs submitted: <strong>{{ status.challenge.fraudProofsSubmitted }}</strong></div>
+        <div>
+          Watchtower last tick:
+          <strong>{{ status.challenge.watchtowerLastTick ? (status.challenge.watchtowerLastTick | date:'mediumTime') : 'never' }}</strong>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Rolling Sweep</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div>Window blocks: <strong>{{ status.sweep.windowBlocks }}</strong></div>
+        <div>Deposits this window: <strong>{{ status.sweep.depositsThisWindow }} / {{ status.sweep.maxDepositPerWindow }}</strong></div>
+        <div>Withdrawals this window: <strong>{{ status.sweep.withdrawalsThisWindow }} / {{ status.sweep.maxWithdrawPerWindow }}</strong></div>
+        <div>Sweeps this window: <strong>{{ status.sweep.sweepsThisWindow }} / {{ status.sweep.maxSweepPerWindow }}</strong></div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Integration Hooks</mat-card-title>
+      <mat-card-subtitle>Desktop watchtower/runtime attachment points</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div>Challenge observed hook: <strong>{{ status.hooks.challengeObservedReady ? 'ready' : 'missing' }}</strong></div>
+      <div>Fraud proof emit hook: <strong>{{ status.hooks.fraudProofEmitReady ? 'ready' : 'missing' }}</strong></div>
+      <div>Payout finalized hook: <strong>{{ status.hooks.payoutFinalizedReady ? 'ready' : 'missing' }}</strong></div>
+    </mat-card-content>
+  </mat-card>
+</div>

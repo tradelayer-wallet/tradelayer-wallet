@@ -58,6 +58,12 @@ export class HeaderComponent implements OnInit {
       name: 'Tx Builder',
       link: '/tx-builder',
       needAuthToShow: false,
+    },
+    {
+      id: 7,
+      name: 'BitVM',
+      link: '/bitvm',
+      needAuthToShow: false,
     }
   ];
 
