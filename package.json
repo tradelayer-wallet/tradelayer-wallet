@@ -19,7 +19,10 @@
     "install:all": "npm install && npm install --prefix ./packages/wallet-fe",
     "build:all:windows": "npm run fe:build && npm run server:build:windows && npm run electron:build",
     "build:all:linux": "npm run fe:build && npm run server:build:linux && npm run electron:build",
-    "build:all:mac": "npm run fe:build && npm run server:build:mac && npm run electron:build"
+    "build:all:mac": "npm run fe:build && npm run server:build:mac && npm run electron:build",
+    "test:bitvm-plan-a:uphold": "node scripts/run-bitvm-plan-a.js --verdict uphold",
+    "test:bitvm-plan-a:reject": "node scripts/run-bitvm-plan-a.js --verdict reject",
+    "test:bitvm-plan-a:both": "node scripts/run-bitvm-plan-a.js --both"
   },
   "dependencies": {
     "abstract-level": "1.0.3",
