@@ -198,14 +198,35 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         try {
             if (this.isAbleToRpc || !this.coreStarted) return;
             const res = await this.apiService.mainApi.rpcCall('getblockchaininfo').toPromise();
-            if (res.error) this.message = res.error;
+            const errMsg = String(res?.error || '').toLowerCase();
+            const isTransient = errMsg.includes('econnrefused')
+              || errMsg.includes('connection refused')
+              || errMsg.includes('socket hang up')
+              || errMsg.includes('etimedout')
+              || errMsg.includes('loading block index');
+            if (res.error && !isTransient) this.message = res.error;
+            if (isTransient) {
+                this.message = 'Starting Litecoin daemon...';
+                return;
+            }
             if (!res.error && res.data) {
+                const blocks = Number(res.data.blocks || 0);
+                const headers = Number(res.data.headers || blocks);
+                if (blocks) this.rpcService.lastBlock = blocks;
+                if (headers) this.rpcService.headerBlock = headers;
+                if (headers) this.rpcService.networkBlocks = headers;
                 this.rpcService.isAbleToRpc = true;
                 this.message = '';
+                this.eta = 'Calculating Remaining Time ...';
             }
         } catch (error: any) {
-            const errrorMessage = error?.message || error || "Undefined Error";
-            this.message = errrorMessage;
+            const errrorMessage = String(error?.message || error || '').toLowerCase();
+            const isTransient = errrorMessage.includes('econnrefused')
+              || errrorMessage.includes('connection refused')
+              || errrorMessage.includes('socket hang up')
+              || errrorMessage.includes('etimedout')
+              || errrorMessage.includes('loading block index');
+            this.message = isTransient ? 'Starting Litecoin daemon...' : (error?.message || error || "Undefined Error");
         }
     }
 

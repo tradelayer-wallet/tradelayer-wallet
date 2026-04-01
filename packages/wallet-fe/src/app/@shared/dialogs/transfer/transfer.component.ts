@@ -3,9 +3,8 @@ import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { ToastrService } from 'ngx-toastr';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
-import { IBuildTxConfig, IUTXO, TxsService } from 'src/app/@core/services/txs.service';  // Add this line
+import { TxsService } from 'src/app/@core/services/txs.service';
 import { IToken } from 'src/app/@core/services/spot-services/spot-markets.service';
-import { ENCODER } from 'src/app/utils/payloads/encoder';
 
 @Component({
   selector: 'transfer-dialog',
@@ -99,34 +98,12 @@ export class TransferDialog {
    async transfer() {
       try {
           this.loadingService.isLoading = true;
-
-          const fromKeyPair = { address: this.address };
-          const toKeyPair = { address: this.address };
-
-          const payload = ENCODER.encodeCommit({
-              amount: this.amount,
-              propertyId: this.selectedToken.propertyId,
+          const commitTxSendRes = await this.txsService.depositToChannel({
+              fromAddress: this.address,
               channelAddress: this.address,
+              propertyId: this.selectedToken.propertyId,
+              amount: this.amount,
           });
-
-          const commitTxConfig: IBuildTxConfig = {
-              fromKeyPair,
-              toKeyPair,
-              payload: payload
-          };
-
-          const commitTxRes = await this.txsService.buildTx(commitTxConfig);
-
-          if (!commitTxRes.data) return console.log('Failed to build transaction.');
-
-          const { rawtx } = commitTxRes.data;
-
-          const commitTxSignRes = await this.txsService.signRawTxWithWallet(rawtx);
-          const { isValid, signedHex } = commitTxSignRes.data;
-
-          if (!isValid || !signedHex) return console.log(`Sign Commit TX (2): ${commitTxSignRes.error}`);
-
-          const commitTxSendRes = await this.txsService.sendTx(signedHex);
           if (commitTxSendRes.error || !commitTxSendRes.data) return console.log(`Send Commit TX: ${commitTxSendRes.error}`);
 
           this.toastrService.success(`Tokens moving to trade channel!`, 'Success: '+JSON.stringify(commitTxSendRes));

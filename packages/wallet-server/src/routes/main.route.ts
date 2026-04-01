@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { fasitfyServer } from "../index";
-import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
+import { startWalletNode, createConfigFile, stopWalletNode, createRpcClientFromDatadir } from "../services/node.service";
 import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx, computeMultisigNative } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
 import { backOff, BackoffOptions } from "exponential-backoff";
@@ -29,14 +29,52 @@ const backoffOptions: BackoffOptions = {
 export const mainRoutes = async (fastify: FastifyInstance, opts: any, done: any) => {
     await bootstrapAlgoAssets();
 
+    const isTransientRpcStartupError = (error: any) => {
+      const msg = String(error?.message || error || '').toLowerCase();
+      return error?.code === 'ECONNREFUSED'
+        || error?.code === 'ETIMEDOUT'
+        || error?.code === -28
+        || msg.includes('econnrefused')
+        || msg.includes('connect econnrefused')
+        || msg.includes('connection refused')
+        || msg.includes('socket hang up')
+        || msg.includes('etimedout')
+        || msg.includes('loading block index');
+    };
+
     fastify.post('rpc-call', async (request, reply) => {
         try {
             const { method, params } = request.body as { method: string, params: any[] };
+            if (!fasitfyServer.rpcClient) {
+              const rpcClient = createRpcClientFromDatadir(process.env.DATADIR, Number(process.env.RPC_PORT));
+              if (rpcClient) {
+                try {
+                  const probe = await rpcClient.call('getblockchaininfo');
+                  if (probe?.data && !probe?.error) {
+                    fasitfyServer.rpcClient = rpcClient;
+                    fasitfyServer.rpcPort = Number(process.env.RPC_PORT) || 19332;
+                  } else if (isTransientRpcStartupError(probe?.error)) {
+                    reply.status(200).send({ error: String(probe?.error || 'Starting Litecoin daemon...') });
+                    return;
+                  }
+                } catch (probeError: any) {
+                  if (isTransientRpcStartupError(probeError)) {
+                    reply.status(200).send({ error: String(probeError?.message || probeError || 'Starting Litecoin daemon...') });
+                    return;
+                  }
+                  throw probeError;
+                }
+              }
+            }
             if (!fasitfyServer.rpcClient) throw new Error("No RPC Client initialized");
             const _params = params?.length ? params : [];
             const res = await backOff(() => fasitfyServer.rpcClient.call(method, ..._params), backoffOptions);
             reply.status(200).send(res);
         } catch (error: any) {
+            if (isTransientRpcStartupError(error)) {
+              reply.status(200).send({ error: error?.message || error || 'Loading Litecoin RPC...' });
+              return;
+            }
             reply.status(500).send({ error: error?.message || error || 'Undefined Error' })
         }
     });

@@ -80,6 +80,25 @@ rpcport=19332
     }
 };
 
+export const createRpcClientFromDatadir = (datadir?: string, port?: number) => {
+    const path = join(datadir || defaultDirObj);
+    const configFilePath = join(path, `litecoin.conf`);
+    if (!existsSync(configFilePath)) return null;
+
+    const confFile = readFileSync(configFilePath, { encoding: 'utf8' });
+    const configObj: any = structureConfFile(confFile);
+    if (!configObj.rpcuser || !configObj.rpcpassword) return null;
+
+    const rpcPort = Number(port || configObj.rpcport || process.env.RPC_PORT || 19332) || 19332;
+    return new RpcClient({
+        username: configObj.rpcuser,
+        password: configObj.rpcpassword,
+        host: configObj.rpchost || 'localhost',
+        port: rpcPort,
+        timeout: 20000,
+    });
+};
+
 export const startWalletNode = async (walletNodeOptions: any) => {
   try {
     const isTestnet = walletNodeOptions.testnet;
@@ -171,7 +190,7 @@ const checkIsCoreStarted = async (
     ) => {
     return new Promise(async (resolve) => {
         const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
-        const port = isTestnet ? 19332 : 9332;
+        const port = Number(rpcport) || (isTestnet ? 19332 : 9332);
         console.log('port? '+port+' '+isTestnet)
         const rpcClientOptions = {
             username: rpcuser,
@@ -182,67 +201,68 @@ const checkIsCoreStarted = async (
         };
 
         const client = new RpcClient(rpcClientOptions);
-
-        const isActiveCheck = () => {
-            return new Promise(async (res) => {
-                const check = await client.call('getblockchaininfo');
-                if (check.data) res(2);
-                if (check.error && !check.error.includes('ECONNREFUSED')) res(check);
-                if (check.error && check.error.includes('ECONNREFUSED')) res(0);
-            });
+        const isConnectionRefused = (value: any) => {
+            const msg = String(value?.message || value || '');
+            return msg.includes('ECONNREFUSED') || msg.includes('connection refused');
         };
+
+        const isActiveCheck = async () => {
+            try {
+                const check = await client.call('getblockchaininfo');
+                if (check?.data) return 2;
+                if (check?.error && isConnectionRefused(check.error)) return 0;
+                return check;
+            } catch (error: any) {
+                if (isConnectionRefused(error)) return 0;
+                return { error: error?.message || error || 'Undefined Error' };
+            }
+        };
+
         const firstCheck = await isActiveCheck();
         if (firstCheck !== 0) {
-            /*console.log('Attempting to stop the core...');
-            try {
-                    console.log('RPC Client found:', client);
-                    await client.call('stop');
-                    console.log('Core stopped successfully.');
-            } catch (error) {
-                console.error('Error while trying to stop the core:', error);
-            }*/
             return resolve({ error: 'The core is already running, try shutting down litecoind in the task manager, restarting the wallet or restarting your PC.' });
         }
 
-
-        /*const isTradelayerStarted = await fasitfyServer.tradelayerService.init()
-            .catch((error) => {
-                resolve({ error: error });
-                return false;
-            });
-        if (!isTradelayerStarted) return;*/
-
         exec(filePathWithFlags, (error, stdout, stderr) => {
             console.log('inside exec '+error+' '+stdout)
-            fasitfyServer.mainSocketService.currentSocket
-                .emit("core-error", stderr || error?.message || error || stdout);
+            if (fasitfyServer.mainSocketService?.currentSocket) {
+                fasitfyServer.mainSocketService.currentSocket
+                    .emit("core-error", stderr || error?.message || error || stdout);
+            }
             fasitfyServer.rpcClient = null;
             fasitfyServer.rpcPort = null;
         });
-        setTimeout(async () => {
-            await fasitfyServer.tradelayerService.stop();
-            resolve({error: 'Core Starting TimedOut: 10 seconds'});
-        }, 10000);
 
-        const finalCheck = () => new Promise<{ data: boolean }>(async checkResolve => {
-            await client.call('getblockchaininfo')
-                .then(async checkRes => {
-                    if (!checkRes?.error?.includes("ECONNREFUSED")) {
-                        fasitfyServer.rpcClient = client;
-                        fasitfyServer.rpcPort = port;
-                        fasitfyServer.mainSocketService.startBlockCounting(2000);
-                        checkResolve({ data: true });
-                    } else {
-                        await new Promise(res => setTimeout(() => res(true), 1000));
-                        const subCheck = await finalCheck();
-                        checkResolve(subCheck);
-                    }
-                });
+        const timeoutId = setTimeout(async () => {
+            await fasitfyServer.tradelayerService.stop();
+            resolve({ error: 'Core Starting TimedOut: 120 seconds' });
+        }, 120000);
+
+        const finalCheck = (): Promise<{ data: boolean }> => new Promise(async (checkResolve) => {
+            try {
+                const checkRes = await client.call('getblockchaininfo');
+                if (!checkRes?.error || !isConnectionRefused(checkRes.error)) {
+                    clearTimeout(timeoutId);
+                    fasitfyServer.rpcClient = client;
+                    fasitfyServer.rpcPort = port;
+                    fasitfyServer.mainSocketService.startBlockCounting(2000);
+                    checkResolve({ data: true });
+                    return;
+                }
+            } catch (error: any) {
+                if (!isConnectionRefused(error)) {
+                    clearTimeout(timeoutId);
+                    checkResolve({ data: false });
+                    return;
+                }
+            }
+
+            await new Promise(res => setTimeout(() => res(true), 1000));
+            const subCheck = await finalCheck();
+            checkResolve(subCheck);
         });
 
         const finalRes = await finalCheck();
-        // const tlDbPath = join(__dirname, 'tl-db');
-        // fasitfyServer.tradelayerService.init({ rpcClientOptions, dbPath: tlDbPath });
         resolve({ data: finalRes });
     });
 };
