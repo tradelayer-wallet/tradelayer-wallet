@@ -372,8 +372,6 @@ export class TxsService {
         amount: number | string;
         dlcTemplateId?: string;
         dlcContractId?: string;
-        settlementState?: string;
-        dlcHash?: string;
     }): Promise<{ data?: string; error?: string }> {
         const payload = ENCODER.encodeGrantManagedToken({
             propertyId: params.propertyId,
@@ -381,8 +379,6 @@ export class TxsService {
             addressToGrantTo: params.recipientAddress,
             dlcTemplateId: params.dlcTemplateId,
             dlcContractId: params.dlcContractId,
-            settlementState: params.settlementState,
-            dlcHash: params.dlcHash,
         });
 
         return this.buildSingSendTx({
@@ -434,8 +430,6 @@ export class TxsService {
             amount: params.amount,
             dlcTemplateId: params.config.templateId,
             dlcContractId: params.config.contractId,
-            settlementState: params.config.mintSettlementState,
-            dlcHash: params.config.dlcHash,
         });
 
         if (mintRes.error || !mintRes.data) {
@@ -462,7 +456,6 @@ export class TxsService {
             amount: params.amount,
             dlcTemplateId: params.config.templateId,
             dlcContractId: params.config.contractId,
-            settlementState: params.config.redeemSettlementState,
         });
 
         if (redeemRes.error || !redeemRes.data) {

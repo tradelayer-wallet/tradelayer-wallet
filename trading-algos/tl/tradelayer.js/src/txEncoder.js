@@ -281,11 +281,8 @@ const Encode = {
             (params.propertyid ?? params.propertyId)?.toString(36) ?? '0',
             amountGranted?.toString(36) ?? '0',
             params.redeemAddress || params.addressToGrantTo || '',
-            '',
             encodeReferenceToken(params?.dlcTemplateId),
-            encodeReferenceToken(params?.dlcContractId),
-            params?.settlementState || '',
-            params?.dlcHash || ''
+            encodeReferenceToken(params?.dlcContractId)
         ];
         const type = 11;
         const typeStr = type?.toString(36) ?? '0';
@@ -299,8 +296,7 @@ const Encode = {
             (params.propertyid ?? params.propertyId)?.toString(36) ?? '0',
             amountDestroyed?.toString(36) ?? '0',
             encodeReferenceToken(params?.dlcTemplateId),
-            encodeReferenceToken(params?.dlcContractId),
-            params?.settlementState || ''
+            encodeReferenceToken(params?.dlcContractId)
         ];
         const type = 12;
         const typeStr = type?.toString(36) ?? '0';
