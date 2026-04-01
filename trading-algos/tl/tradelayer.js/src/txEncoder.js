@@ -3,6 +3,25 @@ const base94 = require('./base94.js');
 const base256 = require('./base256.js');
 const marker = 'tl';
 
+const encodeReferenceToken = (value) => {
+    if (value == null || value === '') return '';
+
+    const raw = String(value).trim();
+    if (!raw) return '';
+
+    if (/^\d+$/.test(raw)) {
+        return Number(raw).toString(36);
+    }
+
+    let hash = 2166136261;
+    for (let i = 0; i < raw.length; i++) {
+        hash ^= raw.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+
+    return (hash >>> 0).toString(36);
+};
+
 const Encode = {
 
     encodeAmount: (amt) => {
@@ -259,10 +278,14 @@ const Encode = {
     encodeGrantManagedToken: (params) => {
         const amountGranted = new BigNumber(params.amountGranted).times(1e8).toNumber();
         const payload = [
-            params.propertyid?.toString(36) ?? '0',
+            (params.propertyid ?? params.propertyId)?.toString(36) ?? '0',
             amountGranted?.toString(36) ?? '0',
-            params.addressToGrantTo,
-            params?.dlcHash
+            params.redeemAddress || params.addressToGrantTo || '',
+            '',
+            encodeReferenceToken(params?.dlcTemplateId),
+            encodeReferenceToken(params?.dlcContractId),
+            params?.settlementState || '',
+            params?.dlcHash || ''
         ];
         const type = 11;
         const typeStr = type?.toString(36) ?? '0';
@@ -271,11 +294,13 @@ const Encode = {
 
     // Encode Redeem Managed Token Transaction
     encodeRedeemManagedToken: (params) => {
-        const amountGranted = new BigNumber(params.amountGranted).times(1e8).toNumber();
+        const amountDestroyed = new BigNumber(params.amountDestroyed ?? params.amountGranted ?? 0).times(1e8).toNumber();
         const payload = [
-            params.propertyid?.toString(36) ?? '0',
-            amountGranted?.toString(36) ?? '0',
-            params.addressToGrantTo,
+            (params.propertyid ?? params.propertyId)?.toString(36) ?? '0',
+            amountDestroyed?.toString(36) ?? '0',
+            encodeReferenceToken(params?.dlcTemplateId),
+            encodeReferenceToken(params?.dlcContractId),
+            params?.settlementState || ''
         ];
         const type = 12;
         const typeStr = type?.toString(36) ?? '0';

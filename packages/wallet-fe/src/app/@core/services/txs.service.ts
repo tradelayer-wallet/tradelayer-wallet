@@ -444,7 +444,7 @@ export class TxsService {
             dlcTemplateId: params.config.templateId,
             dlcContractId: params.config.contractId,
             settlementState: params.config.mintSettlementState,
-            dlcHash: params.config.templateHash,
+            dlcHash: params.config.dlcHash,
         });
 
         if (mintRes.error || !mintRes.data) {

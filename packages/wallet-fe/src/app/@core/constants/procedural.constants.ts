@@ -14,7 +14,7 @@ export interface ProceduralReceiptConfig {
   adminAddress: string;
   vaultAddress: string;
   templateId: string;
-  templateHash: string;
+  dlcHash: string;
   contractId: string;
   mintSettlementState: string;
   redeemSettlementState: string;
@@ -26,7 +26,7 @@ export const M1_PROCEDURAL_RECEIPT_CONFIG: ProceduralReceiptConfig = {
   adminAddress: M1_OPERATOR_ADDRESS,
   vaultAddress: M1_OPERATOR_ADDRESS,
   templateId: M1_RECEIPT_TEMPLATE_ID,
-  templateHash: M1_RECEIPT_TEMPLATE_HASH,
+  dlcHash: M1_RECEIPT_TEMPLATE_HASH,
   contractId: M1_RECEIPT_CONTRACT_ID,
   mintSettlementState: 'FUNDED',
   redeemSettlementState: 'SETTLED',
