@@ -141,7 +141,7 @@ if (!filePathWithFlags.includes('-server=')) {
     console.log(`[rpc] isTestnet=${isTestnet} rpcport=${expectedRpcPort} datadir=${path}`);
 
     if (!filePathWithFlags) throw(`Error with Starting Node. Code 1`);
-    return await checkIsCoreStarted(filePathWithFlags, configObj, isTestnet);
+    return await checkIsCoreStarted(filePathWithFlags, configObj, isTestnet, expectedRpcPort);
   } catch(error: any) {
     return { error: error.message || error || 'Undefined Error' };
   }
@@ -187,10 +187,11 @@ const checkIsCoreStarted = async (
         filePathWithFlags: string,
         configObj: any,
         isTestnet: boolean,
+        expectedRpcPort?: number,
     ) => {
     return new Promise(async (resolve) => {
-        const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
-        const port = Number(rpcport) || (isTestnet ? 19332 : 9332);
+        const { rpcuser, rpcpassword, rpchost } = configObj;
+        const port = Number(expectedRpcPort || configObj.rpcport || (isTestnet ? 19332 : 9332)) || (isTestnet ? 19332 : 9332);
         console.log('port? '+port+' '+isTestnet)
         const rpcClientOptions = {
             username: rpcuser,

@@ -196,7 +196,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     private async checkIsAbleToRpc() {
         try {
-            if (this.isAbleToRpc || !this.coreStarted) return;
+            if (this.isAbleToRpc) return;
             const res = await this.apiService.mainApi.rpcCall('getblockchaininfo').toPromise();
             const errMsg = String(res?.error || '').toLowerCase();
             const isTransient = errMsg.includes('econnrefused')
