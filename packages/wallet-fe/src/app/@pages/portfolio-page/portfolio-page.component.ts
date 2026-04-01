@@ -11,7 +11,10 @@ import { TxsService } from 'src/app/@core/services/txs.service';
 import { ENCODER } from 'src/app/utils/payloads/encoder';
 import { HttpClient } from '@angular/common/http';
 import { MatDialog } from '@angular/material/dialog';
-import { M1_RECEIPT_TICKER } from 'src/app/@core/constants/procedural.constants';
+import {
+  M1_RECEIPT_PROPERTY_ID,
+  M1_RECEIPT_TICKER,
+} from 'src/app/@core/constants/procedural.constants';
 
 @Component({
   selector: 'tl-portoflio-page',
@@ -197,6 +200,11 @@ export class PortfolioPageComponent implements OnInit {
       return;
     }
 
+    if (Number.isFinite(M1_RECEIPT_PROPERTY_ID) && M1_RECEIPT_PROPERTY_ID > 0) {
+      this.receiptPropertyId = Number(M1_RECEIPT_PROPERTY_ID);
+      return;
+    }
+
     try {
       const propertiesRes = await this.tlApi.rpc('listProperties').toPromise();
       const properties = Array.isArray(propertiesRes?.data) ? propertiesRes.data : [];
@@ -207,19 +215,6 @@ export class PortfolioPageComponent implements OnInit {
       if (match?.id != null) {
         this.receiptPropertyId = Number(match.id);
         return;
-      }
-
-      for (const property of properties) {
-        const propertyId = Number(property?.id);
-        if (!Number.isFinite(propertyId) || propertyId <= 0) {
-          continue;
-        }
-
-        const propertyRes = await this.tlApi.rpc('getProperty', [propertyId]).toPromise();
-        if (Number(propertyRes?.data?.proceduralType) === 1) {
-          this.receiptPropertyId = propertyId;
-          return;
-        }
       }
 
       this.receiptPropertyId = null;

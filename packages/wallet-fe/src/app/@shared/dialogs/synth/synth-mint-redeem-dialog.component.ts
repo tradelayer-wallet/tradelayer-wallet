@@ -116,11 +116,15 @@ export class SynthMintRedeemDialogComponent {
   private async loadProceduralConfig() {
     this.proceduralConfig = {
       ...M1_PROCEDURAL_RECEIPT_CONFIG,
-      receiptPropertyId: await this.resolveReceiptPropertyId(),
     };
   }
 
   private async resolveReceiptPropertyId(): Promise<number | undefined> {
+    const configuredReceiptPropertyId = Number(M1_PROCEDURAL_RECEIPT_CONFIG.receiptPropertyId || 0);
+    if (Number.isFinite(configuredReceiptPropertyId) && configuredReceiptPropertyId > 0) {
+      return configuredReceiptPropertyId;
+    }
+
     const propId = Number(this.data.propId);
     if (this.data.mode === 'redeem' && Number.isFinite(propId) && propId > 0) {
       return propId;
@@ -132,19 +136,6 @@ export class SynthMintRedeemDialogComponent {
     const tickerMatch = properties.find((property: any) => String(property?.ticker || '').toUpperCase() === ticker);
     if (tickerMatch?.id != null) {
       return Number(tickerMatch.id);
-    }
-
-    for (const property of properties) {
-      const propertyId = Number(property?.id);
-      if (!Number.isFinite(propertyId) || propertyId <= 0) {
-        continue;
-      }
-
-      const propertyRes = await this.tlApi.rpc('getProperty', [propertyId]).toPromise();
-      const details = propertyRes?.data;
-      if (Number(details?.proceduralType) === 1) {
-        return propertyId;
-      }
     }
 
     return undefined;
