@@ -3,16 +3,24 @@ import { Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { HttpClient } from '@angular/common/http';
 import { ToastrService } from 'ngx-toastr';
-import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service'; import { ENCODER } from 'src/app/utils/payloads/encoder';
+import { ApiService } from 'src/app/@core/services/api.service';
+import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service';
+import { ENCODER } from 'src/app/utils/payloads/encoder';
+import {
+  M1_PROCEDURAL_RECEIPT_CONFIG,
+  ProceduralReceiptConfig,
+} from 'src/app/@core/constants/procedural.constants';
 
 export type SynthMode = 'mint' | 'redeem';
+export type SynthFlow = 'synthetic' | 'proceduralReceipt';
 
-type ContractRow = { 
-    id: number; 
-    label: string; 
-    notional?: number; 
-    maxMintLTC?: number
-    maxMintUnits?: number; };
+type ContractRow = {
+  id: number;
+  label: string;
+  notional?: number;
+  maxMintLTC?: number;
+  maxMintUnits?: number;
+};
 
 @Component({
   selector: 'app-synth-mint-redeem-dialog',
@@ -24,37 +32,75 @@ export class SynthMintRedeemDialogComponent {
   capInfo?: { max: number };
   contracts: ContractRow[] = [];
   selectedContractId: number | null = null;
+  proceduralConfig?: ProceduralReceiptConfig;
 
   constructor(
     public dialogRef: MatDialogRef<SynthMintRedeemDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: {
-      mode?: SynthMode;                 // now optional — we’ll infer if not provided
+    @Inject(MAT_DIALOG_DATA)
+    public data: {
+      mode?: SynthMode;
+      flow?: SynthFlow;
       address: string;
-      propId: number | string;      // may be 's<pid>-<cid>' alias or a number
-      available?: number
+      propId: number | string;
+      available?: number;
+      title?: string;
+      actionLabel?: string;
+      underlyingAssetLabel?: string;
     },
     private txsService: TxsService,
     private toastr: ToastrService,
-    private http: HttpClient
+    private http: HttpClient,
+    private apiService: ApiService
   ) {}
 
+  get tlApi() {
+    return this.apiService.newTlApi;
+  }
+
+  get isProceduralFlow() {
+    return this.data.flow === 'proceduralReceipt';
+  }
+
   async ngOnInit() {
-    // 1) Infer mode from propId if not explicitly provided:
     if (!this.data.mode) {
-      const isSynthAlias = typeof this.data.propId === 'string' && /^s\d+-\d+$/i.test(this.data.propId);
+      const isSynthAlias =
+        typeof this.data.propId === 'string' && /^s\d+-\d+$/i.test(this.data.propId);
       this.data.mode = isSynthAlias ? 'redeem' : 'mint';
     }
+    if (!this.data.underlyingAssetLabel) {
+      this.data.underlyingAssetLabel = 'LTC';
+    }
+    if (!this.data.flow) {
+      this.data.flow = 'synthetic';
+    }
 
-    // 2) Load caps
+    if (this.isProceduralFlow) {
+      await this.loadProceduralConfig();
+      await this.loadAmountCap();
+      return;
+    }
+
     if (this.data.mode === 'mint') {
-      await this.loadEligibility(); // fills contracts & default selection & cap
+      await this.loadEligibility();
     } else {
-      await this.loadRedeemCap();   // simple available balance
+      await this.loadRedeemCap();
     }
   }
 
   get selectedContract() {
-    return this.contracts.find(c => c.id === this.selectedContractId) || null;
+    return this.contracts.find((c) => c.id === this.selectedContractId) || null;
+  }
+
+  get titleText() {
+    if (this.data.title) return this.data.title;
+    return this.data.mode === 'mint'
+      ? 'Mint Synthetic'
+      : `Redeem ${this.data.underlyingAssetLabel || 'LTC'}`;
+  }
+
+  get submitText() {
+    if (this.data.actionLabel) return this.data.actionLabel;
+    return this.data.mode === 'mint' ? 'Mint' : `Redeem ${this.data.underlyingAssetLabel || 'LTC'}`;
   }
 
   get maxMintUnits() {
@@ -67,48 +113,83 @@ export class SynthMintRedeemDialogComponent {
     }
   }
 
+  private async loadProceduralConfig() {
+    this.proceduralConfig = {
+      ...M1_PROCEDURAL_RECEIPT_CONFIG,
+      receiptPropertyId: await this.resolveReceiptPropertyId(),
+    };
+  }
+
+  private async resolveReceiptPropertyId(): Promise<number | undefined> {
+    const propId = Number(this.data.propId);
+    if (this.data.mode === 'redeem' && Number.isFinite(propId) && propId > 0) {
+      return propId;
+    }
+
+    const propertiesRes = await this.tlApi.rpc('listProperties').toPromise();
+    const properties = Array.isArray(propertiesRes?.data) ? propertiesRes.data : [];
+    const ticker = String(M1_PROCEDURAL_RECEIPT_CONFIG.receiptTicker || '').toUpperCase();
+    const tickerMatch = properties.find((property: any) => String(property?.ticker || '').toUpperCase() === ticker);
+    if (tickerMatch?.id != null) {
+      return Number(tickerMatch.id);
+    }
+
+    for (const property of properties) {
+      const propertyId = Number(property?.id);
+      if (!Number.isFinite(propertyId) || propertyId <= 0) {
+        continue;
+      }
+
+      const propertyRes = await this.tlApi.rpc('getProperty', [propertyId]).toPromise();
+      const details = propertyRes?.data;
+      if (Number(details?.proceduralType) === 1) {
+        return propertyId;
+      }
+    }
+
+    return undefined;
+  }
+
+  private async loadAmountCap() {
+    const max = Number(this.data.available ?? 0);
+    if (max > 0) {
+      this.capInfo = { max };
+      this.amount = max.toFixed(8);
+    } else {
+      this.capInfo = undefined;
+    }
+  }
 
   private async loadEligibility() {
-    console.log('data inject in synth '+JSON.stringify(this.data))
-    //try {
-
-      const resp: any = await this.http.get(`http://localhost:3000/tl_getMaxSynth`, {
+    const resp: any = await this.http
+      .get(`http://localhost:3000/tl_getMaxSynth`, {
         params: { address: this.data.address, propId: this.data.propId },
-      }).toPromise();
-      console.log('loadEligibility response', resp);
+      })
+      .toPromise();
 
-      // Normalize to dialog shape
-      this.contracts = (resp?.eligible || []).map((c: any) => ({
-        id: Number(c.contractId),
-        label: c.symbol || `Contract #${c.contractId}`,
-        seriesId: c.seriesId,
-        notionalPropertyId: c.notionalPropertyId,
-        perContractUnits: c.perContractUnits,
-        maxMintUnits: c.maxMintUnits,
-      }));
+    this.contracts = (resp?.eligible || []).map((c: any) => ({
+      id: Number(c.contractId),
+      label: c.symbol || `Contract #${c.contractId}`,
+      seriesId: c.seriesId,
+      notionalPropertyId: c.notionalPropertyId,
+      perContractUnits: c.perContractUnits,
+      maxMintUnits: c.maxMintUnits,
+    }));
 
+    this.selectedContractId = this.contracts[0]?.id ?? null;
 
-      // pick the first eligible by default
-      this.selectedContractId = this.contracts[0]?.id ?? null;
-
-      // cap = selected contract max (fallback to total)
-      const selected = this.contracts.find(c => c.id === this.selectedContractId);
-      const max = selected?.maxMintLTC ?? Number(resp?.maxMintTotalLTC ?? 0);
-      if (max > 0) {
-        this.capInfo = { max };
-        this.amount = max.toFixed(8);
-      } else {
-        this.capInfo = undefined;
-      }
-    //} catch {
-      //this.contracts = [];
-      //this.selectedContractId = null;
-      //this.capInfo = undefined;
-    //}
+    const selected = this.contracts.find((c) => c.id === this.selectedContractId);
+    const max = selected?.maxMintLTC ?? Number(resp?.maxMintTotalLTC ?? 0);
+    if (max > 0) {
+      this.capInfo = { max };
+      this.amount = max.toFixed(8);
+    } else {
+      this.capInfo = undefined;
+    }
   }
 
   private async loadRedeemCap() {
-    try{
+    try {
       const max = Number(this.data.available ?? 0);
       if (max > 0) {
         this.capInfo = { max };
@@ -123,7 +204,7 @@ export class SynthMintRedeemDialogComponent {
 
   onContractChange(id: number) {
     this.selectedContractId = id;
-    const selected = this.contracts.find(c => c.id === id);
+    const selected = this.contracts.find((c) => c.id === id);
     const max = selected?.maxMintLTC ?? 0;
     this.capInfo = max > 0 ? { max } : undefined;
     if (max > 0) this.amount = max.toFixed(8);
@@ -139,7 +220,9 @@ export class SynthMintRedeemDialogComponent {
   }
 
   copyAddress() {
-    try { navigator.clipboard?.writeText(this.data.address); } catch {}
+    try {
+      navigator.clipboard?.writeText(this.data.address);
+    } catch {}
   }
 
   onSlide(ev: any) {
@@ -149,31 +232,75 @@ export class SynthMintRedeemDialogComponent {
     this.amount = (this.capInfo.max * pct).toFixed(8);
   }
 
-  cancel() { this.dialogRef.close(); }
+  cancel() {
+    this.dialogRef.close();
+  }
 
-   async submit() {
+  private async submitProceduralReceipt() {
+    if (!this.proceduralConfig?.receiptPropertyId) {
+      throw new Error('Receipt property could not be resolved.');
+    }
+
+    if (this.data.mode === 'mint') {
+      const result = await this.txsService.tokenizeProceduralReceipt({
+        depositorAddress: this.data.address,
+        amount: Number(this.amount),
+        config: this.proceduralConfig,
+      });
+
+      if (result.error || !result.data) {
+        throw new Error(result.error || 'Tokenize failed');
+      }
+
+      this.toastr.success(`Deposit TX: ${result.data.depositTxid}`);
+      this.toastr.success(`Mint TX: ${result.data.mintTxid}`);
+      this.dialogRef.close(result);
+      return;
+    }
+
+    const result = await this.txsService.redeemProceduralReceiptWithRelease({
+      holderAddress: this.data.address,
+      amount: Number(this.amount),
+      config: this.proceduralConfig,
+    });
+
+    if (result.error || !result.data) {
+      throw new Error(result.error || 'Redeem failed');
+    }
+
+    this.toastr.success(`Redeem TX: ${result.data.redeemTxid}`);
+    this.toastr.success(`Release TX: ${result.data.releaseTxid}`);
+    this.dialogRef.close(result);
+  }
+
+  async submit() {
     try {
+      if (this.isProceduralFlow) {
+        await this.submitProceduralReceipt();
+        return;
+      }
+
       let payload: string;
 
       if (this.data.mode === 'mint') {
         payload = ENCODER.encodeMintSynthetic({
           propertyId: Number(this.data.propId),
           contractId: Number(this.selectedContractId),
-          amount: Number(this.amount)
+          amount: Number(this.amount),
         });
       } else {
         payload = ENCODER.encodeRedeemSynthetic({
-          propertyId: String(this.data.propId),   // redeem expects composite key
+          propertyId: String(this.data.propId),
           contractId: Number(this.selectedContractId),
-          amount: Number(this.amount)
+          amount: Number(this.amount),
         });
       }
 
       const cfg: IBuildTxConfig = {
         fromKeyPair: { address: this.data.address },
-        toKeyPair:   { address: this.data.address }, // loopback, since payload is the point
-        amount: 0,                                   // no LTC amount, just the payload
-        payload
+        toKeyPair: { address: this.data.address },
+        amount: 0,
+        payload,
       };
 
       const result = await this.txsService.buildSingSendTx(cfg);

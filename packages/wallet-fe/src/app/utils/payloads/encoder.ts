@@ -174,6 +174,32 @@ type EncodeAttestationParams = {
   metaData: string; // Usually a country code or similar metadata
 };
 
+type EncodeTokenIssueParams = {
+  initialAmount: number | string;
+  ticker: string;
+  whitelists?: number[];
+  managed?: boolean;
+  backupAddress?: string;
+  nft?: boolean;
+  coloredCoinHybrid?: boolean;
+  proceduralType?: number | null;
+};
+
+const encodeTokenIssue = (params: EncodeTokenIssueParams): string => {
+  const payload = [
+    Number(params.initialAmount || 0).toString(36),
+    params.ticker || '',
+    (params.whitelists || []).map(val => Number(val).toString(36)).join(','),
+    params.managed ? '1' : '0',
+    params.backupAddress || '',
+    params.nft ? '1' : '0',
+    params.coloredCoinHybrid ? '1' : '0',
+    params.proceduralType == null ? '' : Number(params.proceduralType).toString(36),
+  ];
+
+  return marker + (1).toString(36) + payload.join(',');
+};
+
 const encodeAttestation = (params: EncodeAttestationParams): string => {
   const payload = [
     params.revoke.toString(36),      // Revoke flag (0 or 1)
@@ -185,6 +211,51 @@ const encodeAttestation = (params: EncodeAttestationParams): string => {
   const txNumber36 = txNumber.toString(36);
   const payloadString = payload.join(',');
   return marker + txNumber36 + payloadString;
+};
+
+type EncodeGrantManagedTokenParams = {
+  propertyId: number;
+  amountGranted: number | string;
+  addressToGrantTo: string;
+  dlcTemplateId?: string;
+  dlcContractId?: string;
+  settlementState?: string;
+  dlcHash?: string;
+};
+
+const encodeGrantManagedToken = (params: EncodeGrantManagedTokenParams): string => {
+  const payload = [
+    Number(params.propertyId).toString(36),
+    new BigNumber(params.amountGranted).times(1e8).integerValue(BigNumber.ROUND_DOWN).toString(36),
+    params.addressToGrantTo || '',
+    '',
+    params.dlcTemplateId || '',
+    params.dlcContractId || '',
+    params.settlementState || '',
+    params.dlcHash || '',
+  ];
+
+  return marker + (11).toString(36) + payload.join(',');
+};
+
+type EncodeRedeemManagedTokenParams = {
+  propertyId: number;
+  amountDestroyed: number | string;
+  dlcTemplateId?: string;
+  dlcContractId?: string;
+  settlementState?: string;
+};
+
+const encodeRedeemManagedToken = (params: EncodeRedeemManagedTokenParams): string => {
+  const payload = [
+    Number(params.propertyId).toString(36),
+    new BigNumber(params.amountDestroyed).times(1e8).integerValue(BigNumber.ROUND_DOWN).toString(36),
+    params.dlcTemplateId || '',
+    params.dlcContractId || '',
+    params.settlementState || '',
+  ];
+
+  return marker + (12).toString(36) + payload.join(',');
 };
 
 
@@ -271,6 +342,7 @@ export const encodeRedeemSynthetic = (params: EncodeRedeemSyntheticParams): stri
 };
 
 export const ENCODER = { 
+    encodeTokenIssue,
     encodeSend, 
     encodeTradeTokensChannel,
     encodeWithdrawal, 
@@ -279,6 +351,8 @@ export const ENCODER = {
     encodeCommit,
     encodeTransfer,
     encodeAttestation,
+    encodeGrantManagedToken,
+    encodeRedeemManagedToken,
     encodeMintSynthetic,
     encodeRedeemSynthetic
 };

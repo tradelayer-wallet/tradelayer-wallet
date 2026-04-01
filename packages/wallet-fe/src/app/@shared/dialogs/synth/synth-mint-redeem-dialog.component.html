@@ -1,6 +1,6 @@
 <div class="dialog-container">
   <div class="title">
-    <h1>{{ data.mode === 'mint' ? 'Mint Synthetic' : 'Redeem Synthetic' }}</h1>
+    <h1>{{ titleText }}</h1>
   </div>
 
   <div class="content" *ngIf="data?.address">
@@ -9,7 +9,7 @@
     </div>
 
     <!-- Hedge contract selector (only for Mint) -->
-<mat-form-field *ngIf="data.mode === 'mint'" appearance="fill" style="width:350px">
+<mat-form-field *ngIf="data.mode === 'mint' && !isProceduralFlow" appearance="fill" style="width:350px">
   <mat-label>Hedge Contract</mat-label>
   <mat-select [value]="selectedContractId" (selectionChange)="onContractChange($event.value)">
     <mat-option *ngFor="let c of contracts" [value]="c.id">
@@ -18,7 +18,7 @@
   </mat-select>
 </mat-form-field>
 
-<div class="hint" *ngIf="data.mode === 'mint' && contracts.length === 0">
+<div class="hint" *ngIf="data.mode === 'mint' && !isProceduralFlow && contracts.length === 0">
   No eligible inverse-native contracts found for this asset.
 </div>
 
@@ -67,7 +67,7 @@
       color="primary"
       (click)="submit()"
       [disabled]="!isPositive(amount)">
-      {{ data.mode === 'mint' ? 'MINT' : 'REDEEM' }}
+      {{ submitText }}
     </button>
   </div>
 </div>

@@ -1,17 +1,17 @@
-import { AfterViewInit, Component, ElementRef, OnInit, ChangeDetectorRef,Inject } from '@angular/core';
+import { Component, ElementRef, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
-import { first } from 'rxjs/operators';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
-import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
+import { AuthService } from 'src/app/@core/services/auth.service';
+import { ApiService } from 'src/app/@core/services/api.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { TxsService } from 'src/app/@core/services/txs.service';
-import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
-import { ENCODER } from 'src/app/utils/payloads/encoder'
+import { ENCODER } from 'src/app/utils/payloads/encoder';
 import { HttpClient } from '@angular/common/http';
-import { MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
+import { MatDialog } from '@angular/material/dialog';
+import { M1_RECEIPT_TICKER } from 'src/app/@core/constants/procedural.constants';
 
 @Component({
   selector: 'tl-portoflio-page',
@@ -23,9 +23,10 @@ export class PortfolioPageComponent implements OnInit {
   cryptoBalanceColumns: string[] = ['attestation', 'address', 'confirmed', 'unconfirmed', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'channel', 'actions'];
   selectedAddress: string = '';
-  private propertyTypeCache = new Map<number, number>(); // pid -> type (5 = synthetic)
+  receiptPropertyId: number | null = null;
 
   constructor(
+    private apiService: ApiService,
     private balanceService: BalanceService,
     private dialogService: DialogService,
     private toastrService: ToastrService,
@@ -37,8 +38,12 @@ export class PortfolioPageComponent implements OnInit {
     private attestationService: AttestationService,
     private loadingService: LoadingService,
     private cdr: ChangeDetectorRef, // Inject ChangeDetectorRef,
-    private http: HttpClient
+    private http: HttpClient,
   ) {}
+
+  get tlApi() {
+    return this.apiService.newTlApi;
+  }
 
   get coinBalance() {
     return Object.keys(this.balanceService.allBalances)
@@ -57,10 +62,23 @@ export class PortfolioPageComponent implements OnInit {
     return this.rpcService.isSynced;
   }
 
+  get nativeAssetLabel() {
+    return this.rpcService.NETWORK === 'BTC' ? 'tBTC' : 'tLTC';
+  }
+
+  get isLtctest() {
+    return this.rpcService.NETWORK === 'LTCTEST';
+  }
+
+  get underlyingAssetLabel() {
+    return this.rpcService.NETWORK === 'BTC' ? 'BTC' : 'LTC';
+  }
+
  ngOnInit(): void {
     this.authService.getAddressesFromWallet().then(() => {
         this.walletAddresses = this.authService.walletAddresses; // Ensure this happens after addresses are fetched
         this.startAttestationUpdateInterval();
+        this.loadReceiptPropertyId();
     }).catch(error => {
         console.error('Error fetching wallet addresses:', error);
     });
@@ -118,9 +136,24 @@ export class PortfolioPageComponent implements OnInit {
     }
   }
 
+  isSyntheticRow(row: any): boolean {
+    return String(row?.rawPropertyId || '').startsWith('s');
+  }
 
-  openDialog(dialog: string, address?: any, _propId?: number, _amount?:number) {
-    const data = { address, propId: _propId, amount: _amount };
+  isProceduralReceiptRow(row: any): boolean {
+    return this.isLtctest && Number(row?.propertyid) === Number(this.receiptPropertyId || 0);
+  }
+
+  getMintRedeemLabel(row: any): string {
+    if (this.isProceduralReceiptRow(row) || this.isSyntheticRow(row)) {
+      return `Redeem ${this.underlyingAssetLabel}`;
+    }
+    return 'Mint';
+  }
+
+
+  openDialog(dialog: string, address?: any, _propId?: number | string, _amount?: number, extraData: any = {}) {
+    const data = { address, propId: _propId, amount: _amount, available: _amount, ...extraData };
 
     let TYPE = null;
     if (dialog === 'deposit') {
@@ -133,6 +166,67 @@ export class PortfolioPageComponent implements OnInit {
 
     if (!TYPE || !data) return;
     this.dialogService.openDialog(TYPE, { disableClose: false, data });
+  }
+
+  openTokenizeDialog(address: string, amount?: number) {
+    this.openDialog('synth', address, 1, amount, {
+      mode: 'mint',
+      flow: this.isLtctest ? 'proceduralReceipt' : 'synthetic',
+      title: `Tokenize ${this.nativeAssetLabel}`,
+      actionLabel: 'Tokenize',
+      underlyingAssetLabel: this.underlyingAssetLabel,
+    });
+  }
+
+  openTokenActionDialog(address: string, row: any) {
+    const isSynthetic = this.isSyntheticRow(row);
+    const isProceduralReceipt = this.isProceduralReceiptRow(row);
+    const isRedeem = isSynthetic || isProceduralReceipt;
+    this.openDialog('synth', address, row.rawPropertyId || row.propertyid, row.available, {
+      mode: isRedeem ? 'redeem' : 'mint',
+      flow: isProceduralReceipt ? 'proceduralReceipt' : 'synthetic',
+      title: isRedeem ? `Redeem ${this.underlyingAssetLabel}` : `Mint ${this.nativeAssetLabel}`,
+      actionLabel: isRedeem ? `Redeem ${this.underlyingAssetLabel}` : 'Mint',
+      underlyingAssetLabel: this.underlyingAssetLabel,
+    });
+  }
+
+  async loadReceiptPropertyId() {
+    if (!this.isLtctest) {
+      this.receiptPropertyId = null;
+      return;
+    }
+
+    try {
+      const propertiesRes = await this.tlApi.rpc('listProperties').toPromise();
+      const properties = Array.isArray(propertiesRes?.data) ? propertiesRes.data : [];
+      const match = properties.find((property: any) => {
+        return String(property?.ticker || '').toUpperCase() === M1_RECEIPT_TICKER.toUpperCase();
+      });
+
+      if (match?.id != null) {
+        this.receiptPropertyId = Number(match.id);
+        return;
+      }
+
+      for (const property of properties) {
+        const propertyId = Number(property?.id);
+        if (!Number.isFinite(propertyId) || propertyId <= 0) {
+          continue;
+        }
+
+        const propertyRes = await this.tlApi.rpc('getProperty', [propertyId]).toPromise();
+        if (Number(propertyRes?.data?.proceduralType) === 1) {
+          this.receiptPropertyId = propertyId;
+          return;
+        }
+      }
+
+      this.receiptPropertyId = null;
+    } catch (error) {
+      console.error('Error resolving procedural receipt property id:', error);
+      this.receiptPropertyId = null;
+    }
   }
 
 
@@ -218,30 +312,11 @@ export class PortfolioPageComponent implements OnInit {
               this.attestationService.setPendingAtt(address);
               this.toastrService.success(res.data, 'Transaction Sent');
           }
-      } catch (error) {
+      } catch (error: any) {
           this.toastrService.error(error.message, 'Attestation Error');
       } finally {
           this.loadingService.isLoading = false;
       }
   }
-
-
-private async ensurePropertyType(pid: number): Promise<number | undefined> {
-  if (this.propertyTypeCache.has(pid)) return this.propertyTypeCache.get(pid)!;
-  // backend expects: POST /tl_getProperty with { params: pid }
-  const data: any = await this.http.post('http://localhost:3000/tl_getProperty', { params: pid }).toPromise();
-  // expect data.type present; synthetic == 5
-  const t = Number(data?.type);
-  if (!Number.isFinite(t)) return undefined;
-  this.propertyTypeCache.set(pid, t);
-  return t;
-}
-
-// --- label for the button in the table ---
-getMintRedeemLabel(row: any): string {
-  const t = this.propertyTypeCache.get(Number(row?.propertyid));
-  // If we don't know yet, default to 'Mint' and we’ll update on click
-  return t === 5 ? 'Redeem' : 'Mint';
-}
 
 }

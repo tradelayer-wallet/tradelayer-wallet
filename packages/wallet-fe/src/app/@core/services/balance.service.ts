@@ -31,6 +31,7 @@ export class BalanceService {
             tokensBalance: {
                 name: string;
                 propertyid: number;
+                rawPropertyId?: string;
                 amount: number,
                 available: number,
                 reserved: number,
@@ -190,17 +191,25 @@ export class BalanceService {
         console.log('1st load of balance '+address+JSON.stringify(balanceRes))
         if (!balanceRes.data || balanceRes.error) return { data: [] };
         const data = (balanceRes.data as { ticker: string, propertyId: string, amount: number, available: number, reserved: number, margin: number, vesting: number, channel: number }[])
-            .map((token) => ({ 
+            .map((token) => {
+                const rawPropertyId = token?.propertyId != null ? String(token.propertyId) : '';
+                const parsedPropertyId = Number.parseInt(rawPropertyId || '0', 10);
+                const propertyid = Number.isFinite(parsedPropertyId) && /^\d+$/.test(rawPropertyId)
+                    ? parsedPropertyId
+                    : 0;
+                return {
                 ...token, 
                 name: token.ticker || '-',  // default to '-' if ticker is undefined
-                propertyid: parseInt(token.propertyId || '0', 10),  // ensure propertyId is parsed as an integer, default to 0 if undefined
+                propertyid,
+                rawPropertyId,
                 amount: token?.amount || 0,  // safely access amount and default to 0 if undefined
                 available: token?.available || 0,  // safely access available and default to 0 if undefined
                 reserved: token?.reserved || 0,  // safely access reserved and default to 0 if undefined
                 margin: token?.margin || 0,  // safely access margin and default to 0 if undefined
                 vesting: token?.vesting || 0,  // safely access vesting and default to 0 if undefined
                 channel: token?.channel || 0  // safely access channel and default to 0 if undefined
-            }));
+            };
+        });
         console.log('final balance data'+JSON.stringify(data))
         return { data };
     }

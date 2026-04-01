@@ -122,9 +122,20 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
 
     fastify.post('/listProperties', async (request, reply) => {
         try {
-            throw new Error("Not implemented");
-            // const propertiesArray = await PropertyManager.getPropertyIndex();
-            // reply.status(200).send(propertiesArray);
+            const res = await axios.post(baseURL + 'tl_listProperties');
+            reply.status(200).send(res.data || []);
+        } catch (error) {
+            reply.status(500).send('Error: ' + error.message);
+        }
+    });
+
+    fastify.post('/getProperty', async (request, reply) => {
+        try {
+            const body = request.body as any;
+            const params = Array.isArray(body?.params) ? body.params : [body?.params];
+            const propertyId = params[0];
+            const res = await axios.post(baseURL + 'tl_getProperty', { params: propertyId });
+            reply.status(200).send(res.data || null);
         } catch (error) {
             reply.status(500).send('Error: ' + error.message);
         }

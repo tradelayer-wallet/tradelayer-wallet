@@ -6,6 +6,8 @@ import { BalanceService } from "./balance.service";
 import { LoadingService } from "./loading.service";
 import { RpcService, TNETWORK } from "./rpc.service";
 import axios from 'axios'
+import { ENCODER } from "src/app/utils/payloads/encoder";
+import { ProceduralReceiptConfig } from "../constants/procedural.constants";
 
 export interface IUTXO {
     amount: number;
@@ -272,6 +274,222 @@ export class TxsService {
         // console.log('update balances not found on balanceService')
         //}
         return result;
+    }
+
+    async depositToChannel(params: {
+        fromAddress: string;
+        channelAddress: string;
+        propertyId: number;
+        amount: number;
+    }): Promise<{ data?: string; error?: string }> {
+        const payload = ENCODER.encodeCommit({
+            propertyId: params.propertyId,
+            amount: params.amount,
+            channelAddress: params.channelAddress,
+        });
+
+        return this.buildSingSendTx({
+            fromKeyPair: { address: params.fromAddress },
+            toKeyPair: { address: params.fromAddress },
+            payload,
+        });
+    }
+
+    async withdrawFromChannel(params: {
+        fromAddress: string;
+        channelAddress: string;
+        propertyId: number;
+        amount: number;
+        withdrawAll?: boolean;
+        column: number | boolean;
+    }): Promise<{ data?: string; error?: string }> {
+        const payload = ENCODER.encodeWithdrawal({
+            withdrawAll: params.withdrawAll ? 1 : 0,
+            propertyId: params.propertyId,
+            amountOffered: params.amount,
+            column: params.column,
+            channelAddress: params.channelAddress,
+        });
+
+        return this.buildSingSendTx({
+            fromKeyPair: { address: params.fromAddress },
+            toKeyPair: { address: params.channelAddress },
+            amount: 0.00000560,
+            payload,
+        });
+    }
+
+    async sendToken(params: {
+        fromAddress: string;
+        toAddress: string;
+        propertyId: number;
+        amount: number | string;
+    }): Promise<{ data?: string; error?: string }> {
+        const payload = ENCODER.encodeSend({
+            sendAll: false,
+            address: params.toAddress,
+            propertyId: params.propertyId,
+            amount: Number(params.amount),
+        });
+
+        return this.buildSingSendTx({
+            fromKeyPair: { address: params.fromAddress },
+            toKeyPair: { address: params.toAddress },
+            payload,
+        });
+    }
+
+    async issueProceduralToken(params: {
+        adminAddress: string;
+        ticker: string;
+        initialAmount?: number | string;
+        proceduralType: number;
+        managed?: boolean;
+        whitelists?: number[];
+        backupAddress?: string;
+    }): Promise<{ data?: string; error?: string }> {
+        const payload = ENCODER.encodeTokenIssue({
+            initialAmount: params.initialAmount || 0,
+            ticker: params.ticker,
+            whitelists: params.whitelists || [],
+            managed: params.managed !== false,
+            backupAddress: params.backupAddress || '',
+            proceduralType: params.proceduralType,
+        });
+
+        return this.buildSingSendTx({
+            fromKeyPair: { address: params.adminAddress },
+            toKeyPair: { address: params.adminAddress },
+            payload,
+        });
+    }
+
+    async mintProceduralReceipt(params: {
+        adminAddress: string;
+        recipientAddress: string;
+        propertyId: number;
+        amount: number | string;
+        dlcTemplateId?: string;
+        dlcContractId?: string;
+        settlementState?: string;
+        dlcHash?: string;
+    }): Promise<{ data?: string; error?: string }> {
+        const payload = ENCODER.encodeGrantManagedToken({
+            propertyId: params.propertyId,
+            amountGranted: params.amount,
+            addressToGrantTo: params.recipientAddress,
+            dlcTemplateId: params.dlcTemplateId,
+            dlcContractId: params.dlcContractId,
+            settlementState: params.settlementState,
+            dlcHash: params.dlcHash,
+        });
+
+        return this.buildSingSendTx({
+            fromKeyPair: { address: params.adminAddress },
+            toKeyPair: { address: params.recipientAddress },
+            amount: 0.00000560,
+            payload,
+        });
+    }
+
+    async redeemProceduralReceipt(params: {
+        holderAddress: string;
+        propertyId: number;
+        amount: number | string;
+        dlcTemplateId?: string;
+        dlcContractId?: string;
+        settlementState?: string;
+    }): Promise<{ data?: string; error?: string }> {
+        const payload = ENCODER.encodeRedeemManagedToken({
+            propertyId: params.propertyId,
+            amountDestroyed: params.amount,
+            dlcTemplateId: params.dlcTemplateId,
+            dlcContractId: params.dlcContractId,
+            settlementState: params.settlementState,
+        });
+
+        return this.buildSingSendTx({
+            fromKeyPair: { address: params.holderAddress },
+            toKeyPair: { address: params.holderAddress },
+            payload,
+        });
+    }
+
+    async tokenizeProceduralReceipt(params: {
+        depositorAddress: string;
+        amount: number | string;
+        config: ProceduralReceiptConfig;
+    }): Promise<{ data?: { depositTxid: string; mintTxid: string }; error?: string }> {
+        const receiptPropertyId = Number(params.config.receiptPropertyId || 0);
+        if (!receiptPropertyId) {
+            return { error: 'Receipt property is not configured.' };
+        }
+
+        const depositRes = await this.sendToken({
+            fromAddress: params.depositorAddress,
+            toAddress: params.config.vaultAddress,
+            propertyId: params.config.collateralPropertyId,
+            amount: params.amount,
+        });
+
+        if (depositRes.error || !depositRes.data) {
+            return { error: depositRes.error || 'Failed to deposit collateral.' };
+        }
+
+        const mintRes = await this.mintProceduralReceipt({
+            adminAddress: params.config.adminAddress,
+            recipientAddress: params.depositorAddress,
+            propertyId: receiptPropertyId,
+            amount: params.amount,
+            dlcTemplateId: params.config.templateId,
+            dlcContractId: params.config.contractId,
+            settlementState: params.config.mintSettlementState,
+            dlcHash: params.config.templateHash,
+        });
+
+        if (mintRes.error || !mintRes.data) {
+            return { error: mintRes.error || 'Failed to mint receipt token.' };
+        }
+
+        return { data: { depositTxid: depositRes.data, mintTxid: mintRes.data } };
+    }
+
+    async redeemProceduralReceiptWithRelease(params: {
+        holderAddress: string;
+        amount: number | string;
+        config: ProceduralReceiptConfig;
+        recipientAddress?: string;
+    }): Promise<{ data?: { redeemTxid: string; releaseTxid: string }; error?: string }> {
+        const receiptPropertyId = Number(params.config.receiptPropertyId || 0);
+        if (!receiptPropertyId) {
+            return { error: 'Receipt property is not configured.' };
+        }
+
+        const redeemRes = await this.redeemProceduralReceipt({
+            holderAddress: params.holderAddress,
+            propertyId: receiptPropertyId,
+            amount: params.amount,
+            dlcTemplateId: params.config.templateId,
+            dlcContractId: params.config.contractId,
+            settlementState: params.config.redeemSettlementState,
+        });
+
+        if (redeemRes.error || !redeemRes.data) {
+            return { error: redeemRes.error || 'Failed to redeem receipt token.' };
+        }
+
+        const releaseRes = await this.sendToken({
+            fromAddress: params.config.vaultAddress,
+            toAddress: params.recipientAddress || params.holderAddress,
+            propertyId: params.config.collateralPropertyId,
+            amount: params.amount,
+        });
+
+        if (releaseRes.error || !releaseRes.data) {
+            return { error: releaseRes.error || 'Failed to release collateral.' };
+        }
+
+        return { data: { redeemTxid: redeemRes.data, releaseTxid: releaseRes.data } };
     }
 
     async getChannel(address: string) {

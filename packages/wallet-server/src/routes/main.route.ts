@@ -15,9 +15,11 @@ import {
   runningAlgo,
   bootstrapAlgoAssets
 } from '../services/algo.service';
+import { BitvmWatchtowerService } from "../services/bitvm-watchtower.service";
 
 
 const tradeLayerService = new TradeLayerService();
+const bitvmWatchtowerService = new BitvmWatchtowerService();
 
 const backoffOptions: BackoffOptions = {
     maxDelay: 10000,
@@ -34,8 +36,8 @@ export const mainRoutes = async (fastify: FastifyInstance, opts: any, done: any)
             const _params = params?.length ? params : [];
             const res = await backOff(() => fasitfyServer.rpcClient.call(method, ..._params), backoffOptions);
             reply.status(200).send(res);
-        } catch (error) {
-            reply.status(500).send({ error: error || 'Undefined Error' })
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || error || 'Undefined Error' })
         }
     });
 
@@ -175,6 +177,55 @@ fastify.post('start-wallet-node', async (request, reply) => {
         } catch (error) {
             reply.status(500).send({ error: error.message || 'Undefined Error' })
         }
+    });
+
+    fastify.post('bitvm/watchtower/start', async (request, reply) => {
+      try {
+        const body = (request.body || {}) as any;
+        const data = await bitvmWatchtowerService.start(body);
+        reply.status(200).send({ data });
+      } catch (error: any) {
+        reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+      }
+    });
+
+    fastify.post('bitvm/watchtower/run', async (request, reply) => {
+      try {
+        const body = (request.body || {}) as any;
+        const data = await bitvmWatchtowerService.run(body);
+        reply.status(200).send({ data });
+      } catch (error: any) {
+        reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+      }
+    });
+
+    fastify.post('bitvm/watchtower/stop', async (_request, reply) => {
+      try {
+        const data = bitvmWatchtowerService.stop();
+        reply.status(200).send({ data });
+      } catch (error: any) {
+        reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+      }
+    });
+
+    fastify.get('bitvm/watchtower/status', async (_request, reply) => {
+      try {
+        const data = bitvmWatchtowerService.status();
+        reply.status(200).send({ data });
+      } catch (error: any) {
+        reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+      }
+    });
+
+    fastify.get('bitvm/watchtower/logs', async (request, reply) => {
+      try {
+        const q = (request.query || {}) as any;
+        const limit = Number(q.limit || 150);
+        const data = bitvmWatchtowerService.getLogs(limit);
+        reply.status(200).send({ data });
+      } catch (error: any) {
+        reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+      }
     });
 
     // --- Algo routes (function handlers; same style as other routes) ---
