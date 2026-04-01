@@ -2,8 +2,8 @@
   "name": "wallet-fe",
   "version": "0.0.11",
   "scripts": {
-    "build": "ng build --configuration production",
-    "build:watch": "ng build --watch --configuration production"
+    "build": "node ./node_modules/@angular/cli/bin/ng build --configuration production",
+    "build:watch": "node ./node_modules/@angular/cli/bin/ng build --watch --configuration production"
   },
   "private": true,
   "dependencies": {
