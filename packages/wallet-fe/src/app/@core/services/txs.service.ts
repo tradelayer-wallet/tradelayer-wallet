@@ -367,6 +367,7 @@ export class TxsService {
     async mintProceduralReceipt(params: {
         adminAddress: string;
         recipientAddress: string;
+        redeemAddress?: string;
         propertyId: number;
         amount: number | string;
         dlcTemplateId?: string;
@@ -386,7 +387,7 @@ export class TxsService {
 
         return this.buildSingSendTx({
             fromKeyPair: { address: params.adminAddress },
-            toKeyPair: { address: params.recipientAddress },
+            toKeyPair: { address: params.redeemAddress || params.recipientAddress },
             amount: 0.00000560,
             payload,
         });
@@ -425,20 +426,10 @@ export class TxsService {
             return { error: 'Receipt property is not configured.' };
         }
 
-        const depositRes = await this.sendToken({
-            fromAddress: params.depositorAddress,
-            toAddress: params.config.vaultAddress,
-            propertyId: params.config.collateralPropertyId,
-            amount: params.amount,
-        });
-
-        if (depositRes.error || !depositRes.data) {
-            return { error: depositRes.error || 'Failed to deposit collateral.' };
-        }
-
         const mintRes = await this.mintProceduralReceipt({
             adminAddress: params.config.adminAddress,
             recipientAddress: params.depositorAddress,
+            redeemAddress: params.config.vaultAddress,
             propertyId: receiptPropertyId,
             amount: params.amount,
             dlcTemplateId: params.config.templateId,
@@ -451,7 +442,7 @@ export class TxsService {
             return { error: mintRes.error || 'Failed to mint receipt token.' };
         }
 
-        return { data: { depositTxid: depositRes.data, mintTxid: mintRes.data } };
+        return { data: { depositTxid: mintRes.data, mintTxid: mintRes.data } };
     }
 
     async redeemProceduralReceiptWithRelease(params: {
