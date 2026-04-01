@@ -395,14 +395,12 @@ export class TxsService {
         amount: number | string;
         dlcTemplateId?: string;
         dlcContractId?: string;
-        settlementState?: string;
     }): Promise<{ data?: string; error?: string }> {
         const payload = ENCODER.encodeRedeemManagedToken({
             propertyId: params.propertyId,
             amountDestroyed: params.amount,
             dlcTemplateId: params.dlcTemplateId,
             dlcContractId: params.dlcContractId,
-            settlementState: params.settlementState,
         });
 
         return this.buildSingSendTx({
