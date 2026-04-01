@@ -72,6 +72,14 @@
             color: gray;
         }
     }
+
+    .span-button.disabled {
+        color: #8d8d8d;
+        cursor: not-allowed;
+        &:hover {
+            color: #8d8d8d;
+        }
+    }
 }
 
   .mat-column-address {
@@ -96,6 +104,11 @@
   }
   .mat-column-actions {
     min-width: 16rem;
+  }
+
+  .mat-column-receiptState,
+  .mat-column-blocksRemaining {
+    min-width: 7rem;
   }
 
   .address-list-container {

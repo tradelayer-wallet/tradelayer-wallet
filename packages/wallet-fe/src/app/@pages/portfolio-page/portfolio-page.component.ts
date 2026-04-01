@@ -16,6 +16,22 @@ import {
   M1_RECEIPT_TICKER,
 } from 'src/app/@core/constants/procedural.constants';
 
+interface ProceduralReceiptRow {
+  contractId: string;
+  templateId: string;
+  dlcHash: string;
+  state: string;
+  redeemAddress: string;
+  fundingTxid: string;
+  fundedAmount: number;
+  fundedAt: number | null;
+  fundingPropertyId: number | null;
+  currentBlock: number;
+  windowBlocks: number;
+  remainingBlocks: number | null;
+  canRedeem: boolean;
+}
+
 @Component({
   selector: 'tl-portoflio-page',
   templateUrl: './portfolio-page.component.html',
@@ -24,9 +40,10 @@ import {
 export class PortfolioPageComponent implements OnInit {
   walletAddresses: string[] = []; 
   cryptoBalanceColumns: string[] = ['attestation', 'address', 'confirmed', 'unconfirmed', 'actions'];
-  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'channel', 'actions'];
+  tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'channel', 'receiptState', 'blocksRemaining', 'actions'];
   selectedAddress: string = '';
   receiptPropertyId: number | null = null;
+  proceduralReceipts: ProceduralReceiptRow[] = [];
 
   constructor(
     private apiService: ApiService,
@@ -54,7 +71,18 @@ export class PortfolioPageComponent implements OnInit {
   }
 
   get tokensBalances() {
-    return this.balanceService.getTokensBalancesByAddress(this.selectedAddress);
+    const balances = this.balanceService.getTokensBalancesByAddress(this.selectedAddress);
+    return balances.map((row: any) => {
+      const procedural = this.getProceduralReceiptForRow(row);
+      return {
+        ...row,
+        receiptState: procedural?.state || (this.isProceduralReceiptRow(row) ? 'UNFUNDED' : '-'),
+        blocksRemaining: procedural?.remainingBlocks ?? null,
+        canRedeem: procedural?.canRedeem ?? false,
+        fundingTxid: procedural?.fundingTxid || '',
+        contractId: procedural?.contractId || '',
+      };
+    });
   }
 
   get isAbleToRpc() {
@@ -144,7 +172,24 @@ export class PortfolioPageComponent implements OnInit {
   }
 
   isProceduralReceiptRow(row: any): boolean {
-    return this.isLtctest && Number(row?.propertyid) === Number(this.receiptPropertyId || 0);
+    const rid = Number(this.receiptPropertyId || 0);
+    return this.isLtctest && rid > 0 && Number(row?.propertyid) === rid;
+  }
+
+  getProceduralReceiptForRow(row: any): ProceduralReceiptRow | null {
+    const rid = Number(row?.propertyid || row?.rawPropertyId || 0);
+    if (!rid) return null;
+    const match = this.proceduralReceipts.find((receipt) => {
+      const propertyId = Number(receipt?.fundingPropertyId || 0);
+      return propertyId === rid || (rid === Number(this.receiptPropertyId || 0) && !!receipt?.state);
+    });
+    return match || null;
+  }
+
+  canRedeemProceduralRow(row: any): boolean {
+    const procedural = this.getProceduralReceiptForRow(row);
+    if (!procedural) return true;
+    return Boolean(procedural.canRedeem);
   }
 
   getMintRedeemLabel(row: any): string {
@@ -224,6 +269,36 @@ export class PortfolioPageComponent implements OnInit {
     }
   }
 
+  async loadProceduralReceipts(address: string) {
+    if (!this.isLtctest || !address) {
+      this.proceduralReceipts = [];
+      return;
+    }
+
+    try {
+      const res = await this.tlApi.rpc('getProceduralReceiptsForAddress', [address]).toPromise();
+      const receipts = Array.isArray(res?.data) ? res.data : [];
+      this.proceduralReceipts = receipts.map((receipt: any) => ({
+        contractId: String(receipt?.contractId || ''),
+        templateId: String(receipt?.templateId || ''),
+        dlcHash: String(receipt?.dlcHash || ''),
+        state: String(receipt?.state || '').toUpperCase(),
+        redeemAddress: String(receipt?.redeemAddress || ''),
+        fundingTxid: String(receipt?.fundingTxid || ''),
+        fundedAmount: Number(receipt?.fundedAmount || 0),
+        fundedAt: receipt?.fundedAt != null ? Number(receipt.fundedAt) : null,
+        fundingPropertyId: receipt?.fundingPropertyId != null ? Number(receipt.fundingPropertyId) : null,
+        currentBlock: Number(receipt?.currentBlock || 0),
+        windowBlocks: Number(receipt?.windowBlocks || 0),
+        remainingBlocks: receipt?.remainingBlocks != null ? Number(receipt.remainingBlocks) : null,
+        canRedeem: Boolean(receipt?.canRedeem),
+      }));
+    } catch (error) {
+      console.error('Error fetching procedural receipts:', error);
+      this.proceduralReceipts = [];
+    }
+  }
+
 
   async newAddress() {
       try {
@@ -259,8 +334,9 @@ export class PortfolioPageComponent implements OnInit {
   }
 
 
-  showTokens(address: string) {
+  async showTokens(address: string) {
     this.selectedAddress = address;
+    await this.loadProceduralReceipts(address);
     try {
         const { nativeElement } = this.elRef;
         setTimeout(() => nativeElement.scrollTop = nativeElement.scrollHeight);

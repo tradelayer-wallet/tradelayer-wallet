@@ -134,18 +134,39 @@
               {{ element?.channel !== undefined ? element.channel.toFixed(6) : 'N/A' }}
             </mat-cell>
           </ng-container>
+
+          <ng-container matColumnDef="receiptState">
+            <mat-header-cell *matHeaderCellDef>Receipt State</mat-header-cell>
+            <mat-cell *matCellDef="let element">
+              {{ element?.receiptState || '-' }}
+            </mat-cell>
+          </ng-container>
+
+          <ng-container matColumnDef="blocksRemaining">
+            <mat-header-cell *matHeaderCellDef>Blocks Left</mat-header-cell>
+            <mat-cell *matCellDef="let element">
+              <ng-container *ngIf="isProceduralReceiptRow(element); else noReceiptCountdown">
+                {{ element?.blocksRemaining === null ? '—' : (element.blocksRemaining > 0 ? element.blocksRemaining + ' blocks' : 'Ready') }}
+              </ng-container>
+              <ng-template #noReceiptCountdown>-</ng-template>
+            </mat-cell>
+          </ng-container>
         </ng-container>
 
 
         <!-- Actions Column -->
-          <ng-container matColumnDef="actions">
+        <ng-container matColumnDef="actions">
           <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
           <mat-cell *matCellDef="let element">
             <span class='span-button' (click)="openDialog('deposit', selectedAddress, element.propertyid)">Receive</span>
             <span> | </span>
             <span class='span-button' (click)="openDialog('withdraw', selectedAddress, element.propertyid)">Send</span>
             <span> | </span>
-             <span class="span-button" (click)="openTokenActionDialog(selectedAddress, element)">{{ getMintRedeemLabel(element) }}
+             <span
+              class="span-button"
+              [class.disabled]="isProceduralReceiptRow(element) && !canRedeemProceduralRow(element)"
+              (click)="isProceduralReceiptRow(element) && !canRedeemProceduralRow(element) ? null : openTokenActionDialog(selectedAddress, element)">
+              {{ getMintRedeemLabel(element) }}
             </span>
           </mat-cell>
         </ng-container>
