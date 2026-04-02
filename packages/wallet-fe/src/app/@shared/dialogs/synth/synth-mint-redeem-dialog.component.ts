@@ -252,6 +252,7 @@ export class SynthMintRedeemDialogComponent {
 
       this.toastr.success(`Setup TX: ${result.data.setupTxid}`);
       this.toastr.success(`Template: ${result.data.templateId}`);
+      this.toastr.success(`Funding address: ${result.data.fundingAddress}`);
       this.dialogRef.close(result);
       return;
     }

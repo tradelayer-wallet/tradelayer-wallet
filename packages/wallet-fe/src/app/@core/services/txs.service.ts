@@ -64,6 +64,7 @@ export interface IBitvmDlcSetupResult {
     setupTxid: string;
     mintTxid: string;
     depositTxid: string;
+    setupId: string;
     templateId: string;
     templateHash: string;
     contractId: string;
@@ -452,14 +453,25 @@ export class TxsService {
             return { error: 'Receipt property is not configured.' };
         }
 
+        const freshFundingAddressRes = await this.rpcService.rpc('getnewaddress', [this.authService.walletLabel]);
+        const freshFundingAddress = String(
+            freshFundingAddressRes?.data || params.config.fundingAddress || ''
+        );
+        if (!freshFundingAddress) {
+            return { error: freshFundingAddressRes?.error || 'Failed to allocate funding address.' };
+        }
+
+        const setupId = `bitvm-${Date.now()}-${freshFundingAddress.slice(-8)}`;
+        const contractId = `${params.config.contractId}:${setupId}`;
+
         const mintRes = await this.mintProceduralReceipt({
             adminAddress: params.config.adminAddress,
             recipientAddress: params.depositorAddress,
-            fundingAddress: params.config.fundingAddress,
+            fundingAddress: freshFundingAddress,
             propertyId: receiptPropertyId,
             amount: params.amount,
             dlcTemplateId: params.config.templateId,
-            dlcContractId: params.config.contractId,
+            dlcContractId: contractId,
         });
 
         if (mintRes.error || !mintRes.data) {
@@ -471,10 +483,11 @@ export class TxsService {
                 setupTxid: mintRes.data,
                 mintTxid: mintRes.data,
                 depositTxid: mintRes.data,
+                setupId,
                 templateId: params.config.templateId,
                 templateHash: params.config.dlcHash,
-                contractId: params.config.contractId,
-                fundingAddress: params.config.fundingAddress,
+                contractId,
+                fundingAddress: freshFundingAddress,
                 operatorAddress: params.config.adminAddress,
                 residualAddress: params.config.vaultAddress,
             }
