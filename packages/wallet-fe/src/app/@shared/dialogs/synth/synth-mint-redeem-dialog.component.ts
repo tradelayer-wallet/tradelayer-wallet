@@ -7,12 +7,13 @@ import { ApiService } from 'src/app/@core/services/api.service';
 import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service';
 import { ENCODER } from 'src/app/utils/payloads/encoder';
 import {
+  M1_BITVM_DLC_SETUP_CONFIG,
   M1_PROCEDURAL_RECEIPT_CONFIG,
   ProceduralReceiptConfig,
 } from 'src/app/@core/constants/procedural.constants';
 
 export type SynthMode = 'mint' | 'redeem';
-export type SynthFlow = 'synthetic' | 'proceduralReceipt';
+export type SynthFlow = 'synthetic' | 'proceduralReceipt' | 'bitvmDlc';
 
 type ContractRow = {
   id: number;
@@ -58,7 +59,11 @@ export class SynthMintRedeemDialogComponent {
   }
 
   get isProceduralFlow() {
-    return this.data.flow === 'proceduralReceipt';
+    return this.data.flow === 'proceduralReceipt' || this.data.flow === 'bitvmDlc';
+  }
+
+  get isBitvmDlcFlow() {
+    return this.data.flow === 'bitvmDlc';
   }
 
   async ngOnInit() {
@@ -93,6 +98,7 @@ export class SynthMintRedeemDialogComponent {
 
   get titleText() {
     if (this.data.title) return this.data.title;
+    if (this.isBitvmDlcFlow) return 'Peg Into BitVM DLC';
     return this.data.mode === 'mint'
       ? 'Mint Synthetic'
       : `Redeem ${this.data.underlyingAssetLabel || 'LTC'}`;
@@ -100,6 +106,7 @@ export class SynthMintRedeemDialogComponent {
 
   get submitText() {
     if (this.data.actionLabel) return this.data.actionLabel;
+    if (this.isBitvmDlcFlow) return 'Peg In';
     return this.data.mode === 'mint' ? 'Mint' : `Redeem ${this.data.underlyingAssetLabel || 'LTC'}`;
   }
 
@@ -115,7 +122,7 @@ export class SynthMintRedeemDialogComponent {
 
   private async loadProceduralConfig() {
     this.proceduralConfig = {
-      ...M1_PROCEDURAL_RECEIPT_CONFIG,
+      ...M1_BITVM_DLC_SETUP_CONFIG,
     };
   }
 
@@ -233,18 +240,18 @@ export class SynthMintRedeemDialogComponent {
     }
 
     if (this.data.mode === 'mint') {
-      const result = await this.txsService.tokenizeProceduralReceipt({
+      const result = await this.txsService.createBitvmDlcSetup({
         depositorAddress: this.data.address,
         amount: Number(this.amount),
         config: this.proceduralConfig,
       });
 
       if (result.error || !result.data) {
-        throw new Error(result.error || 'Tokenize failed');
+        throw new Error(result.error || 'BitVM DLC setup failed');
       }
 
-      this.toastr.success(`Deposit TX: ${result.data.depositTxid}`);
-      this.toastr.success(`Mint TX: ${result.data.mintTxid}`);
+      this.toastr.success(`Setup TX: ${result.data.setupTxid}`);
+      this.toastr.success(`Template: ${result.data.templateId}`);
       this.dialogRef.close(result);
       return;
     }

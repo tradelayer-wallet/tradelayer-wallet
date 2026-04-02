@@ -60,6 +60,18 @@ export interface IBuildLTCITTxConfig {
     network?: TNETWORK;
 }
 
+export interface IBitvmDlcSetupResult {
+    setupTxid: string;
+    mintTxid: string;
+    depositTxid: string;
+    templateId: string;
+    templateHash: string;
+    contractId: string;
+    fundingAddress: string;
+    operatorAddress: string;
+    residualAddress: string;
+}
+
 @Injectable({
     providedIn: 'root',
 })
@@ -430,11 +442,11 @@ export class TxsService {
         return { data: { redeemTxid: result.data } };
     }
 
-    async tokenizeProceduralReceipt(params: {
+    async createBitvmDlcSetup(params: {
         depositorAddress: string;
         amount: number | string;
         config: ProceduralReceiptConfig;
-    }): Promise<{ data?: { depositTxid: string; mintTxid: string }; error?: string }> {
+    }): Promise<{ data?: IBitvmDlcSetupResult; error?: string }> {
         const receiptPropertyId = Number(params.config.receiptPropertyId || 0);
         if (!receiptPropertyId) {
             return { error: 'Receipt property is not configured.' };
@@ -454,7 +466,27 @@ export class TxsService {
             return { error: mintRes.error || 'Failed to mint receipt token.' };
         }
 
-        return { data: { depositTxid: mintRes.data, mintTxid: mintRes.data } };
+        return {
+            data: {
+                setupTxid: mintRes.data,
+                mintTxid: mintRes.data,
+                depositTxid: mintRes.data,
+                templateId: params.config.templateId,
+                templateHash: params.config.dlcHash,
+                contractId: params.config.contractId,
+                fundingAddress: params.config.fundingAddress,
+                operatorAddress: params.config.adminAddress,
+                residualAddress: params.config.vaultAddress,
+            }
+        };
+    }
+
+    async tokenizeProceduralReceipt(params: {
+        depositorAddress: string;
+        amount: number | string;
+        config: ProceduralReceiptConfig;
+    }): Promise<{ data?: IBitvmDlcSetupResult; error?: string }> {
+        return this.createBitvmDlcSetup(params);
     }
 
     async redeemProceduralReceiptWithRelease(params: {

@@ -239,9 +239,9 @@ ngOnInit(): void {
   openTokenizeDialog(address: string, amount?: number) {
     this.openDialog('synth', address, 1, amount, {
       mode: 'mint',
-      flow: this.isLtctest ? 'proceduralReceipt' : 'synthetic',
-      title: `Tokenize ${this.nativeAssetLabel}`,
-      actionLabel: 'Tokenize',
+      flow: this.isLtctest ? 'bitvmDlc' : 'synthetic',
+      title: this.isLtctest ? 'Peg Into BitVM DLC' : `Tokenize ${this.nativeAssetLabel}`,
+      actionLabel: this.isLtctest ? 'Peg In' : 'Tokenize',
       underlyingAssetLabel: this.underlyingAssetLabel,
     });
   }
@@ -252,9 +252,9 @@ ngOnInit(): void {
     const isRedeem = isSynthetic || isProceduralReceipt;
     this.openDialog('synth', address, row.rawPropertyId || row.propertyid, row.available, {
       mode: isRedeem ? 'redeem' : 'mint',
-      flow: isProceduralReceipt ? 'proceduralReceipt' : 'synthetic',
-      title: isRedeem ? `Redeem ${this.underlyingAssetLabel}` : `Mint ${this.nativeAssetLabel}`,
-      actionLabel: isRedeem ? `Redeem ${this.underlyingAssetLabel}` : 'Mint',
+      flow: isProceduralReceipt ? 'bitvmDlc' : 'synthetic',
+      title: isProceduralReceipt ? `Redeem BitVM DLC` : (isRedeem ? `Redeem ${this.underlyingAssetLabel}` : `Mint ${this.nativeAssetLabel}`),
+      actionLabel: isProceduralReceipt ? 'Redeem' : (isRedeem ? `Redeem ${this.underlyingAssetLabel}` : 'Mint'),
       underlyingAssetLabel: this.underlyingAssetLabel,
     });
   }

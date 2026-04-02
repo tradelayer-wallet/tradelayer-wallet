@@ -8,6 +8,10 @@
       <span class="address" (click)="copyAddress()">{{ data.address }}</span>
     </div>
 
+    <div class="hint" *ngIf="isBitvmDlcFlow && proceduralConfig">
+      Template {{ proceduralConfig.templateId }} | {{ proceduralConfig.dlcHash }}
+    </div>
+
     <!-- Hedge contract selector (only for Mint) -->
 <mat-form-field *ngIf="data.mode === 'mint' && !isProceduralFlow" appearance="fill" style="width:350px">
   <mat-label>Hedge Contract</mat-label>
@@ -26,7 +30,7 @@
     <div class="from-to">
       <span>Property</span>
       <div class="arrow"></div>
-      <span>{{ data.propertyId || data.propId }}</span>
+      <span>{{ isBitvmDlcFlow ? 'BitVM DLC peg-in' : (data.propertyId || data.propId) }}</span>
     </div>
 
     <mat-form-field appearance="fill" style="width:350px">
