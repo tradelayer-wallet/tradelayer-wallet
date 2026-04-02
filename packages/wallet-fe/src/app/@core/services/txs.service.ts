@@ -63,7 +63,7 @@ export interface IBuildLTCITTxConfig {
 export interface IBitvmDlcSetupResult {
     setupTxid: string;
     mintTxid: string;
-    depositTxid: string;
+    depositTxid?: string;
     setupId: string;
     fundingKeyAddress: string;
     operatorPubkey: string;
@@ -490,7 +490,6 @@ export class TxsService {
             data: {
                 setupTxid: mintRes.data,
                 mintTxid: mintRes.data,
-                depositTxid: mintRes.data,
                 setupId: setupRes.data.setupId,
                 fundingKeyAddress: setupRes.data.fundingKeyAddress,
                 operatorPubkey: setupRes.data.operatorPubkey,

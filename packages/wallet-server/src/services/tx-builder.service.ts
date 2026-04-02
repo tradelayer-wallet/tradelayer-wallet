@@ -258,21 +258,37 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
         const minAmount = minAmountRes.data;
         if (minAmount > amount && !payload) throw new Error(`Minimum amount is: ${minAmount}`);
 
-        const _amount = Math.max(amount || 0, minAmount)
-        const inputsRes = getEnoughInputs(utxos, _amount);
-        const { finalInputs, fee } = inputsRes;
+        const _amount = Math.max(amount || 0, minAmount);
+        const estimateFee = (inputCount: number) => safeNumber((0.2 * minFeeLtcPerKb) * inputCount);
+        const selectInputs = (targetAmount: number) => {
+            const finalInputs: IInput[] = [];
+            for (const u of utxos) {
+                finalInputs.push(u);
+                const _inputsSum = finalInputs.map(({ amount }) => amount).reduce((a, b) => a + b, 0);
+                const inputsSum = safeNumber(_inputsSum);
+                const fee = estimateFee(finalInputs.length);
+                if (inputsSum >= safeNumber(targetAmount + fee)) {
+                    break;
+                }
+            }
+            const fee = estimateFee(finalInputs.length);
+            return { finalInputs, fee };
+        };
+        const { finalInputs, fee } = selectInputs(_amount);
         const _inputsSum = finalInputs.map(({amount}) => amount).reduce((a, b) => a + b, 0);
         const inputsSum = safeNumber(_inputsSum);
+        const toAmount = _amount;
+        const dustThreshold = minAmount;
+        let change = safeNumber(inputsSum - toAmount - fee);
+        if (change > 0 && change < dustThreshold) {
+            // Fold dust into the fee instead of emitting an invalid change output.
+            change = 0;
+        }
 
-        const _toAmount = safeNumber(_amount - fee);
-        const toAmount = Math.max(minAmount, _toAmount)
-        const change = !payload 
-            ? safeNumber(inputsSum - _amount)
-            : safeNumber(inputsSum - _amount - fee);
-
-        if (inputsSum < safeNumber(fee + toAmount + change)) throw new Error("Not Enaugh coins for paying fees. Code 1");
+        if (inputsSum < safeNumber(toAmount + fee)) throw new Error("Not Enaugh coins for paying fees. Code 1");
         if (inputsSum < _amount) throw new Error("Not Enaugh coins for paying fees. Code 2");
         if (!finalInputs.length) throw new Error("Not Enaugh coins for paying fees. Code 3");
+        if (change < 0) throw new Error("Not Enaugh coins for paying fees. Code 4");
 
         const _insForRawTx = finalInputs.map(({txid, vout }) => ({ txid, vout }));
         const _outsForRawTx = { [toAddress]: toAmount };
