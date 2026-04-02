@@ -232,11 +232,12 @@ export class BalanceService {
 
     private pruneStaleBalances(activeAddresses: string[]) {
         const active = new Set((activeAddresses || []).filter(Boolean));
-        this._allBalancesObj = Object.keys(this._allBalancesObj).reduce((acc, address) => {
+        const nextBalances: any = {};
+        Object.keys(this._allBalancesObj).forEach((address) => {
             if (active.has(address)) {
-                acc[address] = this._allBalancesObj[address];
+                nextBalances[address] = this._allBalancesObj[address];
             }
-            return acc;
-        }, {} as typeof this._allBalancesObj);
+        });
+        this._allBalancesObj = nextBalances;
     }
 }
