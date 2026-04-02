@@ -65,6 +65,9 @@ export interface IBitvmDlcSetupResult {
     mintTxid: string;
     depositTxid: string;
     setupId: string;
+    fundingKeyAddress: string;
+    operatorPubkey: string;
+    fundingPubkey: string;
     templateId: string;
     templateHash: string;
     contractId: string;
@@ -461,13 +464,27 @@ export class TxsService {
             return { error: freshFundingAddressRes?.error || 'Failed to allocate funding address.' };
         }
 
+        const operatorInfoRes = await this.rpcService.rpc('getaddressinfo', [params.config.adminAddress]);
+        const fundingInfoRes = await this.rpcService.rpc('getaddressinfo', [freshFundingAddress]);
+        const operatorPubkey = String(operatorInfoRes?.data?.pubkey || '');
+        const fundingPubkey = String(fundingInfoRes?.data?.pubkey || '');
+        if (!operatorPubkey || !fundingPubkey) {
+            return { error: 'Failed to resolve pubkeys for BitVM contract address.' };
+        }
+
+        const multisigRes = await this.computeMultisig(2, [operatorPubkey, fundingPubkey]);
+        const contractAddress = String(multisigRes?.data?.address || '');
+        if (!contractAddress) {
+            return { error: multisigRes.error || 'Failed to derive BitVM contract address.' };
+        }
+
         const setupId = `bitvm-${Date.now()}-${freshFundingAddress.slice(-8)}`;
         const contractId = `${params.config.contractId}:${setupId}`;
 
         const mintRes = await this.mintProceduralReceipt({
             adminAddress: params.config.adminAddress,
             recipientAddress: params.depositorAddress,
-            fundingAddress: freshFundingAddress,
+            fundingAddress: contractAddress,
             propertyId: receiptPropertyId,
             amount: params.amount,
             dlcTemplateId: params.config.templateId,
@@ -484,10 +501,13 @@ export class TxsService {
                 mintTxid: mintRes.data,
                 depositTxid: mintRes.data,
                 setupId,
+                fundingKeyAddress: freshFundingAddress,
+                operatorPubkey,
+                fundingPubkey,
                 templateId: params.config.templateId,
                 templateHash: params.config.dlcHash,
                 contractId,
-                fundingAddress: freshFundingAddress,
+                fundingAddress: contractAddress,
                 operatorAddress: params.config.adminAddress,
                 residualAddress: params.config.vaultAddress,
             }
