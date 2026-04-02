@@ -3,6 +3,7 @@ import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { environment } from "src/environments/environment";
 import { ENetwork, TNETWORK } from "../services/rpc.service";
+import type { IBitvmDlcSetupResult } from "../services/txs.service";
 import { IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig } from "../services/txs.service";
 
 
@@ -56,12 +57,32 @@ export class MainApiService {
     };
 
     // main-api.service.ts
-	computeMultisig(
+    computeMultisig(
 	  body: { m: number; pubKeys: string[]; network: string },
 	  _isApiMode: boolean
 	) {
 	  return this.http.post(this.apiUrl + 'compute-multisig', body);
 	}
+
+    buildBitvmDlcSetup(
+      body: {
+        adminAddress: string;
+        depositorAddress: string;
+        amount: number | string;
+        templateId: string;
+        templateHash: string;
+        contractId: string;
+        vaultAddress?: string;
+        walletLabel?: string;
+        network: string;
+      },
+      _isApiMode: boolean
+    ) {
+      return this.http.post<{ data?: IBitvmDlcSetupResult; error?: string }>(
+        this.apiUrl + 'build-bitvm-dlc-setup',
+        body
+      );
+    }
 
 
     rpcCall(method: string, params?: any[]): Observable<{

@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { fasitfyServer } from "../index";
 import { startWalletNode, createConfigFile, stopWalletNode, createRpcClientFromDatadir } from "../services/node.service";
+import { buildBitvmDlcSetupBlueprint, IBitvmDlcSetupConfig } from "../services/bitvm-dlc.service";
 import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx, computeMultisigNative } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
 import { backOff, BackoffOptions } from "exponential-backoff";
@@ -125,7 +126,7 @@ fastify.post('start-wallet-node', async (request, reply) => {
     });
 
     // main-routes.ts (Fastify)
-	fastify.post('compute-multisig', async (request, reply) => {
+    fastify.post('compute-multisig', async (request, reply) => {
 	  try {
 	    const { m, pubKeys, network } = request.body as any;
 	    const result = await computeMultisigNative(m, pubKeys, network);
@@ -134,6 +135,16 @@ fastify.post('start-wallet-node', async (request, reply) => {
 	    reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
 	  }
 	});
+
+    fastify.post('build-bitvm-dlc-setup', async (request, reply) => {
+      try {
+        const body = request.body as IBitvmDlcSetupConfig;
+        const result = await buildBitvmDlcSetupBlueprint(body);
+        reply.status(200).send({ data: result });
+      } catch (error: any) {
+        reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+      }
+    });
 
     fastify.post('init-tradelayer', async (request, reply) => {
         try {

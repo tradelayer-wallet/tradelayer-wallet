@@ -456,39 +456,30 @@ export class TxsService {
             return { error: 'Receipt property is not configured.' };
         }
 
-        const freshFundingAddressRes = await this.rpcService.rpc('getnewaddress', [this.authService.walletLabel]);
-        const freshFundingAddress = String(
-            freshFundingAddressRes?.data || params.config.fundingAddress || ''
-        );
-        if (!freshFundingAddress) {
-            return { error: freshFundingAddressRes?.error || 'Failed to allocate funding address.' };
-        }
+        const setupRes = await this.mainApi.buildBitvmDlcSetup({
+            adminAddress: params.config.adminAddress,
+            depositorAddress: params.depositorAddress,
+            amount: params.amount,
+            templateId: params.config.templateId,
+            templateHash: params.config.dlcHash,
+            contractId: params.config.contractId,
+            vaultAddress: params.config.vaultAddress,
+            walletLabel: this.authService.walletLabel,
+            network: this.rpcService.NETWORK || 'LTCTEST',
+        }, this.rpcService.isApiMode).toPromise();
 
-        const operatorInfoRes = await this.rpcService.rpc('getaddressinfo', [params.config.adminAddress]);
-        const fundingInfoRes = await this.rpcService.rpc('getaddressinfo', [freshFundingAddress]);
-        const operatorPubkey = String(operatorInfoRes?.data?.pubkey || '');
-        const fundingPubkey = String(fundingInfoRes?.data?.pubkey || '');
-        if (!operatorPubkey || !fundingPubkey) {
-            return { error: 'Failed to resolve pubkeys for BitVM contract address.' };
+        if (setupRes?.error || !setupRes?.data) {
+            return { error: setupRes?.error || 'Failed to build BitVM DLC setup.' };
         }
-
-        const multisigRes = await this.computeMultisig(2, [operatorPubkey, fundingPubkey]);
-        const contractAddress = String(multisigRes?.data?.address || '');
-        if (!contractAddress) {
-            return { error: multisigRes.error || 'Failed to derive BitVM contract address.' };
-        }
-
-        const setupId = `bitvm-${Date.now()}-${freshFundingAddress.slice(-8)}`;
-        const contractId = `${params.config.contractId}:${setupId}`;
 
         const mintRes = await this.mintProceduralReceipt({
             adminAddress: params.config.adminAddress,
             recipientAddress: params.depositorAddress,
-            fundingAddress: contractAddress,
+            fundingAddress: setupRes.data.fundingAddress,
             propertyId: receiptPropertyId,
             amount: params.amount,
-            dlcTemplateId: params.config.templateId,
-            dlcContractId: contractId,
+            dlcTemplateId: setupRes.data.templateId,
+            dlcContractId: setupRes.data.contractId,
         });
 
         if (mintRes.error || !mintRes.data) {
@@ -500,16 +491,16 @@ export class TxsService {
                 setupTxid: mintRes.data,
                 mintTxid: mintRes.data,
                 depositTxid: mintRes.data,
-                setupId,
-                fundingKeyAddress: freshFundingAddress,
-                operatorPubkey,
-                fundingPubkey,
-                templateId: params.config.templateId,
-                templateHash: params.config.dlcHash,
-                contractId,
-                fundingAddress: contractAddress,
-                operatorAddress: params.config.adminAddress,
-                residualAddress: params.config.vaultAddress,
+                setupId: setupRes.data.setupId,
+                fundingKeyAddress: setupRes.data.fundingKeyAddress,
+                operatorPubkey: setupRes.data.operatorPubkey,
+                fundingPubkey: setupRes.data.fundingPubkey,
+                templateId: setupRes.data.templateId,
+                templateHash: setupRes.data.templateHash,
+                contractId: setupRes.data.contractId,
+                fundingAddress: setupRes.data.fundingAddress,
+                operatorAddress: setupRes.data.operatorAddress,
+                residualAddress: setupRes.data.residualAddress,
             }
         };
     }
