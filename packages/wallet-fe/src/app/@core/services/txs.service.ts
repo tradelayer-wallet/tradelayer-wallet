@@ -367,47 +367,67 @@ export class TxsService {
     async mintProceduralReceipt(params: {
         adminAddress: string;
         recipientAddress: string;
-        redeemAddress?: string;
+        fundingAddress?: string;
         propertyId: number;
         amount: number | string;
         dlcTemplateId?: string;
         dlcContractId?: string;
     }): Promise<{ data?: string; error?: string }> {
+        const fundingAmount = Number(params.amount);
+        if (!Number.isFinite(fundingAmount) || fundingAmount <= 0) {
+            return { error: 'Procedural funding amount must be greater than zero.' };
+        }
+
+        const tokenRecipientAddress = params.fundingAddress || params.recipientAddress;
         const payload = ENCODER.encodeGrantManagedToken({
             propertyId: params.propertyId,
             amountGranted: params.amount,
-            addressToGrantTo: params.recipientAddress,
+            addressToGrantTo: tokenRecipientAddress,
             dlcTemplateId: params.dlcTemplateId,
             dlcContractId: params.dlcContractId,
         });
 
         return this.buildSingSendTx({
             fromKeyPair: { address: params.adminAddress },
-            toKeyPair: { address: params.redeemAddress || params.recipientAddress },
-            amount: 0.00000560,
+            toKeyPair: { address: tokenRecipientAddress },
+            amount: fundingAmount,
             payload,
         });
     }
 
     async redeemProceduralReceipt(params: {
         holderAddress: string;
-        propertyId: number;
+        propertyId?: number;
         amount: number | string;
         dlcTemplateId?: string;
         dlcContractId?: string;
-    }): Promise<{ data?: string; error?: string }> {
+        config?: ProceduralReceiptConfig;
+    }): Promise<{ data?: { redeemTxid: string }; error?: string }> {
+        const receiptPropertyId = Number(
+            params.propertyId || params.config?.receiptPropertyId || 0
+        );
+        if (!receiptPropertyId) {
+            return { error: 'Receipt property is not configured.' };
+        }
+
         const payload = ENCODER.encodeRedeemManagedToken({
-            propertyId: params.propertyId,
+            propertyId: receiptPropertyId,
             amountDestroyed: params.amount,
-            dlcTemplateId: params.dlcTemplateId,
-            dlcContractId: params.dlcContractId,
+            dlcTemplateId: params.dlcTemplateId || params.config?.templateId,
+            dlcContractId: params.dlcContractId || params.config?.contractId,
         });
 
-        return this.buildSingSendTx({
+        const result = await this.buildSingSendTx({
             fromKeyPair: { address: params.holderAddress },
             toKeyPair: { address: params.holderAddress },
             payload,
         });
+
+        if (result.error || !result.data) {
+            return { error: result.error || 'Failed to redeem receipt token.' };
+        }
+
+        return { data: { redeemTxid: result.data } };
     }
 
     async tokenizeProceduralReceipt(params: {
@@ -423,7 +443,7 @@ export class TxsService {
         const mintRes = await this.mintProceduralReceipt({
             adminAddress: params.config.adminAddress,
             recipientAddress: params.depositorAddress,
-            redeemAddress: params.config.vaultAddress,
+            fundingAddress: params.config.fundingAddress,
             propertyId: receiptPropertyId,
             amount: params.amount,
             dlcTemplateId: params.config.templateId,
@@ -450,13 +470,11 @@ export class TxsService {
 
         const redeemRes = await this.redeemProceduralReceipt({
             holderAddress: params.holderAddress,
-            propertyId: receiptPropertyId,
             amount: params.amount,
-            dlcTemplateId: params.config.templateId,
-            dlcContractId: params.config.contractId,
+            config: params.config,
         });
 
-        if (redeemRes.error || !redeemRes.data) {
+        if (redeemRes.error || !redeemRes.data?.redeemTxid) {
             return { error: redeemRes.error || 'Failed to redeem receipt token.' };
         }
 
@@ -471,7 +489,7 @@ export class TxsService {
             return { error: releaseRes.error || 'Failed to release collateral.' };
         }
 
-        return { data: { redeemTxid: redeemRes.data, releaseTxid: releaseRes.data } };
+        return { data: { redeemTxid: redeemRes.data.redeemTxid, releaseTxid: releaseRes.data } };
     }
 
     async getChannel(address: string) {

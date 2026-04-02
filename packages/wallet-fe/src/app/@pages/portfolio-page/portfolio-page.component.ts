@@ -1,4 +1,5 @@
 import { Component, ElementRef, OnInit, ChangeDetectorRef } from '@angular/core';
+import { OnDestroy } from '@angular/core';
 import { ToastrService } from 'ngx-toastr';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
 import { AuthService } from 'src/app/@core/services/auth.service';
@@ -37,13 +38,15 @@ interface ProceduralReceiptRow {
   templateUrl: './portfolio-page.component.html',
   styleUrls: ['./portfolio-page.component.scss']
 })
-export class PortfolioPageComponent implements OnInit {
+export class PortfolioPageComponent implements OnInit, OnDestroy {
   walletAddresses: string[] = []; 
   cryptoBalanceColumns: string[] = ['attestation', 'address', 'confirmed', 'unconfirmed', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'channel', 'receiptState', 'blocksRemaining', 'actions'];
   selectedAddress: string = '';
   receiptPropertyId: number | null = null;
   proceduralReceipts: ProceduralReceiptRow[] = [];
+  private attestationRefreshId: ReturnType<typeof setInterval> | null = null;
+  private proceduralReceiptRefreshId: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private apiService: ApiService,
@@ -66,8 +69,8 @@ export class PortfolioPageComponent implements OnInit {
   }
 
   get coinBalance() {
-    return Object.keys(this.balanceService.allBalances)
-      .map(address => ({ address, ...( this.balanceService.allBalances?.[address]?.coinBalance || {}) }));
+    return this.authService.walletAddresses
+      .map(address => ({ address, ...(this.balanceService.getCoinBalancesByAddress(address) || {}) }));
   }
 
   get tokensBalances() {
@@ -105,7 +108,7 @@ export class PortfolioPageComponent implements OnInit {
     return this.rpcService.NETWORK === 'BTC' ? 'BTC' : 'LTC';
   }
 
- ngOnInit(): void {
+ngOnInit(): void {
     this.authService.getAddressesFromWallet().then(() => {
         this.walletAddresses = this.authService.walletAddresses; // Ensure this happens after addresses are fetched
         this.startAttestationUpdateInterval();
@@ -116,13 +119,30 @@ export class PortfolioPageComponent implements OnInit {
 }
 
 
-    // Start periodic updates for attestation statuses
+  // Start periodic updates for attestation statuses
   startAttestationUpdateInterval() {
     this.updateAttestationStatuses(); // Run once on init
-    setInterval(() => {
+    if (this.attestationRefreshId) {
+      clearInterval(this.attestationRefreshId);
+    }
+    this.attestationRefreshId = setInterval(() => {
       this.updateAttestationStatuses(); 
+      if (this.selectedAddress) {
+        this.loadProceduralReceipts(this.selectedAddress);
+      }
       this.cdr.detectChanges(); // Force Angular to update the view
     }, 20000); // Update every 20 seconds
+  }
+
+  ngOnDestroy(): void {
+    if (this.attestationRefreshId) {
+      clearInterval(this.attestationRefreshId);
+      this.attestationRefreshId = null;
+    }
+    if (this.proceduralReceiptRefreshId) {
+      clearInterval(this.proceduralReceiptRefreshId);
+      this.proceduralReceiptRefreshId = null;
+    }
   }
 
   // Fetch and update attestation statuses for all wallet addresses
@@ -337,6 +357,14 @@ export class PortfolioPageComponent implements OnInit {
   async showTokens(address: string) {
     this.selectedAddress = address;
     await this.loadProceduralReceipts(address);
+    if (this.proceduralReceiptRefreshId) {
+      clearInterval(this.proceduralReceiptRefreshId);
+    }
+    this.proceduralReceiptRefreshId = setInterval(() => {
+      if (this.selectedAddress) {
+        this.loadProceduralReceipts(this.selectedAddress);
+      }
+    }, 15000);
     try {
         const { nativeElement } = this.elRef;
         setTimeout(() => nativeElement.scrollTop = nativeElement.scrollHeight);

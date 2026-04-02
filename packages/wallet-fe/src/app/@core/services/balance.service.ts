@@ -101,6 +101,7 @@ export class BalanceService {
                 await this.updateCoinBalanceForAddressFromUnspents(address);
                 await this.updateTokensBalanceForAddress(address);
             }
+            this.pruneStaleBalances(addressesArray);
         } catch(err: any) {
             this.toastrService.warning(err.message || `Error with updating balances`, 'Balance Error');
         }
@@ -227,5 +228,15 @@ export class BalanceService {
 
     private restartBalance() {
         this._allBalancesObj = {};
+    }
+
+    private pruneStaleBalances(activeAddresses: string[]) {
+        const active = new Set((activeAddresses || []).filter(Boolean));
+        this._allBalancesObj = Object.keys(this._allBalancesObj).reduce((acc, address) => {
+            if (active.has(address)) {
+                acc[address] = this._allBalancesObj[address];
+            }
+            return acc;
+        }, {} as typeof this._allBalancesObj);
     }
 }
