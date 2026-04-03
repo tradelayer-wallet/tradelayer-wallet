@@ -39,8 +39,6 @@ const ORACLE_LABEL = process.env.BITVM_ORACLE_LABEL || 'm1-20260329-114821-oracl
 const RESIDUAL_LABEL = process.env.BITVM_RESIDUAL_LABEL || 'm1-20260329-114821-residual';
 
 const FUNDING_SATS = Number(process.env.BITVM_FUNDING_SATS || '120000');
-const ORACLE_PAYOUT_SATS = Number(process.env.BITVM_ORACLE_PAYOUT_SATS || '70000');
-const RESIDUAL_PAYOUT_SATS = Number(process.env.BITVM_RESIDUAL_PAYOUT_SATS || '49000');
 const SPEND_FEE_SATS = Number(process.env.BITVM_SPEND_FEE_SATS || '1000');
 const TIMEOUT_DELAY_BLOCKS = Number(process.env.BITVM_TIMEOUT_DELAY_BLOCKS || '6');
 const STATE_PROPERTY_ID = Number(process.env.BITVM_STATE_PROPERTY_ID || '73');
@@ -442,11 +440,22 @@ function extractSigMap(partialSig) {
   return map;
 }
 
-async function main() {
-  if (ORACLE_PAYOUT_SATS + RESIDUAL_PAYOUT_SATS + SPEND_FEE_SATS !== FUNDING_SATS) {
-    throw new Error('Funding amount must equal oracle payout + residual payout + spend fee');
+function deriveOracleOutputs({ fundingValueSats, spendFeeSats, balanceClaim }) {
+  const spendable = BigInt(fundingValueSats) - BigInt(spendFeeSats);
+  if (spendable <= 0n) {
+    throw new Error('Funding value must be larger than spend fee');
   }
+  const claimAmount = BigInt(balanceClaim.balanceSats || 0);
+  const oraclePayout = claimAmount < spendable ? claimAmount : spendable;
+  const residualPayout = spendable - oraclePayout;
+  return {
+    oraclePayoutSats: Number(oraclePayout),
+    residualPayoutSats: Number(residualPayout),
+    spendableSats: Number(spendable)
+  };
+}
 
+async function main() {
   const chainInfo = await rpc('getblockchaininfo');
   const height = await rpc('getblockcount');
   const timeoutHeight = height + TIMEOUT_DELAY_BLOCKS;
@@ -529,6 +538,11 @@ async function main() {
 
   const fundingOutput = fundingTx.vout[fundingVout];
   const fundingValueSats = Math.round(Number(fundingOutput.value) * 1e8);
+  const derivedOutputs = deriveOracleOutputs({
+    fundingValueSats,
+    spendFeeSats: SPEND_FEE_SATS,
+    balanceClaim: stateBinding.balanceClaim
+  });
 
   const oracleSpendPsbt = new bitcoin.Psbt({ network: NETWORK });
   oracleSpendPsbt.addInput({
@@ -540,8 +554,12 @@ async function main() {
     },
     witnessScript
   });
-  oracleSpendPsbt.addOutput({ address: operator.address, value: ORACLE_PAYOUT_SATS });
-  oracleSpendPsbt.addOutput({ address: residual.address, value: RESIDUAL_PAYOUT_SATS });
+  if (derivedOutputs.oraclePayoutSats > 0) {
+    oracleSpendPsbt.addOutput({ address: operator.address, value: derivedOutputs.oraclePayoutSats });
+  }
+  if (derivedOutputs.residualPayoutSats > 0) {
+    oracleSpendPsbt.addOutput({ address: residual.address, value: derivedOutputs.residualPayoutSats });
+  }
   oracleSpendPsbt.signInput(0, operator.keyPair);
   oracleSpendPsbt.signInput(0, residual.keyPair);
   oracleSpendPsbt.signInput(0, oracle.keyPair);
@@ -635,7 +653,8 @@ async function main() {
       snapshotHashHex: stateBinding.snapshotHashHex,
       claimJsonByteLength: stateBinding.claimJsonByteLength,
       claimByteLength: stateBinding.claimByteLength,
-      balanceClaim: stateBinding.balanceClaim
+      balanceClaim: stateBinding.balanceClaim,
+      derivedRouting: derivedOutputs
     },
     oraclePreimageHex: oraclePreimage.toString('hex'),
     oracleHashHex,
@@ -652,8 +671,8 @@ async function main() {
       txid: oracleSpendTxid,
       hex: oracleSpendHex,
       outputs: [
-        { address: operator.address, valueSats: ORACLE_PAYOUT_SATS },
-        { address: residual.address, valueSats: RESIDUAL_PAYOUT_SATS }
+        ...(derivedOutputs.oraclePayoutSats > 0 ? [{ address: operator.address, valueSats: derivedOutputs.oraclePayoutSats }] : []),
+        ...(derivedOutputs.residualPayoutSats > 0 ? [{ address: residual.address, valueSats: derivedOutputs.residualPayoutSats }] : [])
       ]
     },
     timeoutSpend: {
