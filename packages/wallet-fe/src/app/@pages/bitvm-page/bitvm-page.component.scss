@@ -7,7 +7,7 @@
 
 .hero {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
   padding: 20px;
@@ -121,6 +121,26 @@ pre {
   min-height: 200px;
 }
 
+.graph-host {
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(38,50,72,0.8);
+  background: #0b1018;
+  padding: 12px;
+  min-height: 260px;
+}
+
+.graph-host .mermaid {
+  display: flex;
+  justify-content: center;
+}
+
+.graph-fallback {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .report-stats {
   display: grid;
   gap: 8px;
@@ -135,6 +155,34 @@ pre {
   border-radius: 12px;
   padding: 10px;
   background: rgba(13,19,29,0.9);
+}
+
+.artifact-list {
+  margin-top: 12px;
+}
+
+.artifact-rows {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.artifact-row {
+  text-align: left;
+  background: rgba(13,19,29,0.95);
+  border: 1px solid rgba(38,50,72,0.85);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.artifact-name {
+  font-weight: 600;
+}
+
+.artifact-meta {
+  color: #8fa3bf;
+  font-size: 12px;
+  margin-top: 3px;
 }
 
 @media (max-width: 1000px) {

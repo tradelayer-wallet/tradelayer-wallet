@@ -32,4 +32,20 @@ export class ExplorerApiService {
   report(): Observable<any> {
     return this.http.get(this.apiUrl + 'bitvm/report');
   }
+
+  artifacts(): Observable<any> {
+    return this.http.get(this.apiUrl + 'artifacts');
+  }
+
+  artifact(name: string): Observable<any> {
+    return this.http.get(this.apiUrl + 'artifact/' + encodeURIComponent(name));
+  }
+
+  addressHistory(address: string): Observable<any> {
+    return this.http.get(this.apiUrl + 'address/' + encodeURIComponent(address) + '/history');
+  }
+
+  contractHistory(contractId: string | number): Observable<any> {
+    return this.http.get(this.apiUrl + 'contract/' + encodeURIComponent(String(contractId)) + '/history');
+  }
 }

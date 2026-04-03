@@ -328,5 +328,40 @@ export const explorerRoutes = (fastify: FastifyInstance, _opts: any, done: any) 
     }
   });
 
+  fastify.get('/api/artifacts', async (_request, reply) => {
+    try {
+      reply.send(await explorerService.listArtifacts());
+    } catch (error: any) {
+      reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+    }
+  });
+
+  fastify.get('/api/artifact/:name', async (request, reply) => {
+    try {
+      const { name } = request.params as { name: string };
+      reply.send(await explorerService.getArtifact(name));
+    } catch (error: any) {
+      reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+    }
+  });
+
+  fastify.get('/api/address/:address/history', async (request, reply) => {
+    try {
+      const { address } = request.params as { address: string };
+      reply.send(await explorerService.getAddressHistory(address));
+    } catch (error: any) {
+      reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+    }
+  });
+
+  fastify.get('/api/contract/:contractId/history', async (request, reply) => {
+    try {
+      const { contractId } = request.params as { contractId: string };
+      reply.send(await explorerService.getContractHistory(Number(contractId)));
+    } catch (error: any) {
+      reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+    }
+  });
+
   done();
 };

@@ -43,11 +43,17 @@
           <span>TxID</span>
           <input [(ngModel)]="txQuery" placeholder="..." />
         </label>
+        <label>
+          <span>Contract ID</span>
+          <input [(ngModel)]="contractQuery" placeholder="10" />
+        </label>
       </div>
       <div class="actions">
         <button class="secondary" (click)="inspectAddress()">Inspect Address</button>
         <button class="secondary" (click)="inspectProperty()">Inspect Property</button>
         <button class="secondary" (click)="inspectTx()">Inspect Tx</button>
+        <button class="secondary" (click)="inspectAddressHistory()">Address History</button>
+        <button class="secondary" (click)="inspectContractHistory()">Contract History</button>
       </div>
       <pre *ngIf="lookupResult">{{ lookupResult | json }}</pre>
     </section>
@@ -60,11 +66,24 @@
         <div><span>Report hash</span>{{ overview?.bitvm?.reportHash || 'n/a' }}</div>
       </div>
       <pre *ngIf="report">{{ report | json }}</pre>
+      <details *ngIf="artifactIndex.length" class="artifact-list">
+        <summary>Artifact index ({{ artifactIndex.length }})</summary>
+        <div class="artifact-rows">
+          <button class="artifact-row" *ngFor="let artifact of artifactIndex" (click)="inspectArtifact(artifact.name)">
+            <div class="artifact-name">{{ artifact.name }}</div>
+            <div class="artifact-meta">{{ artifact.ext || 'file' }} · {{ artifact.size }} bytes</div>
+          </button>
+        </div>
+      </details>
     </section>
   </div>
 
   <section class="panel">
     <h2>Graph</h2>
-    <pre class="graph">{{ overview?.bitvm?.flow?.mermaid || 'graph TD\n  empty[No BitVM report found]' }}</pre>
+    <div class="graph-host" #graphHost></div>
+    <details class="graph-source">
+      <summary>Raw graph source</summary>
+      <pre class="graph">{{ overview?.bitvm?.flow?.mermaid || 'graph TD\n  empty[No BitVM report found]' }}</pre>
+    </details>
   </section>
 </div>

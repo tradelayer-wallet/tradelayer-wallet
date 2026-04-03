@@ -21,6 +21,10 @@ function safeArray<T>(value: any): T[] {
   return Array.isArray(value) ? value : [];
 }
 
+function safeName(name: string) {
+  return path.basename(String(name || '')).trim();
+}
+
 export class ExplorerService {
   async getOverview(rpcClient?: any) {
     const [sync, maxProcessed, maxParsed, properties, report, draft, funding, finalized, rollForward] = await Promise.all([
@@ -47,6 +51,7 @@ export class ExplorerService {
       properties,
       bitvm: report,
       artifacts: {
+        index: await this.listArtifacts(),
         draft,
         funding,
         finalized,
@@ -74,6 +79,27 @@ export class ExplorerService {
     };
   }
 
+  async getAddressHistory(address: string) {
+    if (!address) {
+      throw new Error('address is required');
+    }
+
+    const [balances, channel, attestations, totalTradeHistory] = await Promise.all([
+      axios.post(TL_BASE_URL + 'tl_getAllBalancesForAddress', { params: address }).then((res) => res.data).catch((error) => ({ error: String(error?.message || error) })),
+      axios.post(TL_BASE_URL + 'tl_getChannel', { params: address }).then((res) => res.data).catch(() => null),
+      axios.post(TL_BASE_URL + 'tl_getAttestations', { address, id: 0 }).then((res) => res.data).catch(() => []),
+      axios.get(TL_BASE_URL + 'tl_totalTradeHistoryForAddress', { params: { address } }).then((res) => res.data).catch(() => [])
+    ]);
+
+    return {
+      address,
+      balances,
+      channel,
+      attestations,
+      totalTradeHistory
+    };
+  }
+
   async getPropertySnapshot(propertyId: number) {
     if (!Number.isFinite(propertyId)) {
       throw new Error('propertyId is required');
@@ -86,6 +112,27 @@ export class ExplorerService {
       propertyId,
       property,
       knownProperties: balances
+    };
+  }
+
+  async getContractHistory(contractId: number) {
+    if (!Number.isFinite(contractId)) {
+      throw new Error('contractId is required');
+    }
+
+    const [contractInfo, contractTradeHistory, fundingHistory, oracleHistory] = await Promise.all([
+      axios.get(TL_BASE_URL + 'tl_getContractInfo', { params: { contractId } }).then((res) => res.data).catch((error) => ({ error: String(error?.message || error) })),
+      axios.get(TL_BASE_URL + 'tl_contractTradeHistory', { params: { contractId } }).then((res) => res.data).catch(() => []),
+      axios.get(TL_BASE_URL + 'tl_fundingHistory', { params: { contractId } }).then((res) => res.data).catch(() => []),
+      axios.get(TL_BASE_URL + 'tl_oracleHistory', { params: { contractId } }).then((res) => res.data).catch(() => [])
+    ]);
+
+    return {
+      contractId,
+      contractInfo,
+      contractTradeHistory,
+      fundingHistory,
+      oracleHistory
     };
   }
 
@@ -102,6 +149,28 @@ export class ExplorerService {
     return { txid, tlTx, chainTx };
   }
 
+  async listArtifacts() {
+    try {
+      if (!fs.existsSync(BITVM_ARTIFACT_ROOT)) return [];
+      return fs.readdirSync(BITVM_ARTIFACT_ROOT)
+        .map((name) => {
+          const filePath = path.join(BITVM_ARTIFACT_ROOT, name);
+          const stat = fs.statSync(filePath);
+          return {
+            name,
+            path: filePath,
+            size: stat.size,
+            mtimeMs: stat.mtimeMs,
+            ext: path.extname(name).toLowerCase()
+          };
+        })
+        .filter((entry) => ['.json', '.md'].includes(entry.ext))
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    } catch {
+      return [];
+    }
+  }
+
   async getBitvmReport() {
     const report = this.readArtifact('m1_visualization_latest.json');
     return report || {
@@ -111,8 +180,31 @@ export class ExplorerService {
   }
 
   readArtifact(name: string) {
-    const filePath = path.join(BITVM_ARTIFACT_ROOT, name);
+    const filePath = path.join(BITVM_ARTIFACT_ROOT, safeName(name));
     return readJsonIfExists(filePath);
+  }
+
+  async getArtifact(name: string) {
+    const fileName = safeName(name);
+    const filePath = path.join(BITVM_ARTIFACT_ROOT, fileName);
+    if (!fs.existsSync(filePath)) {
+      return {
+        error: 'artifact not found',
+        name: fileName,
+        expectedPath: filePath
+      };
+    }
+
+    const stat = fs.statSync(filePath);
+    const body = fs.readFileSync(filePath, 'utf8');
+    return {
+      name: fileName,
+      path: filePath,
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+      ext: path.extname(fileName).toLowerCase(),
+      content: fileName.endsWith('.json') ? JSON.parse(body) : body
+    };
   }
 }
 
