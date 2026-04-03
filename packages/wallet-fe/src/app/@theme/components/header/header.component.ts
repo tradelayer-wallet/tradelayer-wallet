@@ -53,6 +53,12 @@ export class HeaderComponent implements OnInit {
        link: '/algo',
        needAuthToShow: false
      },
+    {
+       id: 6,
+       name: 'BitVM',
+       link: '/bitvm',
+       needAuthToShow: false
+    },
     // {
     //   id: 6,
     //   name: 'Tx Builder',

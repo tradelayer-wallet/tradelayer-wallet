@@ -1,0 +1,148 @@
+.bitvm-page {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  color: var(--text, #e8eef7);
+}
+
+.hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(18,24,36,0.96), rgba(15,21,32,0.92));
+  border: 1px solid rgba(87,178,255,0.18);
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 34px;
+}
+
+.hero p, .eyebrow {
+  margin: 0;
+  color: #8fa3bf;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.stat, .panel {
+  border-radius: 18px;
+  border: 1px solid rgba(38,50,72,0.9);
+  background: rgba(18,24,36,0.95);
+  padding: 16px;
+}
+
+.stat .label, .report-stats span {
+  display: block;
+  color: #8fa3bf;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stat .value {
+  margin-top: 6px;
+  font-size: 22px;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.panel h2 {
+  margin: 0 0 12px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+label span {
+  display: block;
+  margin-bottom: 6px;
+  color: #8fa3bf;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+input, button, pre {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(38,50,72,1);
+  background: #0d131d;
+  color: #e8eef7;
+  padding: 12px 14px;
+  font: inherit;
+}
+
+button {
+  background: linear-gradient(135deg, #57b2ff, #436bff);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: linear-gradient(135deg, #223044, #182233);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+pre {
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 480px;
+}
+
+.graph {
+  min-height: 200px;
+}
+
+.report-stats {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.report-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid rgba(38,50,72,0.8);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(13,19,29,0.9);
+}
+
+@media (max-width: 1000px) {
+  .panels {
+    grid-template-columns: 1fr;
+  }
+  .hero {
+    align-items: start;
+    flex-direction: column;
+  }
+}

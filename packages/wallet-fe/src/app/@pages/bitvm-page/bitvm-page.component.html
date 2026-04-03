@@ -1,0 +1,70 @@
+<div class="bitvm-page">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">BitVM / DLC</div>
+      <h1>Settlement machine</h1>
+      <p>Inspect the contract graph, circuit size, oracle blobs, and live balances behind the BitVM flows.</p>
+    </div>
+    <button (click)="refresh()">Refresh</button>
+  </div>
+
+  <div class="stats" *ngIf="overview">
+    <div class="stat">
+      <div class="label">Chain</div>
+      <div class="value">{{ overview?.chainInfo?.chain || 'unknown' }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Blocks</div>
+      <div class="value">{{ overview?.chainInfo?.blocks ?? 'n/a' }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Referee gates</div>
+      <div class="value">{{ overview?.bitvm?.circuits?.referee?.totalGates ?? 'n/a' }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Transition gates</div>
+      <div class="value">{{ overview?.bitvm?.circuits?.transition?.totalGates ?? 'n/a' }}</div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <section class="panel">
+      <h2>Lookup</h2>
+      <div class="form-grid">
+        <label>
+          <span>Address</span>
+          <input [(ngModel)]="addressQuery" placeholder="tltc1..." />
+        </label>
+        <label>
+          <span>Property ID</span>
+          <input [(ngModel)]="propertyQuery" placeholder="73" />
+        </label>
+        <label>
+          <span>TxID</span>
+          <input [(ngModel)]="txQuery" placeholder="..." />
+        </label>
+      </div>
+      <div class="actions">
+        <button class="secondary" (click)="inspectAddress()">Inspect Address</button>
+        <button class="secondary" (click)="inspectProperty()">Inspect Property</button>
+        <button class="secondary" (click)="inspectTx()">Inspect Tx</button>
+      </div>
+      <pre *ngIf="lookupResult">{{ lookupResult | json }}</pre>
+    </section>
+
+    <section class="panel">
+      <h2>BitVM Report</h2>
+      <div class="report-stats" *ngIf="report">
+        <div><span>Template</span>{{ overview?.bitvm?.template?.templateId || 'n/a' }}</div>
+        <div><span>Template hash</span>{{ overview?.bitvm?.template?.templateHash || 'n/a' }}</div>
+        <div><span>Report hash</span>{{ overview?.bitvm?.reportHash || 'n/a' }}</div>
+      </div>
+      <pre *ngIf="report">{{ report | json }}</pre>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Graph</h2>
+    <pre class="graph">{{ overview?.bitvm?.flow?.mermaid || 'graph TD\n  empty[No BitVM report found]' }}</pre>
+  </section>
+</div>

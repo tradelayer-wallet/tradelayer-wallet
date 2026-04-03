@@ -5,6 +5,7 @@ import { RPCGuard } from './@core/guards/rpc.guard';
 import { SyncedGuard } from './@core/guards/sync.guard';
 import { FuturesPageComponent } from './@pages/futures-page/futures-page.component';
 
+import { BitvmPageComponent } from './@pages/bitvm-page/bitvm-page.component';
 import { HomePageComponent } from './@pages/home-page/home-page.component';
 import { LoginPageComponent } from './@pages/login-page/login-page.component';
 import { NodeRewardPageComponent } from './@pages/node-reward/node-reward-page.component';
@@ -40,11 +41,16 @@ export const routes: Routes = [
         component: SpotPageComponent,
         canActivate: [],
       },
-       {
-         path: 'futures',
-         component: FuturesPageComponent,
-         canActivate: [],
-       },
+      {
+        path: 'futures',
+        component: FuturesPageComponent,
+        canActivate: [],
+      },
+      {
+        path: 'bitvm',
+        component: BitvmPageComponent,
+        canActivate: [],
+      },
        { path: 'algo',
          component: AlgoTradingPageComponent,
          canActivate: [] 
