@@ -13,9 +13,22 @@ export interface BitvmDlcSetupConfig {
   collateralPropertyId: number;
   receiptPropertyId?: number;
   receiptTicker?: string;
+  oracleId?: number;
+  oracleAddress?: string;
   adminAddress: string;
   vaultAddress: string;
+  residualAddress?: string;
   fundingAddress: string;
+  feeAddress?: string;
+  pnlEscrowAddress?: string;
+  refundAddress?: string;
+  rolloverAddress?: string;
+  flatRecipientAddress?: string;
+  pnlRecipientAddress?: string;
+  feeRateBps?: number;
+  pnlEscrowBps?: number;
+  settlementSplitBps?: number;
+  routePlan?: any;
   templateId: string;
   dlcHash: string;
   contractId: string;
@@ -27,8 +40,11 @@ export const M1_BITVM_DLC_SETUP_CONFIG: BitvmDlcSetupConfig = {
   collateralPropertyId: M1_COLLATERAL_PROPERTY_ID,
   receiptPropertyId: M1_RECEIPT_PROPERTY_ID,
   receiptTicker: M1_RECEIPT_TICKER,
+  oracleId: 0,
+  oracleAddress: M1_ORACLE_ADDRESS,
   adminAddress: M1_OPERATOR_ADDRESS,
   vaultAddress: M1_OPERATOR_ADDRESS,
+  residualAddress: M1_RESIDUAL_ADDRESS,
   fundingAddress: M1_FUNDING_ADDRESS,
   templateId: M1_RECEIPT_TEMPLATE_ID,
   dlcHash: M1_RECEIPT_TEMPLATE_HASH,

@@ -74,6 +74,25 @@ export interface IBitvmDlcSetupResult {
     fundingAddress: string;
     operatorAddress: string;
     residualAddress: string;
+    feeAddress?: string;
+    pnlEscrowAddress?: string;
+    refundAddress?: string;
+    rolloverAddress?: string;
+    routePlan?: any;
+}
+
+export interface IBitvmDlcOutputTarget {
+    address: string;
+    amount: number | string;
+    label?: string;
+}
+
+export interface IBitvmDlcMultiOutputTxConfig {
+    fromAddress: string;
+    outputs: IBitvmDlcOutputTarget[];
+    payload?: string;
+    addPsbt?: boolean;
+    network?: TNETWORK;
 }
 
 @Injectable({
@@ -157,7 +176,7 @@ export class TxsService {
 	}
 
 
-   async buildTx(
+    async buildTx(
         buildTxConfig: IBuildTxConfig
     ): Promise<{ data?: { rawtx: string; inputs: IUTXO[], psbtHex?: string }, error?: string }> {
         try {
@@ -173,6 +192,20 @@ export class TxsService {
             return result;
         } catch (error: any) {
             return { error: error.message || 'An unexpected error occurred while building the transaction.' }
+        }
+    }
+
+    async buildBitvmDlcTx(
+        buildTxConfig: IBitvmDlcMultiOutputTxConfig
+    ): Promise<{ data?: { rawtx: string; inputs: IUTXO[]; outputs?: Record<string, number>; psbtHex?: string }, error?: string }> {
+        try {
+            const network = this.rpcService.NETWORK;
+            buildTxConfig.network = network;
+            const isApiMode = this.rpcService.isApiMode;
+            const result = await this.mainApi.buildBitvmDlcTx(buildTxConfig, isApiMode).toPromise();
+            return result;
+        } catch (error: any) {
+            return { error: error.message || 'An unexpected error occurred while building the BitVM DLC transaction.' };
         }
     }
 
@@ -292,6 +325,26 @@ export class TxsService {
         return result;
     }
 
+    async waitForTxConfirmations(txid: string, minConfirmations = 1, timeoutMs = 5 * 60 * 1000): Promise<{ data?: number; error?: string }> {
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < timeoutMs) {
+            try {
+                const txRes = await this.rpcService.rpc('gettransaction', [txid]);
+                const confirmations = Number(txRes?.data?.confirmations || 0);
+                if (confirmations >= minConfirmations) {
+                    return { data: confirmations };
+                }
+            } catch (error: any) {
+                const msg = String(error?.message || error || '').toLowerCase();
+                if (!msg.includes('not found')) {
+                    return { error: error?.message || String(error) };
+                }
+            }
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
+        return { error: `Timed out waiting for ${minConfirmations} confirmation(s) on ${txid}` };
+    }
+
     async depositToChannel(params: {
         fromAddress: string;
         channelAddress: string;
@@ -355,6 +408,138 @@ export class TxsService {
         });
     }
 
+    async redeemBitvmFundingOutput(params: {
+        fundingAddress: string;
+        recipientAddress: string;
+        amount?: number | string;
+        residualAddress?: string;
+        payload?: string;
+    }): Promise<{ data?: string; error?: string }> {
+        const fundingAddress = String(params.fundingAddress || '').trim();
+        const recipientAddress = String(params.recipientAddress || '').trim();
+        const residualAddress = String(params.residualAddress || fundingAddress || '').trim();
+        if (!fundingAddress) {
+            return { error: 'Funding address is required for BitVM redemption.' };
+        }
+        if (!recipientAddress) {
+            return { error: 'Recipient address is required for BitVM redemption.' };
+        }
+
+        const utxoRes = await this.rpcService.rpc('listunspent', [1, 9999999, [fundingAddress]]);
+        if (utxoRes.error || !Array.isArray(utxoRes.data) || utxoRes.data.length === 0) {
+            return { error: `No confirmed funding UTXO found for ${fundingAddress}` };
+        }
+
+        const utxo = [...utxoRes.data]
+            .sort((a: any, b: any) => Number(b.amount || 0) - Number(a.amount || 0))[0];
+        const inputAmount = Number(utxo?.amount || 0);
+        if (!Number.isFinite(inputAmount) || inputAmount <= 0) {
+            return { error: 'Invalid BitVM funding UTXO amount.' };
+        }
+
+        const estimatedFee = Number((0.2 * 0.00015).toFixed(8));
+        const spendAmount = Number(
+            params.amount != null ? params.amount : Number((inputAmount - estimatedFee).toFixed(8))
+        );
+        if (!Number.isFinite(spendAmount) || spendAmount <= 0) {
+            return { error: 'Invalid BitVM payout amount.' };
+        }
+
+        const residualAmount = Number((inputAmount - spendAmount - estimatedFee).toFixed(8));
+        if (residualAmount < -0.00000001) {
+            return { error: 'BitVM funding UTXO is too small for the requested payout and fees.' };
+        }
+        const outputs: IBitvmDlcOutputTarget[] = [
+            { address: recipientAddress, amount: spendAmount, label: 'payout' },
+        ];
+        if (residualAmount > 0) {
+            outputs.push({
+                address: residualAddress,
+                amount: residualAmount,
+                label: 'residual',
+            });
+        }
+
+        const buildRes = await this.buildBitvmDlcTx({
+            fromAddress: fundingAddress,
+            outputs,
+            payload: params.payload,
+        });
+
+        if (buildRes.error || !buildRes.data?.rawtx) {
+            return { error: buildRes.error || 'Failed to build BitVM redemption tx.' };
+        }
+
+        const signRes = await this.signRawTxWithWallet(buildRes.data.rawtx);
+        if (signRes.error || !signRes.data) {
+            return { error: signRes.error || 'Failed to sign BitVM redemption tx.' };
+        }
+
+        const { isValid, signedHex } = signRes.data;
+        if (!isValid || !signedHex) {
+            return { error: 'BitVM redemption tx is not valid or could not be signed.' };
+        }
+
+        const sendRes = await this.sendTx(signedHex);
+        if (sendRes.error || !sendRes.data) {
+            return { error: sendRes.error || 'Failed to broadcast BitVM redemption tx.' };
+        }
+
+        return { data: sendRes.data };
+    }
+
+    async buildBitvmFundingTx(params: {
+        fromAddress: string;
+        fundingAddress: string;
+        feeAddress?: string;
+        pnlEscrowAddress?: string;
+        fundingAmount: number | string;
+        feeAmount?: number | string;
+        pnlEscrowAmount?: number | string;
+        payload?: string;
+    }): Promise<{ data?: string; error?: string }> {
+        const outputs: IBitvmDlcOutputTarget[] = [];
+        const fundingAmount = Number(params.fundingAmount || 0);
+        const feeAmount = Number(params.feeAmount || 0);
+        const pnlEscrowAmount = Number(params.pnlEscrowAmount || 0);
+        if (fundingAmount > 0) {
+            outputs.push({ address: params.fundingAddress, amount: fundingAmount, label: 'contract-funding' });
+        }
+        if (feeAmount > 0 && params.feeAddress) {
+            outputs.push({ address: params.feeAddress, amount: feeAmount, label: 'fee' });
+        }
+        if (pnlEscrowAmount > 0 && params.pnlEscrowAddress) {
+            outputs.push({ address: params.pnlEscrowAddress, amount: pnlEscrowAmount, label: 'pnl-escrow' });
+        }
+
+        const buildRes = await this.buildBitvmDlcTx({
+            fromAddress: params.fromAddress,
+            outputs,
+            payload: params.payload,
+        });
+
+        if (buildRes.error || !buildRes.data?.rawtx) {
+            return { error: buildRes.error || 'Failed to build BitVM funding tx.' };
+        }
+
+        const signRes = await this.signRawTxWithWallet(buildRes.data.rawtx);
+        if (signRes.error || !signRes.data) {
+            return { error: signRes.error || 'Failed to sign BitVM funding tx.' };
+        }
+
+        const { isValid, signedHex } = signRes.data;
+        if (!isValid || !signedHex) {
+            return { error: 'BitVM funding tx is not valid or could not be signed.' };
+        }
+
+        const sendRes = await this.sendTx(signedHex);
+        if (sendRes.error || !sendRes.data) {
+            return { error: sendRes.error || 'Failed to broadcast BitVM funding tx.' };
+        }
+
+        return { data: sendRes.data };
+    }
+
     async issueProceduralToken(params: {
         adminAddress: string;
         ticker: string;
@@ -388,23 +573,59 @@ export class TxsService {
         amount: number | string;
         dlcTemplateId?: string;
         dlcContractId?: string;
+        config: ProceduralReceiptConfig;
+        routePlan?: any;
     }): Promise<{ data?: string; error?: string }> {
         const fundingAmount = Number(params.amount);
         if (!Number.isFinite(fundingAmount) || fundingAmount <= 0) {
             return { error: 'Procedural funding amount must be greater than zero.' };
         }
 
+        const senderAddress = params.recipientAddress || params.adminAddress;
         const tokenRecipientAddress = params.fundingAddress || params.recipientAddress;
+        const dlcHash = params.config.dlcHash;
         const payload = ENCODER.encodeGrantManagedToken({
             propertyId: params.propertyId,
             amountGranted: params.amount,
             addressToGrantTo: tokenRecipientAddress,
             dlcTemplateId: params.dlcTemplateId,
             dlcContractId: params.dlcContractId,
+            settlementState: 'FUNDED',
+            dlcHash,
         });
 
+        const routePlan = params.routePlan || params.config.routePlan;
+        if (routePlan?.outputs?.length) {
+            const outputAmountMap = routePlan.outputs.map((out: any) => ({
+                address: String(out.address || tokenRecipientAddress),
+                amount: Number(out.amountLtc || out.amount || 0),
+                label: String(out.role || ''),
+            }));
+            const buildRes = await this.buildBitvmDlcTx({
+                fromAddress: senderAddress,
+                outputs: outputAmountMap,
+                payload,
+            });
+            if (buildRes.error || !buildRes.data?.rawtx) {
+                return { error: buildRes.error || 'Failed to build BitVM funding tx.' };
+            }
+            const signRes = await this.signRawTxWithWallet(buildRes.data.rawtx);
+            if (signRes.error || !signRes.data) {
+                return { error: signRes.error || 'Failed to sign BitVM funding tx.' };
+            }
+            const { isValid, signedHex } = signRes.data;
+            if (!isValid || !signedHex) {
+                return { error: 'BitVM funding tx is not valid or could not be signed.' };
+            }
+            const sendRes = await this.sendTx(signedHex);
+            if (sendRes.error || !sendRes.data) {
+                return { error: sendRes.error || 'Failed to broadcast BitVM funding tx.' };
+            }
+            return { data: sendRes.data };
+        }
+
         return this.buildSingSendTx({
-            fromKeyPair: { address: params.adminAddress },
+            fromKeyPair: { address: senderAddress },
             toKeyPair: { address: tokenRecipientAddress },
             amount: fundingAmount,
             payload,
@@ -464,6 +685,15 @@ export class TxsService {
             templateHash: params.config.dlcHash,
             contractId: params.config.contractId,
             vaultAddress: params.config.vaultAddress,
+            feeAddress: params.config.feeAddress,
+            pnlEscrowAddress: params.config.pnlEscrowAddress,
+            refundAddress: params.config.refundAddress,
+            rolloverAddress: params.config.rolloverAddress,
+            flatRecipientAddress: params.config.flatRecipientAddress,
+            pnlRecipientAddress: params.config.pnlRecipientAddress,
+            feeRateBps: params.config.feeRateBps,
+            pnlEscrowBps: params.config.pnlEscrowBps,
+            settlementSplitBps: params.config.settlementSplitBps,
             walletLabel: this.authService.walletLabel,
             network: this.rpcService.NETWORK || 'LTCTEST',
         }, this.rpcService.isApiMode).toPromise();
@@ -480,10 +710,17 @@ export class TxsService {
             amount: params.amount,
             dlcTemplateId: setupRes.data.templateId,
             dlcContractId: setupRes.data.contractId,
+            routePlan: setupRes.data.routePlan,
+            config: params.config,
         });
 
         if (mintRes.error || !mintRes.data) {
             return { error: mintRes.error || 'Failed to mint receipt token.' };
+        }
+
+        const mintWait = await this.waitForTxConfirmations(mintRes.data, 1);
+        if (mintWait.error) {
+            return { error: mintWait.error };
         }
 
         return {
@@ -500,6 +737,11 @@ export class TxsService {
                 fundingAddress: setupRes.data.fundingAddress,
                 operatorAddress: setupRes.data.operatorAddress,
                 residualAddress: setupRes.data.residualAddress,
+                feeAddress: setupRes.data.feeAddress,
+                pnlEscrowAddress: setupRes.data.pnlEscrowAddress,
+                refundAddress: setupRes.data.refundAddress,
+                rolloverAddress: setupRes.data.rolloverAddress,
+                routePlan: setupRes.data.routePlan,
             }
         };
     }
@@ -533,11 +775,16 @@ export class TxsService {
             return { error: redeemRes.error || 'Failed to redeem receipt token.' };
         }
 
-        const releaseRes = await this.sendToken({
-            fromAddress: params.config.vaultAddress,
-            toAddress: params.recipientAddress || params.holderAddress,
-            propertyId: params.config.collateralPropertyId,
+        const redeemWait = await this.waitForTxConfirmations(redeemRes.data.redeemTxid, 1);
+        if (redeemWait.error) {
+            return { error: redeemWait.error };
+        }
+
+        const releaseRes = await this.redeemBitvmFundingOutput({
+            fundingAddress: params.config.fundingAddress,
+            recipientAddress: params.recipientAddress || params.holderAddress,
             amount: params.amount,
+            residualAddress: params.config.residualAddress || params.config.vaultAddress || params.config.adminAddress,
         });
 
         if (releaseRes.error || !releaseRes.data) {

@@ -4,6 +4,7 @@ import { Observable } from "rxjs";
 import { environment } from "src/environments/environment";
 import { ENetwork, TNETWORK } from "../services/rpc.service";
 import type { IBitvmDlcSetupResult } from "../services/txs.service";
+import type { IBitvmDlcMultiOutputTxConfig } from "../services/txs.service";
 import { IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig } from "../services/txs.service";
 
 
@@ -73,6 +74,15 @@ export class MainApiService {
         templateHash: string;
         contractId: string;
         vaultAddress?: string;
+        feeAddress?: string;
+        pnlEscrowAddress?: string;
+        refundAddress?: string;
+        rolloverAddress?: string;
+        flatRecipientAddress?: string;
+        pnlRecipientAddress?: string;
+        feeRateBps?: number;
+        pnlEscrowBps?: number;
+        settlementSplitBps?: number;
         walletLabel?: string;
         network: string;
       },
@@ -80,6 +90,16 @@ export class MainApiService {
     ) {
       return this.http.post<{ data?: IBitvmDlcSetupResult; error?: string }>(
         this.apiUrl + 'build-bitvm-dlc-setup',
+        body
+      );
+    }
+
+    buildBitvmDlcTx(
+      body: IBitvmDlcMultiOutputTxConfig,
+      _isApiMode: boolean
+    ) {
+      return this.http.post<{ data?: { rawtx: string; inputs: any[]; outputs?: Record<string, number>; psbtHex?: string }; error?: string }>(
+        this.apiUrl + 'build-bitvm-dlc-tx',
         body
       );
     }

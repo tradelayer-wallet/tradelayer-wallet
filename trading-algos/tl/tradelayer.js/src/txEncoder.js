@@ -22,6 +22,11 @@ const encodeReferenceToken = (value) => {
     return (hash >>> 0).toString(36);
 };
 
+const normalizeDlcContractId = (value) => {
+    if (value == null || value === '') return '';
+    return String(value).trim().split(':', 1)[0];
+};
+
 const Encode = {
 
     encodeAmount: (amt) => {
@@ -53,6 +58,7 @@ const Encode = {
             params.managed ? '1' : '0', //turn into enum
             params.backupAddress,
             params.nft ? '1' : '0',
+            params.coloredCoinHybrid ? '1' : '0',
         ];
         const type = 1;
         const typeStr = type?.toString(36) ?? '0';
@@ -246,13 +252,24 @@ const Encode = {
 
     // Encode AMM Pool Transaction
     encodeAMMPool: (params) => {
+        const toFlag = (v) => ((v === true || v === 1 || v === '1') ? '1' : '0');
+        const toBase36 = (v) => {
+            if (v === undefined || v === null || v === '') return '0';
+            if (typeof v === 'string') {
+                if (/[a-z]/i.test(v) && /^-?[0-9a-z]+$/i.test(v)) return v.toLowerCase();
+                const n = Number(v);
+                return Number.isFinite(n) ? Math.trunc(n).toString(36) : '0';
+            }
+            const n = Number(v);
+            return Number.isFinite(n) ? Math.trunc(n).toString(36) : '0';
+        };
         const payload = [
-            params.isRedeem, 
-            params.isContract, 
-            params.id, 
-            params.amount, 
-            params.id2, 
-            params.amount2,
+            toFlag(params.isRedeem),
+            toFlag(params.isContract),
+            toBase36(params.id),
+            toBase36(params.amount),
+            toBase36(params.id2),
+            toBase36(params.amount2),
         ];
         const type = 10;
         const typeStr = type?.toString(36) ?? '0';
@@ -281,8 +298,8 @@ const Encode = {
             (params.propertyid ?? params.propertyId)?.toString(36) ?? '0',
             amountGranted?.toString(36) ?? '0',
             params.redeemAddress || params.addressToGrantTo || '',
-            encodeReferenceToken(params?.dlcTemplateId),
-            encodeReferenceToken(params?.dlcContractId)
+            String(params?.dlcTemplateId || '').trim(),
+            normalizeDlcContractId(params?.dlcContractId)
         ];
         const type = 11;
         const typeStr = type?.toString(36) ?? '0';
@@ -295,8 +312,8 @@ const Encode = {
         const payload = [
             (params.propertyid ?? params.propertyId)?.toString(36) ?? '0',
             amountDestroyed?.toString(36) ?? '0',
-            encodeReferenceToken(params?.dlcTemplateId),
-            encodeReferenceToken(params?.dlcContractId)
+            String(params?.dlcTemplateId || '').trim(),
+            normalizeDlcContractId(params?.dlcContractId)
         ];
         const type = 12;
         const typeStr = type?.toString(36) ?? '0';

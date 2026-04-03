@@ -3,7 +3,7 @@ import { handleRoutes } from './routes';
 import { RpcClient } from 'tl-rpc';
 import { SocketService } from './services/socket.service';
 import { IOBSocketServiceOptions, OBSocketService } from './services/ob-sockets.service';
-import * as killPort from 'kill-port';
+import killPort from 'kill-port';
 import { TradeLayerService } from './services/tradelayer.service';
 
 export class FastifyServer {

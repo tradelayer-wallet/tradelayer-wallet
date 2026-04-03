@@ -8,7 +8,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "electron:dist": "electron-builder --config ./electron-builder.json",
+    "electron:dist": "electron-builder --publish never --config ./electron-builder.json",
     "electron:build": "webpack --config ./builder/builder-webpack.config.js",
     "electron:build:watch": "webpack --config ./builder/builder-webpack.config.js --watch",
     "server:build:windows": "webpack --config ./packages/wallet-server/webpack.config.js --env os=WINDOWS",

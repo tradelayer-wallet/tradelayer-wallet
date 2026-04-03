@@ -22,6 +22,11 @@ const encodeReferenceToken = (value?: string | number | null): string => {
   return (hash >>> 0).toString(36);
 };
 
+const normalizeDlcContractId = (value?: string | number | null): string => {
+  if (value == null || value === '') return '';
+  return String(value).trim().split(':', 1)[0];
+};
+
 
 const encodeAmount = (amt: number | string): string =>{
   const bigAmt = new BigNumber(amt);
@@ -240,6 +245,8 @@ type EncodeGrantManagedTokenParams = {
   redeemAddress?: string;
   dlcTemplateId?: string;
   dlcContractId?: string;
+  settlementState?: string;
+  dlcHash?: string;
 };
 
 const encodeGrantManagedToken = (params: EncodeGrantManagedTokenParams): string => {
@@ -247,8 +254,11 @@ const encodeGrantManagedToken = (params: EncodeGrantManagedTokenParams): string 
     Number(params.propertyId).toString(36),
     new BigNumber(params.amountGranted).times(1e8).integerValue(BigNumber.ROUND_DOWN).toString(36),
     params.redeemAddress || params.addressToGrantTo || '',
-    encodeReferenceToken(params.dlcTemplateId),
-    encodeReferenceToken(params.dlcContractId),
+    '',
+    params.dlcTemplateId || '',
+    normalizeDlcContractId(params.dlcContractId),
+    params.settlementState || 'FUNDED',
+    params.dlcHash || '',
   ];
 
   return marker + (11).toString(36) + payload.join(',');
@@ -265,8 +275,9 @@ const encodeRedeemManagedToken = (params: EncodeRedeemManagedTokenParams): strin
   const payload = [
     Number(params.propertyId).toString(36),
     new BigNumber(params.amountDestroyed).times(1e8).integerValue(BigNumber.ROUND_DOWN).toString(36),
-    encodeReferenceToken(params.dlcTemplateId),
-    encodeReferenceToken(params.dlcContractId),
+    params.dlcTemplateId || '',
+    normalizeDlcContractId(params.dlcContractId),
+    'SETTLED',
   ];
 
   return marker + (12).toString(36) + payload.join(',');

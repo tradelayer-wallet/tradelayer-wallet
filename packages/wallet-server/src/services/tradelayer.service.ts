@@ -1,7 +1,7 @@
 // import { TradelayerInstance, ITLInstanceConfig } from 'tl-js';
 import { spawn } from "child_process";
 import { join } from 'path';
-import * as killPort from 'kill-port';
+import killPort from 'kill-port';
 
 export class TradeLayerService {
     private port: number = 3000;

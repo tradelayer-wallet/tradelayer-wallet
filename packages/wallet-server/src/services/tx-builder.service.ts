@@ -108,6 +108,22 @@ export interface ISignPsbtConfig {
     psbtHex: string;
 };
 
+export interface IBitvmDlcOutputTarget {
+    address: string;
+    amount: number | string;
+    label?: string;
+}
+
+export interface IBitvmDlcMultiOutputTxConfig {
+    fromAddress: string;
+    outputs: IBitvmDlcOutputTarget[];
+    payload?: string;
+    addPsbt?: boolean;
+    network: string;
+}
+
+const minFeeLtcPerKb = 0.00015;
+
 export interface IInput {
     txid: string;
     amount: number;
@@ -117,8 +133,6 @@ export interface IInput {
     redeemScript?: string;
     pubkey?: string;
 };
-
-const minFeeLtcPerKb = 0.00015;
 
 // native/multisig.ts (Node environment)
 import * as bitcoin from 'bitcoinjs-lib';
@@ -356,6 +370,119 @@ const getMinVoutAmount = async (toAddress: string, isApiMode: boolean) => {
     }
 }
 
+const buildMultiOutputTx = async (txConfig: IBitvmDlcMultiOutputTxConfig, isApiMode: boolean) => {
+    try {
+        const fromAddress = String(txConfig.fromAddress || '').trim();
+        if (!fromAddress) throw new Error('Missing fromAddress');
+
+        const vaRes1 = await smartRpc('validateaddress', [fromAddress], isApiMode);
+        if (vaRes1.error || !vaRes1.data?.isvalid) throw new Error(`validateaddress: ${vaRes1.error}`);
+
+        const luRes = await smartRpc('listunspent', [0, 999999999, [fromAddress]], isApiMode);
+        if (luRes.error || !luRes.data) return { error: `listunspent: ${luRes.error}` };
+
+        const normalizedOutputs = (txConfig.outputs || [])
+            .map((o) => ({
+                address: String(o.address || '').trim(),
+                amount: safeNumber(Number(o.amount || 0)),
+                label: String(o.label || ''),
+            }))
+            .filter((o) => o.address && o.amount > 0);
+
+        if (!normalizedOutputs.length) {
+            throw new Error('No outputs provided for multi-output tx');
+        }
+
+        const dustThreshold = 0.0000546;
+        const mergedOutputs = new Map<string, number>();
+        let dustCarry = 0;
+        for (const out of normalizedOutputs) {
+            if (out.amount < dustThreshold) {
+                dustCarry = safeNumber(dustCarry + out.amount);
+                continue;
+            }
+            mergedOutputs.set(out.address, safeNumber((mergedOutputs.get(out.address) || 0) + out.amount));
+        }
+        if (dustCarry > 0) {
+            const firstAddr = mergedOutputs.keys().next().value;
+            if (firstAddr) {
+                mergedOutputs.set(firstAddr, safeNumber((mergedOutputs.get(firstAddr) || 0) + dustCarry));
+            } else {
+                throw new Error('All outputs were dust after normalization');
+            }
+        }
+
+        const _utxos = (luRes.data as IInput[])
+            .map(i => ({ ...i, pubkey: i.pubkey }))
+            .sort((a, b) => b.amount - a.amount);
+
+        const targetOut = Array.from(mergedOutputs.values()).reduce((sum, amt) => safeNumber(sum + amt), 0);
+        const estimateFee = (inputCount: number, outputCount: number) => safeNumber((0.2 * minFeeLtcPerKb) * (inputCount + outputCount));
+        const selectInputs = (targetAmount: number) => {
+            const finalInputs: IInput[] = [];
+            for (const u of _utxos) {
+                finalInputs.push(u);
+                const inputsSum = safeNumber(finalInputs.map(({ amount }) => amount).reduce((a, b) => a + b, 0));
+                const fee = estimateFee(finalInputs.length, mergedOutputs.size + 1);
+                if (inputsSum >= safeNumber(targetAmount + fee)) {
+                    break;
+                }
+            }
+            const fee = estimateFee(finalInputs.length, mergedOutputs.size + 1);
+            return { finalInputs, fee };
+        };
+
+        const { finalInputs, fee } = selectInputs(targetOut);
+        const inputsSum = safeNumber(finalInputs.map(({ amount }) => amount).reduce((a, b) => a + b, 0));
+        const change = safeNumber(inputsSum - targetOut - fee);
+        let normalizedChange = change;
+        if (normalizedChange > 0 && normalizedChange < dustThreshold) {
+            const firstAddr = mergedOutputs.keys().next().value;
+            if (firstAddr) {
+                mergedOutputs.set(firstAddr, safeNumber((mergedOutputs.get(firstAddr) || 0) + normalizedChange));
+            }
+            normalizedChange = 0;
+        }
+
+        if (inputsSum < safeNumber(targetOut + fee)) throw new Error('Not Enaugh coins for paying fees. Code 1');
+        if (!finalInputs.length) throw new Error('Not Enaugh coins for paying fees. Code 3');
+
+        const _insForRawTx = finalInputs.map(({ txid, vout }) => ({ txid, vout }));
+        const _outsForRawTx: Record<string, number> = {};
+        Array.from(mergedOutputs.entries()).forEach(([addr, amt]) => {
+            _outsForRawTx[addr] = safeNumber((_outsForRawTx[addr] || 0) + amt);
+        });
+        if (normalizedChange > 0) {
+            _outsForRawTx[fromAddress] = safeNumber((_outsForRawTx[fromAddress] || 0) + normalizedChange);
+        }
+
+        const crtRes = await smartRpc('createrawtransaction', [_insForRawTx, _outsForRawTx], isApiMode);
+        if (crtRes.error || !crtRes.data) throw new Error(`createrawtransaction: ${crtRes.error}`);
+        let finalTx = crtRes.data;
+
+        if (txConfig.payload) {
+            const crtxoprRes = await jsTlApi('tl_createrawtx_opreturn', [finalTx, txConfig.payload], isApiMode);
+            if (crtxoprRes.error || !crtxoprRes.data) throw new Error(`tl_createrawtx_opreturn: ${crtxoprRes.error}`);
+            finalTx = crtxoprRes.data;
+        }
+
+        const data: any = { rawtx: finalTx, inputs: finalInputs, outputs: _outsForRawTx };
+        if (txConfig.addPsbt) {
+            const psbtHexConfig = {
+                rawtx: finalTx,
+                inputs: finalInputs,
+                network: txConfig.network,
+            };
+            const psbtHexRes = buildPsbt(psbtHexConfig);
+            if (psbtHexRes.error || !psbtHexRes.data) throw new Error(`buildPsbt: ${psbtHexRes.error}`);
+            data.psbtHex = psbtHexRes.data;
+        }
+        return { data };
+    } catch (error: any) {
+        return { error: error.message || 'Undefined multi-output tx Error' };
+    }
+};
+
 export const signTx = async (signOptions: ISignTxConfig) => {
     try {
         const { rawtx, wif, network, inputs } = signOptions;
@@ -370,4 +497,12 @@ export const signTx = async (signOptions: ISignTxConfig) => {
     } catch (error) {
         return { error: error.message };
     }
+};
+
+export const buildBitvmDlcFundingTx = async (txConfig: IBitvmDlcMultiOutputTxConfig, isApiMode: boolean) => {
+    return buildMultiOutputTx(txConfig, isApiMode);
+};
+
+export const buildBitvmDlcRouteSpendTx = async (txConfig: IBitvmDlcMultiOutputTxConfig, isApiMode: boolean) => {
+    return buildMultiOutputTx(txConfig, isApiMode);
 };
