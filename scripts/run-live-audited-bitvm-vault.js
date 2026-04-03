@@ -7,6 +7,8 @@ const ecc = require('tiny-secp256k1');
 const { ECPairFactory } = require('ecpair');
 
 const ECPair = ECPairFactory(ecc);
+const stateOracle = require('C:\\projects\\tradelayer.js\\src\\stateOracle.js');
+const dbInstance = require('C:\\projects\\tradelayer.js\\src\\db.js');
 
 const NETWORK = {
   messagePrefix: '\x19Litecoin Signed Message:\n',
@@ -35,6 +37,16 @@ const ORACLE_PAYOUT_SATS = Number(process.env.BITVM_ORACLE_PAYOUT_SATS || '70000
 const RESIDUAL_PAYOUT_SATS = Number(process.env.BITVM_RESIDUAL_PAYOUT_SATS || '49000');
 const SPEND_FEE_SATS = Number(process.env.BITVM_SPEND_FEE_SATS || '1000');
 const TIMEOUT_DELAY_BLOCKS = Number(process.env.BITVM_TIMEOUT_DELAY_BLOCKS || '6');
+const STATE_PROPERTY_ID = Number(process.env.BITVM_STATE_PROPERTY_ID || '73');
+const STATE_FROM_BLOCK = Number(process.env.BITVM_STATE_FROM_BLOCK || '0');
+const STATE_TO_BLOCK = Number(process.env.BITVM_STATE_TO_BLOCK || '0');
+const STATE_BUCKET_SIZE = Number(process.env.BITVM_STATE_BUCKET_SIZE || '1');
+const STATE_INCLUDE_ZERO = String(process.env.BITVM_STATE_INCLUDE_ZERO || 'true').toLowerCase() === 'true';
+const STATE_OMIT_NOOP = String(process.env.BITVM_STATE_OMIT_NOOP || 'false').toLowerCase() === 'true';
+const STATE_INCLUDE_OPS = String(process.env.BITVM_STATE_INCLUDE_OPS || 'issue,redeem,rpnl')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
 
 const DEFAULT_ARTIFACT_DIR = path.join(
   'C:\\projects\\UTXORef\\UTXO-Ref\\bitvm3\\utxo_referee\\artifacts'
@@ -193,6 +205,117 @@ function compileVaultScript({ oracleHash, oraclePubkey, operatorPubkey, residual
   ]);
 }
 
+async function buildCanonicalStateBinding({
+  propertyId,
+  addresses,
+  fromBlock,
+  toBlock,
+  bucketSize,
+  includeZero,
+  omitNoOpAddresses,
+  includeOps
+}) {
+  const primaryPayload = await stateOracle.buildAddressDailyPayload({
+    propertyId,
+    addresses,
+    fromBlock,
+    toBlock,
+    bucketSize,
+    includeZero,
+    omitNoOpAddresses,
+    includeOps
+  });
+  const primaryB64 = stateOracle.encodeBalancePayload(primaryPayload);
+  const primaryPayloadBytes = Buffer.from(primaryB64, 'base64');
+  const primaryHashHex = stateOracle.payloadHashFromB64(primaryB64);
+  const primaryDigestEnvelope = {
+    schema: 'tl-state-oracle-daily-digest-v1',
+    propertyId,
+    payloadHashHex: primaryHashHex,
+    windowStartBlock: fromBlock,
+    windowEndBlock: toBlock,
+    rowCount: primaryPayload.rowCount,
+    selectedAddresses: addresses
+  };
+  const primaryPreimage = Buffer.from(JSON.stringify(primaryDigestEnvelope));
+  if (primaryPayload.rowCount > 0 && primaryPreimage.length <= 500) {
+    return {
+      payload: primaryPayload,
+      payloadB64: primaryB64,
+      payloadBytes: primaryPayloadBytes,
+      preimage: primaryPreimage,
+      payloadHashHex: primaryHashHex,
+      witnessEnvelope: primaryDigestEnvelope,
+      selectedAddresses: addresses,
+      fromBlock,
+      toBlock,
+      compacted: false,
+      witnessMode: 'digest-envelope'
+    };
+  }
+
+  const deltaDB = await dbInstance.getDatabase('tallyMapDelta');
+  const query = {
+    'data.property': Number(propertyId),
+    'data.address': { $in: addresses.map((value) => String(value)) }
+  };
+  const rows = await deltaDB.findAsync(query);
+  const candidates = rows
+    .map((row) => row?.data || row || {})
+    .filter((row) => row && row.address && Number(row.block || 0) > 0)
+    .sort((a, b) => Number(b.block || 0) - Number(a.block || 0));
+
+  const seen = new Set();
+  for (const row of candidates) {
+    const address = String(row.address);
+    const block = Number(row.block || 0);
+    const key = `${address}:${block}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const payload = await stateOracle.buildAddressDailyPayload({
+      propertyId,
+      addresses: [address],
+      fromBlock: block,
+      toBlock: block,
+      bucketSize,
+      includeZero: false,
+      omitNoOpAddresses: true,
+      includeOps
+    });
+    if (!payload.rowCount) continue;
+    const payloadB64 = stateOracle.encodeBalancePayload(payload);
+    const payloadBytes = Buffer.from(payloadB64, 'base64');
+    const payloadHashHex = stateOracle.payloadHashFromB64(payloadB64);
+    const witnessEnvelope = {
+      schema: 'tl-state-oracle-daily-digest-v1',
+      propertyId,
+      payloadHashHex,
+      windowStartBlock: block,
+      windowEndBlock: block,
+      rowCount: payload.rowCount,
+      selectedAddresses: [address]
+    };
+    const preimage = Buffer.from(JSON.stringify(witnessEnvelope));
+    if (preimage.length <= 500) {
+      return {
+        payload,
+        payloadB64,
+        payloadBytes,
+        preimage,
+        payloadHashHex,
+        witnessEnvelope,
+        selectedAddresses: [address],
+        fromBlock: block,
+        toBlock: block,
+        compacted: true,
+        witnessMode: 'digest-envelope'
+      };
+    }
+  }
+
+  throw new Error('Unable to build a canonical daily digest envelope that fits witness push limits');
+}
+
 function extractSigMap(partialSig) {
   const map = new Map();
   for (const sig of partialSig || []) {
@@ -213,22 +336,36 @@ async function main() {
   const operator = await getLabeledAddress(OPERATOR_LABEL);
   const oracle = await getLabeledAddress(ORACLE_LABEL);
   const residual = await getLabeledAddress(RESIDUAL_LABEL);
-
-  const oracleMessage = {
-    kind: 'bitvm_live_oracle_attestation_v1',
-    height,
-    timeoutHeight,
-    fundingSats: FUNDING_SATS,
-    oraclePayoutSats: ORACLE_PAYOUT_SATS,
-    residualPayoutSats: RESIDUAL_PAYOUT_SATS,
-    operatorAddress: operator.address,
-    residualAddress: residual.address
-  };
-  const oraclePreimage = Buffer.from(JSON.stringify(oracleMessage));
+  const stateAddresses = Array.from(new Set([
+    operator.address,
+    oracle.address,
+    residual.address,
+    ...String(process.env.BITVM_STATE_ADDRESSES || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+  ]));
+  const effectiveToBlock = STATE_TO_BLOCK > 0 ? STATE_TO_BLOCK : height;
+  const effectiveFromBlock = STATE_FROM_BLOCK > 0 ? STATE_FROM_BLOCK : Math.max(0, effectiveToBlock - 1);
+  const stateBinding = await buildCanonicalStateBinding({
+    propertyId: STATE_PROPERTY_ID,
+    addresses: stateAddresses,
+    fromBlock: effectiveFromBlock,
+    toBlock: effectiveToBlock,
+    bucketSize: STATE_BUCKET_SIZE,
+    includeZero: STATE_INCLUDE_ZERO,
+    omitNoOpAddresses: STATE_OMIT_NOOP,
+    includeOps: STATE_INCLUDE_OPS
+  });
+  const dailyPayload = stateBinding.payload;
+  const dailyPayloadB64 = stateBinding.payloadB64;
+  const oraclePreimage = stateBinding.preimage;
+  const canonicalPayloadHashHex = stateBinding.payloadHashHex;
   const oracleHash = sha256(oraclePreimage);
+  const oracleHashHex = oracleHash.toString('hex');
 
   const witnessScript = compileVaultScript({
-    oracleHash,
+      oracleHash,
     oraclePubkey: Buffer.from(oracle.pubkeyHex, 'hex'),
     operatorPubkey: Buffer.from(operator.pubkeyHex, 'hex'),
     residualPubkey: Buffer.from(residual.pubkeyHex, 'hex'),
@@ -360,9 +497,25 @@ async function main() {
       vout: fundingInput.vout,
       valueSats: fundingInputSats
     },
-    oracleMessage,
+    stateOracle: {
+      propertyId: STATE_PROPERTY_ID,
+      requestedAddresses: stateAddresses,
+      selectedAddresses: stateBinding.selectedAddresses,
+      requestedFromBlock: effectiveFromBlock,
+      requestedToBlock: effectiveToBlock,
+      fromBlock: stateBinding.fromBlock,
+      toBlock: stateBinding.toBlock,
+      includeOps: STATE_INCLUDE_OPS,
+      compactedForWitness: stateBinding.compacted,
+      witnessMode: stateBinding.witnessMode,
+      witnessEnvelope: stateBinding.witnessEnvelope,
+      payload: dailyPayload,
+      payloadB64: dailyPayloadB64,
+      payloadByteLength: stateBinding.payloadBytes.length,
+      payloadHashHex: canonicalPayloadHashHex
+    },
     oraclePreimageHex: oraclePreimage.toString('hex'),
-    oracleHashHex: oracleHash.toString('hex'),
+    oracleHashHex,
     timeoutHeight,
     vault: {
       address: vaultPayment.address,
@@ -401,7 +554,7 @@ async function main() {
     oracleSpendTxid,
     timeoutSpendTxid: timeoutSpendTx.getId(),
     witnessScriptHex: witnessScript.toString('hex'),
-    oracleHashHex: oracleHash.toString('hex'),
+    oracleHashHex,
     artifactPath
   }, null, 2));
 }
