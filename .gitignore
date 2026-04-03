@@ -2,5 +2,6 @@ node_modules
 release
 *.log
 dist
+codex-chat-sessions/
 claude.exe
 install-claude.ps1
