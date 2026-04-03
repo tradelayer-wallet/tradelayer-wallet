@@ -9,6 +9,12 @@ const { ECPairFactory } = require('ecpair');
 const ECPair = ECPairFactory(ecc);
 const stateOracle = require('C:\\projects\\tradelayer.js\\src\\stateOracle.js');
 const dbInstance = require('C:\\projects\\tradelayer.js\\src\\db.js');
+const {
+  ReceiptTallyMap
+} = require('C:\\projects\\UTXORef\\UTXO-Ref\\bitvm3\\utxo_referee\\m1_tally_map.js');
+const {
+  canonicalStringify
+} = require('C:\\projects\\UTXORef\\UTXO-Ref\\bitvm3\\utxo_referee\\m1_spec.js');
 
 const NETWORK = {
   messagePrefix: '\x19Litecoin Signed Message:\n',
@@ -47,6 +53,7 @@ const STATE_INCLUDE_OPS = String(process.env.BITVM_STATE_INCLUDE_OPS || 'issue,r
   .split(',')
   .map((value) => value.trim())
   .filter(Boolean);
+const CLAIM_ADDRESS = String(process.env.BITVM_CLAIM_ADDRESS || '').trim();
 
 const DEFAULT_ARTIFACT_DIR = path.join(
   'C:\\projects\\UTXORef\\UTXO-Ref\\bitvm3\\utxo_referee\\artifacts'
@@ -205,6 +212,110 @@ function compileVaultScript({ oracleHash, oraclePubkey, operatorPubkey, residual
   ]);
 }
 
+function toSats(amount) {
+  return BigInt(Math.round(Number(amount || 0) * 1e8));
+}
+
+function encodeVarSlice(buffer) {
+  const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+  if (data.length > 255) {
+    throw new Error(`Variable slice too large: ${data.length}`);
+  }
+  return Buffer.concat([Buffer.from([data.length]), data]);
+}
+
+function u64le(value) {
+  const out = Buffer.alloc(8);
+  out.writeBigUInt64LE(BigInt(value));
+  return out;
+}
+
+function u16le(value) {
+  const out = Buffer.alloc(2);
+  out.writeUInt16LE(Number(value));
+  return out;
+}
+
+function serializeBalanceClaimCompact(balanceClaim) {
+  const siblings = (balanceClaim.siblings || []).map((sibling) => Buffer.from(sibling, 'hex'));
+  if (siblings.length > 255) {
+    throw new Error(`Too many Merkle siblings in claim: ${siblings.length}`);
+  }
+  const accountId = Buffer.from(String(balanceClaim.accountId || ''), 'utf8');
+  const parts = [
+    Buffer.from('rbc1', 'ascii'),
+    u64le(balanceClaim.epochId),
+    u64le(balanceClaim.challengeWindowStart),
+    u64le(balanceClaim.challengeWindowLength),
+    u64le(balanceClaim.challengeWindowEnd),
+    u64le(balanceClaim.balanceSats),
+    u16le(balanceClaim.index),
+    encodeVarSlice(accountId),
+    Buffer.from(balanceClaim.leafHash, 'hex'),
+    Buffer.from(balanceClaim.balanceRoot, 'hex'),
+    Buffer.from(balanceClaim.snapshotHash, 'hex'),
+    Buffer.from([siblings.length]),
+    ...siblings
+  ];
+  return Buffer.concat(parts);
+}
+
+function pickClaimAddress(payload, preferredAddress) {
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  if (preferredAddress) {
+    const match = rows.find((row) => String(row.address) === preferredAddress);
+    if (match) return preferredAddress;
+  }
+  const nonZero = rows.find((row) => toSats(row.available || 0) > 0n);
+  if (nonZero) return String(nonZero.address);
+  if (rows.length > 0) return String(rows[0].address);
+  throw new Error('No address rows available to derive a balance claim');
+}
+
+function buildReceiptClaimBinding({
+  payload,
+  claimAddress,
+  propertyId,
+  challengeWindowStart,
+  challengeWindowLength
+}) {
+  const tally = new ReceiptTallyMap({
+    epochId: BigInt(challengeWindowStart),
+    challengeWindowStart: BigInt(challengeWindowStart),
+    challengeWindowLength: BigInt(challengeWindowLength)
+  });
+
+  for (const row of payload.rows || []) {
+    tally.setBalance(String(row.address), toSats(row.available || 0));
+  }
+
+  const balanceClaim = tally.getBalanceClaim(claimAddress);
+  const claimJson = canonicalStringify(balanceClaim);
+  const claimJsonBytes = Buffer.from(claimJson, 'utf8');
+  let claimBytes = claimJsonBytes;
+  let witnessMode = 'receipt-balance-claim';
+  if (claimBytes.length > 500) {
+    claimBytes = serializeBalanceClaimCompact(balanceClaim);
+    witnessMode = 'receipt-balance-claim-compact';
+  }
+  if (claimBytes.length > 500) {
+    throw new Error(`Balance claim preimage is too large for witness push limits: ${claimBytes.length} bytes`);
+  }
+
+  return {
+    propertyId,
+    tally,
+    claimAddress,
+    balanceClaim,
+    preimage: claimBytes,
+    claimJsonByteLength: claimJsonBytes.length,
+    claimByteLength: claimBytes.length,
+    balanceRootHex: tally.getBalanceMerkleRootHex(),
+    snapshotHashHex: tally.snapshotHashHex(),
+    witnessMode
+  };
+}
+
 async function buildCanonicalStateBinding({
   propertyId,
   addresses,
@@ -228,29 +339,32 @@ async function buildCanonicalStateBinding({
   const primaryB64 = stateOracle.encodeBalancePayload(primaryPayload);
   const primaryPayloadBytes = Buffer.from(primaryB64, 'base64');
   const primaryHashHex = stateOracle.payloadHashFromB64(primaryB64);
-  const primaryDigestEnvelope = {
-    schema: 'tl-state-oracle-daily-digest-v1',
-    propertyId,
-    payloadHashHex: primaryHashHex,
-    windowStartBlock: fromBlock,
-    windowEndBlock: toBlock,
-    rowCount: primaryPayload.rowCount,
-    selectedAddresses: addresses
-  };
-  const primaryPreimage = Buffer.from(JSON.stringify(primaryDigestEnvelope));
-  if (primaryPayload.rowCount > 0 && primaryPreimage.length <= 500) {
+  if (primaryPayload.rowCount > 0) {
+    const claimAddress = pickClaimAddress(primaryPayload, CLAIM_ADDRESS);
+    const claimBinding = buildReceiptClaimBinding({
+      payload: primaryPayload,
+      claimAddress,
+      propertyId,
+      challengeWindowStart: toBlock,
+      challengeWindowLength: TIMEOUT_DELAY_BLOCKS
+    });
     return {
       payload: primaryPayload,
       payloadB64: primaryB64,
       payloadBytes: primaryPayloadBytes,
-      preimage: primaryPreimage,
+      preimage: claimBinding.preimage,
       payloadHashHex: primaryHashHex,
-      witnessEnvelope: primaryDigestEnvelope,
       selectedAddresses: addresses,
       fromBlock,
       toBlock,
       compacted: false,
-      witnessMode: 'digest-envelope'
+      witnessMode: claimBinding.witnessMode,
+      claimAddress,
+      balanceClaim: claimBinding.balanceClaim,
+      balanceRootHex: claimBinding.balanceRootHex,
+      snapshotHashHex: claimBinding.snapshotHashHex,
+      claimJsonByteLength: claimBinding.claimJsonByteLength,
+      claimByteLength: claimBinding.claimByteLength
     };
   }
 
@@ -286,34 +400,38 @@ async function buildCanonicalStateBinding({
     const payloadB64 = stateOracle.encodeBalancePayload(payload);
     const payloadBytes = Buffer.from(payloadB64, 'base64');
     const payloadHashHex = stateOracle.payloadHashFromB64(payloadB64);
-    const witnessEnvelope = {
-      schema: 'tl-state-oracle-daily-digest-v1',
-      propertyId,
-      payloadHashHex,
-      windowStartBlock: block,
-      windowEndBlock: block,
-      rowCount: payload.rowCount,
-      selectedAddresses: [address]
-    };
-    const preimage = Buffer.from(JSON.stringify(witnessEnvelope));
-    if (preimage.length <= 500) {
+    try {
+      const claimBinding = buildReceiptClaimBinding({
+        payload,
+        claimAddress: pickClaimAddress(payload, CLAIM_ADDRESS || address),
+        propertyId,
+        challengeWindowStart: block,
+        challengeWindowLength: TIMEOUT_DELAY_BLOCKS
+      });
       return {
         payload,
         payloadB64,
         payloadBytes,
-        preimage,
+        preimage: claimBinding.preimage,
         payloadHashHex,
-        witnessEnvelope,
         selectedAddresses: [address],
         fromBlock: block,
         toBlock: block,
         compacted: true,
-        witnessMode: 'digest-envelope'
+        witnessMode: claimBinding.witnessMode,
+        claimAddress: claimBinding.claimAddress,
+        balanceClaim: claimBinding.balanceClaim,
+        balanceRootHex: claimBinding.balanceRootHex,
+        snapshotHashHex: claimBinding.snapshotHashHex,
+        claimJsonByteLength: claimBinding.claimJsonByteLength,
+        claimByteLength: claimBinding.claimByteLength
       };
+    } catch (_error) {
+      continue;
     }
   }
 
-  throw new Error('Unable to build a canonical daily digest envelope that fits witness push limits');
+  throw new Error('Unable to build a receipt-balance-claim witness that fits witness push limits');
 }
 
 function extractSigMap(partialSig) {
@@ -508,11 +626,16 @@ async function main() {
       includeOps: STATE_INCLUDE_OPS,
       compactedForWitness: stateBinding.compacted,
       witnessMode: stateBinding.witnessMode,
-      witnessEnvelope: stateBinding.witnessEnvelope,
       payload: dailyPayload,
       payloadB64: dailyPayloadB64,
       payloadByteLength: stateBinding.payloadBytes.length,
-      payloadHashHex: canonicalPayloadHashHex
+      payloadHashHex: canonicalPayloadHashHex,
+      claimAddress: stateBinding.claimAddress,
+      balanceRootHex: stateBinding.balanceRootHex,
+      snapshotHashHex: stateBinding.snapshotHashHex,
+      claimJsonByteLength: stateBinding.claimJsonByteLength,
+      claimByteLength: stateBinding.claimByteLength,
+      balanceClaim: stateBinding.balanceClaim
     },
     oraclePreimageHex: oraclePreimage.toString('hex'),
     oracleHashHex,
