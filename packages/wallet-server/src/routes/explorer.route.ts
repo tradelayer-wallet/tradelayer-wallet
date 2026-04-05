@@ -127,6 +127,22 @@ function htmlPage() {
     .table-row:last-child { border-bottom: 0; padding-bottom: 0; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
     details summary { cursor: pointer; color: var(--accent); }
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+      margin-left: 10px;
+    }
+    .status-chip.timeout { background: rgba(142,240,193,0.12); color: var(--accent-2); border-color: rgba(142,240,193,0.24); }
+    .status-chip.branch { background: rgba(87,178,255,0.12); color: var(--accent); border-color: rgba(87,178,255,0.24); }
+    .status-chip.unknown { background: rgba(255,203,107,0.12); color: var(--warn); border-color: rgba(255,203,107,0.24); }
     .graph {
       overflow: auto;
       border: 1px solid var(--line);
@@ -197,6 +213,72 @@ function htmlPage() {
     const pretty = (value) => JSON.stringify(value, null, 2);
     const el = (id) => document.getElementById(id);
 
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function renderSettlementBreakdown(settlement) {
+      if (!settlement) return '';
+      const rows = [
+        ['Settlement kind', settlement.settlementKind || 'n/a'],
+        ['Winner sweep', settlement.winnerSweepSats || 'n/a'],
+        ['Refund', settlement.refundSats || 'n/a'],
+        ['Residual', settlement.residualSats || 'n/a'],
+        ['Dust carry', settlement.dustCarrySats || 'n/a'],
+        ['Winner PnL', settlement.winnerPnlSats || 'n/a'],
+        ['Loser PnL', settlement.loserPnlSats || 'n/a'],
+        ['Net settlement', settlement.netSettlementSats || 'n/a']
+      ];
+
+      return (
+        '<div class="table" style="margin-top:12px">' +
+          rows.map(([label, value]) =>
+            '<div class="table-row">' +
+              '<div class="label">' + escapeHtml(label) + '</div>' +
+              '<div class="mono">' + escapeHtml(value) + '</div>' +
+            '</div>'
+          ).join('') +
+        '</div>'
+      );
+    }
+
+    function settlementStatusClass(settlement) {
+      const kind = String(settlement?.settlementKind || '').toLowerCase();
+      if (kind.includes('timeout')) return 'timeout';
+      if (kind.includes('branch') || kind.includes('pnl')) return 'branch';
+      return 'unknown';
+    }
+
+    function renderTxLookup(data) {
+      const bitvmDecode = data?.bitvmDecode || {};
+      const settlement = bitvmDecode.settlementBreakdown || bitvmDecode.settlementPayload?.settlementBreakdown || null;
+      const block = [
+        '<div class="table">',
+          '<div class="table-row"><div class="label">TxID</div><div class="mono">' + escapeHtml(data?.txid || 'n/a') + '</div></div>',
+          '<div class="table-row"><div class="label">Decode kind</div><div class="mono">' + escapeHtml(bitvmDecode?.kind || 'n/a') + '</div></div>',
+          '<div class="table-row"><div class="label">Witness items</div><div>' + escapeHtml(bitvmDecode?.witnessItems ?? 'n/a') + '</div></div>',
+          '<div class="table-row"><div class="label">Signature count</div><div>' + escapeHtml(bitvmDecode?.signatureCount ?? 'n/a') + '</div></div>',
+          '<div class="table-row"><div class="label">Script template</div><div class="mono">' + escapeHtml(bitvmDecode?.scriptTemplate || 'n/a') + '</div></div>',
+          '<div class="table-row"><div class="label">Branch selector</div><div class="mono">' + escapeHtml(bitvmDecode?.branchSelectorText || bitvmDecode?.branchSelectorHex || 'n/a') + '</div></div>'
+        ];
+
+      if (settlement) {
+        block.push('<div class="table-row"><div class="label">Settlement</div><div>' + renderSettlementBreakdown(settlement) + '</div></div>');
+      }
+
+      if (bitvmDecode?.settlementPayload) {
+        block.push('<details style="margin-top:12px"><summary>Settlement payload</summary><pre>' + escapeHtml(pretty(bitvmDecode.settlementPayload)) + '</pre></details>');
+      }
+
+      block.push('<details style="margin-top:12px"><summary>Raw transaction snapshot</summary><pre>' + escapeHtml(pretty(data)) + '</pre></details>');
+      block.push('</div>');
+      return block.join('');
+    }
+
     async function api(path) {
       const res = await fetch(path);
       if (!res.ok) throw new Error(await res.text());
@@ -206,6 +288,9 @@ function htmlPage() {
     async function loadOverview() {
       const data = await api('/explorer/api/overview');
       const sync = data.sync || {};
+      const expiryBreakdown = data?.artifacts?.expiryRedemption?.settlementBreakdown
+        || data?.artifacts?.expiryRedemption?.deltas?.settlementBreakdown
+        || null;
       const rows = [
         ['Chain', data.chainInfo?.chain || 'unknown'],
         ['Blocks', data.chainInfo?.blocks ?? 'n/a'],
@@ -233,7 +318,17 @@ function htmlPage() {
         '<details style="margin-top:12px">' +
           '<summary>Latest artifacts</summary>' +
           '<pre>' + pretty(data.artifacts || {}) + '</pre>' +
-        '</details>';
+        '</details>' +
+        (expiryBreakdown
+          ? '<details style="margin-top:12px" open>' +
+              '<summary>Latest expiry settlement <span class="status-chip ' + settlementStatusClass(expiryBreakdown) + '">' + escapeHtml(expiryBreakdown.settlementKind || 'unknown') + '</span></summary>' +
+              renderSettlementBreakdown(expiryBreakdown) +
+              '<details style="margin-top:12px">' +
+                '<summary>Expiry artifact</summary>' +
+                '<pre>' + escapeHtml(pretty(data?.artifacts?.expiryRedemption || {})) + '</pre>' +
+              '</details>' +
+            '</details>'
+          : '');
 
       const mermaidText = data.bitvm?.flow?.mermaid || 'graph TD\\n  empty[No BitVM report found]';
       el('graphText').textContent = mermaidText;
@@ -265,7 +360,7 @@ function htmlPage() {
       const txid = el('txInput').value.trim();
       if (!txid) return;
       const data = await api('/explorer/api/tx/' + encodeURIComponent(txid));
-      el('result').innerHTML = '<pre>' + pretty(data) + '</pre>';
+      el('result').innerHTML = data?.bitvmDecode ? renderTxLookup(data) : '<pre>' + pretty(data) + '</pre>';
     }
 
     loadOverview().catch(err => {
@@ -314,6 +409,16 @@ export const explorerRoutes = (fastify: FastifyInstance, _opts: any, done: any) 
     try {
       const { txid } = request.params as { txid: string };
       const data = await explorerService.getTxSnapshot(txid, fasitfyServer.rpcClient);
+      reply.send(data);
+    } catch (error: any) {
+      reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+    }
+  });
+
+  fastify.get('/api/tx/:txid/bitvm', async (request, reply) => {
+    try {
+      const { txid } = request.params as { txid: string };
+      const data = await explorerService.decodeBitvmTx(txid, fasitfyServer.rpcClient);
       reply.send(data);
     } catch (error: any) {
       reply.status(500).send({ error: error?.message || error || 'Undefined Error' });

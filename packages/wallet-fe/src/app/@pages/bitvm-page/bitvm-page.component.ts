@@ -10,6 +10,7 @@ export class BitvmPageComponent implements OnInit, AfterViewInit {
   overview: any = null;
   report: any = null;
   artifactIndex: any[] = [];
+  latestArtifacts: Array<{ name: string; label: string; artifact: any; summary: string }> = [];
   addressQuery = '';
   propertyQuery = '';
   txQuery = '';
@@ -37,6 +38,7 @@ export class BitvmPageComponent implements OnInit, AfterViewInit {
         this.overview = res;
         this.report = res?.bitvm || null;
         this.artifactIndex = Array.isArray(res?.artifacts?.index) ? res.artifacts.index : [];
+        this.latestArtifacts = this.buildLatestArtifacts(res?.artifacts || {});
         this.loading = false;
         this.renderGraph();
       },
@@ -61,6 +63,11 @@ export class BitvmPageComponent implements OnInit, AfterViewInit {
     this.explorerApi.tx(this.txQuery.trim()).subscribe((res) => this.lookupResult = res);
   }
 
+  decodeBitvmTx() {
+    if (!this.txQuery.trim()) return;
+    this.explorerApi.decodeBitvmTx(this.txQuery.trim()).subscribe((res) => this.lookupResult = res);
+  }
+
   inspectAddressHistory() {
     if (!this.addressQuery.trim()) return;
     this.explorerApi.addressHistory(this.addressQuery.trim()).subscribe((res) => this.lookupResult = res);
@@ -74,6 +81,67 @@ export class BitvmPageComponent implements OnInit, AfterViewInit {
   inspectArtifact(name: string) {
     if (!name.trim()) return;
     this.explorerApi.artifact(name.trim()).subscribe((res) => this.lookupResult = res);
+  }
+
+  private buildLatestArtifacts(artifacts: any) {
+    const entries = [
+      { name: 'm1_dlc_draft_latest.json', label: 'Draft', artifact: artifacts?.draft },
+      { name: 'm1_funding_psbt_latest.json', label: 'Funding PSBT', artifact: artifacts?.funding },
+      { name: 'm1_funding_finalized_latest.json', label: 'Finalized funding', artifact: artifacts?.finalized },
+      { name: 'm1_roll_forward_latest.json', label: 'Roll forward', artifact: artifacts?.rollForward },
+      { name: 'm1_challenge_bundle_latest.json', label: 'Challenge bundle', artifact: artifacts?.challengeBundle },
+      { name: 'm1_challenge_witness_latest.json', label: 'Challenge witness', artifact: artifacts?.challengeWitness },
+      { name: 'm1_expiry_redemption_latest.json', label: 'Expiry redemption', artifact: artifacts?.expiryRedemption }
+    ];
+
+    return entries.map((entry) => ({
+      ...entry,
+      summary: this.summarizeArtifact(entry.artifact)
+    }));
+  }
+
+  private summarizeArtifact(artifact: any) {
+    if (!artifact) {
+      return 'missing';
+    }
+
+    const parts: string[] = [];
+    const push = (label: string, value: any, limit = 16) => {
+      if (value === null || value === undefined || value === '') return;
+      const text = String(value);
+      parts.push(`${label}: ${text.length > limit ? `${text.slice(0, limit)}…` : text}`);
+    };
+
+    push('kind', artifact.kind);
+    push('route', artifact.route);
+    push('path', artifact.pathId);
+    push('tx', artifact.txid);
+    push('hash', artifact.artifactHash);
+    push('bundle', artifact.sourceChallengeBundleHash);
+    push('redeemed', artifact.redemption?.amountSats);
+    push('pnl', artifact.deltas?.netDeltaSats);
+    push('loss', artifact.deltas?.pnlLossSats);
+    push('gain', artifact.deltas?.pnlGainSats);
+    push('winnerSweep', artifact.settlementBreakdown?.winnerSweepSats || artifact.deltas?.settlementBreakdown?.winnerSweepSats);
+    push('refund', artifact.settlementBreakdown?.refundSats || artifact.deltas?.settlementBreakdown?.refundSats);
+    push('dust', artifact.settlementBreakdown?.dustCarrySats || artifact.deltas?.settlementBreakdown?.dustCarrySats);
+
+    return parts.length ? parts.join(' · ') : 'available';
+  }
+
+  settlementKind(artifact: any): string {
+    return String(
+      artifact?.settlementBreakdown?.settlementKind
+      || artifact?.deltas?.settlementBreakdown?.settlementKind
+      || 'unknown'
+    );
+  }
+
+  settlementChipClass(artifact: any): string {
+    const kind = this.settlementKind(artifact).toLowerCase();
+    if (kind.includes('timeout')) return 'timeout';
+    if (kind.includes('branch') || kind.includes('pnl')) return 'branch';
+    return 'unknown';
   }
 
   private async ensureMermaid() {

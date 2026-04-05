@@ -5,6 +5,7 @@ import { AuthService } from "./auth.service";
 import { BalanceService } from "./balance.service";
 import { LoadingService } from "./loading.service";
 import { RpcService, TNETWORK } from "./rpc.service";
+import { ExplorerApiService } from "../apis/explorer-api.service";
 import axios from 'axios'
 import { ENCODER } from "src/app/utils/payloads/encoder";
 import { ProceduralReceiptConfig } from "../constants/procedural.constants";
@@ -95,6 +96,94 @@ export interface IBitvmDlcMultiOutputTxConfig {
     network?: TNETWORK;
 }
 
+export interface IExpiryRedemptionArtifact {
+    kind?: string;
+    createdAt?: string;
+    deposit?: {
+        depositId?: string;
+        accountId?: string;
+        amountSats?: string;
+        txid?: string;
+    };
+    redemption?: {
+        redemptionId?: string;
+        accountId?: string;
+        amountSats?: string;
+        remainingBalanceSats?: string;
+    };
+    deltas?: {
+        kind?: string;
+        epochId?: string;
+        route?: string;
+        depositedSats?: string;
+        redeemedSats?: string;
+        pnlReferenceSats?: string;
+        realizedPnlSats?: string;
+        pnlGainSats?: string;
+        pnlLossSats?: string;
+        feeSats?: string;
+        netDeltaSats?: string;
+        maturityHeight?: string;
+        expiryHeight?: string | null;
+        oracleEventId?: string;
+        oracleDigestHex?: string;
+        note?: string;
+        annotationHash?: string;
+        settlementBreakdown?: {
+            kind?: string;
+            version?: number;
+            epochId?: string;
+            route?: string;
+            settlementKind?: string;
+            collateralSats?: string;
+            redeemedSats?: string;
+            winnerSweepSats?: string;
+            pnlReferenceSats?: string;
+            realizedPnlSats?: string;
+            winnerPnlSats?: string;
+            loserPnlSats?: string;
+            feeSats?: string;
+            refundSats?: string;
+            residualSats?: string;
+            rolloverCollateralSats?: string;
+            dustCarrySats?: string;
+            refundRecipient?: string | null;
+            winnerRecipient?: string | null;
+            netSettlementSats?: string;
+            note?: string | null;
+        };
+    };
+    settlementBreakdown?: {
+        kind?: string;
+        version?: number;
+        epochId?: string;
+        route?: string;
+        settlementKind?: string;
+        collateralSats?: string;
+        redeemedSats?: string;
+        winnerSweepSats?: string;
+        pnlReferenceSats?: string;
+        realizedPnlSats?: string;
+        winnerPnlSats?: string;
+        loserPnlSats?: string;
+        feeSats?: string;
+        refundSats?: string;
+        residualSats?: string;
+        rolloverCollateralSats?: string;
+        dustCarrySats?: string;
+        refundRecipient?: string | null;
+        winnerRecipient?: string | null;
+        netSettlementSats?: string;
+        note?: string | null;
+    };
+    witnessBlob?: {
+        committed?: Record<string, any>;
+        deltaAnnotation?: Record<string, any>;
+        witnessBlobHash?: string;
+    };
+    artifactHash?: string;
+}
+
 @Injectable({
     providedIn: 'root',
 })
@@ -103,6 +192,7 @@ export class TxsService {
     constructor(
         private rpcService: RpcService,
         private apiService: ApiService,
+        private explorerApi: ExplorerApiService,
         private authService: AuthService,
         private loadingService: LoadingService,
         private toastrService: ToastrService,
@@ -486,6 +576,108 @@ export class TxsService {
         }
 
         return { data: sendRes.data };
+    }
+
+    private satsToLtcNumber(sats: string | number | undefined | null) {
+        const value = Number(sats || 0);
+        if (!Number.isFinite(value) || value <= 0) return 0;
+        return Number((value / 1e8).toFixed(8));
+    }
+
+    private buildExpiryRedemptionPayload(artifact: IExpiryRedemptionArtifact, fallbackAmountSats: string | number) {
+        const delta = artifact?.deltas || artifact?.witnessBlob?.deltaAnnotation || {};
+        const settlement = artifact?.settlementBreakdown
+            || artifact?.deltas?.settlementBreakdown
+            || artifact?.witnessBlob?.deltaAnnotation?.settlementBreakdown
+            || {};
+        return JSON.stringify({
+            kind: artifact?.kind || 'm1_expiry_redemption',
+            artifactHash: artifact?.artifactHash || null,
+            redemptionId: artifact?.redemption?.redemptionId || null,
+            depositId: artifact?.deposit?.depositId || null,
+            epochId: delta?.epochId || null,
+            route: delta?.route || null,
+            depositedSats: String(delta?.depositedSats || artifact?.deposit?.amountSats || '0'),
+            redeemedSats: String(delta?.redeemedSats || artifact?.redemption?.amountSats || fallbackAmountSats || '0'),
+            pnlGainSats: String(delta?.pnlGainSats || '0'),
+            pnlLossSats: String(delta?.pnlLossSats || '0'),
+            netDeltaSats: String(delta?.netDeltaSats || '0'),
+            annotationHash: String(delta?.annotationHash || artifact?.witnessBlob?.deltaAnnotation?.annotationHash || ''),
+            settlementBreakdown: {
+                kind: String(settlement?.kind || 'settlement-breakdown'),
+                settlementKind: String(settlement?.settlementKind || delta?.route || 'roll'),
+                winnerSweepSats: String(settlement?.winnerSweepSats || delta?.redeemedSats || artifact?.redemption?.amountSats || fallbackAmountSats || '0'),
+                refundSats: String(settlement?.refundSats || artifact?.redemption?.remainingBalanceSats || '0'),
+                residualSats: String(settlement?.residualSats || artifact?.redemption?.remainingBalanceSats || '0'),
+                dustCarrySats: String(settlement?.dustCarrySats || '0'),
+                winnerPnlSats: String(settlement?.winnerPnlSats || delta?.pnlGainSats || '0'),
+                loserPnlSats: String(settlement?.loserPnlSats || delta?.pnlLossSats || '0')
+            }
+        });
+    }
+
+    async redeemProceduralReceiptWithExpiryArtifact(params: {
+        holderAddress: string;
+        amount?: number | string;
+        config: ProceduralReceiptConfig;
+        recipientAddress?: string;
+        artifactName?: string;
+    }): Promise<{ data?: { redeemTxid: string; releaseTxid: string; artifact?: IExpiryRedemptionArtifact }; error?: string }> {
+        const receiptPropertyId = Number(params.config.receiptPropertyId || 0);
+        if (!receiptPropertyId) {
+            return { error: 'Receipt property is not configured.' };
+        }
+
+        const artifactName = String(params.artifactName || params.config.expiryArtifactName || 'm1_expiry_redemption_latest.json').trim();
+        const artifactRes = await this.explorerApi.artifact(artifactName).toPromise();
+        const artifact = artifactRes?.content as IExpiryRedemptionArtifact | undefined;
+        if (!artifact || artifact.kind !== 'm1_expiry_redemption') {
+            return { error: `Expiry redemption artifact not found or invalid: ${artifactName}` };
+        }
+
+        const redemptionAmountSats = artifact?.redemption?.amountSats
+            || artifact?.deltas?.redeemedSats
+            || artifact?.witnessBlob?.deltaAnnotation?.redeemedSats
+            || '';
+        const redemptionAmount = this.satsToLtcNumber(redemptionAmountSats) || Number(params.amount || 0);
+        if (!Number.isFinite(redemptionAmount) || redemptionAmount <= 0) {
+            return { error: 'Invalid redemption amount in expiry artifact.' };
+        }
+
+        const redeemRes = await this.redeemProceduralReceipt({
+            holderAddress: params.holderAddress,
+            amount: redemptionAmount,
+            config: params.config,
+        });
+
+        if (redeemRes.error || !redeemRes.data?.redeemTxid) {
+            return { error: redeemRes.error || 'Failed to redeem receipt token.' };
+        }
+
+        const redeemWait = await this.waitForTxConfirmations(redeemRes.data.redeemTxid, 1);
+        if (redeemWait.error) {
+            return { error: redeemWait.error };
+        }
+
+        const releaseRes = await this.redeemBitvmFundingOutput({
+            fundingAddress: params.config.fundingAddress,
+            recipientAddress: params.recipientAddress || params.holderAddress,
+            amount: redemptionAmount,
+            residualAddress: params.config.residualAddress || params.config.vaultAddress || params.config.adminAddress,
+            payload: this.buildExpiryRedemptionPayload(artifact, redemptionAmountSats),
+        });
+
+        if (releaseRes.error || !releaseRes.data) {
+            return { error: releaseRes.error || 'Failed to release collateral.' };
+        }
+
+        return {
+            data: {
+                redeemTxid: redeemRes.data.redeemTxid,
+                releaseTxid: releaseRes.data,
+                artifact
+            }
+        };
     }
 
     async buildBitvmFundingTx(params: {

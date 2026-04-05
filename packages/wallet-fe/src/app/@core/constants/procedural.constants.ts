@@ -13,6 +13,7 @@ export interface BitvmDlcSetupConfig {
   collateralPropertyId: number;
   receiptPropertyId?: number;
   receiptTicker?: string;
+  expiryArtifactName?: string;
   oracleId?: number;
   oracleAddress?: string;
   adminAddress: string;
@@ -40,6 +41,7 @@ export const M1_BITVM_DLC_SETUP_CONFIG: BitvmDlcSetupConfig = {
   collateralPropertyId: M1_COLLATERAL_PROPERTY_ID,
   receiptPropertyId: M1_RECEIPT_PROPERTY_ID,
   receiptTicker: M1_RECEIPT_TICKER,
+  expiryArtifactName: 'm1_expiry_redemption_latest.json',
   oracleId: 0,
   oracleAddress: M1_ORACLE_ADDRESS,
   adminAddress: M1_OPERATOR_ADDRESS,

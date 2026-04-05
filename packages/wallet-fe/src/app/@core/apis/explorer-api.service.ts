@@ -29,6 +29,10 @@ export class ExplorerApiService {
     return this.http.get(this.apiUrl + 'tx/' + encodeURIComponent(txid));
   }
 
+  decodeBitvmTx(txid: string): Observable<any> {
+    return this.http.get(this.apiUrl + 'tx/' + encodeURIComponent(txid) + '/bitvm');
+  }
+
   report(): Observable<any> {
     return this.http.get(this.apiUrl + 'bitvm/report');
   }

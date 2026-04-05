@@ -52,6 +52,7 @@
         <button class="secondary" (click)="inspectAddress()">Inspect Address</button>
         <button class="secondary" (click)="inspectProperty()">Inspect Property</button>
         <button class="secondary" (click)="inspectTx()">Inspect Tx</button>
+        <button class="secondary" (click)="decodeBitvmTx()">Decode BitVM Tx</button>
         <button class="secondary" (click)="inspectAddressHistory()">Address History</button>
         <button class="secondary" (click)="inspectContractHistory()">Contract History</button>
       </div>
@@ -65,7 +66,28 @@
         <div><span>Template hash</span>{{ overview?.bitvm?.template?.templateHash || 'n/a' }}</div>
         <div><span>Report hash</span>{{ overview?.bitvm?.reportHash || 'n/a' }}</div>
       </div>
+      <div class="report-stats" *ngIf="overview?.artifacts?.expiryRedemption?.settlementBreakdown">
+        <div>
+          <span>Settlement kind</span>
+          <span class="status-chip" [ngClass]="settlementChipClass(overview?.artifacts?.expiryRedemption)">
+            {{ settlementKind(overview?.artifacts?.expiryRedemption) }}
+          </span>
+        </div>
+        <div><span>Winner sweep</span>{{ overview?.artifacts?.expiryRedemption?.settlementBreakdown?.winnerSweepSats || 'n/a' }}</div>
+        <div><span>Refund</span>{{ overview?.artifacts?.expiryRedemption?.settlementBreakdown?.refundSats || 'n/a' }}</div>
+        <div><span>Dust carry</span>{{ overview?.artifacts?.expiryRedemption?.settlementBreakdown?.dustCarrySats || 'n/a' }}</div>
+      </div>
       <pre *ngIf="report">{{ report | json }}</pre>
+      <div *ngIf="latestArtifacts.length" class="artifact-grid">
+        <button
+          class="artifact-card"
+          *ngFor="let artifact of latestArtifacts"
+          (click)="inspectArtifact(artifact.name)">
+          <div class="artifact-name">{{ artifact.label }}</div>
+          <div class="artifact-file">{{ artifact.name }}</div>
+          <div class="artifact-summary">{{ artifact.summary }}</div>
+        </button>
+      </div>
       <details *ngIf="artifactIndex.length" class="artifact-list">
         <summary>Artifact index ({{ artifactIndex.length }})</summary>
         <div class="artifact-rows">

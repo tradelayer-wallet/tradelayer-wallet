@@ -157,8 +157,71 @@ pre {
   background: rgba(13,19,29,0.9);
 }
 
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(87,178,255,0.24);
+  background: rgba(87,178,255,0.12);
+  color: #57b2ff;
+}
+
+.status-chip.timeout {
+  border-color: rgba(142,240,193,0.24);
+  background: rgba(142,240,193,0.12);
+  color: #8ef0c1;
+}
+
+.status-chip.branch {
+  border-color: rgba(87,178,255,0.24);
+  background: rgba(87,178,255,0.12);
+  color: #57b2ff;
+}
+
+.status-chip.unknown {
+  border-color: rgba(255,203,107,0.24);
+  background: rgba(255,203,107,0.12);
+  color: #ffcb6b;
+}
+
 .artifact-list {
   margin-top: 12px;
+}
+
+.artifact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 12px 0 2px;
+}
+
+.artifact-card {
+  text-align: left;
+  background: linear-gradient(135deg, rgba(34,48,68,0.96), rgba(13,19,29,0.98));
+  border: 1px solid rgba(87,178,255,0.22);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.artifact-card .artifact-file {
+  color: #8fa3bf;
+  font-size: 12px;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.artifact-card .artifact-summary {
+  color: #e8eef7;
+  font-size: 12px;
+  margin-top: 8px;
+  opacity: 0.92;
+  word-break: break-word;
 }
 
 .artifact-rows {

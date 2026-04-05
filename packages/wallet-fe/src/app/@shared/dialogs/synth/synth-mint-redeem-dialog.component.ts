@@ -257,10 +257,11 @@ export class SynthMintRedeemDialogComponent {
       return;
     }
 
-    const result = await this.txsService.redeemProceduralReceiptWithRelease({
+    const result = await this.txsService.redeemProceduralReceiptWithExpiryArtifact({
       holderAddress: this.data.address,
       amount: Number(this.amount),
       config: this.proceduralConfig,
+      artifactName: this.proceduralConfig?.expiryArtifactName,
     });
 
     if (result.error || !result.data) {
@@ -269,6 +270,15 @@ export class SynthMintRedeemDialogComponent {
 
     this.toastr.success(`Redeem TX: ${result.data.redeemTxid}`);
     this.toastr.success(`Release TX: ${result.data.releaseTxid}`);
+    if (result.data.artifact?.artifactHash) {
+      this.toastr.success(`Expiry artifact: ${result.data.artifact.artifactHash}`);
+    }
+    const settlement = result.data.artifact?.settlementBreakdown || result.data.artifact?.deltas?.settlementBreakdown;
+    if (settlement?.winnerSweepSats || settlement?.refundSats || settlement?.dustCarrySats) {
+      this.toastr.success(
+        `Winner sweep: ${settlement.winnerSweepSats || '0'} sats, refund: ${settlement.refundSats || '0'} sats, dust: ${settlement.dustCarrySats || '0'} sats`
+      );
+    }
     this.dialogRef.close(result);
   }
 

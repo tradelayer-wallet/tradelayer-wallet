@@ -47,6 +47,7 @@ export interface IBitvmDlcRouteOutput {
 export interface IBitvmDlcRoutePath {
   pathId: string;
   kind: 'settlement' | 'refund' | 'roll' | 'escrow' | 'fee';
+  routeAlias?: string;
   payoutRole: string;
   payoutAddress: string;
   payoutSats: string;
@@ -185,9 +186,10 @@ function buildRoutePlan(
     outputs,
     paths: [
       {
-        pathId: 'flat',
+        pathId: 'settle-gain',
         kind: 'settlement',
-        payoutRole: 'flat-recipient',
+        routeAlias: 'flat',
+        payoutRole: 'gain-recipient',
         payoutAddress: flatRecipientAddress,
         payoutSats: flatPayout.toFixed(0),
         residualAddress,
@@ -195,9 +197,10 @@ function buildRoutePlan(
         defaultOnExpiry: false,
       },
       {
-        pathId: 'pnl',
+        pathId: 'settle-loss',
         kind: 'settlement',
-        payoutRole: 'pnl-recipient',
+        routeAlias: 'pnl',
+        payoutRole: 'loss-recipient',
         payoutAddress: pnlRecipientAddress,
         payoutSats: pnlPayout.toFixed(0),
         residualAddress,
@@ -205,19 +208,9 @@ function buildRoutePlan(
         defaultOnExpiry: false,
       },
       {
-        pathId: 'refund',
-        kind: 'refund',
-        payoutRole: 'refund-recipient',
-        payoutAddress: refundAddress,
-        payoutSats: refundSats.toFixed(0),
-        residualAddress: refundAddress,
-        residualSats: '0',
-        defaultOnExpiry: true,
-        locktime: undefined,
-      },
-      {
         pathId: 'roll',
         kind: 'roll',
+        routeAlias: 'timeout-refund',
         payoutRole: 'rollover-recipient',
         payoutAddress: rolloverAddress,
         payoutSats: rolloverSats.toFixed(0),
