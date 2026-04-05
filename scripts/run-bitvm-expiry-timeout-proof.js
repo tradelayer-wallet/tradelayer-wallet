@@ -25,9 +25,13 @@ const RPC_PORT = Number(process.env.LTC_RPC_PORT || '19332');
 const RPC_USER = process.env.LTC_RPC_USER || 'user';
 const RPC_PASS = process.env.LTC_RPC_PASS || 'pass';
 const WALLET = process.env.LTC_WALLET || 'wallet.dat';
+const TIMEOUT_OFFSET = Number(process.env.BITVM_TIMEOUT_OFFSET || '2');
+const MIN_FUNDING_CONFIRMATIONS = Number(process.env.BITVM_MIN_FUNDING_CONFIRMATIONS || '1');
 
 const ARTIFACT_PATH = process.env.BITVM_EXPIRY_ARTIFACT
   || 'C:\\projects\\UTXORef\\UTXO-Ref\\bitvm3\\utxo_referee\\artifacts\\m1_expiry_redemption_latest.json';
+const DRAFT_PATH = process.env.BITVM_SETTLEMENT_DRAFT_PATH
+  || 'C:\\projects\\UTXORef\\UTXO-Ref\\bitvm3\\utxo_referee\\artifacts\\m1_dlc_draft_latest.json';
 const PROOF_OUT_PATH = process.env.BITVM_EXPIRY_TIMEOUT_PROOF_OUT
   || 'C:\\projects\\UTXORef\\UTXO-Ref\\bitvm3\\utxo_referee\\artifacts\\m1_expiry_timeout_testnet_proof.json';
 
@@ -188,10 +192,12 @@ async function main() {
   const chainInfo = await rpc('getblockchaininfo');
   const startHeight = Number(await rpc('getblockcount'));
   const artifact = JSON.parse(fs.readFileSync(ARTIFACT_PATH, 'utf8'));
+  const draft = fs.existsSync(DRAFT_PATH) ? JSON.parse(fs.readFileSync(DRAFT_PATH, 'utf8')) : null;
   const delta = artifact?.witnessBlob?.deltaAnnotation || artifact?.deltas || null;
   if (!delta) {
     throw new Error(`No delta annotation found in ${ARTIFACT_PATH}`);
   }
+  const committedRouting = artifact?.routingCommitments || draft?.contract?.settlement?.roll || {};
 
   const deltaPreimage = buildDeltaPreimage(delta);
   const oracleHash = sha256(deltaPreimage);
@@ -201,7 +207,7 @@ async function main() {
   const oracle = await loadWalletAddress('bitvm-expiry-timeout-oracle');
   const residual = await loadWalletAddress('bitvm-expiry-timeout-residual');
   const recipient = await loadWalletAddress('bitvm-expiry-timeout-recipient');
-  const timeoutHeight = startHeight + 2;
+  const timeoutHeight = startHeight + TIMEOUT_OFFSET;
   const vaultScript = compileTimeoutVaultScript({
     oracleHash,
     oraclePubkey: Buffer.from(oracle.pubkeyHex, 'hex'),
@@ -238,7 +244,9 @@ async function main() {
     throw new Error('Failed to finalize funding PSBT');
   }
   const fundingTxid = await rpc('sendrawtransaction', [finalized.hex]);
-  await waitForConfirmations(fundingTxid, 1);
+  if (MIN_FUNDING_CONFIRMATIONS > 0) {
+    await waitForConfirmations(fundingTxid, MIN_FUNDING_CONFIRMATIONS);
+  }
   const fundingTx = await rpc('getrawtransaction', [fundingTxid, true]);
   const fundingVout = fundingTx.vout.findIndex((vout) => {
     const addresses = (vout.scriptPubKey && vout.scriptPubKey.addresses) || [];
@@ -248,16 +256,22 @@ async function main() {
     throw new Error('Could not find vault output in funding transaction');
   }
 
-  const currentHeight = await waitForHeight(timeoutHeight + 1);
+  const currentHeight = TIMEOUT_OFFSET > 0
+    ? await waitForHeight(timeoutHeight + 1)
+    : Number(await rpc('getblockcount'));
 
   const fundingOutput = fundingTx.vout[fundingVout];
   const fundingValueSats = Math.round(Number(fundingOutput.value) * 1e8);
   const redeemedSats = Number(artifact?.redemption?.amountSats || delta.redeemedSats || 0);
   const residualSats = Number(artifact?.redemption?.remainingBalanceSats || delta.netDeltaSats || 0);
+  const committedWinnerAddress = committedRouting?.winnerAddress || recipient.address;
+  const committedRefundAddress = committedRouting?.refundAddress || residual.address;
+  const committedDustAddress = committedRouting?.dustAddress || null;
+  const dustCarrySats = Number(artifact?.settlementBreakdown?.dustCarrySats || artifact?.redemption?.dustCarrySats || 0);
   const outputSumSats = redeemedSats + residualSats;
-  const feeBufferSats = fundingValueSats - outputSumSats;
+  const feeBufferSats = fundingValueSats - outputSumSats - dustCarrySats;
   if (feeBufferSats < 0) {
-    throw new Error(`Funding output too small: input=${fundingValueSats} outputs=${outputSumSats}`);
+    throw new Error(`Funding output too small: input=${fundingValueSats} outputs=${outputSumSats + dustCarrySats}`);
   }
 
   const timeoutPsbt = new bitcoin.Psbt({ network: NETWORK });
@@ -272,9 +286,15 @@ async function main() {
     },
     witnessScript: vaultScript
   });
-  timeoutPsbt.addOutput({ address: recipient.address, value: redeemedSats });
+  timeoutPsbt.addOutput({ address: committedWinnerAddress, value: redeemedSats });
   if (residualSats > 0) {
-    timeoutPsbt.addOutput({ address: residual.address, value: residualSats });
+    timeoutPsbt.addOutput({ address: committedRefundAddress, value: residualSats });
+  }
+  if (dustCarrySats > 0) {
+    if (!committedDustAddress) {
+      throw new Error('dustCarrySats is positive but no committed dust address was provided');
+    }
+    timeoutPsbt.addOutput({ address: committedDustAddress, value: dustCarrySats });
   }
 
   timeoutPsbt.signInput(0, operator.keyPair);
@@ -302,13 +322,25 @@ async function main() {
       network: chainInfo.chain,
       startHeight,
       currentHeight,
-      timeoutHeight
+      timeoutHeight,
+      timeoutOffset: TIMEOUT_OFFSET,
+      minFundingConfirmations: MIN_FUNDING_CONFIRMATIONS
     },
     artifactPath: ARTIFACT_PATH,
     operator: { address: operator.address, pubkeyHex: operator.pubkeyHex },
     oracle: { address: oracle.address, pubkeyHex: oracle.pubkeyHex },
     residual: { address: residual.address, pubkeyHex: residual.pubkeyHex },
     recipient: { address: recipient.address, pubkeyHex: recipient.pubkeyHex },
+    committedRouting: {
+      winnerRole: committedRouting?.winnerRole || null,
+      winnerAddress: committedWinnerAddress,
+      refundRole: committedRouting?.refundRole || null,
+      refundAddress: committedRefundAddress,
+      feeRole: committedRouting?.feeRole || null,
+      feeAddress: committedRouting?.feeAddress || null,
+      dustRole: committedRouting?.dustRole || null,
+      dustAddress: committedDustAddress
+    },
     artifact: {
       deposit: artifact.deposit,
       redemption: artifact.redemption,
@@ -329,6 +361,7 @@ async function main() {
       hex: timeoutTx.toHex(),
       recipientSats: redeemedSats,
       residualSats,
+      dustCarrySats,
       feeBufferSats
     }
   };
