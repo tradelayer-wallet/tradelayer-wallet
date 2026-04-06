@@ -3,6 +3,7 @@ import { Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { HttpClient } from '@angular/common/http';
 import { ToastrService } from 'ngx-toastr';
+import { ExplorerApiService } from 'src/app/@core/apis/explorer-api.service';
 import { ApiService } from 'src/app/@core/services/api.service';
 import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service';
 import { ENCODER } from 'src/app/utils/payloads/encoder';
@@ -51,7 +52,8 @@ export class SynthMintRedeemDialogComponent {
     private txsService: TxsService,
     private toastr: ToastrService,
     private http: HttpClient,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private explorerApi: ExplorerApiService,
   ) {}
 
   get tlApi() {
@@ -121,17 +123,34 @@ export class SynthMintRedeemDialogComponent {
   }
 
   private async loadProceduralConfig() {
+    const fallbackConfig = { ...M1_BITVM_DLC_SETUP_CONFIG };
+    const receiptPropertyId = await this.resolveReceiptPropertyId();
+
+    let draftArtifact: any = null;
+    try {
+      const draftRes: any = await this.explorerApi
+        .artifact(String(fallbackConfig.draftArtifactName || 'm1_dlc_draft_latest.json'))
+        .toPromise();
+      draftArtifact = draftRes?.content || null;
+    } catch (error) {
+      console.error('Error loading procedural draft artifact:', error);
+    }
+
+    const roleAddresses = draftArtifact?.roleSet?.addresses || {};
     this.proceduralConfig = {
-      ...M1_BITVM_DLC_SETUP_CONFIG,
+      ...fallbackConfig,
+      receiptPropertyId: receiptPropertyId || fallbackConfig.receiptPropertyId,
+      templateId: String(draftArtifact?.template?.templateId || fallbackConfig.templateId),
+      dlcHash: String(draftArtifact?.template?.templateHash || fallbackConfig.dlcHash),
+      contractId: String(draftArtifact?.contract?.eventId || fallbackConfig.contractId),
+      adminAddress: String(roleAddresses.operator || fallbackConfig.adminAddress),
+      vaultAddress: String(roleAddresses.operator || fallbackConfig.vaultAddress),
+      oracleAddress: String(roleAddresses.oracle || fallbackConfig.oracleAddress || ''),
+      residualAddress: String(roleAddresses.residual || fallbackConfig.residualAddress || ''),
     };
   }
 
   private async resolveReceiptPropertyId(): Promise<number | undefined> {
-    const configuredReceiptPropertyId = Number(M1_PROCEDURAL_RECEIPT_CONFIG.receiptPropertyId || 0);
-    if (Number.isFinite(configuredReceiptPropertyId) && configuredReceiptPropertyId > 0) {
-      return configuredReceiptPropertyId;
-    }
-
     const propId = Number(this.data.propId);
     if (this.data.mode === 'redeem' && Number.isFinite(propId) && propId > 0) {
       return propId;
@@ -143,6 +162,11 @@ export class SynthMintRedeemDialogComponent {
     const tickerMatch = properties.find((property: any) => String(property?.ticker || '').toUpperCase() === ticker);
     if (tickerMatch?.id != null) {
       return Number(tickerMatch.id);
+    }
+
+    const configuredReceiptPropertyId = Number(M1_PROCEDURAL_RECEIPT_CONFIG.receiptPropertyId || 0);
+    if (Number.isFinite(configuredReceiptPropertyId) && configuredReceiptPropertyId > 0) {
+      return configuredReceiptPropertyId;
     }
 
     return undefined;

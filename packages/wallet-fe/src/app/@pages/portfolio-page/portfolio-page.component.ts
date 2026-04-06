@@ -265,11 +265,6 @@ ngOnInit(): void {
       return;
     }
 
-    if (Number.isFinite(M1_RECEIPT_PROPERTY_ID) && M1_RECEIPT_PROPERTY_ID > 0) {
-      this.receiptPropertyId = Number(M1_RECEIPT_PROPERTY_ID);
-      return;
-    }
-
     try {
       const propertiesRes = await this.tlApi.rpc('listProperties').toPromise();
       const properties = Array.isArray(propertiesRes?.data) ? propertiesRes.data : [];
@@ -282,9 +277,19 @@ ngOnInit(): void {
         return;
       }
 
+      if (Number.isFinite(M1_RECEIPT_PROPERTY_ID) && M1_RECEIPT_PROPERTY_ID > 0) {
+        this.receiptPropertyId = Number(M1_RECEIPT_PROPERTY_ID);
+        return;
+      }
+
       this.receiptPropertyId = null;
     } catch (error) {
       console.error('Error resolving procedural receipt property id:', error);
+      if (Number.isFinite(M1_RECEIPT_PROPERTY_ID) && M1_RECEIPT_PROPERTY_ID > 0) {
+        this.receiptPropertyId = Number(M1_RECEIPT_PROPERTY_ID);
+        return;
+      }
+
       this.receiptPropertyId = null;
     }
   }

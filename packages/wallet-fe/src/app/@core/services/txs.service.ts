@@ -740,6 +740,79 @@ export class TxsService {
         });
     }
 
+    private extractOutputAddress(vout: any): string {
+        const scriptPubKey = vout?.scriptPubKey || {};
+        const directAddress = String(scriptPubKey?.address || '').trim();
+        if (directAddress) {
+            return directAddress;
+        }
+
+        if (Array.isArray(scriptPubKey?.addresses)) {
+            const firstAddress = String(scriptPubKey.addresses[0] || '').trim();
+            if (firstAddress) {
+                return firstAddress;
+            }
+        }
+
+        return '';
+    }
+
+    private async resolveFundingAddressFromArtifact(params: {
+        artifact: IExpiryRedemptionArtifact;
+        fallbackFundingAddress?: string;
+    }): Promise<{ data?: string; error?: string }> {
+        const fallbackFundingAddress = String(params.fallbackFundingAddress || '').trim();
+        const depositTxid = String(params.artifact?.deposit?.txid || '').trim();
+        const depositAmountSats = this.toSatsInt(params.artifact?.deposit?.amountSats);
+
+        if (!depositTxid || depositAmountSats <= 0) {
+            if (fallbackFundingAddress) {
+                return { data: fallbackFundingAddress };
+            }
+            return { error: 'Expiry artifact is missing deposit txid or deposit amount for funding resolution.' };
+        }
+
+        try {
+            const txRes = await this.rpcService.rpc('getrawtransaction', [depositTxid, true]);
+            const vouts = Array.isArray(txRes?.data?.vout) ? txRes.data.vout : [];
+            const candidates = vouts
+                .map((vout: any) => ({
+                    address: this.extractOutputAddress(vout),
+                    valueSats: this.toSatsInt(Math.round(Number(vout?.value || 0) * 1e8)),
+                }))
+                .filter((candidate: { address: string; valueSats: number }) => {
+                    return candidate.valueSats === depositAmountSats && !!candidate.address;
+                });
+
+            if (candidates.length === 1) {
+                return { data: candidates[0].address };
+            }
+
+            if (candidates.length > 1) {
+                const fallbackMatch = fallbackFundingAddress
+                    ? candidates.find((candidate: { address: string }) => candidate.address === fallbackFundingAddress)
+                    : null;
+                if (fallbackMatch) {
+                    return { data: fallbackMatch.address };
+                }
+
+                return {
+                    error: `Funding address is ambiguous for deposit ${depositTxid}: found ${candidates.length} outputs with ${depositAmountSats} sats.`
+                };
+            }
+        } catch (error: any) {
+            if (!fallbackFundingAddress) {
+                return { error: error?.message || `Unable to resolve funding transaction ${depositTxid}.` };
+            }
+        }
+
+        if (fallbackFundingAddress) {
+            return { data: fallbackFundingAddress };
+        }
+
+        return { error: `Funding address could not be derived from deposit transaction ${depositTxid}.` };
+    }
+
     async redeemProceduralReceiptWithExpiryArtifact(params: {
         holderAddress: string;
         amount?: number | string;
@@ -783,8 +856,16 @@ export class TxsService {
             return { error: redeemWait.error };
         }
 
+        const fundingAddressRes = await this.resolveFundingAddressFromArtifact({
+            artifact,
+            fallbackFundingAddress: params.config.fundingAddress,
+        });
+        if (fundingAddressRes.error || !fundingAddressRes.data) {
+            return { error: fundingAddressRes.error || 'Failed to resolve BitVM funding address.' };
+        }
+
         const releaseRes = await this.redeemBitvmFundingOutput({
-            fundingAddress: params.config.fundingAddress,
+            fundingAddress: fundingAddressRes.data,
             recipientAddress: params.recipientAddress || params.holderAddress,
             amount: redemptionAmount,
             residualAddress: params.config.residualAddress || params.config.vaultAddress || params.config.adminAddress,
@@ -1097,8 +1178,13 @@ export class TxsService {
             return { error: redeemWait.error };
         }
 
+        const fundingAddress = String(params.config.fundingAddress || '').trim();
+        if (!fundingAddress) {
+            return { error: 'Funding address is not configured.' };
+        }
+
         const releaseRes = await this.redeemBitvmFundingOutput({
-            fundingAddress: params.config.fundingAddress,
+            fundingAddress,
             recipientAddress: params.recipientAddress || params.holderAddress,
             amount: params.amount,
             residualAddress: params.config.residualAddress || params.config.vaultAddress || params.config.adminAddress,
