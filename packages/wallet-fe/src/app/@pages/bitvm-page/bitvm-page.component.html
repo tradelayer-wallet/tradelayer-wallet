@@ -76,6 +76,10 @@
         <div><span>Winner sweep</span>{{ overview?.artifacts?.expiryRedemption?.settlementBreakdown?.winnerSweepSats || 'n/a' }}</div>
         <div><span>Refund</span>{{ overview?.artifacts?.expiryRedemption?.settlementBreakdown?.refundSats || 'n/a' }}</div>
         <div><span>Dust carry</span>{{ overview?.artifacts?.expiryRedemption?.settlementBreakdown?.dustCarrySats || 'n/a' }}</div>
+        <div class="address"><span>Winner address</span>{{ overview?.artifacts?.expiryRedemption?.routingCommitments?.winnerAddress || 'n/a' }}</div>
+        <div class="address"><span>Refund address</span>{{ overview?.artifacts?.expiryRedemption?.routingCommitments?.refundAddress || 'n/a' }}</div>
+        <div class="address"><span>Fee address</span>{{ overview?.artifacts?.expiryRedemption?.routingCommitments?.feeAddress || 'n/a' }}</div>
+        <div class="address"><span>Dust address</span>{{ overview?.artifacts?.expiryRedemption?.routingCommitments?.dustAddress || 'n/a' }}</div>
       </div>
       <pre *ngIf="report">{{ report | json }}</pre>
       <div *ngIf="latestArtifacts.length" class="artifact-grid">

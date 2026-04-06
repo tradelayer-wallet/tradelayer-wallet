@@ -176,6 +176,16 @@ export interface IExpiryRedemptionArtifact {
         netSettlementSats?: string;
         note?: string | null;
     };
+    routingCommitments?: {
+        winnerRole?: string | null;
+        winnerAddress?: string | null;
+        refundRole?: string | null;
+        refundAddress?: string | null;
+        feeRole?: string | null;
+        feeAddress?: string | null;
+        dustRole?: string | null;
+        dustAddress?: string | null;
+    };
     witnessBlob?: {
         committed?: Record<string, any>;
         deltaAnnotation?: Record<string, any>;
@@ -503,6 +513,7 @@ export class TxsService {
         recipientAddress: string;
         amount?: number | string;
         residualAddress?: string;
+        artifact?: IExpiryRedemptionArtifact;
         payload?: string;
     }): Promise<{ data?: string; error?: string }> {
         const fundingAddress = String(params.fundingAddress || '').trim();
@@ -520,39 +531,59 @@ export class TxsService {
             return { error: `No confirmed funding UTXO found for ${fundingAddress}` };
         }
 
-        const utxo = [...utxoRes.data]
-            .sort((a: any, b: any) => Number(b.amount || 0) - Number(a.amount || 0))[0];
-        const inputAmount = Number(utxo?.amount || 0);
+        const inputAmount = utxoRes.data.reduce((sum: number, utxo: any) => {
+            return sum + Number(utxo?.amount || 0);
+        }, 0);
         if (!Number.isFinite(inputAmount) || inputAmount <= 0) {
             return { error: 'Invalid BitVM funding UTXO amount.' };
         }
 
         const estimatedFee = Number((0.2 * 0.00015).toFixed(8));
-        const spendAmount = Number(
-            params.amount != null ? params.amount : Number((inputAmount - estimatedFee).toFixed(8))
-        );
-        if (!Number.isFinite(spendAmount) || spendAmount <= 0) {
-            return { error: 'Invalid BitVM payout amount.' };
+        const routingOutputs = params.artifact
+            ? this.buildArtifactRedemptionOutputs({
+                artifact: params.artifact,
+                inputAmount,
+                estimatedFee,
+                fallbackRecipientAddress: recipientAddress,
+                fallbackResidualAddress: residualAddress,
+            })
+            : null;
+        if (routingOutputs?.error) {
+            return { error: routingOutputs.error };
+        }
+        let outputs: IBitvmDlcOutputTarget[] | null = routingOutputs?.outputs || null;
+        if (!outputs) {
+            const spendAmount = Number(
+                params.amount != null ? params.amount : Number((inputAmount - estimatedFee).toFixed(8))
+            );
+            if (!Number.isFinite(spendAmount) || spendAmount <= 0) {
+                return { error: 'Invalid BitVM payout amount.' };
+            }
+            const residualAmount = Number((inputAmount - spendAmount - estimatedFee).toFixed(8));
+            if (residualAmount < -0.00000001) {
+                return { error: 'BitVM funding UTXO is too small for the requested payout and fees.' };
+            }
+            const legacyOutputs: IBitvmDlcOutputTarget[] = [
+                { address: recipientAddress, amount: spendAmount, label: 'payout' },
+            ];
+            if (residualAmount > 0) {
+                legacyOutputs.push({
+                    address: residualAddress,
+                    amount: residualAmount,
+                    label: 'residual',
+                });
+            }
+            outputs = legacyOutputs;
         }
 
-        const residualAmount = Number((inputAmount - spendAmount - estimatedFee).toFixed(8));
-        if (residualAmount < -0.00000001) {
-            return { error: 'BitVM funding UTXO is too small for the requested payout and fees.' };
-        }
-        const outputs: IBitvmDlcOutputTarget[] = [
-            { address: recipientAddress, amount: spendAmount, label: 'payout' },
-        ];
-        if (residualAmount > 0) {
-            outputs.push({
-                address: residualAddress,
-                amount: residualAmount,
-                label: 'residual',
-            });
+        const outputTargets = outputs || [];
+        if (!outputTargets.length) {
+            return { error: 'No BitVM redemption outputs were produced.' };
         }
 
         const buildRes = await this.buildBitvmDlcTx({
             fromAddress: fundingAddress,
-            outputs,
+            outputs: outputTargets,
             payload: params.payload,
         });
 
@@ -584,12 +615,95 @@ export class TxsService {
         return Number((value / 1e8).toFixed(8));
     }
 
+    private toSatsInt(value: string | number | undefined | null) {
+        const n = Number(value || 0);
+        if (!Number.isFinite(n) || n <= 0) return 0;
+        return Math.max(0, Math.round(n));
+    }
+
+    private buildArtifactRedemptionOutputs(params: {
+        artifact: IExpiryRedemptionArtifact;
+        inputAmount: number;
+        estimatedFee: number;
+        fallbackRecipientAddress: string;
+        fallbackResidualAddress: string;
+    }): { outputs?: IBitvmDlcOutputTarget[]; error?: string } {
+        const artifact = params.artifact;
+        const settlement = artifact?.settlementBreakdown
+            || artifact?.deltas?.settlementBreakdown
+            || artifact?.witnessBlob?.deltaAnnotation?.settlementBreakdown
+            || {};
+        const routing = artifact?.routingCommitments || {};
+        const inputSats = this.toSatsInt(Math.round(params.inputAmount * 1e8));
+        const estimatedFeeSats = this.toSatsInt(Math.round(params.estimatedFee * 1e8));
+        const winnerSats = this.toSatsInt(settlement?.winnerSweepSats || artifact?.redemption?.amountSats);
+        let refundSats = this.toSatsInt(settlement?.refundSats || settlement?.residualSats || artifact?.redemption?.remainingBalanceSats);
+        let feeSats = this.toSatsInt(settlement?.feeSats);
+        let dustSats = this.toSatsInt(settlement?.dustCarrySats);
+
+        const winnerAddress = String(routing?.winnerAddress || params.fallbackRecipientAddress || '').trim();
+        const refundAddress = String(routing?.refundAddress || params.fallbackResidualAddress || '').trim();
+        const feeAddress = String(routing?.feeAddress || params.fallbackResidualAddress || '').trim();
+        const dustAddress = String(routing?.dustAddress || '').trim();
+
+        if (!winnerAddress) {
+            return { error: 'Missing committed winner address for artifact-backed BitVM release.' };
+        }
+        if (refundSats > 0 && !refundAddress) {
+            return { error: 'Missing committed refund address for artifact-backed BitVM release.' };
+        }
+        if (feeSats > 0 && !feeAddress) {
+            return { error: 'Missing committed fee address for artifact-backed BitVM release.' };
+        }
+        if (dustSats > 0 && !dustAddress) {
+            return { error: 'Missing committed dust address for artifact-backed BitVM release.' };
+        }
+
+        const committedTotal = winnerSats + refundSats + feeSats + dustSats;
+        if (committedTotal <= 0) {
+            return { error: 'Artifact-backed BitVM release produced no spendable outputs.' };
+        }
+        if (committedTotal > inputSats) {
+            return { error: `Artifact outputs exceed funding input: committed=${committedTotal} sats input=${inputSats} sats` };
+        }
+
+        let feeToAbsorb = Math.max(0, committedTotal + estimatedFeeSats - inputSats);
+        const absorb = (current: number) => {
+            const next = Math.max(0, current - feeToAbsorb);
+            feeToAbsorb = Math.max(0, feeToAbsorb - current);
+            return next;
+        };
+        refundSats = absorb(refundSats);
+        dustSats = absorb(dustSats);
+        feeSats = absorb(feeSats);
+        if (feeToAbsorb > 0) {
+            return { error: 'Committed settlement outputs do not leave enough flexible remainder to pay the miner fee.' };
+        }
+
+        const outputs: IBitvmDlcOutputTarget[] = [];
+        if (winnerSats > 0) {
+            outputs.push({ address: winnerAddress, amount: this.satsToLtcNumber(winnerSats), label: 'winner-sweep' });
+        }
+        if (refundSats > 0) {
+            outputs.push({ address: refundAddress, amount: this.satsToLtcNumber(refundSats), label: 'refund' });
+        }
+        if (feeSats > 0) {
+            outputs.push({ address: feeAddress, amount: this.satsToLtcNumber(feeSats), label: 'fee' });
+        }
+        if (dustSats > 0) {
+            outputs.push({ address: dustAddress, amount: this.satsToLtcNumber(dustSats), label: 'dust' });
+        }
+
+        return { outputs };
+    }
+
     private buildExpiryRedemptionPayload(artifact: IExpiryRedemptionArtifact, fallbackAmountSats: string | number) {
         const delta = artifact?.deltas || artifact?.witnessBlob?.deltaAnnotation || {};
         const settlement = artifact?.settlementBreakdown
             || artifact?.deltas?.settlementBreakdown
             || artifact?.witnessBlob?.deltaAnnotation?.settlementBreakdown
             || {};
+        const routing = artifact?.routingCommitments || {};
         return JSON.stringify({
             kind: artifact?.kind || 'm1_expiry_redemption',
             artifactHash: artifact?.artifactHash || null,
@@ -603,6 +717,16 @@ export class TxsService {
             pnlLossSats: String(delta?.pnlLossSats || '0'),
             netDeltaSats: String(delta?.netDeltaSats || '0'),
             annotationHash: String(delta?.annotationHash || artifact?.witnessBlob?.deltaAnnotation?.annotationHash || ''),
+            routingCommitments: {
+                winnerRole: String(routing?.winnerRole || ''),
+                winnerAddress: String(routing?.winnerAddress || ''),
+                refundRole: String(routing?.refundRole || ''),
+                refundAddress: String(routing?.refundAddress || ''),
+                feeRole: String(routing?.feeRole || ''),
+                feeAddress: String(routing?.feeAddress || ''),
+                dustRole: String(routing?.dustRole || ''),
+                dustAddress: String(routing?.dustAddress || ''),
+            },
             settlementBreakdown: {
                 kind: String(settlement?.kind || 'settlement-breakdown'),
                 settlementKind: String(settlement?.settlementKind || delta?.route || 'roll'),
@@ -664,6 +788,7 @@ export class TxsService {
             recipientAddress: params.recipientAddress || params.holderAddress,
             amount: redemptionAmount,
             residualAddress: params.config.residualAddress || params.config.vaultAddress || params.config.adminAddress,
+            artifact,
             payload: this.buildExpiryRedemptionPayload(artifact, redemptionAmountSats),
         });
 

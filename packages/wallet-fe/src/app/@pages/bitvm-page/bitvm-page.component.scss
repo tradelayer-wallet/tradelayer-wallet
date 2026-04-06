@@ -157,6 +157,10 @@ pre {
   background: rgba(13,19,29,0.9);
 }
 
+.report-stats div.address {
+  word-break: break-all;
+}
+
 .status-chip {
   display: inline-flex;
   align-items: center;

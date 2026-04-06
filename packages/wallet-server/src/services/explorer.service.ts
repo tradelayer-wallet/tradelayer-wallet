@@ -179,6 +179,9 @@ function decodeBitvmWitness(chainTx: AnyRecord | null) {
       const settlementBreakdown = settlementPayload?.settlementBreakdown
         || settlementPayload?.deltas?.settlementBreakdown
         || null;
+      const routingCommitments = settlementPayload?.routingCommitments
+        || settlementPayload?.routing
+        || null;
       return {
         kind: branchSelectorHex ? 'bitvm-vault-claim-branch-spend' : 'bitvm-vault-timeout-spend',
         txid: chainTx?.txid || null,
@@ -191,7 +194,8 @@ function decodeBitvmWitness(chainTx: AnyRecord | null) {
         witnessScriptHex,
         scriptTemplate: 'if-oracle-claim-else-timeout-2of2',
         settlementPayload,
-        settlementBreakdown
+        settlementBreakdown,
+        routingCommitments
       };
     }
   }

@@ -125,6 +125,8 @@ export class BitvmPageComponent implements OnInit, AfterViewInit {
     push('winnerSweep', artifact.settlementBreakdown?.winnerSweepSats || artifact.deltas?.settlementBreakdown?.winnerSweepSats);
     push('refund', artifact.settlementBreakdown?.refundSats || artifact.deltas?.settlementBreakdown?.refundSats);
     push('dust', artifact.settlementBreakdown?.dustCarrySats || artifact.deltas?.settlementBreakdown?.dustCarrySats);
+    push('winnerAddr', artifact.routingCommitments?.winnerAddress, 14);
+    push('refundAddr', artifact.routingCommitments?.refundAddress, 14);
 
     return parts.length ? parts.join(' · ') : 'available';
   }

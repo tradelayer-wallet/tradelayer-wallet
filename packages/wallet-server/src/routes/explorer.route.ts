@@ -246,6 +246,26 @@ function htmlPage() {
       );
     }
 
+    function renderRoutingCommitments(routing) {
+      if (!routing) return '';
+      const rows = [
+        ['Winner', routing.winnerAddress || 'n/a'],
+        ['Refund', routing.refundAddress || 'n/a'],
+        ['Fee', routing.feeAddress || 'n/a'],
+        ['Dust', routing.dustAddress || 'n/a']
+      ];
+      return (
+        '<div class="table" style="margin-top:12px">' +
+          rows.map(([label, value]) =>
+            '<div class="table-row">' +
+              '<div class="label">' + escapeHtml(label) + '</div>' +
+              '<div class="mono">' + escapeHtml(value) + '</div>' +
+            '</div>'
+          ).join('') +
+        '</div>'
+      );
+    }
+
     function settlementStatusClass(settlement) {
       const kind = String(settlement?.settlementKind || '').toLowerCase();
       if (kind.includes('timeout')) return 'timeout';
@@ -256,6 +276,7 @@ function htmlPage() {
     function renderTxLookup(data) {
       const bitvmDecode = data?.bitvmDecode || {};
       const settlement = bitvmDecode.settlementBreakdown || bitvmDecode.settlementPayload?.settlementBreakdown || null;
+      const routing = bitvmDecode.routingCommitments || bitvmDecode.settlementPayload?.routingCommitments || null;
       const block = [
         '<div class="table">',
           '<div class="table-row"><div class="label">TxID</div><div class="mono">' + escapeHtml(data?.txid || 'n/a') + '</div></div>',
@@ -268,6 +289,9 @@ function htmlPage() {
 
       if (settlement) {
         block.push('<div class="table-row"><div class="label">Settlement</div><div>' + renderSettlementBreakdown(settlement) + '</div></div>');
+      }
+      if (routing) {
+        block.push('<div class="table-row"><div class="label">Routing</div><div>' + renderRoutingCommitments(routing) + '</div></div>');
       }
 
       if (bitvmDecode?.settlementPayload) {
@@ -291,6 +315,7 @@ function htmlPage() {
       const expiryBreakdown = data?.artifacts?.expiryRedemption?.settlementBreakdown
         || data?.artifacts?.expiryRedemption?.deltas?.settlementBreakdown
         || null;
+      const expiryRouting = data?.artifacts?.expiryRedemption?.routingCommitments || null;
       const rows = [
         ['Chain', data.chainInfo?.chain || 'unknown'],
         ['Blocks', data.chainInfo?.blocks ?? 'n/a'],
@@ -323,6 +348,7 @@ function htmlPage() {
           ? '<details style="margin-top:12px" open>' +
               '<summary>Latest expiry settlement <span class="status-chip ' + settlementStatusClass(expiryBreakdown) + '">' + escapeHtml(expiryBreakdown.settlementKind || 'unknown') + '</span></summary>' +
               renderSettlementBreakdown(expiryBreakdown) +
+              renderRoutingCommitments(expiryRouting) +
               '<details style="margin-top:12px">' +
                 '<summary>Expiry artifact</summary>' +
                 '<pre>' + escapeHtml(pretty(data?.artifacts?.expiryRedemption || {})) + '</pre>' +
