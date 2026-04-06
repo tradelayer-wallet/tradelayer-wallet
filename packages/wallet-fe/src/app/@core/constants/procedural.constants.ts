@@ -31,6 +31,8 @@ export interface BitvmDlcSetupConfig {
   pnlEscrowBps?: number;
   settlementSplitBps?: number;
   routePlan?: any;
+  minReleaseConfirmations?: number;
+  releaseConfirmationTimeoutMs?: number;
   templateId: string;
   dlcHash: string;
   contractId: string;
@@ -50,6 +52,8 @@ export const M1_BITVM_DLC_SETUP_CONFIG: BitvmDlcSetupConfig = {
   vaultAddress: M1_OPERATOR_ADDRESS,
   residualAddress: M1_RESIDUAL_ADDRESS,
   fundingAddress: M1_FUNDING_ADDRESS,
+  minReleaseConfirmations: 1,
+  releaseConfirmationTimeoutMs: 5 * 60 * 1000,
   templateId: M1_RECEIPT_TEMPLATE_ID,
   dlcHash: M1_RECEIPT_TEMPLATE_HASH,
   contractId: M1_RECEIPT_CONTRACT_ID,

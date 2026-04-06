@@ -758,7 +758,7 @@ export class TxsService {
     }
 
     private async resolveFundingAddressFromArtifact(params: {
-        artifact: IExpiryRedemptionArtifact;
+        artifact?: IExpiryRedemptionArtifact;
         fallbackFundingAddress?: string;
     }): Promise<{ data?: string; error?: string }> {
         const fallbackFundingAddress = String(params.fallbackFundingAddress || '').trim();
@@ -813,6 +813,73 @@ export class TxsService {
         return { error: `Funding address could not be derived from deposit transaction ${depositTxid}.` };
     }
 
+    private getRequiredReleaseConfirmations(config?: ProceduralReceiptConfig) {
+        const confirmations = Number(config?.minReleaseConfirmations || 0);
+        if (!Number.isFinite(confirmations) || confirmations <= 0) {
+            return 1;
+        }
+        return Math.max(1, Math.floor(confirmations));
+    }
+
+    private getReleaseConfirmationTimeoutMs(config?: ProceduralReceiptConfig) {
+        const timeoutMs = Number(config?.releaseConfirmationTimeoutMs || 0);
+        if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+            return 5 * 60 * 1000;
+        }
+        return Math.max(30000, Math.floor(timeoutMs));
+    }
+
+    private validateExpiryRedemptionArtifact(params: {
+        artifact?: IExpiryRedemptionArtifact;
+        artifactName: string;
+    }): { error?: string } {
+        const artifact = params.artifact;
+        if (!artifact || artifact.kind !== 'm1_expiry_redemption') {
+            return { error: `Expiry redemption artifact not found or invalid: ${params.artifactName}` };
+        }
+
+        const depositTxid = String(artifact?.deposit?.txid || '').trim();
+        const depositAmountSats = this.toSatsInt(artifact?.deposit?.amountSats);
+        if (!depositTxid) {
+            return { error: `Expiry redemption artifact is missing deposit txid: ${params.artifactName}` };
+        }
+        if (depositAmountSats <= 0) {
+            return { error: `Expiry redemption artifact is missing a valid deposit amount: ${params.artifactName}` };
+        }
+
+        const redemptionAmountSats = this.toSatsInt(
+            artifact?.redemption?.amountSats
+            || artifact?.deltas?.redeemedSats
+            || artifact?.witnessBlob?.deltaAnnotation?.redeemedSats
+        );
+        if (redemptionAmountSats <= 0) {
+            return { error: `Expiry redemption artifact is missing a valid redemption amount: ${params.artifactName}` };
+        }
+        if (redemptionAmountSats > depositAmountSats) {
+            return {
+                error: `Expiry redemption artifact redemption amount exceeds deposit amount: ${params.artifactName}`
+            };
+        }
+
+        const settlement = artifact?.settlementBreakdown
+            || artifact?.deltas?.settlementBreakdown
+            || artifact?.witnessBlob?.deltaAnnotation?.settlementBreakdown
+            || {};
+        const committedSettlementSats =
+            this.toSatsInt(settlement?.winnerSweepSats)
+            + this.toSatsInt(settlement?.refundSats)
+            + this.toSatsInt(settlement?.feeSats)
+            + this.toSatsInt(settlement?.dustCarrySats);
+
+        if (committedSettlementSats > depositAmountSats) {
+            return {
+                error: `Expiry redemption artifact settlement exceeds deposit amount: ${params.artifactName}`
+            };
+        }
+
+        return {};
+    }
+
     async redeemProceduralReceiptWithExpiryArtifact(params: {
         holderAddress: string;
         amount?: number | string;
@@ -828,7 +895,11 @@ export class TxsService {
         const artifactName = String(params.artifactName || params.config.expiryArtifactName || 'm1_expiry_redemption_latest.json').trim();
         const artifactRes = await this.explorerApi.artifact(artifactName).toPromise();
         const artifact = artifactRes?.content as IExpiryRedemptionArtifact | undefined;
-        if (!artifact || artifact.kind !== 'm1_expiry_redemption') {
+        const artifactValidation = this.validateExpiryRedemptionArtifact({ artifact, artifactName });
+        if (artifactValidation.error) {
+            return { error: artifactValidation.error };
+        }
+        if (!artifact) {
             return { error: `Expiry redemption artifact not found or invalid: ${artifactName}` };
         }
 
@@ -851,7 +922,11 @@ export class TxsService {
             return { error: redeemRes.error || 'Failed to redeem receipt token.' };
         }
 
-        const redeemWait = await this.waitForTxConfirmations(redeemRes.data.redeemTxid, 1);
+        const redeemWait = await this.waitForTxConfirmations(
+            redeemRes.data.redeemTxid,
+            this.getRequiredReleaseConfirmations(params.config),
+            this.getReleaseConfirmationTimeoutMs(params.config),
+        );
         if (redeemWait.error) {
             return { error: redeemWait.error };
         }
@@ -1173,7 +1248,11 @@ export class TxsService {
             return { error: redeemRes.error || 'Failed to redeem receipt token.' };
         }
 
-        const redeemWait = await this.waitForTxConfirmations(redeemRes.data.redeemTxid, 1);
+        const redeemWait = await this.waitForTxConfirmations(
+            redeemRes.data.redeemTxid,
+            this.getRequiredReleaseConfirmations(params.config),
+            this.getReleaseConfirmationTimeoutMs(params.config),
+        );
         if (redeemWait.error) {
             return { error: redeemWait.error };
         }
