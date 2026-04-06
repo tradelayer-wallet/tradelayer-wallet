@@ -32,7 +32,8 @@ export class FastifyServer {
     start() {
         handleRoutes(this.server);
         this.mainSocketService.init(this.server);
-        this.server.listen(this.port)
+        const host = process.env.WALLET_API_HOST || '127.0.0.1';
+        this.server.listen(this.port, host)
             .catch((error) => this.stop());
     }
 

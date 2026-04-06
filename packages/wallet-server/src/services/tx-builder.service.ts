@@ -1,5 +1,6 @@
 import { fasitfyServer } from "..";
 import axios from 'axios';
+import { RpcClient } from 'tl-rpc';
 import { buildPsbt, signRawTransction } from "../utils/crypto.util";
 import { safeNumber } from "../utils/common.util";
 
@@ -62,6 +63,8 @@ const networkMap = {
 
 
 export type TClient = (method: string, ...args: any[]) => Promise<ApiRes>;
+
+let directRpcClient: RpcClient | null = null;
 
 export interface IBuildTxConfig {
     fromKeyPair: {
@@ -175,21 +178,51 @@ export async function computeMultisigNative(
 export const smartRpc: TClient = async (method: string, params: any[] = [], api: boolean = false) => {
     if (fasitfyServer.rpcClient && !api) {
         return await fasitfyServer.rpcClient.call(method, ...params);;
-    } else {
-        if (fasitfyServer.relayerApiUrl) {
-            const url = `${fasitfyServer.relayerApiUrl}/rpc/${method}`;
-            return await axios.post(url, { params })
-                .then(res => res.data);
-        } else {
-            return { error: `Relayer API url not found` };
-        }
     }
+
+    if (fasitfyServer.relayerApiUrl) {
+        const url = `${fasitfyServer.relayerApiUrl}/rpc/${method}`;
+        return await axios.post(url, { params })
+            .then(res => res.data);
+    }
+
+    if (!directRpcClient) {
+        directRpcClient = new RpcClient({
+            username: process.env.LTC_RPC_USER || process.env.RPC_USER || 'user',
+            password: process.env.LTC_RPC_PASS || process.env.RPC_PASSWORD || 'pass',
+            host: process.env.LTC_RPC_HOST || '127.0.0.1',
+            port: Number(process.env.LTC_RPC_PORT || process.env.RPC_PORT || 19332) || 19332,
+            timeout: 20000,
+        });
+    }
+
+    return await directRpcClient.call(method, ...params);
 };
 
 export const jsTlApi: TClient = async (method: string, params: any[] = []) => {
     const url = `http://localhost:3000/${method}`;
     return await axios.post(url, { params })
         .then(res => res.data);
+};
+
+const createRawTransactionWithOptionalPayload = async (
+    inputs: { txid: string; vout: number }[],
+    outputs: Record<string, number>,
+    payload: string | undefined,
+    isApiMode: boolean
+) => {
+    if (!payload) {
+        return smartRpc('createrawtransaction', [inputs, outputs], isApiMode);
+    }
+
+    const rpcOutputs: Array<Record<string, number | string>> =
+        Object.entries(outputs).map(([address, amount]) => ({ [address]: amount }));
+    rpcOutputs.push({ data: Buffer.from(payload, 'utf8').toString('hex') });
+    return smartRpc('createrawtransaction', [inputs, rpcOutputs], isApiMode);
+};
+
+const addOutputAmount = (outputs: Record<string, number>, address: string, amount: number) => {
+    outputs[address] = safeNumber((outputs[address] || 0) + amount);
 };
 
 export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode: boolean) => {
@@ -226,13 +259,13 @@ export const buildLTCInstatTx = async (txConfig: IBuildLTCITTxConfig, isApiMode:
         if (inputsSum < safeNumber(fee + sellerLtcAmount + changeBuyerLtcAmount)) throw new Error("Not Enough coins for paying fees. Code 1");
         if (!finalInputs.length) throw new Error("Not Enough coins for paying fees. Code 3");
         const _insForRawTx = finalInputs.map(({txid, vout }) => ({ txid, vout }));
-        const _outsForRawTx = { [buyerAddress]: changeBuyerLtcAmount, [sellerAddress]: sellerLtcAmount };
+        const _outsForRawTx: Record<string, number> = {};
+        addOutputAmount(_outsForRawTx, buyerAddress, changeBuyerLtcAmount);
+        addOutputAmount(_outsForRawTx, sellerAddress, sellerLtcAmount);
         console.log('inputs and outputs in ltc trade builder '+JSON.stringify(_insForRawTx)+' '+JSON.stringify(_outsForRawTx))
-        const crtRes = await smartRpc('createrawtransaction', [_insForRawTx, _outsForRawTx], isApiMode);
+        const crtRes = await createRawTransactionWithOptionalPayload(_insForRawTx, _outsForRawTx, payload, isApiMode);
         if (crtRes.error || !crtRes.data) throw new Error(`createrawtransaction: ${crtRes.error}`);
-        const crtxoprRes = await jsTlApi('tl_createrawtx_opreturn', [crtRes.data, payload]);
-        if (crtxoprRes.error || !crtxoprRes.data) throw new Error(`tl_createrawtx_opreturn: ${crtxoprRes.error}`);
-        const finalTx = crtxoprRes.data;
+        const finalTx = crtRes.data;
         const psbtHexConfig = {
             rawtx: finalTx,
             inputs: finalInputs,
@@ -305,16 +338,12 @@ export const buildTx = async (txConfig: IBuildTxConfig, isApiMode: boolean) => {
         if (change < 0) throw new Error("Not Enaugh coins for paying fees. Code 4");
 
         const _insForRawTx = finalInputs.map(({txid, vout }) => ({ txid, vout }));
-        const _outsForRawTx = { [toAddress]: toAmount };
-        if (change > 0) _outsForRawTx[fromAddress] = change;
-        const crtRes = await smartRpc('createrawtransaction', [_insForRawTx, _outsForRawTx], isApiMode);
+        const _outsForRawTx: Record<string, number> = {};
+        addOutputAmount(_outsForRawTx, toAddress, toAmount);
+        if (change > 0) addOutputAmount(_outsForRawTx, fromAddress, change);
+        const crtRes = await createRawTransactionWithOptionalPayload(_insForRawTx, _outsForRawTx, payload, isApiMode);
         if (crtRes.error || !crtRes.data) throw new Error(`createrawtransaction: ${crtRes.error}`);
-        let finalTx = crtRes.data;
-        if (payload) {
-            const crtxoprRes = await jsTlApi('tl_createrawtx_opreturn', [finalTx, payload], isApiMode);
-            if (crtxoprRes.error || !crtxoprRes.data) throw new Error(`tl_createrawtx_opreturn: ${crtxoprRes.error}`);
-            finalTx = crtxoprRes.data;
-        }
+        const finalTx = crtRes.data;
         const data: any = { rawtx: finalTx, inputs: finalInputs };
         if (addPsbt) {
             const psbtHexConfig = {
@@ -456,15 +485,9 @@ const buildMultiOutputTx = async (txConfig: IBitvmDlcMultiOutputTxConfig, isApiM
             _outsForRawTx[fromAddress] = safeNumber((_outsForRawTx[fromAddress] || 0) + normalizedChange);
         }
 
-        const crtRes = await smartRpc('createrawtransaction', [_insForRawTx, _outsForRawTx], isApiMode);
+        const crtRes = await createRawTransactionWithOptionalPayload(_insForRawTx, _outsForRawTx, txConfig.payload, isApiMode);
         if (crtRes.error || !crtRes.data) throw new Error(`createrawtransaction: ${crtRes.error}`);
-        let finalTx = crtRes.data;
-
-        if (txConfig.payload) {
-            const crtxoprRes = await jsTlApi('tl_createrawtx_opreturn', [finalTx, txConfig.payload], isApiMode);
-            if (crtxoprRes.error || !crtxoprRes.data) throw new Error(`tl_createrawtx_opreturn: ${crtxoprRes.error}`);
-            finalTx = crtxoprRes.data;
-        }
+        const finalTx = crtRes.data;
 
         const data: any = { rawtx: finalTx, inputs: finalInputs, outputs: _outsForRawTx };
         if (txConfig.addPsbt) {

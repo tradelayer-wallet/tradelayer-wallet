@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { fasitfyServer } from "../index";
 import { startWalletNode, createConfigFile, stopWalletNode, createRpcClientFromDatadir } from "../services/node.service";
 import { buildBitvmDlcSetupBlueprint, IBitvmDlcSetupConfig } from "../services/bitvm-dlc.service";
+import { syncBitvmProceduralState } from "../services/bitvm-procedural-sync.service";
 import { buildBitvmDlcFundingTx, buildLTCInstatTx, buildTx, IBitvmDlcMultiOutputTxConfig, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx, computeMultisigNative } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
 import { backOff, BackoffOptions } from "exponential-backoff";
@@ -152,6 +153,16 @@ fastify.post('start-wallet-node', async (request, reply) => {
         const { isApiMode } = request.body as { isApiMode: boolean };
         const result = await buildBitvmDlcFundingTx(body, isApiMode);
         reply.status(200).send(result);
+      } catch (error: any) {
+        reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+      }
+    });
+
+    fastify.post('bitvm/sync-procedural', async (request, reply) => {
+      try {
+        const body = (request.body || {}) as { holderAddress?: string; propertyId?: number; state?: string };
+        const data = syncBitvmProceduralState(body);
+        reply.status(200).send({ data });
       } catch (error: any) {
         reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
       }
