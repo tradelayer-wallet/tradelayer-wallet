@@ -69,17 +69,25 @@
 }
 
 .mat-column-actions {
-    .span-button {
+    .action-button {
         white-space: nowrap;
         color: whitesmoke;
         cursor: pointer;
-        margin: 0 0.5rem;
+        min-width: 0;
+        line-height: 2rem;
+        padding: 0 0.5rem;
+        margin: 0 0.125rem;
+        transition: background-color 90ms ease, color 90ms ease, transform 90ms ease;
         &:hover {
             color: gray;
         }
+        &:active {
+            transform: translateY(1px);
+            background-color: rgba(255, 255, 255, 0.12);
+        }
     }
 
-    .span-button.disabled {
+    .action-button:disabled {
         color: #8d8d8d;
         cursor: not-allowed;
         &:hover {
@@ -102,10 +110,25 @@
   }
 
   .mat-column-attestation {
-    max-width: 3rem;
-    mat-icon {
-        cursor: pointer;
-        margin-left: 1rem;
+    min-width: 7rem;
+    max-width: 7rem;
+    justify-content: center;
+    .attestation-button {
+        width: 2.5rem;
+        height: 2.5rem;
+        line-height: 2.5rem;
+        transition: background-color 90ms ease, transform 90ms ease, opacity 90ms ease;
+        mat-icon {
+            cursor: pointer;
+            margin-left: 0;
+        }
+        &:active {
+            transform: translateY(1px);
+            background-color: rgba(255, 255, 255, 0.14);
+        }
+        &:disabled {
+            opacity: 0.55;
+        }
     }
   }
   .mat-column-actions {

@@ -21,28 +21,31 @@
                   <button
                     *ngSwitchCase="true"
                     mat-icon-button
+                    class="attestation-button"
                     type="button"
                     title="Refresh attestation"
                     [disabled]="!isAbleToRpc || isAttestingAddress(element.address)"
-                    (click)="selfAttestate(element.address)">
+                    (click)="selfAttestate(element.address); $event.stopPropagation()">
                     <mat-icon>check</mat-icon>
                   </button>
                   <button
                     *ngSwitchCase="false"
                     mat-icon-button
+                    class="attestation-button"
                     type="button"
                     title="Create attestation"
                     [disabled]="!isAbleToRpc || isAttestingAddress(element.address)"
-                    (click)="selfAttestate(element.address)">
+                    (click)="selfAttestate(element.address); $event.stopPropagation()">
                     <mat-icon>fingerprint</mat-icon>
                   </button>
                   <button
                     *ngSwitchCase="'PENDING'"
                     mat-icon-button
+                    class="attestation-button"
                     type="button"
                     title="Attestation pending"
                     [disabled]="!isAbleToRpc || isAttestingAddress(element.address)"
-                    (click)="selfAttestate(element.address)">
+                    (click)="selfAttestate(element.address); $event.stopPropagation()">
                     <mat-icon>timelapse</mat-icon>
                   </button>
                 </ng-container>
@@ -78,13 +81,10 @@
                 <ng-container matColumnDef="actions">
                     <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
                     <mat-cell *matCellDef="let element"> 
-                        <span class='span-button' (click)="openDialog('deposit', element.address, -1)">Receive</span> 
-                        <span> | </span>
-                        <span class='span-button' (click)="openDialog('withdraw', element.address, -1)">Send</span>
-                        <span> | </span>
-                        <span class='span-button' (click)="openTokenizeDialog(element.address, element.confirmed)">Tokenize</span>
-                        <span> | </span>
-                        <span class='span-button' (click)="showTokens(element.address)">Show Tokens</span>
+                        <button mat-button type="button" class="action-button" (click)="openDialog('deposit', element.address, -1); $event.stopPropagation()">Receive</button>
+                        <button mat-button type="button" class="action-button" (click)="openDialog('withdraw', element.address, -1); $event.stopPropagation()">Send</button>
+                        <button mat-button type="button" class="action-button" (click)="openTokenizeDialog(element.address, element.confirmed); $event.stopPropagation()">Tokenize</button>
+                        <button mat-button type="button" class="action-button" (click)="showTokens(element.address); $event.stopPropagation()">Show Tokens</button>
                     </mat-cell>
                 </ng-container>
 
@@ -176,16 +176,16 @@
         <ng-container matColumnDef="actions">
           <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
           <mat-cell *matCellDef="let element">
-            <span class='span-button' (click)="openDialog('deposit', selectedAddress, element.propertyid)">Receive</span>
-            <span> | </span>
-            <span class='span-button' (click)="openDialog('withdraw', selectedAddress, element.propertyid)">Send</span>
-            <span> | </span>
-             <span
-              class="span-button"
-              [class.disabled]="isProceduralReceiptRow(element) && !canRedeemProceduralRow(element)"
-              (click)="isProceduralReceiptRow(element) && !canRedeemProceduralRow(element) ? null : openTokenActionDialog(selectedAddress, element)">
+            <button mat-button type="button" class="action-button" (click)="openDialog('deposit', selectedAddress, element.propertyid); $event.stopPropagation()">Receive</button>
+            <button mat-button type="button" class="action-button" (click)="openDialog('withdraw', selectedAddress, element.propertyid); $event.stopPropagation()">Send</button>
+             <button
+              mat-button
+              type="button"
+              class="action-button"
+              [disabled]="isProceduralReceiptRow(element) && !canRedeemProceduralRow(element)"
+              (click)="openTokenActionDialog(selectedAddress, element); $event.stopPropagation()">
               {{ getMintRedeemLabel(element) }}
-            </span>
+            </button>
           </mat-cell>
         </ng-container>
 
