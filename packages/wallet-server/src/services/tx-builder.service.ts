@@ -123,6 +123,7 @@ export interface IBitvmDlcMultiOutputTxConfig {
     payload?: string;
     addPsbt?: boolean;
     network: string;
+    minConfirmations?: number;
 }
 
 const minFeeLtcPerKb = 0.00015;
@@ -407,7 +408,10 @@ const buildMultiOutputTx = async (txConfig: IBitvmDlcMultiOutputTxConfig, isApiM
         const vaRes1 = await smartRpc('validateaddress', [fromAddress], isApiMode);
         if (vaRes1.error || !vaRes1.data?.isvalid) throw new Error(`validateaddress: ${vaRes1.error}`);
 
-        const luRes = await smartRpc('listunspent', [0, 999999999, [fromAddress]], isApiMode);
+        const minConfirmations = Number.isFinite(Number(txConfig.minConfirmations))
+            ? Math.max(0, Math.floor(Number(txConfig.minConfirmations)))
+            : 1;
+        const luRes = await smartRpc('listunspent', [minConfirmations, 999999999, [fromAddress]], isApiMode);
         if (luRes.error || !luRes.data) return { error: `listunspent: ${luRes.error}` };
 
         const normalizedOutputs = (txConfig.outputs || [])

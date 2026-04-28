@@ -94,6 +94,7 @@ export interface IBitvmDlcMultiOutputTxConfig {
     payload?: string;
     addPsbt?: boolean;
     network?: TNETWORK;
+    minConfirmations?: number;
 }
 
 export interface IExpiryRedemptionArtifact {
@@ -1078,6 +1079,7 @@ export class TxsService {
                 fromAddress: senderAddress,
                 outputs: outputAmountMap,
                 payload,
+                minConfirmations: 1,
             });
             if (buildRes.error || !buildRes.data?.rawtx) {
                 return { error: buildRes.error || 'Failed to build BitVM funding tx.' };
