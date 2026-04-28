@@ -8,6 +8,7 @@ import killPort from 'kill-port';
 export class TradeLayerService {
     private port: number = 3000;
     private childProcess: ChildProcessWithoutNullStreams | null = null;
+    private initPromise: Promise<boolean> | null = null;
     isStarted: boolean = false;
     // tradeLayerInstance: TradelayerInstance;
     constructor() {
@@ -60,6 +61,13 @@ export class TradeLayerService {
         };
     }
 
+    private isPortAlreadyInUseError(value: any) {
+        const message = String(value?.message || value || '').toLowerCase();
+        return message.includes('eaddrinuse')
+            || message.includes('address already in use')
+            || message.includes(`:${this.port}`);
+    }
+
     // init(config: ITLInstanceConfig) {
     async init() {
 
@@ -69,13 +77,27 @@ export class TradeLayerService {
             return true;
         }
 
+        if (this.initPromise) {
+            console.log('TradeLayer listener init is already in progress.');
+            return this.initPromise;
+        }
+
         if (this.isStarted && this.childProcess && !this.childProcess.killed) {
             console.log('TradeLayer service is already initialized.');
             return Promise.resolve(true); // Return a resolved promise indicating no new initialization
         }
 
         // this.tradeLayerInstance = new TradelayerInstance(config);
-        return new Promise((resolve, reject) => {
+        this.initPromise = this.startListener();
+        try {
+            return await this.initPromise;
+        } finally {
+            this.initPromise = null;
+        }
+    }
+
+    private startListener() {
+        return new Promise<boolean>((resolve, reject) => {
             console.log('inside the tl service init');
             const listenerPath = this.resolveListenerPath();
             const { command, env } = this.getNodeCommandEnv();
@@ -96,7 +118,7 @@ export class TradeLayerService {
                 clearInterval(probeInterval);
                 if (error) {
                     this.isStarted = false;
-                    reject(error);
+                    reject(new Error(error));
                     return;
                 }
                 resolve(true);
@@ -117,17 +139,31 @@ export class TradeLayerService {
                 console.log(data.toString());
             });
             childProcess.stderr.on('data', (error) => {
-                console.log('err in child process stream '+error.toString());
+                const errorText = error.toString();
+                console.log('err in child process stream '+errorText);
+                if (this.isPortAlreadyInUseError(errorText)) {
+                    setTimeout(async () => {
+                        if (await this.listenerReachable(1500)) {
+                            console.log('TradeLayer listener port is occupied by a reachable listener; attaching.');
+                            settle();
+                        }
+                    }, 250);
+                }
             });
             childProcess.once('error', (error) => {
                 this.childProcess = null;
                 this.isStarted = false;
                 settle(error?.message || 'Failed to start TradeLayer listener.');
             });
-            childProcess.once('exit', (code, signal) => {
+            childProcess.once('exit', async (code, signal) => {
                 this.childProcess = null;
                 this.isStarted = false;
                 if (!settled) {
+                    if (await this.listenerReachable(1500)) {
+                        console.log('TradeLayer listener child exited, but a listener is reachable; attaching.');
+                        settle();
+                        return;
+                    }
                     settle(`TradeLayer listener exited before becoming reachable. code=${code} signal=${signal}`);
                 }
             });
@@ -143,11 +179,14 @@ export class TradeLayerService {
     async stop() {
         if (!this.isStarted) return;
         this.isStarted = false;
+        const ownsChildProcess = this.childProcess && !this.childProcess.killed;
         if (this.childProcess && !this.childProcess.killed) {
             this.childProcess.kill();
         }
         this.childProcess = null;
-        await killPort(this.port);
+        if (ownsChildProcess) {
+            await killPort(this.port);
+        }
         // await this.tradeLayerInstance.stop();
     }
 }

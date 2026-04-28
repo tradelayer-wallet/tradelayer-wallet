@@ -118,11 +118,32 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         const eta = this.tlEta && this.tlEta !== 'Waiting for TradeLayer parser status ...'
             ? this.tlEta
             : '';
-        const message = String(this.tlSyncStatus?.message || this.tlMessage || '').trim();
+        const message = this.formatDialogError(this.tlSyncStatus?.message || this.tlMessage || '', '');
         if (eta && message) return `${this.tlPhaseLabel} | ${eta}`;
         if (eta) return `${this.tlPhaseLabel} | ${eta}`;
         if (message) return message;
         return this.tlPhaseLabel;
+    }
+
+    private formatDialogError(error: any, fallback = 'Undefined Error') {
+        let raw = String(error?.error?.error || error?.error?.message || error?.message || error || fallback);
+        if (raw === '[object Object]') {
+            try {
+                raw = JSON.stringify(error);
+            } catch {
+                raw = fallback;
+            }
+        }
+        const normalized = raw.replace(/\s+/g, ' ').trim();
+        const lower = normalized.toLowerCase();
+        if (!normalized) return '';
+        if (lower.includes('eaddrinuse') || lower.includes('address already in use') || lower.includes(':3000')) {
+            return 'TradeLayer listener is already running; attaching to it.';
+        }
+        if (lower.includes('status code 500')) {
+            return 'Local wallet service returned an error while starting TradeLayer.';
+        }
+        return normalized.length > 180 ? `${normalized.slice(0, 180)}...` : normalized;
     }
 
     ngOnInit() {
@@ -233,7 +254,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             }
 
             this.tlSyncStatus = status;
-            this.tlMessage = String(status.message || '').trim();
+            this.tlMessage = this.formatDialogError(status.message || '', '');
             this.tlReadyPercent = Number(status.percent || 0);
             this.rpcService.latestTlBlock = Number(
                 status.currentHeight || status.processedHeight || status.trackHeight || 0
@@ -253,7 +274,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             return;
         } catch (error: any) {
            console.log('error calling init '+JSON.stringify(error))
-            const errorMessage = error?.message || error || "Undefined Error";
+            const errorMessage = this.formatDialogError(error);
             this.tlSyncStatus = null;
             this.tlReadyPercent = 0;
             this.tlMessage = errorMessage;
@@ -301,7 +322,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
               || errMsg.includes('loading block index')
               || errMsg.includes('rewinding blocks')
               || errMsg.includes('warming up');
-            if (res.error && !isTransient) this.message = res.error;
+            if (res.error && !isTransient) this.message = this.formatDialogError(res.error);
             if (isTransient) {
                 this.message = 'Starting Litecoin daemon...';
                 return;
@@ -325,7 +346,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
               || errrorMessage.includes('loading block index')
               || errrorMessage.includes('rewinding blocks')
               || errrorMessage.includes('warming up');
-            this.message = isTransient ? 'Starting Litecoin daemon...' : (error?.message || error || "Undefined Error");
+            this.message = isTransient ? 'Starting Litecoin daemon...' : this.formatDialogError(error);
         }
     }
 
@@ -393,7 +414,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             if (configError) {
                 this.dialogService.openDialog(DialogTypes.NEW_NODE, { data: { path }});
             } else {
-                this.toastrService.error(res.error || 'Undefined Error', 'Starting Node Error');
+                this.toastrService.error(this.formatDialogError(res.error), 'Starting Node Error');
             }
             } else {
 
@@ -402,7 +423,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             }
         })
         .catch(error => {
-            this.toastrService.error(error.message || 'Undefined Error', 'Error request');
+            this.toastrService.error(this.formatDialogError(error), 'Error request');
         })
         .finally(() => {
             this.checFunction();
