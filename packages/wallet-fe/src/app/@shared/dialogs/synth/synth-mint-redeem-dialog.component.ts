@@ -31,6 +31,7 @@ type ContractRow = {
 })
 export class SynthMintRedeemDialogComponent {
   amount = '';
+  isSubmitting = false;
   capInfo?: { max: number };
   contracts: ContractRow[] = [];
   selectedContractId: number | null = null;
@@ -241,6 +242,10 @@ export class SynthMintRedeemDialogComponent {
     return Number.isFinite(n) && n > 0;
   }
 
+  get canSubmit() {
+    return this.isPositive(this.amount) && !this.isSubmitting;
+  }
+
   copyAddress() {
     try {
       navigator.clipboard?.writeText(this.data.address);
@@ -306,7 +311,22 @@ export class SynthMintRedeemDialogComponent {
     this.dialogRef.close(result);
   }
 
+  private formatTxError(error: any) {
+    const message = String(error?.message || error || 'Tx failed');
+    const lower = message.toLowerCase();
+    if (lower.includes('txn-mempool-conflict') || lower.includes('bad-txns-inputs-missingorspent')) {
+      return 'A peg-in transaction is already pending or one of its inputs is already spent. Wait for confirmation, then refresh balances before trying again.';
+    }
+    if (lower.includes('txn-already-in-mempool')) {
+      return 'This transaction is already in the mempool. Wait for confirmation.';
+    }
+    return message;
+  }
+
   async submit() {
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
+    this.dialogRef.disableClose = true;
     try {
       if (this.isProceduralFlow) {
         await this.submitProceduralReceipt();
@@ -341,7 +361,10 @@ export class SynthMintRedeemDialogComponent {
       this.dialogRef.close(result);
     } catch (err: any) {
       console.error('[SynthDialog] tx error', err);
-      this.toastr.error(err.message || 'Tx failed');
+      this.toastr.error(this.formatTxError(err));
+    } finally {
+      this.isSubmitting = false;
+      this.dialogRef.disableClose = false;
     }
   }
 }

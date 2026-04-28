@@ -40,6 +40,7 @@
         type="number"
         step="0.00000001"
         [value]="amount"
+        [disabled]="isSubmitting"
         (input)="amount = $any($event.target).value" />
 
       <!-- Suffix button to set max -->
@@ -48,6 +49,7 @@
         *ngIf="capInfo?.max"
         matSuffix
         type="button"
+        [disabled]="isSubmitting"
         (click)="fillMax()">
         Max ({{ capInfo.max | number:'1.0-8' }})
       </button>
@@ -59,19 +61,20 @@
       [min]="0"
       [max]="100"
       [step]="10"
+      [disabled]="isSubmitting"
       (input)="onSlide($event)">
       <input matSliderThumb />
     </mat-slider>
   </div>
 
   <div class="buttons">
-    <button mat-button color="warn" (click)="cancel()">CANCEL</button>
+    <button mat-button color="warn" (click)="cancel()" [disabled]="isSubmitting">CANCEL</button>
     <button
       mat-button
       color="primary"
       (click)="submit()"
-      [disabled]="!isPositive(amount)">
-      {{ submitText }}
+      [disabled]="!canSubmit">
+      {{ isSubmitting ? (submitText + '...') : submitText }}
     </button>
   </div>
 </div>
