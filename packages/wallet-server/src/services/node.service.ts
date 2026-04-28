@@ -286,6 +286,15 @@ const checkIsCoreStarted = async (
         if (firstCheck.state === 'offline') {
             exec(filePathWithFlags, (error, stdout, stderr) => {
                 console.log('inside exec '+error+' '+stdout)
+                const execMessage = toMessage(stderr || error?.message || error || stdout).toLowerCase();
+                if (
+                    execMessage.includes('cannot obtain a lock')
+                    || execMessage.includes('probably already running')
+                    || execMessage.includes('data directory') && execMessage.includes('lock')
+                ) {
+                    console.log(`Litecoin Core already owns the datadir; waiting to attach to RPC on port ${port}.`);
+                    return;
+                }
                 if (fasitfyServer.mainSocketService?.currentSocket) {
                     fasitfyServer.mainSocketService.currentSocket
                         .emit("core-error", stderr || error?.message || error || stdout);
