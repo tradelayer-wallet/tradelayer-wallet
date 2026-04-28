@@ -6,7 +6,6 @@ import { syncBitvmProceduralState } from "../services/bitvm-procedural-sync.serv
 import { buildBitvmDlcFundingTx, buildLTCInstatTx, buildTx, IBitvmDlcMultiOutputTxConfig, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx, computeMultisigNative } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
 import { backOff, BackoffOptions } from "exponential-backoff";
-import { TradeLayerService } from '../services/tradelayer.service';  // Correctly import the named export
 import { parseDefaultChain, defaultRpcPort, writeEnvKVs } from '../utils/env.util'; // adjust path
 import {
   uploadAlgo,
@@ -18,9 +17,9 @@ import {
   bootstrapAlgoAssets
 } from '../services/algo.service';
 import { BitvmWatchtowerService } from "../services/bitvm-watchtower.service";
+import { getTradeLayerSyncStatus } from "../services/tradelayer-sync.service";
 
 
-const tradeLayerService = new TradeLayerService();
 const bitvmWatchtowerService = new BitvmWatchtowerService();
 
 const backoffOptions: BackoffOptions = {
@@ -41,7 +40,9 @@ export const mainRoutes = async (fastify: FastifyInstance, opts: any, done: any)
         || msg.includes('connection refused')
         || msg.includes('socket hang up')
         || msg.includes('etimedout')
-        || msg.includes('loading block index');
+        || msg.includes('loading block index')
+        || msg.includes('rewinding blocks')
+        || msg.includes('warming up');
     };
 
     fastify.post('rpc-call', async (request, reply) => {
@@ -171,11 +172,20 @@ fastify.post('start-wallet-node', async (request, reply) => {
     fastify.post('init-tradelayer', async (request, reply) => {
         try {
             // Call the init method from TradeLayerService instance
-            const result = await tradeLayerService.init();
+            const result = await fasitfyServer.tradelayerService.init();
             reply.status(200).send({ success: true, result });
         } catch (error) {
             console.error("Error during TradeLayer init:", error);
             reply.status(500).send({ error: error.message || 'Undefined Error' });
+        }
+    });
+
+    fastify.get('tradelayer/sync-status', async (_request, reply) => {
+        try {
+            const data = await getTradeLayerSyncStatus();
+            reply.status(200).send({ data });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
         }
     });
 

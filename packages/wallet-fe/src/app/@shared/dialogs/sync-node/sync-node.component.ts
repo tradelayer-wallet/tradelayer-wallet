@@ -15,14 +15,21 @@ import { ENetwork, RpcService } from 'src/app/@core/services/rpc.service';
 })
 export class SyncNodeDialog implements OnInit, OnDestroy {
     readyPercent: number = 0;
-    readyPercentTl: number = 0;
-
     message: string = '';
-    tlMessage: string = '';
-
     eta: string = 'Calculating Remaining Time ...';
+    tlReadyPercent: number = 0;
+    tlEta: string = 'Waiting for TradeLayer parser status ...';
+    tlMessage: string = '';
+    tlSyncStatus: any = null;
 
     prevEtaData: {
+        stamp: number;
+        blocks: number;
+    } = {
+        stamp: 0,
+        blocks: 0,
+    };
+    prevTlEtaData: {
         stamp: number;
         blocks: number;
     } = {
@@ -72,15 +79,46 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         return this.rpcService.headerBlock;
     }
 
-    get tlStarted() {
-        return this.rpcService.isTLStarted;
+    get tlCurrentBlock() {
+        return Number(this.tlSyncStatus?.currentHeight || 0);
     }
 
-    get tlBlock() {
-        return this.rpcService.latestTlBlock;
+    get tlTargetBlock() {
+        return Number(this.tlSyncStatus?.targetHeight || 0);
     }
 
-    ngOnInit() { }
+    get tlIsSynced() {
+        return this.tlTargetBlock > 0 && this.tlCurrentBlock + 1 >= this.tlTargetBlock;
+    }
+
+    get tlPhaseLabel() {
+        const phase = String(this.tlSyncStatus?.phase || '').trim().toLowerCase();
+        if (phase === 'indexing') return 'Indexing TradeLayer transactions';
+        if (phase === 'reconstructing-consensus') return 'Reconstructing TradeLayer consensus';
+        if (phase === 'realtime') return this.tlIsSynced ? 'TradeLayer synchronized' : 'Processing live TradeLayer blocks';
+        if (phase === 'starting') return 'Starting TradeLayer parser';
+        if (phase === 'paused') return 'TradeLayer parsing paused';
+        if (phase === 'error') return 'TradeLayer parser error';
+        if (phase === 'unavailable') return 'TradeLayer listener unavailable';
+        return 'TradeLayer parser status';
+    }
+
+    get tlStatusText() {
+        const eta = this.tlEta && this.tlEta !== 'Waiting for TradeLayer parser status ...'
+            ? this.tlEta
+            : '';
+        const message = String(this.tlSyncStatus?.message || this.tlMessage || '').trim();
+        if (eta && message) return `${this.tlPhaseLabel} | ${eta}`;
+        if (eta) return `${this.tlPhaseLabel} | ${eta}`;
+        if (message) return message;
+        return this.tlPhaseLabel;
+    }
+
+    ngOnInit() {
+        if (this.coreStarted) {
+            this.checFunction();
+        }
+    }
 
       private async checkSyncThrottled(): Promise<void> {
        if (this.isCheckingSync) {
@@ -127,6 +165,29 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         }
     }
 
+    private countTlETA(etaData: { stamp: number; blocks: number; }) {
+        const prevStamp = this.prevTlEtaData.stamp;
+        const prevBlocks = this.prevTlEtaData.blocks;
+        const currentStamp = etaData.stamp;
+        const currentBlocks = etaData.blocks;
+        this.prevTlEtaData = etaData;
+        if (!prevBlocks || !prevStamp || !currentStamp || !currentBlocks || !this.tlTargetBlock) return;
+        const blocksInterval = currentBlocks - prevBlocks;
+        const stampInterval = currentStamp - prevStamp;
+        if (blocksInterval <= 0 || stampInterval <= 0) return;
+        const msPerBlock = Math.round(stampInterval / blocksInterval);
+        const remainingBlocks = this.tlTargetBlock - currentBlocks;
+        const remainingms = msPerBlock * remainingBlocks;
+        const minutes = Math.floor((remainingms / (1000 * 60)) % 60);
+        const hours = Math.floor((remainingms / (1000 * 60 * 60)));
+        if (remainingms > 0 && remainingms < 604800000 ) {
+            const message =  hours > 0 ? `${hours} hours ${minutes} minutes` : `${minutes} minutes`;
+            this.tlEta = `Remaining ~ ${message}`;
+        } else {
+            this.tlEta = 'Waiting for TradeLayer parser status ...';
+        }
+    }
+
     private async checkTradelayerSync() {
         console.log('checking tl flag this sync '+this.rpcService.isTLStarted)
         console.log(Boolean(!this.rpcService.isTLStarted&&this.rpcService.isAbleToRpc == true))
@@ -149,20 +210,41 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
                 }
                
             }
-            
-            const blockHeightRes = await this.apiService.newTlApi.rpc('getMaxParsedHeight').toPromise();
-            if (blockHeightRes.error) {
-                throw new Error(blockHeightRes.error || 'Undefined Error');
+
+            const syncRes = await this.apiService.mainApi.getTradeLayerSyncStatus().toPromise();
+            const status = syncRes?.data;
+            if (!status) {
+                this.tlSyncStatus = null;
+                this.tlMessage = 'TradeLayer parser status is unavailable.';
+                this.tlReadyPercent = 0;
+                this.tlEta = 'Waiting for TradeLayer parser status ...';
+                return;
             }
 
-            this.rpcService.latestTlBlock = blockHeightRes.data;
-            this.readyPercentTl = parseFloat((this.tlBlock / this.headerBlock).toFixed(2)) * 100;
-            this.tlMessage = "Parsing TradeLayer transactions"
-            return
+            this.tlSyncStatus = status;
+            this.tlMessage = String(status.message || '').trim();
+            this.tlReadyPercent = Number(status.percent || 0);
+            this.rpcService.latestTlBlock = Number(
+                status.currentHeight || status.processedHeight || status.trackHeight || 0
+            );
+            if (status.listenerReachable || status.initialized) {
+                this.rpcService.isTLStarted = true;
+            }
+            if (this.tlCurrentBlock > 0 && this.tlTargetBlock > 0) {
+                this.countTlETA({ stamp: Date.now(), blocks: this.tlCurrentBlock });
+            } else if (this.tlMessage) {
+                this.tlEta = this.tlMessage;
+            } else {
+                this.tlEta = 'Waiting for TradeLayer parser status ...';
+            }
+            return;
         } catch (error: any) {
            console.log('error calling init '+JSON.stringify(error))
             const errorMessage = error?.message || error || "Undefined Error";
-            //this.tlMessage = errorMessage;
+            this.tlSyncStatus = null;
+            this.tlReadyPercent = 0;
+            this.tlMessage = errorMessage;
+            this.tlEta = errorMessage;
         }
     }
 
@@ -203,7 +285,9 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
               || errMsg.includes('connection refused')
               || errMsg.includes('socket hang up')
               || errMsg.includes('etimedout')
-              || errMsg.includes('loading block index');
+              || errMsg.includes('loading block index')
+              || errMsg.includes('rewinding blocks')
+              || errMsg.includes('warming up');
             if (res.error && !isTransient) this.message = res.error;
             if (isTransient) {
                 this.message = 'Starting Litecoin daemon...';
@@ -225,7 +309,9 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
               || errrorMessage.includes('connection refused')
               || errrorMessage.includes('socket hang up')
               || errrorMessage.includes('etimedout')
-              || errrorMessage.includes('loading block index');
+              || errrorMessage.includes('loading block index')
+              || errrorMessage.includes('rewinding blocks')
+              || errrorMessage.includes('warming up');
             this.message = isTransient ? 'Starting Litecoin daemon...' : (error?.message || error || "Undefined Error");
         }
     }
@@ -265,7 +351,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     openDirSelectDialog() {
         this.electronService.emitEvent('open-dir-dialog');
-        this.electronService.ipcRenderer.once('angular-electron-message', (_: any, message: any) => {
+        this.electronService.onceMessage((message: any) => {
             const { event, data } = message;
             if (event !== 'selected-dir' || !data ) return;
             this.zone.run(() => this.directory = data || '');

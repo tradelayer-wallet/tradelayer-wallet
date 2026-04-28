@@ -7,8 +7,20 @@
             padding-top: 1rem;
             min-width: 25rem;
             align-items: center;
+            .sync-section {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+                margin-bottom: 1rem;
+            }
+            .tl-sync-section {
+                padding-top: 0.5rem;
+                border-top: 1px solid rgba(0, 0, 0, 0.1);
+            }
             .information {
                 margin-bottom: 1rem;
+                text-align: center;
             }
             .synced {
                 color: green;

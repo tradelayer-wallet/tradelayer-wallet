@@ -2,21 +2,21 @@
     <div class="dialog-container">
         <mat-dialog-content class="mat-typography">
             <div class="content-container" *ngIf="coreStarted">
-                <p class='synced' *ngIf="isSynced && nodeBlock && headerBlock">{{ "Full Synchronized" }} </p>
+                <div class="sync-section">
+                    <p class='synced' *ngIf="isSynced && nodeBlock && headerBlock">{{ "Litecoin Node Synchronized" }} </p>
+                    <span class='information' *ngIf="!isSynced || !nodeBlock || !headerBlock">{{ eta }}</span>
+                    <mat-progress-bar mode="determinate" [value]="readyPercent"></mat-progress-bar>
+                    <span class='blocks-span'> {{ nodeBlock }} / {{ headerBlock }} </span>
+                </div>
 
-                <p class="title">Litecoin Synchronization</p>
-                <span class='information' *ngIf="!isSynced || !nodeBlock || !headerBlock">{{ eta }}</span>
-                <mat-progress-bar mode="determinate" [value]="readyPercent"></mat-progress-bar>
-                <span class='blocks-span'> {{ nodeBlock }} / {{ headerBlock }} </span>
+                <div class="sync-section tl-sync-section">
+                    <p class='synced' *ngIf="tlIsSynced && tlCurrentBlock && tlTargetBlock">{{ "TradeLayer Parsing Synchronized" }} </p>
+                    <span class='information' *ngIf="!tlIsSynced || !tlCurrentBlock || !tlTargetBlock">{{ tlStatusText }}</span>
+                    <mat-progress-bar mode="determinate" [value]="tlReadyPercent"></mat-progress-bar>
+                    <span class='blocks-span'> {{ tlCurrentBlock }} / {{ tlTargetBlock }} </span>
+                </div>
+
                 <div class="message" *ngIf="message"> {{ message }}</div>
-
-                <div class="gap"></div>
-
-                <p class="title">Tradelayer Synchronization</p>
-                <p class='synced' *ngIf="tlBlock === headerBlock && headerBlock">{{ "TradeLayer Synchronized" }} </p>
-                <mat-progress-bar mode="determinate" [value]="readyPercentTl"></mat-progress-bar>
-                <span class='blocks-span'> {{ tlBlock }} / {{ headerBlock }} </span>
-                <div class="message" *ngIf="tlMessage"> {{ tlMessage }}</div>
 
                 <button
                     color="warn"

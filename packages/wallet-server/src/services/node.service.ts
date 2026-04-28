@@ -115,10 +115,19 @@ export const startWalletNode = async (walletNodeOptions: any) => {
     const path = join(flagsObject.datadir || defaultDirObj);
     const configFilePath = join(path, `litecoin.conf`);
     const isConfFileExist = existsSync(configFilePath);
-    if (!isConfFileExist) throw(`Config file (litecoin.conf) doesn't exist in: ${path}`);
-    const confFile = readFileSync(configFilePath, { encoding: 'utf8' });
-    const configObj: any = structureConfFile(confFile);
-    if (!configObj.rpcuser || !configObj.rpcpassword) throw(`Incorrect Config File ${path}`);
+    const confFile = isConfFileExist
+      ? readFileSync(configFilePath, { encoding: 'utf8' })
+      : '';
+    const configObj: any = isConfFileExist ? structureConfFile(confFile) : {};
+    configObj.rpcuser = configObj.rpcuser || process.env.RPC_USER;
+    configObj.rpcpassword = configObj.rpcpassword || process.env.RPC_PASS;
+    configObj.rpchost = configObj.rpchost || process.env.RPC_HOST;
+    configObj.rpcport = configObj.rpcport || process.env.RPC_PORT;
+    if (!configObj.rpcuser || !configObj.rpcpassword) {
+      throw(isConfFileExist
+        ? `Incorrect Config File ${path}`
+        : `Config file (litecoin.conf) doesn't exist in: ${path} and RPC credentials were not provided`);
+    }
 
     // normalize rpcport for downstream checks
     configObj.rpcport = Number(configObj.rpcport || expectedRpcPort) || expectedRpcPort;
@@ -202,60 +211,108 @@ const checkIsCoreStarted = async (
         };
 
         const client = new RpcClient(rpcClientOptions);
+        const toMessage = (value: any) => String(value?.message || value?.error || value || '');
         const isConnectionRefused = (value: any) => {
-            const msg = String(value?.message || value || '');
-            return msg.includes('ECONNREFUSED') || msg.includes('connection refused');
+            const msg = toMessage(value).toLowerCase();
+            return msg.includes('econnrefused') || msg.includes('connection refused');
+        };
+        const isAuthError = (value: any) => {
+            const msg = toMessage(value).toLowerCase();
+            return value?.code === 401
+                || msg.includes('401')
+                || msg.includes('unauthorized')
+                || msg.includes('forbidden')
+                || msg.includes('incorrect rpcuser')
+                || msg.includes('incorrect rpcpassword')
+                || msg.includes('authorization failed')
+                || msg.includes('authentication failed');
+        };
+        const isTransientRpcStartupError = (value: any) => {
+            const msg = toMessage(value).toLowerCase();
+            return value?.code === -28
+                || msg.includes('loading block index')
+                || msg.includes('rewinding blocks')
+                || msg.includes('verifying blocks')
+                || msg.includes('warming up')
+                || msg.includes('work queue depth exceeded')
+                || msg.includes('socket hang up')
+                || msg.includes('etimedout')
+                || msg.includes('econnreset');
         };
 
-        const isActiveCheck = async () => {
+        const probeCore = async (): Promise<{ state: 'ready' | 'offline' | 'starting' | 'auth-error' | 'error'; error?: any }> => {
             try {
                 const check = await client.call('getblockchaininfo');
-                if (check?.data) return 2;
-                if (check?.error && isConnectionRefused(check.error)) return 0;
-                return check;
+                if (check?.data) return { state: 'ready' };
+                const error = check?.error || check;
+                if (isConnectionRefused(error)) return { state: 'offline', error };
+                if (isAuthError(error)) return { state: 'auth-error', error };
+                if (isTransientRpcStartupError(error)) return { state: 'starting', error };
+                return { state: 'error', error };
             } catch (error: any) {
-                if (isConnectionRefused(error)) return 0;
-                return { error: error?.message || error || 'Undefined Error' };
+                if (isConnectionRefused(error)) return { state: 'offline', error };
+                if (isAuthError(error)) return { state: 'auth-error', error };
+                if (isTransientRpcStartupError(error)) return { state: 'starting', error };
+                return { state: 'error', error: error?.message || error || 'Undefined Error' };
             }
         };
+        const attachToCore = () => {
+            fasitfyServer.rpcClient = client;
+            fasitfyServer.rpcPort = port;
+            fasitfyServer.mainSocketService.startBlockCounting(2000);
+            return { data: true, attached: true };
+        };
+        const credentialsError = (error: any) => {
+            return `A Litecoin node is already listening on RPC port ${port}, but it rejected the wallet RPC credentials. Update litecoin.conf or the wallet RPC_USER/RPC_PASS settings. ${toMessage(error)}`;
+        };
 
-        const firstCheck = await isActiveCheck();
-        if (firstCheck !== 0) {
-            return resolve({ error: 'The core is already running, try shutting down litecoind in the task manager, restarting the wallet or restarting your PC.' });
+        const firstCheck = await probeCore();
+        if (firstCheck.state === 'ready') {
+            console.log(`Attached to existing Litecoin Core RPC on port ${port}.`);
+            return resolve(attachToCore());
         }
-
-        exec(filePathWithFlags, (error, stdout, stderr) => {
-            console.log('inside exec '+error+' '+stdout)
-            if (fasitfyServer.mainSocketService?.currentSocket) {
-                fasitfyServer.mainSocketService.currentSocket
-                    .emit("core-error", stderr || error?.message || error || stdout);
-            }
-            fasitfyServer.rpcClient = null;
-            fasitfyServer.rpcPort = null;
-        });
+        if (firstCheck.state === 'auth-error') {
+            return resolve({ error: credentialsError(firstCheck.error) });
+        }
+        if (firstCheck.state === 'error') {
+            return resolve({ error: `Litecoin RPC on port ${port} returned an unexpected error: ${toMessage(firstCheck.error)}` });
+        }
 
         const timeoutId = setTimeout(async () => {
             await fasitfyServer.tradelayerService.stop();
             resolve({ error: 'Core Starting TimedOut: 120 seconds' });
         }, 120000);
 
-        const finalCheck = (): Promise<{ data: boolean }> => new Promise(async (checkResolve) => {
-            try {
-                const checkRes = await client.call('getblockchaininfo');
-                if (!checkRes?.error || !isConnectionRefused(checkRes.error)) {
-                    clearTimeout(timeoutId);
-                    fasitfyServer.rpcClient = client;
-                    fasitfyServer.rpcPort = port;
-                    fasitfyServer.mainSocketService.startBlockCounting(2000);
-                    checkResolve({ data: true });
-                    return;
+        if (firstCheck.state === 'offline') {
+            exec(filePathWithFlags, (error, stdout, stderr) => {
+                console.log('inside exec '+error+' '+stdout)
+                if (fasitfyServer.mainSocketService?.currentSocket) {
+                    fasitfyServer.mainSocketService.currentSocket
+                        .emit("core-error", stderr || error?.message || error || stdout);
                 }
-            } catch (error: any) {
-                if (!isConnectionRefused(error)) {
-                    clearTimeout(timeoutId);
-                    checkResolve({ data: false });
-                    return;
-                }
+                fasitfyServer.rpcClient = null;
+                fasitfyServer.rpcPort = null;
+            });
+        } else {
+            console.log(`Found Litecoin Core already starting on RPC port ${port}; waiting to attach.`);
+        }
+
+        const finalCheck = (): Promise<{ data?: boolean; attached?: boolean; error?: string }> => new Promise(async (checkResolve) => {
+            const checkRes = await probeCore();
+            if (checkRes.state === 'ready') {
+                clearTimeout(timeoutId);
+                checkResolve(attachToCore());
+                return;
+            }
+            if (checkRes.state === 'auth-error') {
+                clearTimeout(timeoutId);
+                checkResolve({ data: false, error: credentialsError(checkRes.error) });
+                return;
+            }
+            if (checkRes.state === 'error') {
+                clearTimeout(timeoutId);
+                checkResolve({ data: false, error: toMessage(checkRes.error) });
+                return;
             }
 
             await new Promise(res => setTimeout(() => res(true), 1000));
@@ -264,6 +321,10 @@ const checkIsCoreStarted = async (
         });
 
         const finalRes = await finalCheck();
-        resolve({ data: finalRes });
+        if (finalRes.error) {
+            resolve({ error: finalRes.error });
+            return;
+        }
+        resolve(finalRes);
     });
 };

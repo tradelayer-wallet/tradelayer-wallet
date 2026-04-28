@@ -4,7 +4,13 @@
           The Node is not synced and the balance may be incorrect.
         </h3>
         <mat-card-header>Balance</mat-card-header>
-        <button mat-raised-button (click)='newAddress()' class='new-address-buttton' [disabled]="!isAbleToRpc">New Address</button>
+        <div class="balance-actions">
+            <mat-checkbox
+                color="primary"
+                [(ngModel)]="hideZeroBalances"
+            >Hide 0 balances</mat-checkbox>
+            <button mat-raised-button (click)='newAddress()' class='new-address-buttton' [disabled]="!isAbleToRpc">New Address</button>
+        </div>
         <mat-card-content>
             <mat-table [dataSource]="coinBalance" *ngIf='coinBalance'> 
               

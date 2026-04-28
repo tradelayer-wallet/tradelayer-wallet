@@ -43,6 +43,7 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
   cryptoBalanceColumns: string[] = ['attestation', 'address', 'confirmed', 'unconfirmed', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'channel', 'receiptState', 'blocksRemaining', 'actions'];
   selectedAddress: string = '';
+  hideZeroBalances: boolean = false;
   receiptPropertyId: number | null = null;
   proceduralReceipts: ProceduralReceiptRow[] = [];
   private attestationRefreshId: ReturnType<typeof setInterval> | null = null;
@@ -70,7 +71,39 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
 
   get coinBalance() {
     return this.authService.walletAddresses
-      .map(address => ({ address, ...(this.balanceService.getCoinBalancesByAddress(address) || {}) }));
+      .map((address, index) => {
+        const coinBalance = this.balanceService.getCoinBalancesByAddress(address) || {};
+        const hasNativeBalance = this.hasNativeBalance(coinBalance);
+        const hasTokenBalance = this.hasTokenBalance(address);
+        return {
+          address,
+          index,
+          hasAnyBalance: hasNativeBalance || hasTokenBalance,
+          ...coinBalance,
+        };
+      })
+      .filter((row) => !this.hideZeroBalances || row.hasAnyBalance)
+      .sort((a, b) => {
+        const aConfirmed = Number(a.confirmed || 0);
+        const bConfirmed = Number(b.confirmed || 0);
+        const aUnconfirmed = Number(a.unconfirmed || 0);
+        const bUnconfirmed = Number(b.unconfirmed || 0);
+
+        if (a.hasAnyBalance !== b.hasAnyBalance) {
+          return a.hasAnyBalance ? -1 : 1;
+        }
+
+        if (aConfirmed !== bConfirmed) {
+          return bConfirmed - aConfirmed;
+        }
+
+        if (aUnconfirmed !== bUnconfirmed) {
+          return bUnconfirmed - aUnconfirmed;
+        }
+
+        return a.index - b.index;
+      })
+      .map(({ index, hasAnyBalance, ...balanceRow }) => balanceRow);
   }
 
   get tokensBalances() {
@@ -106,6 +139,20 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
 
   get underlyingAssetLabel() {
     return this.rpcService.NETWORK === 'BTC' ? 'BTC' : 'LTC';
+  }
+
+  private hasNativeBalance(balance: any): boolean {
+    const confirmed = Number(balance?.confirmed || 0);
+    const unconfirmed = Number(balance?.unconfirmed || 0);
+    return confirmed > 0 || unconfirmed > 0;
+  }
+
+  private hasTokenBalance(address: string): boolean {
+    const balances = this.balanceService.getTokensBalancesByAddress(address) || [];
+    return balances.some((row: any) => {
+      return ['amount', 'available', 'reserved', 'margin', 'vesting', 'channel']
+        .some((field) => Math.abs(Number(row?.[field] || 0)) > 0);
+    });
   }
 
 ngOnInit(): void {
