@@ -6,7 +6,6 @@ import { AuthService } from 'src/app/@core/services/auth.service';
 import { ApiService } from 'src/app/@core/services/api.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
-import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { TxsService } from 'src/app/@core/services/txs.service';
 import { ENCODER } from 'src/app/utils/payloads/encoder';
@@ -48,6 +47,7 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
   proceduralReceipts: ProceduralReceiptRow[] = [];
   private proceduralReceiptRefreshId: ReturnType<typeof setInterval> | null = null;
   private attestingAddresses = new Set<string>();
+  private attestationStatusByAddress = new Map<string, string | boolean>();
 
   constructor(
     private apiService: ApiService,
@@ -60,7 +60,6 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
     private rpcService: RpcService,
     private txsService: TxsService,
     private attestationService: AttestationService,
-    private loadingService: LoadingService,
     private cdr: ChangeDetectorRef, // Inject ChangeDetectorRef,
     private http: HttpClient,
   ) {}
@@ -158,7 +157,9 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
 ngOnInit(): void {
     this.authService.getAddressesFromWallet().then(() => {
         this.walletAddresses = this.authService.walletAddresses; // Ensure this happens after addresses are fetched
+        this.updateCachedAttestationStatuses();
         this.attestationService.refreshAttestations(this.walletAddresses).finally(() => {
+          this.updateCachedAttestationStatuses();
           this.cdr.detectChanges();
         });
         this.loadReceiptPropertyId();
@@ -177,14 +178,12 @@ ngOnInit(): void {
 
   // Fetch and update attestation statuses for all wallet addresses
   async updateAttestationStatuses() {
-    const addresses = this.authService.listOfallAddresses
-    for (const address of addresses) {
-      await this.attestationService.checkAttAddress(address);
-    }
+    await this.attestationService.refreshAttestations(this.authService.listOfallAddresses);
+    this.updateCachedAttestationStatuses();
   }
 
   getAddressAttestationStatus(address: string): string | boolean {
-      const attestation = this.attestationService.getAttByAddress(address);
+      const attestation = this.attestationStatusByAddress.get(address);
 
       if (attestation === 'PENDING') {
           return 'PENDING';
@@ -197,6 +196,17 @@ ngOnInit(): void {
 
       // For any other status or false, return false
       return false;
+  }
+
+  private setCachedAttestationStatus(address: string, status: string | boolean) {
+    this.attestationStatusByAddress.set(address, status);
+  }
+
+  private updateCachedAttestationStatuses() {
+    const addresses = this.authService.listOfallAddresses || [];
+    addresses.forEach((address) => {
+      this.setCachedAttestationStatus(address, this.attestationService.getAttByAddress(address));
+    });
   }
 
   isAttestingAddress(address: string): boolean {
@@ -419,7 +429,8 @@ ngOnInit(): void {
       if (this.attestingAddresses.has(address)) return;
       try {
           this.attestingAddresses.add(address);
-          this.loadingService.isLoading = true;
+          this.setCachedAttestationStatus(address, 'PENDING');
+          this.cdr.detectChanges();
           //const ipToCheck = await this.rpcService.rpc('tl_getIpByAddress', [address]);
           const ipCheckResult = await this.attestationService.checkIP();
           if (!ipCheckResult?.success) {
@@ -450,19 +461,23 @@ ngOnInit(): void {
               fromKeyPair: { address },
               toKeyPair: { address },
               payload: attestationPayload,
+              suppressGlobalLoading: true,
           });
 
           if (res.data) {
               this.attestationService.setPendingAtt(address);
+              this.setCachedAttestationStatus(address, 'PENDING');
               this.toastrService.success(res.data, 'Transaction Sent');
           } else {
+              this.updateCachedAttestationStatuses();
               this.toastrService.error(res.error || 'Failed to send attestation transaction.', 'Attestation Error');
           }
       } catch (error: any) {
+          this.updateCachedAttestationStatuses();
           this.toastrService.error(error.message, 'Attestation Error');
       } finally {
           this.attestingAddresses.delete(address);
-          this.loadingService.isLoading = false;
+          this.cdr.detectChanges();
       }
   }
 

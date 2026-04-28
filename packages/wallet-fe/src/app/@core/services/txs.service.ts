@@ -45,6 +45,7 @@ export interface IBuildTxConfig {
     payload?: string;
     addPsbt?: boolean;
     network?: TNETWORK;
+    suppressGlobalLoading?: boolean;
 }
 
 export interface IBuildLTCITTxConfig {
@@ -314,8 +315,11 @@ export class TxsService {
     async buildSingSendTx(
             buildTxConfig: IBuildTxConfig,
         ): Promise<{ data?: string, error?: string }> {
+            const showGlobalLoading = buildTxConfig.suppressGlobalLoading !== true;
             try {
-                this.loadingService.isLoading = true;
+                if (showGlobalLoading) {
+                    this.loadingService.isLoading = true;
+                }
                 const buildRes = await this.buildTx(buildTxConfig);
                 if (buildRes.error || !buildRes.data) {
                     return { error: buildRes.error || 'Failed to build the transaction.' };
@@ -352,7 +356,9 @@ export class TxsService {
                 this.toastrService.error(error.message);
                 return { error: error.message };
             } finally {
-                this.loadingService.isLoading = false;
+                if (showGlobalLoading) {
+                    this.loadingService.isLoading = false;
+                }
                 //this.balanceService.updateBalances();
             }
         }
