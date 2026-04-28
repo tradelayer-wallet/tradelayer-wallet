@@ -37,8 +37,9 @@
                         [ngStyle]="{ visibility: defaultDirectoryCheckbox ? 'hidden' : 'visible' }"
                         style='margin: 0.5rem 0; background: lightsteelblue; max-width: 8rem;'
                         mat-button
+                        [disabled]="isDirectoryDialogOpen"
                         (click)='openDirSelectDialog()'
-                    >Select Directory</button>
+                    >{{ isDirectoryDialogOpen ? 'Opening...' : 'Select Directory' }}</button>
                 </div>
                 <span style="text-align: center; width: 100%;">
                     {{ directory.length > 30 ? "..." + directory.slice(-30) : directory }}

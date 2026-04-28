@@ -4,6 +4,8 @@ import { FastifyServer } from '../packages/wallet-server/src/fastify-server';
 
 import * as url from 'url';
 import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 import { randomBytes } from 'crypto';
 
 export class ElectronApp {
@@ -12,6 +14,7 @@ export class ElectronApp {
     private localServer: FastifyServer;
     private localApiToken: string;
     private isClosing = false;
+    private isSelectDirDialogOpen = false;
     public mainWindow: BrowserWindow | null = null;
 
     constructor(app: App) {
@@ -68,11 +71,24 @@ export class ElectronApp {
     }
 
     private async openSelectDirDialog() {
-        const result = await dialog.showOpenDialog(this.mainWindow, {
-            properties: ['openDirectory'],
-          });
-        const path = result.filePaths[0];
-        this.sendMessageToAngular('selected-dir', path);
+        if (this.isSelectDirDialogOpen) return;
+        this.isSelectDirDialogOpen = true;
+        const fallbackPath = fs.existsSync(process.env.DATADIR || '')
+            ? String(process.env.DATADIR)
+            : os.homedir();
+        try {
+            const result = await dialog.showOpenDialog(this.mainWindow, {
+                defaultPath: fallbackPath,
+                properties: ['openDirectory', 'dontAddToRecent'],
+            });
+            const selectedPath = result.canceled ? '' : result.filePaths[0];
+            this.sendMessageToAngular('selected-dir', selectedPath);
+        } catch (error) {
+            console.error('Unable to open directory picker:', error);
+            this.sendMessageToAngular('selected-dir', '');
+        } finally {
+            this.isSelectDirDialogOpen = false;
+        }
     }
 
     sendMessageToAngular(event: string, data: any) {

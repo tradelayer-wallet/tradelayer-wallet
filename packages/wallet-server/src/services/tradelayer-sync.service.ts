@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { fasitfyServer } from '../index';
+import { createRpcClientFromDatadir } from './node.service';
 
 type AnyObj = Record<string, any>;
 
@@ -49,6 +50,26 @@ function getWalletListenerUrl(): string {
   return trimSlash(process.env.TL_WALLET_LISTENER_URL || 'http://127.0.0.1:3000');
 }
 
+let listenerMainInitPromise: Promise<void> | null = null;
+
+async function ensureListenerMainInitialized(listenerUrl: string): Promise<void> {
+  if (listenerMainInitPromise) {
+    return listenerMainInitPromise;
+  }
+
+  listenerMainInitPromise = axios.post(`${listenerUrl}/tl_initmain`, { wallet: true }, { timeout: 60000 })
+    .then((res) => {
+      if (res?.data?.error) {
+        throw new Error(res.data.error);
+      }
+    })
+    .finally(() => {
+      listenerMainInitPromise = null;
+    });
+
+  return listenerMainInitPromise;
+}
+
 function normalizeTradeLayerSyncStatus(raw: AnyObj, listenerMeta: {
   listenerUrl: string;
   listenerReachable: boolean;
@@ -89,6 +110,21 @@ function normalizeTradeLayerSyncStatus(raw: AnyObj, listenerMeta: {
 }
 
 async function fetchNodeBlockState(): Promise<{ nodeBlock: number | null; headerBlock: number | null }> {
+  if (!fasitfyServer.rpcClient) {
+    const rpcClient = createRpcClientFromDatadir(process.env.DATADIR, Number(process.env.RPC_PORT));
+    if (rpcClient) {
+      try {
+        const probe = await rpcClient.call('getblockchaininfo');
+        if (probe?.data && !probe?.error) {
+          fasitfyServer.rpcClient = rpcClient;
+          fasitfyServer.rpcPort = Number(process.env.RPC_PORT) || 19332;
+        }
+      } catch {
+        // The sync dialog will keep polling while Core warms up.
+      }
+    }
+  }
+
   if (!fasitfyServer.rpcClient) {
     return { nodeBlock: null, headerBlock: null };
   }
@@ -149,6 +185,25 @@ export async function getTradeLayerSyncStatus(): Promise<TradeLayerSyncStatus> {
         || error?.message
         || 'Unable to reach TradeLayer listener.';
       rawStatus = {};
+    }
+  }
+
+  if (listenerReachable && nodeBlock && !rawStatus?.initialized) {
+    try {
+      rawStatus = {
+        ...rawStatus,
+        phase: 'starting',
+        message: 'Initializing TradeLayer parser.',
+        targetHeight: headerBlock ?? nodeBlock,
+      };
+      await ensureListenerMainInitialized(listenerUrl);
+      const { data } = await axios.post(`${listenerUrl}/tl_getSyncStatus`, {}, { timeout: 5000 });
+      rawStatus = (data && typeof data === 'object') ? data : rawStatus;
+      listenerError = null;
+    } catch (initError: any) {
+      listenerError = initError?.response?.data
+        || initError?.message
+        || 'Unable to initialize TradeLayer parser.';
     }
   }
 

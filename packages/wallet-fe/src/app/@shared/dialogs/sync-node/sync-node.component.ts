@@ -224,8 +224,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         console.log('checking tl flag this sync '+this.rpcService.isTLStarted)
         console.log(Boolean(!this.rpcService.isTLStarted&&this.rpcService.isAbleToRpc == true))
         try {
-            if (!this.isAbleToRpc || !this.nodeBlock) return;
-            if (!this.rpcService.isTLStarted&&this.rpcService.isAbleToRpc == true){
+            if (!this.rpcService.isTLStarted && this.rpcService.isAbleToRpc == true && this.nodeBlock){
                 const result = await this.apiService.mainApi.initTradeLayer().toPromise();
                 console.log('TL Wallet Listener init result: '+JSON.stringify(result))
                  // Adding a delay of 10 seconds between initTradeLayer and the next call
@@ -256,6 +255,11 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             this.tlSyncStatus = status;
             this.tlMessage = this.formatDialogError(status.message || '', '');
             this.tlReadyPercent = Number(status.percent || 0);
+            const nodeBlock = Number(status.nodeBlock || 0);
+            const headerBlock = Number(status.headerBlock || status.chainTip || nodeBlock || 0);
+            if (!this.rpcService.lastBlock && nodeBlock) this.rpcService.lastBlock = nodeBlock;
+            if (!this.rpcService.headerBlock && headerBlock) this.rpcService.headerBlock = headerBlock;
+            if (!this.rpcService.networkBlocks && headerBlock) this.rpcService.networkBlocks = headerBlock;
             this.rpcService.latestTlBlock = Number(
                 status.currentHeight || status.processedHeight || status.trackHeight || 0
             );
@@ -303,11 +307,14 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
 
     private async checkSync() {
-        await this.checkIsAbleToRpcLoop(); // Keep checking until RPC is ready
+        try {
+            await this.checkIsAbleToRpcLoop(); // Keep checking until RPC is ready
+        } finally {
+            await this.checkTradelayerSync();
+        }
+        if (!this.nodeBlock || !this.headerBlock) return;
         this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
         this.readyPercent = parseFloat((this.nodeBlock / this.headerBlock).toFixed(2)) * 100;
-
-        await this.checkTradelayerSync();
     }
 
     private async checkIsAbleToRpc() {
@@ -372,6 +379,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     public reindex: boolean = false;
     public startclean: boolean = false;
     public showAdvanced: boolean = false;
+    public isDirectoryDialogOpen: boolean = false;
     public network: ENetwork = this.rpcService.NETWORK as ENetwork;
 
     get defaultDirectoryCheckbox() {
@@ -384,12 +392,20 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     openDirSelectDialog() {
-        this.electronService.emitEvent('open-dir-dialog');
-        this.electronService.onceMessage((message: any) => {
+        if (this.isDirectoryDialogOpen) return;
+        this.isDirectoryDialogOpen = true;
+        const unsubscribe = this.electronService.onMessage((message: any) => {
             const { event, data } = message;
-            if (event !== 'selected-dir' || !data ) return;
-            this.zone.run(() => this.directory = data || '');
+            if (event !== 'selected-dir') return;
+            unsubscribe();
+            this.zone.run(() => {
+                this.isDirectoryDialogOpen = false;
+                if (data) {
+                    this.directory = data || '';
+                }
+            });
         });
+        this.electronService.emitEvent('open-dir-dialog');
     }
 
     toggleAdvanced() {
