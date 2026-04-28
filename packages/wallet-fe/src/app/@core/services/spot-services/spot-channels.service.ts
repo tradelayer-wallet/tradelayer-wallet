@@ -149,8 +149,6 @@ export class SpotChannelsService {
       const res: AxiosResponse<ChannelBalancesResponse | ChannelBalanceRow[] | any> =
         await axios.get(this.endpoint, { params });
 
-        console.log('spot channels '+JSON.stringify(res))
-
       const data = res.data;
       const rawRows: any[] = Array.isArray(data) ? data : (Array.isArray(data?.rows) ? data.rows : []);
       const rows = rawRows.map(row => this.normalizeRow(row, addr, { propertyId: defaultPid }));

@@ -1,5 +1,5 @@
 // futures-trade-history.component.ts
-import { Component, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { FuturesTradeHistoryService } from 'src/app/@core/services/futures-services/futures-trade-history.service';
 
 @Component({
@@ -8,10 +8,14 @@ import { FuturesTradeHistoryService } from 'src/app/@core/services/futures-servi
   styleUrls: ['../../../../spot-page/spot-trading-grid/spot-bottom-card/spot-trade-history/spot-trade-history.component.scss'],
   changeDetection: ChangeDetectionStrategy.Default
 })
-export class FuturesTradeHistoryComponent implements OnDestroy {
+export class FuturesTradeHistoryComponent implements OnInit, OnDestroy {
   displayedColumns: string[] = ['block', 'side', 'amount', 'price', 'total', 'role', 'fee', 'tx', 'counterparty'];
 
   constructor(public futuresHistory: FuturesTradeHistoryService) {}
+
+  ngOnInit(): void {
+    this.futuresHistory.start();
+  }
 
   ngOnDestroy(): void {
     this.futuresHistory.stop();

@@ -4,19 +4,33 @@ import { FastifyServer } from '../packages/wallet-server/src/fastify-server';
 
 import * as url from 'url';
 import * as path from 'path';
+import { randomBytes } from 'crypto';
 
 export class ElectronApp {
     private app: App;
     private autoUpdater: AutoUpdater;
     private localServer: FastifyServer;
+    private localApiToken: string;
+    private isClosing = false;
     public mainWindow: BrowserWindow | null = null;
 
     constructor(app: App) {
         this.app = app;
+        this.localApiToken = this.ensureLocalApiToken();
         this.handleOnEvents();
         this.handleAngularSignals()
         this.disableSecurityWarnings();
         this.startChildProcess();
+    }
+
+    private ensureLocalApiToken() {
+        const existingToken = String(process.env.TL_LOCAL_API_TOKEN || '').trim();
+        if (existingToken) {
+            return existingToken;
+        }
+        const generatedToken = randomBytes(32).toString('hex');
+        process.env.TL_LOCAL_API_TOKEN = generatedToken;
+        return generatedToken;
     }
 
     private startChildProcess() {
@@ -98,12 +112,20 @@ export class ElectronApp {
             this.mainWindow = null;
         });
 
-        this.mainWindow.on('close', async (e) => {
+        this.mainWindow.on('close', (e) => {
+            if (this.isClosing) {
+                return;
+            }
+            this.isClosing = true;
             e.preventDefault();
             this.sendMessageToAngular('close-app', true);
-            this.localServer?.mainSocketService?.currentSocket?.connected
-                ? this.localServer.stop()
-                : this.safeExist();
+            const forceCloseTimer = setTimeout(() => this.safeExist(), 2500);
+            this.localServer?.stop()
+                .catch((error) => console.error('Error stopping local server:', error))
+                .finally(() => {
+                    clearTimeout(forceCloseTimer);
+                    this.safeExist();
+                });
         });
     }
 
@@ -114,14 +136,18 @@ export class ElectronApp {
             width: 1280,
             height: 800,
             webPreferences: {
-              nodeIntegration: true,
-              contextIsolation: false,
+              preload: path.join(__dirname, 'preload.js'),
+              additionalArguments: [`--tl-local-api-token=${this.localApiToken}`],
+              nodeIntegration: false,
+              contextIsolation: true,
             }
         };
         this.mainWindow = new BrowserWindow(windowOptions);
         this.handleMainWindowEvents();
         this.loadUrl(this.mainWindow);
-        this.mainWindow.webContents.openDevTools();
+        if (process.env.TL_ELECTRON_OPEN_DEVTOOLS === '1') {
+            this.mainWindow.webContents.openDevTools();
+        }
     }
 
     private loadUrl(window: BrowserWindow) {
@@ -135,7 +161,9 @@ export class ElectronApp {
     }
 
     private disableSecurityWarnings() {
-        process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
+        if (process.env.TL_ALLOW_UNSAFE_ELECTRON === '1') {
+            process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
+        }
     }
 }
 

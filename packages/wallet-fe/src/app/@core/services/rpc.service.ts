@@ -37,6 +37,7 @@ export class RpcService {
   headerBlock: number = 0;
   networkBlocks: number = 0;
   isNetworkSelected: boolean = false;
+  private networkInfoInProgress = false;
 
   blockSubs$: BehaviorSubject<IBlockSubsObj> = new BehaviorSubject({
     type: this.isApiMode ? "API" : "LOCAL",
@@ -132,8 +133,10 @@ export class RpcService {
     }
 
     async checkNetworkInfo() {
+      if (this.networkInfoInProgress) return;
       if (!this.NETWORK) return;
       if (!this.apiService.apiUrl) return;
+      this.networkInfoInProgress = true;
       try {
           const infoRes = await this.tlApi.rpc('getblockchaininfo').toPromise();
           if (infoRes.error || !infoRes.data) throw new Error(infoRes.error);
@@ -146,7 +149,8 @@ export class RpcService {
       } catch(err: any) {
           this.toastrService.error(err.message || err || 'Undefined Error', 'API Server Disconnected');
           this.apiService.apiUrl = null;
-          throw(err);
+      } finally {
+          this.networkInfoInProgress = false;
       }
     }
 

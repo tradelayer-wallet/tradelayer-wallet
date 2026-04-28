@@ -29,6 +29,7 @@ export class FuturesChannelsService {
   private readonly endpoint = 'http://localhost:3000/tl_channelBalanceForCommiter';
   private pollId?: any;
   private isLoading = false;
+  private refreshMs = 20000;
 
   private __rows$ = new BehaviorSubject<ChannelBalanceRow[]>([]);
   private __override: FutOverride | null = null;
@@ -40,17 +41,14 @@ export class FuturesChannelsService {
 
   // ---------- Polling API ----------
   startPolling(ms = 20000) {
-    console.log('[FuturesChannelsService] startPolling called, ms=', ms);
+    this.refreshMs = Math.max(1000, ms | 0);
 
     if (this.pollId) {
       clearInterval(this.pollId);
       this.pollId = undefined;
     }
 
-    this.pollId = setInterval(() => {
-      console.log('[FuturesChannelsService] polling tick');
-      this.loadOnce();
-    }, ms);
+    this.pollId = setInterval(() => this.loadOnce(), this.refreshMs);
 
     this.loadOnce();
   }
@@ -64,7 +62,6 @@ export class FuturesChannelsService {
 
   // ---------- Core fetch ----------
   public async loadOnce(): Promise<void> {
-    console.log('[FuturesChannelsService] loadOnce ENTER');
     if (this.isLoading) return;
     this.isLoading = true;
 
@@ -79,10 +76,6 @@ export class FuturesChannelsService {
         market?.collateral?.propertyId;
 
       if (!address || !Number.isFinite(Number(collateralPropertyId))) {
-        console.warn('[FuturesChannelsService] missing address or collateralPropertyId', {
-          address,
-          collateralPropertyId
-        });
         this.channelsCommits = [];
         this.__rows$.next([]);
         return;
@@ -95,8 +88,6 @@ export class FuturesChannelsService {
             propertyId: Number(collateralPropertyId),
           },
         });
-
-      console.log('[FuturesChannelsService] response', res.data);
 
       const rawRows: any[] =
         Array.isArray(res.data)

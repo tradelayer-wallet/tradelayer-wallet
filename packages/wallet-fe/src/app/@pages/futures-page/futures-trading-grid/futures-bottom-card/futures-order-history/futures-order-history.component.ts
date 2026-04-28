@@ -15,6 +15,6 @@ export class FuturesOrderHistoryComponent {
     ) {}
     
     get orderHistory() {
-      return this.futuresOrdersService.orderHistory?.reverse() || [];
+      return [...(this.futuresOrdersService.orderHistory || [])].reverse();
     }
 }

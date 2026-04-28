@@ -20,6 +20,7 @@ export class SpotTradeHistoryService {
 
   /** interval handle */
   private timerId?: any;
+  private isLoading = false;
 
   constructor(
     private apiService: ApiService,
@@ -34,10 +35,9 @@ export class SpotTradeHistoryService {
 
   /** Start (or restart) polling */
   start(): void {
-    console.log('inside spot history start')
-    //this.stop();
+    this.stop();
     this.loadOnce(); // run immediately
-    setInterval(() => this.loadOnce(), this.refreshMs);
+    this.timerId = setInterval(() => this.loadOnce(), this.refreshMs);
   }
 
   /** Stop polling */
@@ -61,6 +61,8 @@ export class SpotTradeHistoryService {
 
   // ---------- internals ----------
   private async loadOnce(): Promise<void> {
+    if (this.isLoading) return;
+    this.isLoading = true;
     try {
       const addr = this.authService.walletAddresses?.[0];
       const m = this.spotMarkets.selectedMarket;
@@ -75,12 +77,8 @@ export class SpotTradeHistoryService {
       const p1 = hasP1 ? Number(p1raw) : NaN;
       const p2 = hasP2 ? Number(p2raw) : NaN;
 
-      console.log('[spot-trade-history] params', { addr, p1, p2 });
-      console.log(hasAddr+' '+Number.isFinite(p1)+' '+Number.isFinite(p2))
-
       if (!(hasAddr && Number.isFinite(p1) && Number.isFinite(p2))) {
         this.rows = [];
-        console.log('spot trade hist return early')
         return; // ok to return here since no lock held
       }
 
@@ -93,8 +91,6 @@ export class SpotTradeHistoryService {
           address: addr,
         },
       });
-
-      console.log('spot token trade history res '+JSON.stringify(res))
 
      const payload = (res.data && res.data.result !== undefined) ? res.data.result: res.data;
       const rawRows = Array.isArray(payload) ? payload : (payload?.rows ?? []);
@@ -125,6 +121,8 @@ export class SpotTradeHistoryService {
     } catch (err) {
       console.error('[spot-trade-history] load error:', err);
       this.rows = [];
+    } finally {
+      this.isLoading = false;
     }
   }
 }

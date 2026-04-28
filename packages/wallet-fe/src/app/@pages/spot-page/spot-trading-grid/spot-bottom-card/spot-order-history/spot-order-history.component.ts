@@ -15,8 +15,6 @@ export class SpotOrderHistoryComponent {
     ) {}
 
     get orderHistory() {
-      const history = this.spotOrdersService.orderHistory?.reverse() || [];
-      console.log('order history '+JSON.stringify(history))
-      return history
+      return [...(this.spotOrdersService.orderHistory || [])].reverse();
     }
 }

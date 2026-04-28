@@ -35,6 +35,7 @@ export class FuturesTradeHistoryService {
 
   /** interval handle */
   private timerId?: any;
+  private isLoading = false;
 
   public baseURL: string = 'http://localhost:3000/';
   constructor(
@@ -42,8 +43,6 @@ export class FuturesTradeHistoryService {
     private auth: AuthService,
     private futMarkets: FuturesMarketService
   ) {
-    this.start();
-
     // optional: refresh immediately on address or market change if you have streams
     this.auth.updateAddressesSubs$?.subscribe(() => this.refreshNow());
     (this.futMarkets as any).selectedMarket$?.subscribe?.(() => this.refreshNow());
@@ -93,7 +92,8 @@ export class FuturesTradeHistoryService {
   }
 
   private async loadOnce(): Promise<void> {
-  console.log('loading futures trade hist')
+    if (this.isLoading) return;
+    this.isLoading = true;
     try {
       const addr = this.auth.walletAddresses?.[0];
       const m = this.futMarkets.selectedMarket;
@@ -102,9 +102,6 @@ export class FuturesTradeHistoryService {
       const hasAddr = !!addr;
       const hasCid = contractId !== undefined && contractId !== null && Number.isFinite(contractId);
       const hasColl = collateralPropertyId !== undefined && collateralPropertyId !== null && Number.isFinite(collateralPropertyId);
-
-
-      console.log('query futures trades ', { addr, contractId, collateralPropertyId } );
 
       // NOTE: 0 can be a valid collateral (LTC). Don't treat 0 as missing.
       if (!(hasAddr && hasCid && hasColl)) {
@@ -122,10 +119,6 @@ export class FuturesTradeHistoryService {
           address: addr,
         },
       });
-
-      console.log('[futures-trade-history] '+JSON.stringify(res) );
-
-
       const payload = res.data?.result ?? res.data;
       const rawRows: any[] = Array.isArray(payload) ? payload : (payload?.rows ?? []);
 
@@ -249,6 +242,8 @@ export class FuturesTradeHistoryService {
     } catch (err) {
       console.error('[futures-trade-history] load error:', err);
       this.rows = [];
+    } finally {
+      this.isLoading = false;
     }
   }
 }

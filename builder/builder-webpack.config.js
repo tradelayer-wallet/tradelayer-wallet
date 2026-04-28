@@ -1,10 +1,8 @@
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 
-module.exports = {
-  entry: path.resolve(__dirname, 'electron-builder.ts'),
+const sharedConfig = {
   mode: 'production',
-  target: 'node',
   module: {
     rules: [
       {
@@ -18,12 +16,36 @@ module.exports = {
     extensions: ['.ts', '.js'],
   },
   output: {
-    filename: './main.js',
-    libraryTarget: 'umd',
-    libraryExport: 'default'
+    path: path.resolve(process.cwd(), 'dist'),
   },
-  externals: [
-    nodeExternals(),
-    '../dist/server',
-  ],
 };
+
+module.exports = [
+  {
+    ...sharedConfig,
+    entry: path.resolve(__dirname, 'electron-builder.ts'),
+    target: 'electron-main',
+    output: {
+      ...sharedConfig.output,
+      filename: 'main.js',
+      libraryTarget: 'umd',
+      libraryExport: 'default',
+    },
+    externals: [
+      nodeExternals(),
+      '../dist/server',
+    ],
+  },
+  {
+    ...sharedConfig,
+    entry: path.resolve(__dirname, 'preload.ts'),
+    target: 'electron-main',
+    output: {
+      ...sharedConfig.output,
+      filename: 'preload.js',
+    },
+    externals: [
+      nodeExternals(),
+    ],
+  },
+];

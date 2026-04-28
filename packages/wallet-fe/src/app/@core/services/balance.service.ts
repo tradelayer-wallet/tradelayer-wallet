@@ -46,6 +46,7 @@ export class BalanceService {
         outputsByAddress: Map<string, IUTXO[]>;
     } | null = null;
     private readonly pendingMempoolCacheMs = 5000;
+    private updateInProgress = false;
 
     // public balanceLoading: boolean = false;
 
@@ -98,6 +99,8 @@ export class BalanceService {
     }
 
     async updateBalances(notiffy: boolean = true) {
+        if (this.updateInProgress) return;
+        this.updateInProgress = true;
         // this.balanceLoading = true;
         try {
             const addressesArray = this.authService.walletAddresses;
@@ -109,6 +112,8 @@ export class BalanceService {
             this.pruneStaleBalances(addressesArray);
         } catch(err: any) {
             this.toastrService.warning(err.message || `Error with updating balances`, 'Balance Error');
+        } finally {
+            this.updateInProgress = false;
         }
         // this.balanceLoading = false;
     }

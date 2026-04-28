@@ -9,10 +9,6 @@ import { RpcService } from './@core/services/rpc.service';
 import { SocketService } from './@core/services/socket.service';
 import { SwapService } from './@core/services/swap.service';
 import { WindowsService } from './@core/services/windows.service';
-import {SpotTradeHistoryService} from './@core/services/spot-services/spot-trade-history.service'
-import {FuturesTradeHistoryService} from './@core/services/futures-services/futures-trade-history.service'
-import {SpotChannelsService} from './@core/services/spot-services/spot-channels.service'
-import {FuturesChannelsService} from './@core/services/futures-services/futures-channels.service'
 
 @Component({
   selector: 'tl-root',
@@ -32,11 +28,7 @@ export class AppComponent {
     private balanceService: BalanceService,
     private socketService: SocketService,
     private swapService: SwapService,
-    private nodeRewardService: NodeRewardService,
-    private spotHistory: SpotTradeHistoryService,
-    private futHistory: FuturesTradeHistoryService,
-    private spotChannels: SpotChannelsService,
-    private futChannels: FuturesChannelsService
+    private nodeRewardService: NodeRewardService
   ) {
     this.handleInits();
     this.handleConnections();
@@ -79,10 +71,6 @@ export class AppComponent {
     this.attestationService.onInit();
     this.swapService.onInit();
     this.nodeRewardService.onInit();
-    this.spotHistory.start()
-    this.futHistory.start()
-    this.spotChannels.startPolling()
-    this.futChannels.startPolling()
   }
 
   handleConnections() {
@@ -93,8 +81,7 @@ export class AppComponent {
   }
 
   handleElectronEvents() {
-    this.electronService.ipcRenderer
-      .on('angular-electron-message', (_: any, message: any) => {
+    this.electronService.onMessage((message) => {
         const { event, data } = message;
         if (event === 'close-app' && data === true) {
           this.ngZone.run(() => this.isLoading = true);

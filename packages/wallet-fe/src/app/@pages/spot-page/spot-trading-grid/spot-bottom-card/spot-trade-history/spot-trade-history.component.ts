@@ -1,4 +1,4 @@
-import { Component, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { SpotTradeHistoryService } from 'src/app/@core/services/spot-services/spot-trade-history.service';
 
 @Component({
@@ -7,13 +7,17 @@ import { SpotTradeHistoryService } from 'src/app/@core/services/spot-services/sp
   styleUrls: ['./spot-trade-history.component.scss'],
   changeDetection: ChangeDetectionStrategy.Default
 })
-export class SpotTradeHistoryComponent implements OnDestroy {
+export class SpotTradeHistoryComponent implements OnInit, OnDestroy {
   /** Column order for the <table> */
   displayedColumns: string[] = [
     'block', 'side', 'amount', 'price', 'total', 'role', 'fee', 'tx', 'counterparty'
   ];
 
   constructor(public spotHistory: SpotTradeHistoryService) {}
+
+  ngOnInit(): void {
+    this.spotHistory.start();
+  }
 
   ngOnDestroy(): void {
     // If this component is the only consumer, it's fine to stop the poller.
