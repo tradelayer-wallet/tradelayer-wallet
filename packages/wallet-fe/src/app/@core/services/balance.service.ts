@@ -168,22 +168,93 @@ export class BalanceService {
         this._allBalancesObj[address].tokensBalance = tokensBalanceArrRes.data;
     }
 
-    private async getCoinBalanceObjForAddress(address: string) {
-            if (!address) return { error: 'No address provided for updating the balance' };
-            const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [address]]);
-            console.log('returning UTXOs for '+address+' in get coin balances '+JSON.stringify(luRes))
-            if (luRes.error || !luRes.data) return { error: luRes.error || 'Undefined Error' };
-
-            const _confirmed = (luRes.data as IUTXO[])
-                .filter(utxo => utxo.confirmations >= minBlocksForBalanceConf)
-                .reduce((a, b) => a + b.amount, 0);
-            const _unconfirmed = (luRes.data as IUTXO[])
-                .filter(utxo => utxo.confirmations < minBlocksForBalanceConf)
-                .reduce((a, b) => a + b.amount, 0);
-            const confirmed = parseFloat(_confirmed.toFixed(6));
-            const unconfirmed = parseFloat(_unconfirmed.toFixed(6));
-            return {data: { confirmed, unconfirmed, utxos: luRes.data } };
+    private extractVoutAddress(vout: any): string {
+        const scriptPubKey = vout?.scriptPubKey || {};
+        const direct = String(scriptPubKey?.address || '').trim();
+        if (direct) return direct;
+        if (Array.isArray(scriptPubKey?.addresses) && scriptPubKey.addresses.length) {
+            return String(scriptPubKey.addresses[0] || '').trim();
         }
+        return '';
+    }
+
+    private async getPendingMempoolOutputsForAddress(address: string): Promise<IUTXO[]> {
+        const mempoolRes = await this.rpcService.rpc('getrawmempool', []);
+        if (mempoolRes.error || !Array.isArray(mempoolRes.data) || !mempoolRes.data.length) {
+            return [];
+        }
+
+        const pendingOutputs = new Map<string, IUTXO>();
+        const spentOutpoints = new Set<string>();
+
+        for (const txid of mempoolRes.data as string[]) {
+            const txRes = await this.rpcService.rpc('getrawtransaction', [txid, true]);
+            const tx = txRes?.data;
+            if (txRes.error || !tx) continue;
+
+            (tx.vin || []).forEach((vin: any) => {
+                if (vin?.txid != null && vin?.vout != null) {
+                    spentOutpoints.add(`${vin.txid}:${vin.vout}`);
+                }
+            });
+
+            (tx.vout || []).forEach((vout: any) => {
+                const outputAddress = this.extractVoutAddress(vout);
+                if (outputAddress !== address) return;
+                const amount = Number(vout?.value || 0);
+                if (!Number.isFinite(amount) || amount <= 0) return;
+                const n = Number(vout?.n);
+                if (!Number.isInteger(n)) return;
+                pendingOutputs.set(`${txid}:${n}`, {
+                    txid,
+                    vout: n,
+                    amount,
+                    confirmations: 0,
+                    address: outputAddress,
+                    scriptPubKey: String(vout?.scriptPubKey?.hex || ''),
+                });
+            });
+        }
+
+        return Array.from(pendingOutputs.entries())
+            .filter(([outpoint]) => !spentOutpoints.has(outpoint))
+            .map(([, output]) => output);
+    }
+
+    private async getCoinBalanceObjForAddress(address: string) {
+        if (!address) return { error: 'No address provided for updating the balance' };
+        const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [address]]);
+        console.log('returning UTXOs for '+address+' in get coin balances '+JSON.stringify(luRes))
+        if (luRes.error || !luRes.data) return { error: luRes.error || 'Undefined Error' };
+
+        const utxos = luRes.data as IUTXO[];
+        const pendingByOutpoint = new Map<string, IUTXO>();
+        utxos
+            .filter(utxo => utxo.confirmations < minBlocksForBalanceConf)
+            .forEach((utxo) => pendingByOutpoint.set(`${utxo.txid}:${utxo.vout}`, utxo));
+
+        try {
+            const pendingMempoolOutputs = await this.getPendingMempoolOutputsForAddress(address);
+            pendingMempoolOutputs.forEach((utxo) => {
+                pendingByOutpoint.set(`${utxo.txid}:${utxo.vout}`, utxo);
+            });
+        } catch (error) {
+            console.warn(`Unable to scan mempool outputs for ${address}`, error);
+        }
+
+        const _confirmed = utxos
+            .filter(utxo => utxo.confirmations >= minBlocksForBalanceConf)
+            .reduce((a, b) => a + b.amount, 0);
+        const _unconfirmed = Array.from(pendingByOutpoint.values())
+            .reduce((a, b) => a + b.amount, 0);
+        const confirmed = parseFloat(_confirmed.toFixed(8));
+        const unconfirmed = parseFloat(_unconfirmed.toFixed(8));
+        const utxoOutpoints = new Set(utxos.map((utxo) => `${utxo.txid}:${utxo.vout}`));
+        const scannedPendingUtxos = Array.from(pendingByOutpoint.values())
+            .filter((utxo) => !utxoOutpoints.has(`${utxo.txid}:${utxo.vout}`));
+
+        return { data: { confirmed, unconfirmed, utxos: [...utxos, ...scannedPendingUtxos] } };
+    }
 
     
     private async getTokensBalanceArrForAddress(address: string) {

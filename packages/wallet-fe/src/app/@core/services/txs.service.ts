@@ -14,6 +14,7 @@ export interface IUTXO {
     amount: number;
     confirmations: number;
     scriptPubKey: string;
+    address?: string;
     redeemScript?: string;
     txid: string;
     vout: number;
