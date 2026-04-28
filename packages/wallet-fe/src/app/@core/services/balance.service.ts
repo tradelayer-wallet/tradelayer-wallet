@@ -41,6 +41,11 @@ export class BalanceService {
             }[];
         }
     } = {};
+    private pendingMempoolOutputCache: {
+        expiresAt: number;
+        outputsByAddress: Map<string, IUTXO[]>;
+    } | null = null;
+    private readonly pendingMempoolCacheMs = 5000;
 
     // public balanceLoading: boolean = false;
 
@@ -178,10 +183,20 @@ export class BalanceService {
         return '';
     }
 
-    private async getPendingMempoolOutputsForAddress(address: string): Promise<IUTXO[]> {
+    private async getPendingMempoolOutputsByAddress(): Promise<Map<string, IUTXO[]>> {
+        const now = Date.now();
+        if (this.pendingMempoolOutputCache && this.pendingMempoolOutputCache.expiresAt > now) {
+            return this.pendingMempoolOutputCache.outputsByAddress;
+        }
+
         const mempoolRes = await this.rpcService.rpc('getrawmempool', []);
         if (mempoolRes.error || !Array.isArray(mempoolRes.data) || !mempoolRes.data.length) {
-            return [];
+            const empty = new Map<string, IUTXO[]>();
+            this.pendingMempoolOutputCache = {
+                expiresAt: now + this.pendingMempoolCacheMs,
+                outputsByAddress: empty,
+            };
+            return empty;
         }
 
         const pendingOutputs = new Map<string, IUTXO>();
@@ -200,7 +215,7 @@ export class BalanceService {
 
             (tx.vout || []).forEach((vout: any) => {
                 const outputAddress = this.extractVoutAddress(vout);
-                if (outputAddress !== address) return;
+                if (!outputAddress) return;
                 const amount = Number(vout?.value || 0);
                 if (!Number.isFinite(amount) || amount <= 0) return;
                 const n = Number(vout?.n);
@@ -216,9 +231,26 @@ export class BalanceService {
             });
         }
 
-        return Array.from(pendingOutputs.entries())
+        const outputsByAddress = new Map<string, IUTXO[]>();
+        Array.from(pendingOutputs.entries())
             .filter(([outpoint]) => !spentOutpoints.has(outpoint))
-            .map(([, output]) => output);
+            .forEach(([, output]) => {
+                if (!output.address) return;
+                const existing = outputsByAddress.get(output.address) || [];
+                existing.push(output);
+                outputsByAddress.set(output.address, existing);
+            });
+
+        this.pendingMempoolOutputCache = {
+            expiresAt: Date.now() + this.pendingMempoolCacheMs,
+            outputsByAddress,
+        };
+        return outputsByAddress;
+    }
+
+    private async getPendingMempoolOutputsForAddress(address: string): Promise<IUTXO[]> {
+        const outputsByAddress = await this.getPendingMempoolOutputsByAddress();
+        return outputsByAddress.get(address) || [];
     }
 
     private async getCoinBalanceObjForAddress(address: string) {

@@ -15,6 +15,8 @@ export class AttestationService {
       isAttested: boolean | 'PENDING'; 
       data?: { status: string; [key: string]: any }; // Optional data field
     }[] = [];
+    private attestationRefreshId: ReturnType<typeof setInterval> | null = null;
+    private checkAllInProgress = false;
 
     constructor(
         private authService: AuthService,
@@ -44,26 +46,35 @@ export class AttestationService {
     }
 
     startAttestationUpdateInterval() {
+        if (this.attestationRefreshId) {
+            clearInterval(this.attestationRefreshId);
+        }
         this.checkAllAtt(); // Call immediately to fetch fresh data
-        setInterval(() => this.checkAllAtt(), 20000); // Update every 20 seconds
+        this.attestationRefreshId = setInterval(() => this.checkAllAtt(), 20000); // Update every 20 seconds
     }
 
-    private async checkAllAtt() {
-      console.log('list of all addresses '+this.authService.listOfallAddresses)
-        const addressesList = this.authService.listOfallAddresses
+    async refreshAttestations(addresses: string[] = this.authService.listOfallAddresses) {
+        return this.checkAllAtt(addresses);
+    }
+
+    private async checkAllAtt(addresses?: string[]) {
+        if (this.checkAllInProgress) return;
+        this.checkAllInProgress = true;
+        const addressesList = addresses || this.authService.listOfallAddresses
             
-        for (let i = 0; i < addressesList.length; i++) {
-            console.log('updating attestations? '+JSON.stringify(this.attestations))
-            const address = addressesList[i];
-            await this.checkAttAddress(address);
+        try {
+            for (let i = 0; i < addressesList.length; i++) {
+                const address = addressesList[i];
+                await this.checkAttAddress(address);
+            }
+        } finally {
+            this.checkAllInProgress = false;
         }
     }
 
       async checkAttAddress(address: string): Promise<boolean> {
-        console.log('Checking attestation for address: ' + address);
         try {
             const aRes = await this.tlApi.rpc('getAttestations', [address, 0]).toPromise();
-            console.log('Raw attestation response:', JSON.stringify(aRes));
 
             // Extract and flatten the 'data' array
             const attestationArray = aRes?.data || [];
@@ -89,12 +100,10 @@ export class AttestationService {
                 });
             }
 
-            console.log(`Attestation updated for ${address}: ${isAttested}`);
             return isAttested;
 
         } catch (error: any) {
             console.error('Error fetching attestations:', error.message);
-            this.toastrService.error(error.message, `Error fetching attestation for ${address}`);
             return false;
         }
     }
@@ -117,8 +126,6 @@ export class AttestationService {
     
     getAttByAddress(address: string): string | 'PENDING' | false {
         const attestation = this.attestations.find(e => e.address === address);
-
-        console.log('Attestation object:', JSON.stringify(attestation));
 
         // If attestation is undefined, return false
         if (!attestation) {
@@ -227,7 +234,7 @@ export class AttestationService {
           const { ip, country, privacy } = fallbackData;
 
           // Check for VPN or US
-          if (privacy.vpn || country === "US") {
+          if (privacy?.vpn || country === "US") {
             throw new Error("Fallback: Suspicious IP or IP is in the US.");
           }
 
@@ -236,7 +243,7 @@ export class AttestationService {
             success: true,
             attestation: {
               ip,
-              countryCode: country,
+              country,
               message: "Fallback API: IP is clean and trusted.",
             },
           };

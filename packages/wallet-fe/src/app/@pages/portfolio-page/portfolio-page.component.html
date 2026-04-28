@@ -18,21 +18,33 @@
               <mat-header-cell *matHeaderCellDef>Attestation</mat-header-cell>
               <mat-cell *matCellDef="let element">
                 <ng-container [ngSwitch]="getAddressAttestationStatus(element.address)">
-                  <mat-icon 
-                    *ngSwitchCase="true" 
+                  <button
+                    *ngSwitchCase="true"
+                    mat-icon-button
+                    type="button"
+                    title="Refresh attestation"
+                    [disabled]="!isAbleToRpc || isAttestingAddress(element.address)"
                     (click)="selfAttestate(element.address)">
-                    check
-                  </mat-icon>
-                  <mat-icon 
-                    *ngSwitchCase="false" 
+                    <mat-icon>check</mat-icon>
+                  </button>
+                  <button
+                    *ngSwitchCase="false"
+                    mat-icon-button
+                    type="button"
+                    title="Create attestation"
+                    [disabled]="!isAbleToRpc || isAttestingAddress(element.address)"
                     (click)="selfAttestate(element.address)">
-                    fingerprint
-                  </mat-icon>
-                  <mat-icon 
-                    *ngSwitchCase="'PENDING'" 
+                    <mat-icon>fingerprint</mat-icon>
+                  </button>
+                  <button
+                    *ngSwitchCase="'PENDING'"
+                    mat-icon-button
+                    type="button"
+                    title="Attestation pending"
+                    [disabled]="!isAbleToRpc || isAttestingAddress(element.address)"
                     (click)="selfAttestate(element.address)">
-                    timelapse
-                  </mat-icon>
+                    <mat-icon>timelapse</mat-icon>
+                  </button>
                 </ng-container>
               </mat-cell>
             </ng-container>

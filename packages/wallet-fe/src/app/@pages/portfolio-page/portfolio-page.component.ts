@@ -46,8 +46,8 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
   hideZeroBalances: boolean = false;
   receiptPropertyId: number | null = null;
   proceduralReceipts: ProceduralReceiptRow[] = [];
-  private attestationRefreshId: ReturnType<typeof setInterval> | null = null;
   private proceduralReceiptRefreshId: ReturnType<typeof setInterval> | null = null;
+  private attestingAddresses = new Set<string>();
 
   constructor(
     private apiService: ApiService,
@@ -158,7 +158,9 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
 ngOnInit(): void {
     this.authService.getAddressesFromWallet().then(() => {
         this.walletAddresses = this.authService.walletAddresses; // Ensure this happens after addresses are fetched
-        this.startAttestationUpdateInterval();
+        this.attestationService.refreshAttestations(this.walletAddresses).finally(() => {
+          this.cdr.detectChanges();
+        });
         this.loadReceiptPropertyId();
     }).catch(error => {
         console.error('Error fetching wallet addresses:', error);
@@ -166,26 +168,7 @@ ngOnInit(): void {
 }
 
 
-  // Start periodic updates for attestation statuses
-  startAttestationUpdateInterval() {
-    this.updateAttestationStatuses(); // Run once on init
-    if (this.attestationRefreshId) {
-      clearInterval(this.attestationRefreshId);
-    }
-    this.attestationRefreshId = setInterval(() => {
-      this.updateAttestationStatuses(); 
-      if (this.selectedAddress) {
-        this.loadProceduralReceipts(this.selectedAddress);
-      }
-      this.cdr.detectChanges(); // Force Angular to update the view
-    }, 20000); // Update every 20 seconds
-  }
-
   ngOnDestroy(): void {
-    if (this.attestationRefreshId) {
-      clearInterval(this.attestationRefreshId);
-      this.attestationRefreshId = null;
-    }
     if (this.proceduralReceiptRefreshId) {
       clearInterval(this.proceduralReceiptRefreshId);
       this.proceduralReceiptRefreshId = null;
@@ -202,7 +185,6 @@ ngOnInit(): void {
 
   getAddressAttestationStatus(address: string): string | boolean {
       const attestation = this.attestationService.getAttByAddress(address);
-      console.log(`Status for address ${address}:`, attestation || 'No data found');
 
       if (attestation === 'PENDING') {
           return 'PENDING';
@@ -215,6 +197,10 @@ ngOnInit(): void {
 
       // For any other status or false, return false
       return false;
+  }
+
+  isAttestingAddress(address: string): boolean {
+    return this.attestingAddresses.has(address);
   }
 
 
@@ -430,16 +416,23 @@ ngOnInit(): void {
 
 
     async selfAttestate(address: string) {
+      if (this.attestingAddresses.has(address)) return;
       try {
+          this.attestingAddresses.add(address);
           this.loadingService.isLoading = true;
           //const ipToCheck = await this.rpcService.rpc('tl_getIpByAddress', [address]);
           const ipCheckResult = await this.attestationService.checkIP();
+          if (!ipCheckResult?.success) {
+            throw new Error(ipCheckResult?.error || 'Unable to complete IP attestation check.');
+          }
 
-          const countryCode = ipCheckResult.attestation.country
+          const countryCode = String(
+            ipCheckResult?.attestation?.country || ipCheckResult?.attestation?.countryCode || 'UNKNOWN'
+          ).toUpperCase();
 
           const bannedCountries = ["US", "KP", "SY", "SD", "RU", "IR"];
           
-          if (bannedCountries.includes(countryCode.toUpperCase())) {
+          if (bannedCountries.includes(countryCode)) {
             this.toastrService.error('Cannot attest addresses originating from a sanctioned country.', `Address: ${address}`);
             return;
           }
@@ -462,10 +455,13 @@ ngOnInit(): void {
           if (res.data) {
               this.attestationService.setPendingAtt(address);
               this.toastrService.success(res.data, 'Transaction Sent');
+          } else {
+              this.toastrService.error(res.error || 'Failed to send attestation transaction.', 'Attestation Error');
           }
       } catch (error: any) {
           this.toastrService.error(error.message, 'Attestation Error');
       } finally {
+          this.attestingAddresses.delete(address);
           this.loadingService.isLoading = false;
       }
   }
