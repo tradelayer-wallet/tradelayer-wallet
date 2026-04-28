@@ -80,11 +80,22 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     get tlCurrentBlock() {
-        return Number(this.tlSyncStatus?.currentHeight || 0);
+        return Number(
+            this.tlSyncStatus?.currentHeight
+            || this.tlSyncStatus?.processedHeight
+            || this.tlSyncStatus?.trackHeight
+            || 0
+        );
     }
 
     get tlTargetBlock() {
-        return Number(this.tlSyncStatus?.targetHeight || 0);
+        return Number(
+            this.tlSyncStatus?.targetHeight
+            || this.tlSyncStatus?.chainTip
+            || this.tlSyncStatus?.headerBlock
+            || this.tlSyncStatus?.nodeBlock
+            || 0
+        );
     }
 
     get tlIsSynced() {
@@ -227,8 +238,10 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             this.rpcService.latestTlBlock = Number(
                 status.currentHeight || status.processedHeight || status.trackHeight || 0
             );
-            if (status.listenerReachable || status.initialized) {
+            if (status.initialized) {
                 this.rpcService.isTLStarted = true;
+            } else if (status.listenerReachable) {
+                this.rpcService.isTLStarted = false;
             }
             if (this.tlCurrentBlock > 0 && this.tlTargetBlock > 0) {
                 this.countTlETA({ stamp: Date.now(), blocks: this.tlCurrentBlock });

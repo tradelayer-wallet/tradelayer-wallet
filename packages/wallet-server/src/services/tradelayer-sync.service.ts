@@ -57,9 +57,14 @@ function normalizeTradeLayerSyncStatus(raw: AnyObj, listenerMeta: {
   headerBlock: number | null;
 }): TradeLayerSyncStatus {
   const phase = String(raw?.phase || (listenerMeta.listenerReachable ? 'idle' : 'unavailable')).trim() || 'idle';
-  const currentHeight = normalizeHeight(raw?.currentHeight);
+  const processedHeight = normalizeHeight(raw?.processedHeight);
+  const trackHeight = normalizeHeight(raw?.trackHeight);
+  const currentHeight = normalizeHeight(raw?.currentHeight)
+    ?? processedHeight
+    ?? trackHeight;
   const targetHeight = normalizeHeight(raw?.targetHeight)
     ?? normalizeHeight(raw?.chainTip)
+    ?? listenerMeta.headerBlock
     ?? listenerMeta.nodeBlock;
 
   return {
@@ -72,8 +77,8 @@ function normalizeTradeLayerSyncStatus(raw: AnyObj, listenerMeta: {
     genesisBlock: normalizeHeight(raw?.genesisBlock),
     chainTip: normalizeHeight(raw?.chainTip) ?? listenerMeta.nodeBlock,
     indexedHeight: normalizeHeight(raw?.indexedHeight),
-    processedHeight: normalizeHeight(raw?.processedHeight),
-    trackHeight: normalizeHeight(raw?.trackHeight),
+    processedHeight,
+    trackHeight,
     currentHeight,
     targetHeight,
     percent: normalizePercent(currentHeight, targetHeight, raw?.percent),
