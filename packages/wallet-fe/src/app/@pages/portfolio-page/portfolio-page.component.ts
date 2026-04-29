@@ -39,7 +39,7 @@ interface ProceduralReceiptRow {
 })
 export class PortfolioPageComponent implements OnInit, OnDestroy {
   walletAddresses: string[] = []; 
-  cryptoBalanceColumns: string[] = ['attestation', 'address', 'confirmed', 'unconfirmed', 'actions'];
+  cryptoBalanceColumns: string[] = ['attestation', 'address', 'confirmed', 'unconfirmed', 'tokens', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'available', 'reserved', 'margin', 'channel', 'receiptState', 'blocksRemaining', 'actions'];
   selectedAddress: string = '';
   hideZeroBalances: boolean = false;
@@ -78,6 +78,7 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
           address,
           index,
           hasAnyBalance: hasNativeBalance || hasTokenBalance,
+          tokenSummary: this.getTokenSummaryForAddress(address),
           ...coinBalance,
         };
       })
@@ -152,6 +153,27 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
       return ['amount', 'available', 'reserved', 'margin', 'vesting', 'channel']
         .some((field) => Math.abs(Number(row?.[field] || 0)) > 0);
     });
+  }
+
+  getTokenSummaryForAddress(address: string): string {
+    const balances = this.balanceService.getTokensBalancesByAddress(address) || [];
+    const nonZeroBalances = balances
+      .map((row: any) => {
+        const total = ['available', 'reserved', 'margin', 'vesting', 'channel']
+          .reduce((sum, field) => sum + Number(row?.[field] || 0), 0);
+        return {
+          label: row?.name || row?.ticker || row?.rawPropertyId || row?.propertyid || 'Token',
+          total,
+        };
+      })
+      .filter((row) => Math.abs(row.total) > 0);
+
+    if (!nonZeroBalances.length) return '-';
+
+    return nonZeroBalances
+      .slice(0, 3)
+      .map((row) => `${row.label}: ${Number(row.total.toFixed(6))}`)
+      .join(', ');
   }
 
 ngOnInit(): void {

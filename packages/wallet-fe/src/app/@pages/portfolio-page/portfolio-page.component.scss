@@ -104,9 +104,14 @@
   .mat-column-name,
   .mat-column-confirmed,
   .mat-column-unconfirmed,
+  .mat-column-tokens,
   .mat-column-balance,
   .mat-column-attestation {
     min-width: 6rem;
+  }
+
+  .mat-column-tokens {
+    min-width: 12rem;
   }
 
   .mat-column-attestation {
