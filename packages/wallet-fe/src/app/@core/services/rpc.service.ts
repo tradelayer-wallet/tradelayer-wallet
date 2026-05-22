@@ -112,7 +112,7 @@ export class RpcService {
     async startWalletNode(
       path: string,
       network: ENetwork,
-      flags: { reindex: boolean, startclean: boolean },
+      flags: { reindex: boolean, startclean: boolean, allowRescan?: boolean },
     ) {
       this.NETWORK = network;
       if (this.NETWORK !== network) throw new Error("Please first Change the Network");

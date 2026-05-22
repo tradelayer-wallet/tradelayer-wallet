@@ -67,6 +67,10 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         return this.rpcService.lastBlock;
     }
 
+    get nodeTipBlock() {
+        return this.rpcService.headerBlock || this.rpcService.networkBlocks;
+    }
+
     get networkBlocks() {
         return this.rpcService.networkBlocks;
     }
@@ -81,7 +85,26 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     get tlCurrentBlock() {
         return Number(
-            this.tlSyncStatus?.currentHeight
+            this.tlProcessedHeight
+            || this.tlTrackHeight
+            || this.tlParsedHeight
+            || this.rpcService.latestTlBlock
+            || 0
+        );
+    }
+
+    get tlProcessedHeight() {
+        return Number(this.tlSyncStatus?.processedHeight || 0);
+    }
+
+    get tlTrackHeight() {
+        return Number(this.tlSyncStatus?.trackHeight || 0);
+    }
+
+    get tlParsedHeight() {
+        return Number(
+            this.tlSyncStatus?.parsedHeight
+            || this.tlSyncStatus?.currentHeight
             || this.tlSyncStatus?.processedHeight
             || this.tlSyncStatus?.trackHeight
             || 0
@@ -102,12 +125,39 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         return this.tlTargetBlock > 0 && this.tlCurrentBlock + 1 >= this.tlTargetBlock;
     }
 
+    get tlParserLabel() {
+        if (this.tlProcessedHeight) return `Processed: ${this.tlProcessedHeight}`;
+        if (this.tlTrackHeight) return `Track: ${this.tlTrackHeight}`;
+        return this.tlParsedHeight ? `Parsed: ${this.tlParsedHeight}` : 'Parsed: waiting...';
+    }
+
+    get ltcTipLabel() {
+        return this.nodeTipBlock ? `Tip: ${this.nodeTipBlock}` : 'Tip: waiting...';
+    }
+
+    private progressPercent(current: number | null, target: number | null, fallback: any): number {
+        const parsed = Number(fallback);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            const scaled = parsed <= 1 ? parsed * 100 : parsed;
+            return Math.max(0, Math.min(100, scaled));
+        }
+        if (current !== null && target !== null && target > 0) {
+            return Math.max(0, Math.min(100, Number(((current / target) * 100).toFixed(2))));
+        }
+        return 0;
+    }
+
     get tlPhaseLabel() {
         const phase = String(this.tlSyncStatus?.phase || '').trim().toLowerCase();
         if (phase === 'indexing') return 'Indexing TradeLayer transactions';
         if (phase === 'reconstructing-consensus') return 'Reconstructing TradeLayer consensus';
         if (phase === 'realtime') return this.tlIsSynced ? 'TradeLayer synchronized' : 'Processing live TradeLayer blocks';
         if (phase === 'starting') return 'Starting TradeLayer parser';
+        if (phase === 'waiting') {
+            return (this.tlCurrentBlock > 0 || !!this.tlSyncStatus?.initialized)
+                ? 'TradeLayer parser running'
+                : 'Starting TradeLayer parser';
+        }
         if (phase === 'paused') return 'TradeLayer parsing paused';
         if (phase === 'error') return 'TradeLayer parser error';
         if (phase === 'unavailable') return 'TradeLayer listener unavailable';
@@ -123,6 +173,14 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         if (eta) return `${this.tlPhaseLabel} | ${eta}`;
         if (message) return message;
         return this.tlPhaseLabel;
+    }
+
+    private isWaitingMessage(value: any): boolean {
+        const text = String(value || '').trim().toLowerCase();
+        return !text
+            || text === 'waiting for tradelayer parser status ...'
+            || text === 'waiting for tradelayer parser status...'
+            || text === 'waiting';
     }
 
     private formatDialogError(error: any, fallback = 'Undefined Error') {
@@ -225,21 +283,39 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         console.log(Boolean(!this.rpcService.isTLStarted&&this.rpcService.isAbleToRpc == true))
         try {
             if (!this.rpcService.isTLStarted && this.rpcService.isAbleToRpc == true && this.nodeBlock){
-                const result = await this.apiService.mainApi.initTradeLayer().toPromise();
-                console.log('TL Wallet Listener init result: '+JSON.stringify(result))
-                 // Adding a delay of 10 seconds between initTradeLayer and the next call
-                await new Promise(resolve => setTimeout(resolve, 5000));  // 5-second delay
+                try {
+                    const result = await this.apiService.mainApi.initTradeLayer().toPromise();
+                    console.log('TL Wallet Listener init result: '+JSON.stringify(result))
+                     // Adding a delay between initTradeLayer and the next call
+                    await new Promise(resolve => setTimeout(resolve, 5000));
 
-                if (result &&result.result==true&&!this.rpcService.isTLStarted) {
-                    console.log('Initialization of listener succeeded');
+                    if (result && result.result == true && !this.rpcService.isTLStarted) {
+                        console.log('Initialization of listener succeeded');
                         const initRes = await this.apiService.newTlApi.rpc('init').toPromise();
                         if (initRes.error || !initRes.data) {
                             console.log('issue with init resolution '+JSON.stringify(initRes))
                             throw new Error(initRes.error || 'Undefined Error');
                         }
                         this.rpcService.isTLStarted = true;
+                    }
+                } catch (initError: any) {
+                    const initMessage = this.formatDialogError(initError, '');
+                    const lower = String(initMessage || '').toLowerCase();
+                    const transientInit =
+                        lower.includes('already in progress')
+                        || lower.includes('did not become reachable')
+                        || lower.includes('starting')
+                        || lower.includes('loading block index')
+                        || lower.includes('connection refused')
+                        || lower.includes('socket hang up')
+                        || lower.includes('etimedout');
+                    if (!transientInit) {
+                        throw initError;
+                    }
+                    if (this.tlSyncStatus) {
+                        this.tlMessage = initMessage;
+                    }
                 }
-               
             }
 
             const syncRes = await this.apiService.mainApi.getTradeLayerSyncStatus().toPromise();
@@ -254,14 +330,21 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
             this.tlSyncStatus = status;
             this.tlMessage = this.formatDialogError(status.message || '', '');
-            this.tlReadyPercent = Number(status.percent || 0);
+            const tlCurrentBlock = this.tlCurrentBlock || Number(this.rpcService.latestTlBlock || 0);
+            const tlTargetBlock = this.tlTargetBlock
+                || Number(status.targetHeight || status.chainTip || status.headerBlock || status.nodeBlock || this.headerBlock || this.networkBlocks || 0);
+            this.tlReadyPercent = this.progressPercent(
+                tlCurrentBlock || null,
+                tlTargetBlock || null,
+                status.percent
+            );
             const nodeBlock = Number(status.nodeBlock || 0);
             const headerBlock = Number(status.headerBlock || status.chainTip || nodeBlock || 0);
             if (!this.rpcService.lastBlock && nodeBlock) this.rpcService.lastBlock = nodeBlock;
             if (!this.rpcService.headerBlock && headerBlock) this.rpcService.headerBlock = headerBlock;
             if (!this.rpcService.networkBlocks && headerBlock) this.rpcService.networkBlocks = headerBlock;
             this.rpcService.latestTlBlock = Number(
-                status.currentHeight || status.processedHeight || status.trackHeight || 0
+                status.processedHeight || status.trackHeight || status.currentHeight || status.parsedHeight || 0
             );
             if (status.initialized) {
                 this.rpcService.isTLStarted = true;
@@ -270,19 +353,24 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             }
             if (this.tlCurrentBlock > 0 && this.tlTargetBlock > 0) {
                 this.countTlETA({ stamp: Date.now(), blocks: this.tlCurrentBlock });
-            } else if (this.tlMessage) {
+            } else if (this.tlCurrentBlock > 0) {
+                this.tlEta = `Parsed block ${this.tlCurrentBlock}`;
+            } else if (this.tlMessage && !this.isWaitingMessage(this.tlMessage)) {
                 this.tlEta = this.tlMessage;
             } else {
-                this.tlEta = 'Waiting for TradeLayer parser status ...';
+                this.tlEta = 'TradeLayer parser starting...';
             }
             return;
         } catch (error: any) {
            console.log('error calling init '+JSON.stringify(error))
             const errorMessage = this.formatDialogError(error);
-            this.tlSyncStatus = null;
-            this.tlReadyPercent = 0;
-            this.tlMessage = errorMessage;
-            this.tlEta = errorMessage;
+            if (!this.tlSyncStatus) {
+                this.tlReadyPercent = 0;
+                this.tlEta = this.isWaitingMessage(errorMessage) ? 'TradeLayer parser starting...' : errorMessage;
+                this.tlMessage = errorMessage;
+            } else {
+                this.tlMessage = errorMessage || this.tlMessage;
+            }
         }
     }
 
@@ -307,12 +395,13 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
 
     private async checkSync() {
-        try {
-            await this.checkIsAbleToRpcLoop(); // Keep checking until RPC is ready
-        } finally {
-            await this.checkTradelayerSync();
+        void this.checkIsAbleToRpc();
+        await this.checkTradelayerSync();
+        if (!this.nodeBlock || !this.headerBlock) {
+            this.message = this.message || 'Loading block index...';
+            this.readyPercent = 0;
+            return;
         }
-        if (!this.nodeBlock || !this.headerBlock) return;
         this.countETA({ stamp: Date.now(), blocks: this.nodeBlock });
         this.readyPercent = parseFloat((this.nodeBlock / this.headerBlock).toFixed(2)) * 100;
     }
@@ -378,6 +467,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     public directory: string = '';
     public reindex: boolean = false;
     public startclean: boolean = false;
+    public allowRescan: boolean = false;
     public showAdvanced: boolean = false;
     public isDirectoryDialogOpen: boolean = false;
     public network: ENetwork = this.rpcService.NETWORK as ENetwork;
@@ -413,6 +503,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         if (!this.showAdvanced) {
         this.reindex = false;
         this.startclean = false;
+        this.allowRescan = false;
         }    
     }
 
@@ -420,8 +511,8 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
         const network = this.network;
         if (!network) return;
         const path = this.defaultDirectoryCheckbox ? '' : this.directory;
-        const { reindex, startclean } = this;
-        const flags = { reindex, startclean };
+        const { reindex, startclean, allowRescan } = this;
+        const flags = { reindex, startclean, allowRescan };
         this.loadingService.isLoading = true;
         await this.rpcService.startWalletNode(path, ENetwork[network], flags)
         .then(async res => {
@@ -433,16 +524,15 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
                 this.toastrService.error(this.formatDialogError(res.error), 'Starting Node Error');
             }
             } else {
-
                 this.router.navigateByUrl('/');
-                await this.checkIsAbleToRpc();
+                this.checFunction();
+                void this.checkIsAbleToRpc();
             }
         })
         .catch(error => {
             this.toastrService.error(this.formatDialogError(error), 'Error request');
         })
         .finally(() => {
-            this.checFunction();
             this.loadingService.isLoading = false;
             this.eta = 'Calculating Remaining Time ...';
         });

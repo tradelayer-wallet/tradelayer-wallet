@@ -29,13 +29,14 @@ export class MainApiService {
     startWalletNode(
             path: string,
             network: ENetwork,
-            flags: { reindex: boolean; startclean: boolean },
+            flags: { reindex: boolean; startclean: boolean; allowRescan?: boolean },
         ): Observable<any> {
-        const { reindex, startclean } = flags;
+        const { reindex, startclean, allowRescan } = flags;
         const body = {
             network,
             startclean,
             reindex,
+            allowRescan: !!allowRescan,
             path,
         };
         return this.http.post(this.apiUrl + 'start-wallet-node', body);
@@ -56,6 +57,39 @@ export class MainApiService {
     ): Observable<any> {
         return this.http.post(this.apiUrl + 'new-config', body);
     };
+
+    getTradeLayerSyncStatus(): Observable<{
+        data?: any;
+        error?: string;
+    }> {
+        return this.http.get<{
+            data?: any;
+            error?: string;
+        }>(this.apiUrl + 'tradelayer/sync-status');
+    }
+
+    getTradeLayerCollatorStatus(): Observable<{
+        data?: any;
+        error?: string;
+    }> {
+        return this.http.get<{
+            data?: any;
+            error?: string;
+        }>(this.apiUrl + 'tradelayer/collator-status');
+    }
+
+    setTradeLayerCollatorConfig(body: {
+        collatorUrls: string[];
+        autoContribute: boolean;
+    }): Observable<{
+        data?: any;
+        error?: string;
+    }> {
+        return this.http.post<{
+            data?: any;
+            error?: string;
+        }>(this.apiUrl + 'tradelayer/set-collator-config', body);
+    }
 
     // main-api.service.ts
     computeMultisig(

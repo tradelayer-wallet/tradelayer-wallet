@@ -7,6 +7,7 @@ import { buildBitvmDlcFundingTx, buildLTCInstatTx, buildTx, IBitvmDlcMultiOutput
 import { signPsbtRawtTx } from "../utils/crypto.util";
 import { backOff, BackoffOptions } from "exponential-backoff";
 import { parseDefaultChain, defaultRpcPort, writeEnvKVs } from '../utils/env.util'; // adjust path
+import { proxyWalletMethod } from "../services/rpc-proxy.service";
 import {
   uploadAlgo,
   runAlgo,
@@ -85,8 +86,8 @@ export const mainRoutes = async (fastify: FastifyInstance, opts: any, done: any)
     
 fastify.post('start-wallet-node', async (request, reply) => {
   try {
-    const { network, startclean, reindex, path } = request.body as {
-      network: string; startclean: boolean; reindex: boolean; path: string;
+    const { network, startclean, reindex, allowRescan, path } = request.body as {
+      network: string; startclean: boolean; reindex: boolean; allowRescan?: boolean; path: string;
     };
 
     // derive chain/network & rpcPort from the label you already pass (e.g. 'LTCLIVE'|'LTCTEST')
@@ -100,6 +101,7 @@ fastify.post('start-wallet-node', async (request, reply) => {
       NETWORK: net,
       DATADIR: path,
       RPC_PORT: rpcPort,
+      WATCHONLY_RESCAN_OPT_IN: allowRescan ? '1' : '0',
     });
 
     const _isTestNetBool = network.endsWith('TEST');
@@ -184,6 +186,46 @@ fastify.post('start-wallet-node', async (request, reply) => {
         try {
             const data = await getTradeLayerSyncStatus();
             reply.status(200).send({ data });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+        }
+    });
+
+    fastify.get('tradelayer/collator-status', async (_request, reply) => {
+        try {
+            const data = fasitfyServer?.collatorPeerService?.status?.() || null;
+            reply.status(200).send({ data });
+        } catch (error: any) {
+            reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+        }
+    });
+
+    fastify.post('tradelayer/set-collator-config', async (request, reply) => {
+        try {
+            const body = (request.body || {}) as {
+                collatorUrls?: string[] | string;
+                autoContribute?: boolean;
+            };
+            const urls = Array.isArray(body.collatorUrls)
+                ? body.collatorUrls
+                : String(body.collatorUrls || '')
+                    .split(/[\n,]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+            const normalizedUrls = Array.from(new Set(urls.filter(Boolean)));
+            const autoContribute = body.autoContribute === undefined ? true : !!body.autoContribute;
+
+            writeEnvKVs({
+                TL_COLLATOR_WS_URLS: normalizedUrls.join(','),
+                TL_COLLATOR_AUTO_CONTRIBUTE: autoContribute ? '1' : '0',
+            });
+
+            reply.status(200).send({
+                data: {
+                    collatorUrls: normalizedUrls,
+                    autoContributeEnabled: autoContribute,
+                },
+            });
         } catch (error: any) {
             reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
         }
@@ -358,6 +400,16 @@ fastify.post('start-wallet-node', async (request, reply) => {
       } catch (e:any) {
         console.error('GET /algo/running failed:', e);
         reply.status(500).send({ error: e.message || 'running failed' });
+      }
+    });
+
+    fastify.post(':method', async (request, reply) => {
+      try {
+        const { method } = request.params as { method: string };
+        const data = await proxyWalletMethod(method, request.body);
+        reply.status(200).send(data);
+      } catch (error: any) {
+        reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
       }
     });
     // --- end algo routes ---

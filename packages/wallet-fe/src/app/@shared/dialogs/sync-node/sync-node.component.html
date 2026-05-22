@@ -7,6 +7,7 @@
                     <span class='information' *ngIf="!isSynced || !nodeBlock || !headerBlock">{{ eta }}</span>
                     <mat-progress-bar mode="determinate" [value]="readyPercent"></mat-progress-bar>
                     <span class='blocks-span'> {{ nodeBlock }} / {{ headerBlock }} </span>
+                    <span class='subtext'> {{ ltcTipLabel }} </span>
                 </div>
 
                 <div class="sync-section tl-sync-section">
@@ -14,6 +15,7 @@
                     <span class='information' *ngIf="!tlIsSynced || !tlCurrentBlock || !tlTargetBlock">{{ tlStatusText }}</span>
                     <mat-progress-bar mode="determinate" [value]="tlReadyPercent"></mat-progress-bar>
                     <span class='blocks-span'> {{ tlCurrentBlock }} / {{ tlTargetBlock }} </span>
+                    <span class='subtext'> {{ tlParserLabel }} </span>
                 </div>
 
                 <div class="message" *ngIf="message"> {{ message }}</div>
@@ -68,6 +70,11 @@
                         style='margin: 0.25rem 1rem'
                         [(ngModel)]='startclean'
                     >-startclean</mat-checkbox>
+                    <mat-checkbox
+                        color='primary'
+                        style='margin: 0.25rem 1rem'
+                        [(ngModel)]='allowRescan'
+                    >Opt in to rescans</mat-checkbox>
                 </div>
                 <button
                     style='margin: 0.5rem 0;'
