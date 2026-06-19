@@ -191,6 +191,17 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         }
     });
 
+    fastify.post('/stateSnapshot', async (request, reply) => {
+        try {
+            const body = (request.body || {}) as any;
+            const label = String(body.label || process.env.RPC_WALLET_NAME || process.env.WALLET_LABEL || 'TL').trim() || 'TL';
+            const res = await axios.post(baseURL + 'tl_getStateSnapshot', { label });
+            reply.status(200).send(res.data || {});
+        } catch (error) {
+            reply.status(500).send('Error: ' + error.message);
+        }
+    });
+
     
     fastify.post(
         '/getAttestations',
