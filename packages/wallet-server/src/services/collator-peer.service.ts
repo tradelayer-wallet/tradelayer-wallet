@@ -27,9 +27,25 @@ function splitUrls(value: string): string[] {
     .filter(Boolean);
 }
 
+function currentChain(): 'BTC' | 'LTC' | '' {
+  const raw = String(process.env.CHAIN || process.env.DEFAULT_CHAIN || '').trim().toUpperCase();
+  if (raw.startsWith('LTC')) return 'LTC';
+  if (raw.startsWith('BTC')) return 'BTC';
+  return '';
+}
+
+function currentNetwork(): string {
+  const explicit = String(process.env.NETWORK || '').trim().toLowerCase();
+  if (explicit) return explicit;
+  const label = String(process.env.DEFAULT_CHAIN || '').trim().toUpperCase();
+  if (label.includes('TEST')) return 'testnet';
+  if (label.includes('LIVE') || label.includes('MAIN')) return 'mainnet';
+  return '';
+}
+
 function defaultCollatorUrls(): string[] {
-  const chain = String(process.env.CHAIN || process.env.DEFAULT_CHAIN || '').trim().toUpperCase();
-  const network = String(process.env.NETWORK || '').trim().toLowerCase();
+  const chain = currentChain();
+  const network = currentNetwork();
 
   if (chain === 'LTC') {
     return network === 'mainnet'
@@ -62,9 +78,15 @@ export class CollatorPeerService {
     return trimSlash(process.env.TL_WALLET_LISTENER_URL || 'http://127.0.0.1:3000');
   }
 
+  private get walletRpcUrl(): string {
+    const host = String(process.env.WALLET_API_HOST || '127.0.0.1').trim() || '127.0.0.1';
+    const port = String(process.env.WALLET_API_PORT || process.env.TL_WALLET_API_PORT || '1986').trim() || '1986';
+    return trimSlash(process.env.TL_WALLET_RPC_TARGET || `http://${host}:${port}`);
+  }
+
   private get rpcNetwork(): string {
-    const chain = String(process.env.CHAIN || process.env.DEFAULT_CHAIN || '').trim().toUpperCase();
-    const network = String(process.env.NETWORK || '').trim().toLowerCase();
+    const chain = currentChain();
+    const network = currentNetwork();
 
     if (chain === 'LTC') {
       return network === 'mainnet' ? 'litecoin.mainnet' : `litecoin.${network || 'testnet'}`;
@@ -170,10 +192,16 @@ export class CollatorPeerService {
         ...env,
         COLLATOR_WS: url,
         RPC_TARGET: this.listenerUrl,
+        RPC_WALLET_TARGET: this.walletRpcUrl,
         RPC_SERVICE: this.rpcService,
         RPC_NETWORK: this.rpcNetwork,
         RPC_NODE_ID: this.rpcNodeId,
         RPC_METHODS_JSON: JSON.stringify([
+          'getaddressinfo',
+          'importpubkey',
+          'listunspent',
+          'getblockchaininfo',
+          'validateaddress',
           'tl_getStateSnapshot',
           'tl_getSyncStatus',
           'tl_getAllBalancesForAddress',
@@ -317,6 +345,7 @@ export class CollatorPeerService {
     return {
       autoContributeEnabled: this.autoContributeEnabled,
       listenerUrl: this.listenerUrl,
+      walletRpcUrl: this.walletRpcUrl,
       collatorUrls: this.collatorUrls,
       activePeers: Array.from(this.peers.keys()),
       shouldContributeReason: this.lastShouldContributeReason,
