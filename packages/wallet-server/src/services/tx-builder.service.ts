@@ -3,6 +3,7 @@ import axios from 'axios';
 import { RpcClient } from 'tl-rpc';
 import { buildPsbt, signRawTransction } from "../utils/crypto.util";
 import { safeNumber } from "../utils/common.util";
+import { proxyWalletMethod } from "./rpc-proxy.service";
 
 // let usedUTXOS: string[] = [];
 interface ApiRes {
@@ -65,6 +66,36 @@ const networkMap = {
 export type TClient = (method: string, ...args: any[]) => Promise<ApiRes>;
 
 let directRpcClient: RpcClient | null = null;
+const WALLET_RPC_METHODS = new Set([
+    'createwallet',
+    'loadwallet',
+    'listwallets',
+    'getwalletinfo',
+    'getaddressesbylabel',
+    'getnewaddress',
+    'getrawchangeaddress',
+    'getbalances',
+    'getbalance',
+    'getunconfirmedbalance',
+    'getreceivedbylabel',
+    'dumpprivkey',
+    'importaddress',
+    'importpubkey',
+    'importmulti',
+    'setlabel',
+    'listlabels',
+    'getaddressinfo',
+    'listunspent',
+    'signrawtransactionwithwallet',
+    'walletpassphrase',
+    'walletlock',
+    'encryptwallet',
+    'walletcreatefundedpsbt',
+    'walletprocesspsbt',
+    'backupwallet',
+    'dumpwallet',
+    'bumpfee',
+]);
 
 export interface IBuildTxConfig {
     fromKeyPair: {
@@ -176,14 +207,23 @@ export async function computeMultisigNative(
 
 
 
-export const smartRpc: TClient = async (method: string, params: any[] = [], api: boolean = false) => {
+const isWalletRpcMethod = (method: string) => WALLET_RPC_METHODS.has(String(method || '').trim().toLowerCase());
+
+export const smartRpc: TClient = async (method: string, params: any[] = [], api: boolean = false, walletName?: string) => {
+    if (!api && (walletName || isWalletRpcMethod(method))) {
+        return await proxyWalletMethod(method, {
+            params,
+            walletName,
+        });
+    }
+
     if (fasitfyServer.rpcClient && !api) {
         return await fasitfyServer.rpcClient.call(method, ...params);;
     }
 
     if (fasitfyServer.relayerApiUrl) {
         const url = `${fasitfyServer.relayerApiUrl}/rpc/${method}`;
-        return await axios.post(url, { params })
+        return await axios.post(url, { params, walletName })
             .then(res => res.data);
     }
 

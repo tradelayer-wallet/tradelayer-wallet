@@ -1,6 +1,8 @@
-import { exec } from "child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import axios from "axios";
+import { exec, execFileSync } from "child_process";
+import { accessSync, chmodSync, constants, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { basename, dirname, join } from "path";
+import { tmpdir } from "os";
 import { coreFilePathObj, defaultDirObj } from "../conf/windows.conf";
 import { RpcClient } from 'tl-rpc';
 import { fasitfyServer } from "..";
@@ -8,6 +10,14 @@ import { FastifyServer } from "../fastify-server";
 import fastify from "fastify";
 import { loadEnvIntoProcess } from '../utils/env.util';
 loadEnvIntoProcess();
+
+interface IRpcConnectionConfig {
+    username: string;
+    password: string;
+    host: string;
+    port: number;
+    timeout: number;
+}
 
 
 interface IFlagsObject {
@@ -81,6 +91,12 @@ rpcport=19332
 };
 
 export const createRpcClientFromDatadir = (datadir?: string, port?: number) => {
+    const connectionConfig = readRpcConnectionConfigFromDatadir(datadir, port);
+    if (!connectionConfig) return null;
+    return new RpcClient(connectionConfig);
+};
+
+export const readRpcConnectionConfigFromDatadir = (datadir?: string, port?: number): IRpcConnectionConfig | null => {
     const path = join(datadir || defaultDirObj);
     const configFilePath = join(path, `litecoin.conf`);
     if (!existsSync(configFilePath)) return null;
@@ -90,13 +106,101 @@ export const createRpcClientFromDatadir = (datadir?: string, port?: number) => {
     if (!configObj.rpcuser || !configObj.rpcpassword) return null;
 
     const rpcPort = Number(port || configObj.rpcport || process.env.RPC_PORT || 19332) || 19332;
-    return new RpcClient({
+    return {
         username: configObj.rpcuser,
         password: configObj.rpcpassword,
         host: configObj.rpchost || 'localhost',
         port: rpcPort,
         timeout: 20000,
-    });
+    };
+};
+
+function parseRpcResponse(statusCode: number, payload: any) {
+    const normalized = typeof payload === 'string'
+        ? (() => {
+            try {
+                return JSON.parse(payload);
+            } catch {
+                return payload;
+            }
+        })()
+        : payload;
+
+    if (statusCode === 401) {
+        return { error: 'Unauthorized', statusCode, IECode: 4 };
+    }
+
+    if (normalized && typeof normalized === 'object') {
+        if (Object.prototype.hasOwnProperty.call(normalized, 'error') && normalized.error !== null && normalized.error !== undefined) {
+            const errMessage = typeof normalized.error === 'string'
+                ? normalized.error
+                : normalized.error?.message || 'Undefined Error';
+            return {
+                error: errMessage,
+                statusCode,
+                IECode: 2,
+                EECode: normalized.error?.code || 0,
+            };
+        }
+
+        if (Object.prototype.hasOwnProperty.call(normalized, 'result')) {
+            return { data: normalized.result, statusCode };
+        }
+    }
+
+    return {
+        error: normalized?.error?.message || normalized?.message || 'Undefined Error',
+        statusCode,
+        IECode: 3,
+        EECode: normalized?.error?.code || 0,
+    };
+}
+
+export const callRpcFromDatadir = async (
+    datadir: string | undefined,
+    port: number | undefined,
+    method: string,
+    params: any[] = [],
+    walletName?: string,
+) => {
+    const connectionConfig = readRpcConnectionConfigFromDatadir(datadir, port);
+    if (!connectionConfig) {
+        return { error: 'No RPC Client initialized' };
+    }
+
+    const normalizedMethod = String(method || '').trim();
+    if (!normalizedMethod) {
+        return { error: 'Missing RPC method' };
+    }
+
+    if (!walletName) {
+        return new RpcClient(connectionConfig).call(normalizedMethod, ...params);
+    }
+
+    const requestObj = {
+        id: Date.now(),
+        method: normalizedMethod,
+        params,
+    };
+    const walletPath = `/wallet/${encodeURIComponent(String(walletName).trim())}`;
+    const url = `http://${connectionConfig.host}:${connectionConfig.port}${walletPath}`;
+    try {
+        const response = await axios.post(url, requestObj, {
+            auth: {
+                username: connectionConfig.username,
+                password: connectionConfig.password,
+            },
+            timeout: connectionConfig.timeout,
+            headers: {
+                Host: 'localhost',
+                'Content-Type': 'text/plain',
+            },
+            validateStatus: () => true,
+        });
+        return parseRpcResponse(response.status, response.data);
+    } catch (error: any) {
+        return { error: error?.message || error || 'Undefined Error' };
+    }
 };
 
 export const startWalletNode = async (walletNodeOptions: any) => {
@@ -134,7 +238,7 @@ export const startWalletNode = async (walletNodeOptions: any) => {
 
     // ✅ flags MUST include -rpcport and -server
     const flagsString = convertFlagsObjectToString(flagsObject);
-    const filePath = `"${coreFilePathObj.LTC}"`;
+    const filePath = `"${resolveExecutableCoreBinary(coreFilePathObj.LTC)}"`;
     let filePathWithFlags = `${filePath}${flagsString}`;
 
 // ensure rpcport + server flags are present
@@ -181,6 +285,48 @@ const convertFlagsObjectToString = (flagsObject: any) => {
         });
     return str || '';
 }
+
+const resolveExecutableCoreBinary = (binaryPath: string) => {
+    if (process.platform !== 'linux') {
+        return binaryPath;
+    }
+
+    try {
+        accessSync(binaryPath, constants.X_OK);
+        return binaryPath;
+    } catch {
+        // fall through to extraction/copy fallbacks
+    }
+
+    const cacheDir = join(tmpdir(), 'tradelayer-wallet-core');
+    mkdirSync(cacheDir, { recursive: true });
+    const cachedBinaryPath = join(cacheDir, basename(binaryPath));
+    const archivePath = join(dirname(binaryPath), 'litecoin.tar.gz');
+
+    if (existsSync(archivePath)) {
+        try {
+            execFileSync('tar', ['-xzf', archivePath, '-C', cacheDir], { stdio: 'ignore' });
+            const extractedBinaryPath = join(cacheDir, 'litecoin-0.21.2.2', 'bin', basename(binaryPath));
+            chmodSync(extractedBinaryPath, 0o755);
+            accessSync(extractedBinaryPath, constants.X_OK);
+            console.log(`Extracted Litecoin Core binary to writable cache: ${extractedBinaryPath}`);
+            return extractedBinaryPath;
+        } catch (error) {
+            console.error(`Unable to extract Litecoin Core archive at ${archivePath}:`, error);
+        }
+    }
+
+    try {
+        copyFileSync(binaryPath, cachedBinaryPath);
+        chmodSync(cachedBinaryPath, 0o755);
+        accessSync(cachedBinaryPath, constants.X_OK);
+        console.log(`Copied Litecoin Core binary to writable cache: ${cachedBinaryPath}`);
+        return cachedBinaryPath;
+    } catch (error) {
+        console.error(`Unable to prepare executable Litecoin Core binary at ${binaryPath}:`, error);
+        return binaryPath;
+    }
+};
 
 const structureConfFile = (conf: string) => {
     const confObj = {};
@@ -262,6 +408,29 @@ const checkIsCoreStarted = async (
             fasitfyServer.mainSocketService.startBlockCounting(2000);
             return { data: true, attached: true };
         };
+        const watchForCoreAttach = async () => {
+            while (true) {
+                const checkRes = await probeCore();
+                if (checkRes.state === 'ready') {
+                    clearTimeout(timeoutId);
+                    console.log(`Attached to existing Litecoin Core RPC on port ${port}.`);
+                    attachToCore();
+                    return;
+                }
+                if (checkRes.state === 'auth-error') {
+                    clearTimeout(timeoutId);
+                    console.error(credentialsError(checkRes.error));
+                    return;
+                }
+                if (checkRes.state === 'error') {
+                    clearTimeout(timeoutId);
+                    console.error(`Litecoin RPC on port ${port} returned an unexpected error: ${toMessage(checkRes.error)}`);
+                    return;
+                }
+
+                await new Promise(res => setTimeout(() => res(true), 1000));
+            }
+        };
         const credentialsError = (error: any) => {
             return `A Litecoin node is already listening on RPC port ${port}, but it rejected the wallet RPC credentials. Update litecoin.conf or the wallet RPC_USER/RPC_PASS settings. ${toMessage(error)}`;
         };
@@ -305,35 +474,12 @@ const checkIsCoreStarted = async (
         } else {
             console.log(`Found Litecoin Core already starting on RPC port ${port}; waiting to attach.`);
         }
-
-        const finalCheck = (): Promise<{ data?: boolean; attached?: boolean; error?: string }> => new Promise(async (checkResolve) => {
-            const checkRes = await probeCore();
-            if (checkRes.state === 'ready') {
-                clearTimeout(timeoutId);
-                checkResolve(attachToCore());
-                return;
-            }
-            if (checkRes.state === 'auth-error') {
-                clearTimeout(timeoutId);
-                checkResolve({ data: false, error: credentialsError(checkRes.error) });
-                return;
-            }
-            if (checkRes.state === 'error') {
-                clearTimeout(timeoutId);
-                checkResolve({ data: false, error: toMessage(checkRes.error) });
-                return;
-            }
-
-            await new Promise(res => setTimeout(() => res(true), 1000));
-            const subCheck = await finalCheck();
-            checkResolve(subCheck);
+        void watchForCoreAttach();
+        resolve({
+            data: true,
+            attached: false,
+            starting: true,
+            message: 'Loading block index...',
         });
-
-        const finalRes = await finalCheck();
-        if (finalRes.error) {
-            resolve({ error: finalRes.error });
-            return;
-        }
-        resolve(finalRes);
     });
 };

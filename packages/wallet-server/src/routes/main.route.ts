@@ -48,8 +48,8 @@ export const mainRoutes = async (fastify: FastifyInstance, opts: any, done: any)
 
     fastify.post('rpc-call', async (request, reply) => {
         try {
-            const { method, params } = request.body as { method: string, params: any[] };
-            if (!fasitfyServer.rpcClient) {
+            const { method, params } = request.body as { method: string, params: any[], walletLabel?: string, walletName?: string };
+            if (String(method || '').trim() === 'getblockchaininfo' && !fasitfyServer.rpcClient) {
               const rpcClient = createRpcClientFromDatadir(process.env.DATADIR, Number(process.env.RPC_PORT));
               if (rpcClient) {
                 try {
@@ -58,21 +58,19 @@ export const mainRoutes = async (fastify: FastifyInstance, opts: any, done: any)
                     fasitfyServer.rpcClient = rpcClient;
                     fasitfyServer.rpcPort = Number(process.env.RPC_PORT) || 19332;
                   } else if (isTransientRpcStartupError(probe?.error)) {
-                    reply.status(200).send({ error: String(probe?.error || 'Starting Litecoin daemon...') });
+                    reply.status(200).send({ error: String(probe?.error || 'Loading block index...') });
                     return;
                   }
                 } catch (probeError: any) {
                   if (isTransientRpcStartupError(probeError)) {
-                    reply.status(200).send({ error: String(probeError?.message || probeError || 'Starting Litecoin daemon...') });
+                    reply.status(200).send({ error: String(probeError?.message || probeError || 'Loading block index...') });
                     return;
                   }
                   throw probeError;
                 }
               }
             }
-            if (!fasitfyServer.rpcClient) throw new Error("No RPC Client initialized");
-            const _params = params?.length ? params : [];
-            const res = await backOff(() => fasitfyServer.rpcClient.call(method, ..._params), backoffOptions);
+            const res = await backOff(() => proxyWalletMethod(method, request.body), backoffOptions);
             reply.status(200).send(res);
         } catch (error: any) {
             if (isTransientRpcStartupError(error)) {
@@ -193,7 +191,10 @@ fastify.post('start-wallet-node', async (request, reply) => {
 
     fastify.get('tradelayer/collator-status', async (_request, reply) => {
         try {
-            const data = fasitfyServer?.collatorPeerService?.status?.() || null;
+            const data = {
+              ...(fasitfyServer?.collatorPeerService?.status?.() || {}),
+              wsRelay: fasitfyServer?.wsRelayService?.status?.() || null,
+            };
             reply.status(200).send({ data });
         } catch (error: any) {
             reply.status(500).send({ error: error?.message || error || 'Undefined Error' });

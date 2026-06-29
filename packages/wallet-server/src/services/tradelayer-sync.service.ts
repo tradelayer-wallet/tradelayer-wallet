@@ -14,6 +14,7 @@ export type TradeLayerSyncStatus = {
   genesisBlock: number | null;
   chainTip: number | null;
   indexedHeight: number | null;
+  parsedHeight: number | null;
   processedHeight: number | null;
   trackHeight: number | null;
   currentHeight: number | null;
@@ -35,8 +36,9 @@ function normalizeHeight(value: any): number | null {
 
 function normalizePercent(currentHeight: number | null, targetHeight: number | null, rawPercent: any): number {
   const parsed = Number(rawPercent);
-  if (Number.isFinite(parsed) && parsed >= 0) {
-    return Math.max(0, Math.min(100, Number(parsed.toFixed(2))));
+  if (Number.isFinite(parsed) && parsed > 0) {
+    const scaled = parsed <= 1 ? parsed * 100 : parsed;
+    return Math.max(0, Math.min(100, Number(scaled.toFixed(2))));
   }
 
   if (currentHeight !== null && targetHeight !== null && targetHeight > 0) {
@@ -46,11 +48,48 @@ function normalizePercent(currentHeight: number | null, targetHeight: number | n
   return 0;
 }
 
+async function fetchListenerParsedHeight(listenerUrl: string): Promise<number | null> {
+  try {
+    const { data } = await axios.post(`${listenerUrl}/tl_getMaxParsedHeight`, {}, { timeout: 5000 });
+    return normalizeHeight(data?.maxParsedHeight ?? data?.parsedHeight ?? data);
+  } catch (error: any) {
+    if (Number(error?.response?.status) === 429) {
+      return null;
+    }
+    return null;
+  }
+}
+
+async function fetchListenerProcessedHeight(listenerUrl: string): Promise<number | null> {
+  try {
+    const { data } = await axios.post(`${listenerUrl}/tl_getMaxProcessedHeight`, {}, { timeout: 5000 });
+    return normalizeHeight(data?.maxProcessedHeight ?? data?.processedHeight ?? data);
+  } catch (error: any) {
+    if (Number(error?.response?.status) === 429) {
+      return null;
+    }
+    return null;
+  }
+}
+
+async function fetchListenerTrackHeight(listenerUrl: string): Promise<number | null> {
+  try {
+    const { data } = await axios.post(`${listenerUrl}/tl_getTrackHeight`, {}, { timeout: 5000 });
+    return normalizeHeight(data?.trackHeight ?? data?.maxProcessedHeight ?? data);
+  } catch (error: any) {
+    if (Number(error?.response?.status) === 429) {
+      return null;
+    }
+    return null;
+  }
+}
+
 function getWalletListenerUrl(): string {
   return trimSlash(process.env.TL_WALLET_LISTENER_URL || 'http://127.0.0.1:3000');
 }
 
 let listenerMainInitPromise: Promise<void> | null = null;
+let lastKnownTradeLayerSyncStatus: TradeLayerSyncStatus | null = null;
 
 async function ensureListenerMainInitialized(listenerUrl: string): Promise<void> {
   if (listenerMainInitPromise) {
@@ -76,17 +115,22 @@ function normalizeTradeLayerSyncStatus(raw: AnyObj, listenerMeta: {
   listenerError: string | null;
   nodeBlock: number | null;
   headerBlock: number | null;
+  parsedHeight: number | null;
+  processedHeight: number | null;
+  trackHeight: number | null;
 }): TradeLayerSyncStatus {
-  const phase = String(raw?.phase || (listenerMeta.listenerReachable ? 'idle' : 'unavailable')).trim() || 'idle';
-  const processedHeight = normalizeHeight(raw?.processedHeight);
-  const trackHeight = normalizeHeight(raw?.trackHeight);
-  const currentHeight = normalizeHeight(raw?.currentHeight)
-    ?? processedHeight
-    ?? trackHeight;
+  const parsedHeight = normalizeHeight(raw?.parsedHeight) ?? listenerMeta.parsedHeight;
+  const processedHeight = normalizeHeight(raw?.processedHeight) ?? listenerMeta.processedHeight;
+  const trackHeight = normalizeHeight(raw?.trackHeight) ?? listenerMeta.trackHeight;
+  const currentHeight = normalizeHeight(raw?.currentHeight) ?? listenerMeta.nodeBlock;
   const targetHeight = normalizeHeight(raw?.targetHeight)
     ?? normalizeHeight(raw?.chainTip)
     ?? listenerMeta.headerBlock
     ?? listenerMeta.nodeBlock;
+  const rawPhase = String(raw?.phase || (listenerMeta.listenerReachable ? 'idle' : 'unavailable')).trim() || 'idle';
+  const phase = (currentHeight !== null && rawPhase === 'waiting')
+    ? 'realtime'
+    : rawPhase;
 
   return {
     listenerUrl: listenerMeta.listenerUrl,
@@ -98,15 +142,36 @@ function normalizeTradeLayerSyncStatus(raw: AnyObj, listenerMeta: {
     genesisBlock: normalizeHeight(raw?.genesisBlock),
     chainTip: normalizeHeight(raw?.chainTip) ?? listenerMeta.nodeBlock,
     indexedHeight: normalizeHeight(raw?.indexedHeight),
+    parsedHeight,
     processedHeight,
     trackHeight,
     currentHeight,
     targetHeight,
-    percent: normalizePercent(currentHeight, targetHeight, raw?.percent),
+    percent: normalizePercent(listenerMeta.nodeBlock, listenerMeta.headerBlock ?? targetHeight, raw?.percent),
     updatedAt: Number.isFinite(Number(raw?.updatedAt)) ? Number(raw.updatedAt) : null,
     nodeBlock: listenerMeta.nodeBlock,
     headerBlock: listenerMeta.headerBlock,
   };
+}
+
+async function finalizeTradeLayerSyncStatus(raw: AnyObj, listenerMeta: {
+  listenerUrl: string;
+  listenerReachable: boolean;
+  listenerError: string | null;
+  nodeBlock: number | null;
+  headerBlock: number | null;
+  parsedHeight: number | null;
+  processedHeight: number | null;
+  trackHeight: number | null;
+}): Promise<TradeLayerSyncStatus> {
+  const status = normalizeTradeLayerSyncStatus(raw, listenerMeta);
+  lastKnownTradeLayerSyncStatus = status;
+  try {
+    await fasitfyServer?.collatorPeerService?.sync(status);
+  } catch (error) {
+    console.log('Unable to sync collator peers: ' + String((error as any)?.message || error));
+  }
+  return status;
 }
 
 async function fetchNodeBlockState(): Promise<{ nodeBlock: number | null; headerBlock: number | null }> {
@@ -147,26 +212,85 @@ export async function getTradeLayerSyncStatus(): Promise<TradeLayerSyncStatus> {
   let rawStatus: AnyObj = {};
   let listenerReachable = true;
   let listenerError: string | null = null;
+  let parsedHeight: number | null = null;
+  let processedHeight: number | null = null;
+  let trackHeight: number | null = null;
+
+  const collectListenerHeights = async () => {
+    const nextParsedHeight = await fetchListenerParsedHeight(listenerUrl);
+    const nextProcessedHeight = await fetchListenerProcessedHeight(listenerUrl);
+    const nextTrackHeight = await fetchListenerTrackHeight(listenerUrl);
+
+    parsedHeight = nextParsedHeight ?? parsedHeight ?? lastKnownTradeLayerSyncStatus?.parsedHeight ?? null;
+    processedHeight = nextProcessedHeight ?? processedHeight ?? lastKnownTradeLayerSyncStatus?.processedHeight ?? null;
+    trackHeight = nextTrackHeight ?? trackHeight ?? lastKnownTradeLayerSyncStatus?.trackHeight ?? null;
+  };
 
   try {
     const { data } = await axios.post(`${listenerUrl}/tl_getSyncStatus`, {}, { timeout: 5000 });
     rawStatus = (data && typeof data === 'object') ? data : {};
+    await collectListenerHeights();
   } catch (error: any) {
-    listenerReachable = false;
-    listenerError = error?.response?.data || error?.message || 'Unable to reach TradeLayer listener.';
-    if (!nodeBlock) {
+    if (Number(error?.response?.status) === 429) {
+      listenerReachable = true;
+      listenerError = null;
       rawStatus = {
-        phase: 'starting',
-        message: 'Waiting for Litecoin Core RPC before starting TradeLayer parser.',
-        currentHeight: null,
-        targetHeight: headerBlock,
+        phase: 'paused',
+        message: 'Litecoin node sync status is temporarily rate limited.',
+        initialized: true,
       };
-      return normalizeTradeLayerSyncStatus(rawStatus, {
+      if (lastKnownTradeLayerSyncStatus) {
+        rawStatus = {
+          ...rawStatus,
+          processedHeight: lastKnownTradeLayerSyncStatus.processedHeight,
+          trackHeight: lastKnownTradeLayerSyncStatus.trackHeight,
+          parsedHeight: lastKnownTradeLayerSyncStatus.parsedHeight,
+          currentHeight: lastKnownTradeLayerSyncStatus.currentHeight,
+          targetHeight: lastKnownTradeLayerSyncStatus.targetHeight,
+          chainTip: lastKnownTradeLayerSyncStatus.chainTip,
+          indexedHeight: lastKnownTradeLayerSyncStatus.indexedHeight,
+          genesisBlock: lastKnownTradeLayerSyncStatus.genesisBlock,
+        };
+      }
+      await collectListenerHeights();
+      return finalizeTradeLayerSyncStatus(rawStatus, {
         listenerUrl,
         listenerReachable,
         listenerError,
         nodeBlock,
         headerBlock,
+        parsedHeight,
+        processedHeight,
+        trackHeight,
+      });
+    }
+    listenerReachable = false;
+    listenerError = error?.response?.data || error?.message || 'Unable to reach TradeLayer listener.';
+    if (!nodeBlock) {
+      rawStatus = {
+        phase: 'starting',
+        message: 'Waiting for Litecoin Core RPC before node sync status.',
+        currentHeight: null,
+        targetHeight: headerBlock,
+      };
+      if (lastKnownTradeLayerSyncStatus) {
+        rawStatus = {
+          ...rawStatus,
+          processedHeight: lastKnownTradeLayerSyncStatus.processedHeight,
+          trackHeight: lastKnownTradeLayerSyncStatus.trackHeight,
+          parsedHeight: lastKnownTradeLayerSyncStatus.parsedHeight,
+          currentHeight: lastKnownTradeLayerSyncStatus.currentHeight,
+        };
+      }
+      return finalizeTradeLayerSyncStatus(rawStatus, {
+        listenerUrl,
+        listenerReachable,
+        listenerError,
+        nodeBlock,
+        headerBlock,
+        parsedHeight,
+        processedHeight,
+        trackHeight,
       });
     }
     try {
@@ -178,6 +302,7 @@ export async function getTradeLayerSyncStatus(): Promise<TradeLayerSyncStatus> {
       rawStatus = (data && typeof data === 'object') ? data : {};
       listenerReachable = true;
       listenerError = null;
+      await collectListenerHeights();
     } catch (retryError: any) {
       listenerError = retryError?.response?.data
         || retryError?.message
@@ -185,6 +310,24 @@ export async function getTradeLayerSyncStatus(): Promise<TradeLayerSyncStatus> {
         || error?.message
         || 'Unable to reach TradeLayer listener.';
       rawStatus = {};
+      if (lastKnownTradeLayerSyncStatus) {
+        rawStatus = {
+          ...rawStatus,
+          phase: lastKnownTradeLayerSyncStatus.phase,
+          message: lastKnownTradeLayerSyncStatus.message,
+          initialized: lastKnownTradeLayerSyncStatus.initialized,
+          genesisBlock: lastKnownTradeLayerSyncStatus.genesisBlock,
+          chainTip: lastKnownTradeLayerSyncStatus.chainTip,
+          indexedHeight: lastKnownTradeLayerSyncStatus.indexedHeight,
+          parsedHeight: lastKnownTradeLayerSyncStatus.parsedHeight,
+          processedHeight: lastKnownTradeLayerSyncStatus.processedHeight,
+          trackHeight: lastKnownTradeLayerSyncStatus.trackHeight,
+          currentHeight: lastKnownTradeLayerSyncStatus.currentHeight,
+          targetHeight: lastKnownTradeLayerSyncStatus.targetHeight,
+          percent: lastKnownTradeLayerSyncStatus.percent,
+          updatedAt: lastKnownTradeLayerSyncStatus.updatedAt,
+        };
+      }
     }
   }
 
@@ -193,12 +336,14 @@ export async function getTradeLayerSyncStatus(): Promise<TradeLayerSyncStatus> {
       rawStatus = {
         ...rawStatus,
         phase: 'starting',
-        message: 'Initializing TradeLayer parser.',
+        message: 'Initializing Litecoin node sync.',
         targetHeight: headerBlock ?? nodeBlock,
+        currentHeight: nodeBlock,
       };
       await ensureListenerMainInitialized(listenerUrl);
       const { data } = await axios.post(`${listenerUrl}/tl_getSyncStatus`, {}, { timeout: 5000 });
       rawStatus = (data && typeof data === 'object') ? data : rawStatus;
+      await collectListenerHeights();
       listenerError = null;
     } catch (initError: any) {
       listenerError = initError?.response?.data
@@ -207,11 +352,14 @@ export async function getTradeLayerSyncStatus(): Promise<TradeLayerSyncStatus> {
     }
   }
 
-  return normalizeTradeLayerSyncStatus(rawStatus, {
+  return finalizeTradeLayerSyncStatus(rawStatus, {
     listenerUrl,
     listenerReachable,
     listenerError,
     nodeBlock,
     headerBlock,
+    parsedHeight,
+    processedHeight,
+    trackHeight,
   });
 }
