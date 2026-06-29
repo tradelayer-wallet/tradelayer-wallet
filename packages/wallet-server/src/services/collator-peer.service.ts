@@ -1,13 +1,17 @@
 import { ChildProcess, spawn } from 'child_process';
+import axios from 'axios';
 import { existsSync } from 'fs';
 import { hostname } from 'os';
 import { dirname, join, resolve } from 'path';
+import { URL } from 'url';
 
 import type { TradeLayerSyncStatus } from './tradelayer-sync.service';
 
 type PeerProc = {
   url: string;
   child: ChildProcess;
+  startedAt: number;
+  lastRegistryCheckAt: number;
 };
 
 const DEFAULT_COLLATORS = [
@@ -15,6 +19,8 @@ const DEFAULT_COLLATORS = [
   'ws://127.0.0.1:8788/ws',
 ];
 const PEER_RETRY_COOLDOWN_MS = 60_000;
+const PEER_REGISTRY_GRACE_MS = 20_000;
+const PEER_REGISTRY_CHECK_INTERVAL_MS = 15_000;
 
 function trimSlash(value: string): string {
   return String(value || '').replace(/\/+$/, '');
@@ -25,6 +31,20 @@ function splitUrls(value: string): string[] {
     .split(/[\n,]+/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function collatorHttpBase(wsUrl: string): string {
+  const raw = String(wsUrl || '').trim();
+  try {
+    const url = new URL(raw);
+    url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+    url.pathname = url.pathname.replace(/\/ws\/?$/, '') || '/';
+    url.search = '';
+    url.hash = '';
+    return trimSlash(url.toString());
+  } catch {
+    return trimSlash(raw.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:').replace(/\/ws\/?$/, ''));
+  }
 }
 
 function currentChain(): 'BTC' | 'LTC' | '' {
@@ -228,7 +248,7 @@ export class CollatorPeerService {
       windowsHide: true,
     });
 
-    this.peers.set(url, { url, child });
+    this.peers.set(url, { url, child, startedAt: Date.now(), lastRegistryCheckAt: 0 });
 
     child.stdout.on('data', (data) => {
       const text = String(data || '').trim();
@@ -298,6 +318,38 @@ export class CollatorPeerService {
     return ready;
   }
 
+  private async isAdvertisedInRegistry(url: string): Promise<boolean | null> {
+    const peer = this.peers.get(url);
+    if (!peer || !this.isPeerHealthy(peer.child)) return false;
+
+    const ageMs = Date.now() - peer.startedAt;
+    if (ageMs < PEER_REGISTRY_GRACE_MS) return true;
+
+    const sinceLastCheckMs = Date.now() - peer.lastRegistryCheckAt;
+    if (peer.lastRegistryCheckAt && sinceLastCheckMs < PEER_REGISTRY_CHECK_INTERVAL_MS) return true;
+    peer.lastRegistryCheckAt = Date.now();
+
+    const providersUrl = `${collatorHttpBase(url)}/rpc/providers`;
+    try {
+      const { data } = await axios.get(providersUrl, { timeout: 5000 });
+      const providers = Array.isArray(data?.providers) ? data.providers : [];
+      return providers.some((provider: any) => String(provider?.nodeId || '') === this.rpcNodeId);
+    } catch (error: any) {
+      console.log(`[tl-collator peer ${url}] registry check failed: ${error?.message || error}`);
+      return null;
+    }
+  }
+
+  private async restartPeerIfMissingFromRegistry(url: string): Promise<void> {
+    const advertised = await this.isAdvertisedInRegistry(url);
+    if (advertised !== false) return;
+
+    console.log(`[tl-collator peer ${url}] server registry missing ${this.rpcNodeId}; restarting peer`);
+    this.stopPeer(url);
+    this.lastPeerFailureAt.delete(url);
+    this.startPeer(url);
+  }
+
   async sync(status: TradeLayerSyncStatus): Promise<void> {
     if (this.syncInProgress) {
       this.syncQueue = status;
@@ -318,6 +370,7 @@ export class CollatorPeerService {
       for (const url of desiredUrls) {
         try {
           this.startPeer(url);
+          await this.restartPeerIfMissingFromRegistry(url);
         } catch (error: any) {
           console.log(`[tl-collator peer ${url}] ${error?.message || error}`);
         }
