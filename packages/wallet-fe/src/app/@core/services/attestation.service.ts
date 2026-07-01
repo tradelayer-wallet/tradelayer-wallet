@@ -3,7 +3,7 @@ import { ToastrService } from "ngx-toastr";
 import { AuthService } from "./auth.service";
 import { RpcService } from "./rpc.service";
 import { ApiService } from "./api.service";
-import { environment } from "src/environments/environment";
+import axios from 'axios'
 
 @Injectable({
     providedIn: 'root',
@@ -16,7 +16,6 @@ export class AttestationService {
       data?: { status: string; [key: string]: any }; // Optional data field
     }[] = [];
     private attestationRefreshId: ReturnType<typeof setInterval> | null = null;
-    private pendingPendingCheckId: ReturnType<typeof setTimeout> | null = null;
     private checkAllInProgress = false;
 
     constructor(
@@ -26,6 +25,9 @@ export class AttestationService {
         private toastrService: ToastrService,
     ) { }
 
+    private readonly CRIMINAL_IP_API_KEY = "RKohp7pZw3LsXBtbmU3vcaBByraHPzDGrDnE0w1vI0qTEredJnMPfXMRS7Rk";
+    private readonly IPINFO_TOKEN = "5992daa04f9275";
+
     get tlApi() {
         return this.apiService.newTlApi;
     }
@@ -34,11 +36,11 @@ export class AttestationService {
         this.authService.updateAddressesSubs$
             .subscribe(kp => {
                 if (!kp.length) this.removeAll();
-                this.queueCheckAllAtt(0);
+                this.checkAllAtt();
             });
 
         this.rpcService.blockSubs$
-            .subscribe(() => this.queueCheckPending(60000));
+            .subscribe(() => this.checkPending());
         console.log('initializing attestation loop')    
         this.startAttestationUpdateInterval();
     }
@@ -47,16 +49,8 @@ export class AttestationService {
         if (this.attestationRefreshId) {
             clearInterval(this.attestationRefreshId);
         }
-        this.queueCheckAllAtt(0); // Call immediately to fetch fresh data
-        this.attestationRefreshId = setInterval(() => this.queueCheckAllAtt(0), 120000); // Update every 2 minutes
-    }
-
-    private queueCheckAllAtt(delayMs: number) {
-        if (this.attestationRefreshId == null && delayMs <= 0) {
-            void this.checkAllAtt();
-            return;
-        }
-        setTimeout(() => void this.checkAllAtt(), Math.max(0, Number(delayMs || 0)));
+        this.checkAllAtt(); // Call immediately to fetch fresh data
+        this.attestationRefreshId = setInterval(() => this.checkAllAtt(), 20000); // Update every 20 seconds
     }
 
     async refreshAttestations(addresses: string[] = this.authService.listOfallAddresses) {
@@ -129,17 +123,6 @@ export class AttestationService {
         }
     }
 
-    private queueCheckPending(delayMs: number) {
-        if (this.pendingPendingCheckId) {
-            clearTimeout(this.pendingPendingCheckId);
-            this.pendingPendingCheckId = null;
-        }
-        this.pendingPendingCheckId = setTimeout(() => {
-            this.pendingPendingCheckId = null;
-            void this.checkPending();
-        }, Math.max(0, Number(delayMs || 0)));
-    }
-
     
     getAttByAddress(address: string): string | 'PENDING' | false {
         const attestation = this.attestations.find(e => e.address === address);
@@ -168,57 +151,113 @@ export class AttestationService {
         }
     }
 
-    async checkIP(): Promise<any> {
-        const baseUrl = this.getRelayerBaseUrl();
-        const response = await fetch(`${baseUrl}/attestation/ip`, {
-            method: "GET",
-            headers: { "content-type": "application/json" },
-        });
-        const text = await response.text();
-        let data: any = text;
-        try {
-            data = text ? JSON.parse(text) : null;
-        } catch {}
+   async checkIP(): Promise<any> {
+        let ipAddress = ''
+        const ipFetchUrls = [
+          "http://ip-api.com/json",
+          "https://api.ipify.org?format=json"
+        ];
 
-        if (!response.ok) {
-            throw new Error(data?.error || data?.message || text || `IP attestation failed (${response.status})`);
+        for (const url of ipFetchUrls) {
+          try {
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data?.ip) {
+              ipAddress = data.ip; // For ipify.org
+              console.log(`IP fetched from ${url}: ${ipAddress}`);
+              break;
+            } else if (data?.query) { // For ip-api.com
+              ipAddress = data.query;
+              console.log(`IP fetched from ${url}: ${ipAddress}`);
+              break;
+            }
+          } catch (error) {
+            console.error(`Failed to fetch IP from ${url}:`, error.message);
+          }
         }
 
-        const attestation = data?.attestation || {
-            ip: data?.ip,
-            country: data?.countryCode,
-            countryCode: data?.countryCode,
-            isVpn: data?.isVpn,
-            isProxy: data?.isProxy,
-            isDarkweb: data?.isDarkweb,
-            isAnonymousVpn: data?.isAnonymousVpn,
-            isBlocked: data?.isBlocked,
-            message: data?.message,
-            source: data?.source,
-        };
+        if (!ipAddress) {
+          throw new Error("Unable to determine client IP address from available sources.");
+        }
 
+    const primaryUrl = `https://api.criminalip.io/v1/asset/ip/report?ip=${ipAddress}`;
+    const fallbackUrl = `https://ipinfo.io/json?token=${this.IPINFO_TOKEN}`;
+
+    try {
+      // Call primary API
+      const response = await axios.get(primaryUrl, {
+        headers: {
+          "x-api-key": this.CRIMINAL_IP_API_KEY,
+        },
+      });
+
+      if (response.status === 200 && response.data) {
+        const data = response.data;
+
+        // Check suspicious parameters
+        const { issues, whois } = data;
+       const bannedCountries = ["US", "KP", "SY", "SD", "RU", "IR"]; // Add sanctioned country codes
+
+        if (
+          issues.is_vpn ||
+          issues.is_darkweb ||
+          issues.is_proxy ||
+          issues.is_anonymous_vpn ||
+          whois.data.some((entry: { org_country_code: string }) => bannedCountries.includes(entry.org_country_code))
+        ) {
+          this.toastrService.error("Suspicious IP detected or originating from a banned country.");
+        }
+
+
+        // Create attestation
+        const countryCode = whois.data[0]?.org_country_code || "Unknown";
         return {
-            ...data,
-            attestation,
-            success: data?.success !== false,
+          success: true,
+          attestation: {
+            ip: ipAddress,
+            country: countryCode,
+            message: "IP is clean and trusted.",
+          },
         };
-    }
+      } else {
+        this.toastrService.error("No response or invalid response from IP API.");
+      }
+    } catch (error: any) {
+      console.error("Primary API failed:", error.message);
 
-    private getRelayerBaseUrl(): string {
-        const network = this.rpcService.NETWORK || "LTC";
-        const configured = this.apiService.apiUrl || environment.ENDPOINTS?.[network]?.relayerUrl || environment.ENDPOINTS?.LTC?.relayerUrl;
-        const fallback = String(network).toUpperCase().includes("TEST")
-            ? "https://testnet-api.layerwallet.com/relayer"
-            : "https://api.layerwallet.com/relayer";
-        const url = String(configured || fallback).replace(/\/+$/, "");
+      // Fallback logic
+      try {
+        const fallbackResponse = await fetch(fallbackUrl);
+        const fallbackData = await fallbackResponse.json();
 
-        if (/^http:\/\/172\.81\.181\.19:8191\/?$/.test(url)) {
-            return "https://testnet-api.layerwallet.com/relayer";
+        if (fallbackData) {
+          const { ip, country, privacy } = fallbackData;
+
+          // Check for VPN or US
+          if (privacy?.vpn || country === "US") {
+            throw new Error("Fallback: Suspicious IP or IP is in the US.");
+          }
+
+          // Create fallback attestation
+          return {
+            success: true,
+            attestation: {
+              ip,
+              country,
+              message: "Fallback API: IP is clean and trusted.",
+            },
+          };
+        } else {
+          this.toastrService.error("No response from fallback API.");
         }
-        if (/^http:\/\/172\.81\.181\.19:9191\/?$/.test(url)) {
-            return "https://api.layerwallet.com/relayer";
-        }
-        return url;
+      } catch (fallbackError: any) {
+        console.error("Fallback API failed:", fallbackError.message);
+        return {
+          success: false,
+          error: "Both primary and fallback APIs failed.",
+        };
+      }
     }
+  }
 
 }
