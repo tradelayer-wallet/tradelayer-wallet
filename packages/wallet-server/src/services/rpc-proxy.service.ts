@@ -62,6 +62,70 @@ function isTransientRpcStartupError(error: any) {
         || msg.includes('warming up');
 }
 
+function encodeBase36(value: any, fallback = '0') {
+    if (value === undefined || value === null || value === '') return fallback;
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.trunc(n).toString(36) : fallback;
+}
+
+function encodeAmount(value: any) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '0';
+    return Math.round(n * 1e8).toString(36);
+}
+
+function normalizeParams(body: any): any[] {
+    return Array.isArray(body?.params)
+        ? body.params
+        : Array.isArray(body)
+            ? body
+            : [];
+}
+
+function buildTradeLayerPayload(method: string, body: any) {
+    const normalized = method.toLowerCase();
+    const params = normalizeParams(body);
+
+    if (normalized === 'tl_createpayload_attestation') {
+        const source = params.length >= 4
+            ? { revoke: params[0], id: params[1], targetAddress: params[2], metaData: params[3] }
+            : body || {};
+        return [
+            'tl9',
+            source.revoke ?? 0,
+            encodeBase36(source.id),
+            source.targetAddress || '',
+            source.metaData || '',
+        ].join(',');
+    }
+
+    if (normalized === 'tl_createpayload_commit_tochannel') {
+        const source = params.length === 1 && typeof params[0] === 'object'
+            ? params[0]
+            : body || {};
+        const channelAddress = String(source.channelAddress || '');
+        const clearLists = Array.isArray(source.clearLists)
+            ? `[${source.clearLists.map((item: any) => encodeBase36(item)).join(',')}]`
+            : source.clearLists
+                ? encodeBase36(source.clearLists)
+                : '';
+        const payload = [
+            encodeBase36(source.propertyId),
+            encodeAmount(source.amount),
+            channelAddress.length > 42 ? `ref:${source.ref || 0}` : channelAddress,
+            source.payEnabled ? '1' : '0',
+            clearLists,
+            source.isColoredOutput ? '1' : '0',
+        ];
+        if (Number.isInteger(source.commitClearlistId)) {
+            payload.push(source.commitClearlistId.toString(36));
+        }
+        return `tl4${payload.join(',')}`;
+    }
+
+    return null;
+}
+
 async function ensureRpcClient() {
     if (!fasitfyServer.rpcClient) {
         const rpcClient = createRpcClientFromDatadir(process.env.DATADIR, Number(process.env.RPC_PORT));
@@ -97,6 +161,15 @@ export async function proxyWalletMethod(method: string, body: any = {}) {
     }
 
     if (normalizedMethod.startsWith('tl_')) {
+        const localPayload = buildTradeLayerPayload(normalizedMethod, body);
+        if (localPayload !== null) {
+            console.log('[rpc-proxy] local tl payload build', {
+              method: normalizedMethod,
+              paramsLength: Array.isArray(body?.params) ? body.params.length : undefined,
+            });
+            return localPayload;
+        }
+
         const listenerUrl = getListenerUrl();
         console.log('[rpc-proxy] tl listener call', {
           method: normalizedMethod,
