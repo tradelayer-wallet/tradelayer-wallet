@@ -76,7 +76,36 @@
         <div>Sweeps this window: <strong>{{ status.sweep.sweepsThisWindow }} / {{ status.sweep.maxSweepPerWindow }}</strong></div>
       </mat-card-content>
     </mat-card>
+
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Procedural Rail</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div>Ready: <strong>{{ status.procedural.ready ? 'yes' : 'no' }}</strong></div>
+        <div>State: <strong>{{ status.procedural.state || 'unknown' }}</strong></div>
+        <div>Chain: <strong>{{ status.procedural.chainId || 'unconfigured' }}</strong></div>
+        <div>Receipt property: <strong>{{ status.procedural.receiptPropertyId || 0 }}</strong></div>
+        <div>Receipt ticker: <strong>{{ status.procedural.receiptTicker || 'n/a' }}</strong></div>
+        <div>Contract: <strong>{{ status.procedural.contractId || 'n/a' }}</strong></div>
+        <div>Funding txid: <strong>{{ status.procedural.fundingTxid || 'n/a' }}</strong></div>
+        <div>Funded amount: <strong>{{ status.procedural.fundedAmountLtc != null ? status.procedural.fundedAmountLtc : 'n/a' }}</strong></div>
+        <div>Settlement route: <strong>{{ status.procedural.settlementRoute || 'n/a' }}</strong></div>
+      </mat-card-content>
+    </mat-card>
   </div>
+
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Referee Pipeline</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div>Status: <strong>{{ status.pipeline.status || 'unknown' }}</strong></div>
+      <div>Mode: <strong>{{ status.pipeline.mode || 'n/a' }}</strong></div>
+      <div>Selected path: <strong>{{ status.pipeline.selectedPath || 'auto' }}</strong></div>
+      <div>Settlement validation: <strong>{{ status.pipeline.settlementValidation || 'n/a' }}</strong></div>
+    </mat-card-content>
+  </mat-card>
 
   <mat-card>
     <mat-card-header>

@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import type { Observable } from 'rxjs';
+import { RpcService, TNETWORK } from './rpc.service';
 import type { ConnectivityMode } from 'src/p2p/policy/RoutingPolicy';
 
 const LS_MODE = 'tl.connectivityMode';
@@ -9,10 +11,26 @@ const LS_ALLOWED_COLLATOR_IDS = 'tl.p2p.allowedCollatorIds';
 const LS_ENFORCE_CLEARLIST_SUBMITTER = 'tl.p2p.enforceClearlistSubmitter';
 const LS_REQUIRE_INFRA_ATTEST = 'tl.p2p.requireInfraAttestation';
 const LS_REQUIRED_CLEARLIST_ID = 'tl.p2p.requiredClearlistId';
-const DEFAULT_COLLATORS = [
+const LEGACY_DEFAULT_COLLATORS = [
   'ws://127.0.0.1:8787/ws',
   'ws://127.0.0.1:8788/ws',
 ];
+
+function defaultCollatorUrlsForNetwork(network: TNETWORK | null): string[] {
+  if (network === 'LTC') {
+    return ['wss://api.layerwallet.com/ws'];
+  }
+  if (network === 'BTC') {
+    return ['wss://btc-api.layerwallet.com/ws'];
+  }
+  return ['wss://testnet-api.layerwallet.com/ws'];
+}
+
+function isLegacyDefaultCollatorSet(urls: string[]): boolean {
+  const normalized = (urls || []).map((u) => String(u || '').trim()).filter(Boolean);
+  return normalized.length === LEGACY_DEFAULT_COLLATORS.length
+    && normalized.every((u, i) => u === LEGACY_DEFAULT_COLLATORS[i]);
+}
 
 function readJson<T>(k: string, fallback: T): T {
   try {
@@ -28,9 +46,6 @@ function readJson<T>(k: string, fallback: T): T {
 export class P2PSettingsService {
   private modeSub = new BehaviorSubject<ConnectivityMode>(
     (localStorage.getItem(LS_MODE) as ConnectivityMode) || 'CENTRAL'
-  );
-  private collatorUrlsSub = new BehaviorSubject<string[]>(
-    readJson<string[]>(LS_COLLATORS, DEFAULT_COLLATORS)
   );
   private requireManifestSub = new BehaviorSubject<boolean>(
     localStorage.getItem(LS_REQUIRE_MANIFEST) === null
@@ -51,12 +66,27 @@ export class P2PSettingsService {
   );
 
   mode$ = this.modeSub.asObservable();
-  collatorUrls$ = this.collatorUrlsSub.asObservable();
+  collatorUrls$: Observable<string[]>;
   requireVerifiedManifest$ = this.requireManifestSub.asObservable();
   allowedCollatorIds$ = this.allowedCollatorIdsSub.asObservable();
   enforceClearlistSubmitter$ = this.enforceClearlistSubmitterSub.asObservable();
   requireInfraAttestation$ = this.requireInfraAttestationSub.asObservable();
   requiredClearlistId$ = this.requiredClearlistIdSub.asObservable();
+
+  private collatorUrlsSub: BehaviorSubject<string[]>;
+
+  constructor(private rpcService: RpcService) {
+    this.collatorUrlsSub = new BehaviorSubject<string[]>(this.initialCollatorUrls());
+    this.collatorUrls$ = this.collatorUrlsSub.asObservable();
+  }
+
+  private initialCollatorUrls(): string[] {
+    const stored = readJson<string[]>(LS_COLLATORS, []);
+    if (stored.length && !isLegacyDefaultCollatorSet(stored)) {
+      return stored;
+    }
+    return defaultCollatorUrlsForNetwork(this.rpcService.NETWORK);
+  }
 
   get mode(): ConnectivityMode {
     return this.modeSub.value;
@@ -68,7 +98,9 @@ export class P2PSettingsService {
   }
 
   get collatorUrls(): string[] {
-    return this.collatorUrlsSub.value;
+    const stored = this.collatorUrlsSub.value;
+    if (stored.length) return stored;
+    return defaultCollatorUrlsForNetwork(this.rpcService.NETWORK);
   }
 
   setCollatorUrls(urls: string[]) {

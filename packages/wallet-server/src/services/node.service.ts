@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { coreFilePathObj, defaultDirObj } from "../conf/windows.conf";
@@ -13,6 +13,8 @@ interface IFlagsObject {
     addnode: string;
     datadir: string;
 }
+
+type StartCheckResult = { data?: boolean; error?: string };
 
 class FlagsObject implements IFlagsObject {
     public testnet: number = 0;
@@ -69,48 +71,77 @@ export const startWalletNode = async (walletNodeOptions: any) => {
         // if (isTestnet) walletNodeOptions.connect = "178.62.46.195:19333";
         const flagsObject = new FlagsObject(walletNodeOptions);
         // Read config File
-        const path = join(flagsObject.datadir || defaultDirObj);
-        const configFilePath = join(path, `litecoin.conf`);
+        const litecoinDatadir = join(flagsObject.datadir || defaultDirObj);
+        const configFilePath = join(litecoinDatadir, `litecoin.conf`);
         const isConfFileExist = existsSync(configFilePath);
-        if (!isConfFileExist) throw(`Config file (litecoin.conf) doesn't exist in: ${path}`);
+        if (!isConfFileExist) throw(`Config file (litecoin.conf) doesn't exist in: ${litecoinDatadir}`);
         const confFile = readFileSync(configFilePath, { encoding: 'utf8' });
         const configObj: any = structureConfFile(confFile);
-        if (!configObj.rpcuser || !configObj.rpcpassword) throw(`Incorrect Config File ${path}`);
+        if (!configObj.rpcuser || !configObj.rpcpassword) throw(`Incorrect Config File ${litecoinDatadir}`);
 
         // Run The core
-        const flagsString = convertFlagsObjectToString(flagsObject);
-        const filePath = `"${coreFilePathObj.LTC}"`;
-        const filePathWithFlags = `${filePath}${flagsString}`;
-        if (!filePathWithFlags) throw(`Error with Starting Node. Code 1`);
-        return await checkIsCoreStarted(filePathWithFlags, configObj, isTestnet);;
+        const flags = convertFlagsObjectToArgs(flagsObject);
+        if (!coreFilePathObj.LTC) throw(`Error with Starting Node. Core binary is missing`);
+
+    const coreProcess: ChildProcessWithoutNullStreams = spawn(coreFilePathObj.LTC, flags, {
+            windowsHide: true,
+        });
+        const coreStarted: StartCheckResult = await checkIsCoreStarted(coreProcess, configObj, isTestnet);
+        if (coreStarted.error) {
+            coreProcess.kill();
+            return coreStarted;
+        }
+
+        return coreStarted;
     } catch(error) {
         return { error: error.message || error || 'Undefined Error' };
     }
 };
 
 export const stopWalletNode = async () => {
-        const stopRes = await fasitfyServer.rpcClient?.call('stop');
-        const checkPromise = new Promise(async checkResolve => {
-            const checkRes = await fasitfyServer.rpcClient.call('getblockchaininfo');
-            checkRes?.error?.includes("ECONNREFUSED")
-                ? checkResolve(true)
-                : await checkPromise;
-        });
+        const rpcClient = fasitfyServer.rpcClient;
+        if (!rpcClient) {
+            fasitfyServer.rpcClient = null;
+            fasitfyServer.rpcPort = null;
+            fasitfyServer.mainSocketService?.stopBlockCounting();
+            return { data: true };
+        }
+
+        try {
+            await rpcClient.call('stop');
+        } catch(error) {
+            // If node is already stopping, this can fail; continue cleanup.
+        }
+
+        const startedAt = Date.now();
+        const shutdownTimeoutMs = 12000;
+        while (Date.now() - startedAt < shutdownTimeoutMs) {
+            try {
+                const checkRes = await rpcClient.call('getblockchaininfo');
+                if (checkRes?.error?.includes("ECONNREFUSED")) break;
+            } catch(error: any) {
+                if (error?.message?.includes("ECONNREFUSED")) {
+                    break;
+                }
+            }
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
         fasitfyServer.mainSocketService.stopBlockCounting();
         fasitfyServer.rpcClient = null;
         fasitfyServer.rpcPort = null;
         return { data: true };
 }
 
-const convertFlagsObjectToString = (flagsObject: any) => {
-    const _toStr = (flag: string, value: string | boolean) => ` -${flag}=${value}`;
-    let str = ' -txindex=1 -printtoconsole=0';
+const convertFlagsObjectToArgs = (flagsObject: any) => {
+    const flags = ['-txindex=1', '-printtoconsole=0'];
     Object.keys(flagsObject)
         .forEach((flag: string) => {
-            if (flag === 'datadir' && flagsObject[flag]) return str += _toStr(flag, `"${flagsObject[flag]}"`);
-            if (flagsObject[flag]) return str += _toStr(flag, flagsObject[flag]);
+            if (!flagsObject[flag]) return;
+            if (flag === 'datadir') return flags.push(`-${flag}="${flagsObject[flag]}"`);
+            return flags.push(`-${flag}=${flagsObject[flag]}`);
         });
-    return str || '';
+    return flags;
 }
 
 const structureConfFile = (conf: string) => {
@@ -124,13 +155,16 @@ const structureConfFile = (conf: string) => {
 };
 
 const checkIsCoreStarted = async (
-        filePathWithFlags: string,
+        coreProcess: ChildProcessWithoutNullStreams,
         configObj: any,
         isTestnet: boolean,
-    ) => {
-    return new Promise(async (resolve) => {
+    ): Promise<StartCheckResult> => {
+    const timeoutMs = 12000;
+    const pollMs = 300;
+
+    return new Promise<StartCheckResult>((resolve) => {
         const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
-        const port = rpcport ? rpcport : isTestnet ? 18332 : 8332;
+        const port = rpcport ? Number(rpcport) : isTestnet ? 18332 : 8332;
         const client = new RpcClient({
             username: rpcuser,
             password: rpcpassword,
@@ -138,45 +172,49 @@ const checkIsCoreStarted = async (
             port: port,
             timeout: 2000,
         });
+        const start = Date.now();
 
-        /* TODO:SK
+        const finalCheck = async () => {
+            try {
+                const checkRes: any = await client.call('getblockchaininfo');
+                if (!checkRes || !checkRes.error) {
+                    fasitfyServer.rpcClient = client;
+                    fasitfyServer.rpcPort = port;
+                    fasitfyServer.mainSocketService.startBlockCounting(2000);
+                    resolve({ data: true });
+                    return true;
+                }
 
-        const isActiveCheck = () => {
-            return new Promise(async (res) => {
-                const check = await client.call('getblockchaininfo');
-                if (check.data) res(2);
-                if (check.error && !check.error.includes('ECONNREFUSED')) res(check);
-                if (check.error && check.error.includes('ECONNREFUSED')) res(0);
-            });
+                if (!checkRes.error.includes("ECONNREFUSED")) {
+                    resolve({ error: checkRes.error });
+                    return true;
+                }
+            } catch (error: any) {
+                if (!error?.message?.includes("ECONNREFUSED")) {
+                    resolve({ error: error.message || error });
+                    return true;
+                }
+            }
+            return false;
         };
-        
-        const firstCheck = await isActiveCheck();
-        if (firstCheck !== 0) return resolve({ error: 'The core is probably Already Running'});
 
-        exec(filePathWithFlags, (error, stdout, stderr) => {
-            fasitfyServer.mainSocketService.currentSocket
-                .emit("core-error", stderr || error?.message || error || stdout);
-            fasitfyServer.rpcClient = null;
-            fasitfyServer.rpcPort = null;
-        });
-        setTimeout(() => resolve({error: 'Core Starting TimedOut: 10 secs'}), 10000);
-        */
-        const finalCheck = () => new Promise(async checkResolve => {
-            await client.call('getblockchaininfo')
-                .then(async checkRes => {
-                    if (!checkRes?.error?.includes("ECONNREFUSED")) {
-                        fasitfyServer.rpcClient = client;
-                        fasitfyServer.rpcPort = port;
-                        fasitfyServer.mainSocketService.startBlockCounting(2000);
-                        checkResolve({ data: true });
-                    } else {
-                        const subCheck = await finalCheck();
-                        checkResolve({ data: subCheck });
-                    }
-                });
-        });
+        const runChecks = async () => {
+            while (Date.now() - start < timeoutMs) {
+                const isDone = await finalCheck();
+                if (isDone) return;
+                await new Promise(resolveWait => setTimeout(resolveWait, pollMs));
+            }
+            resolve({ error: `Core Starting TimedOut: ${timeoutMs / 1000} secs` });
+        };
 
-        const finalRes = await finalCheck();
-        resolve({ data: finalRes });
+        coreProcess.once('error', (error) => {
+            resolve({ error: error.message || String(error) });
+        });
+        coreProcess.once('exit', (code) => {
+            if (code !== 0) {
+                resolve({ error: `Core exited with code ${code}` });
+            }
+        });
+        runChecks();
     });
-};
+}

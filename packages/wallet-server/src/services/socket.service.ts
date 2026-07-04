@@ -62,4 +62,9 @@ export class SocketService {
         if (this.lastBlock) this.lastBlock = 0;
         if (this.blockCountingInterval) clearInterval(this.blockCountingInterval);
     }
+
+    emit(event: string, payload: any) {
+        if (!this.io || !event) return;
+        this.io.emit(event, payload);
+    }
 }

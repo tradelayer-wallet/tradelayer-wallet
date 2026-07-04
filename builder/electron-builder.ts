@@ -121,7 +121,9 @@ export class ElectronApp {
         this.mainWindow = new BrowserWindow(windowOptions);
         this.handleMainWindowEvents();
         this.loadUrl(this.mainWindow);
-        this.mainWindow.webContents.openDevTools();
+        if (process.env.TL_ELECTRON_OPEN_DEVTOOLS === '1') {
+            this.mainWindow.webContents.openDevTools();
+        }
     }
 
     private loadUrl(window: BrowserWindow) {
@@ -135,7 +137,9 @@ export class ElectronApp {
     }
 
     private disableSecurityWarnings() {
-        process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
+        if (process.env.TL_ALLOW_UNSAFE_ELECTRON === '1') {
+            process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
+        }
     }
 }
 

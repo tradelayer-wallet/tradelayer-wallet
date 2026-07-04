@@ -54,6 +54,16 @@ export class MainApiService {
         return this.http.post(this.apiUrl + 'new-config', body);
     };
 
+    getTradeLayerSyncStatus(): Observable<{
+        data?: any;
+        error?: string;
+    }> {
+        return this.http.get<{
+            data?: any;
+            error?: string;
+        }>(this.apiUrl + 'tradelayer/sync-status');
+    }
+
     rpcCall(method: string, params?: any[]): Observable<{
         data?: any;
         error?: string;
@@ -143,6 +153,18 @@ export class MainApiService {
         }
         const qs = params.length ? `?${params.join('&')}` : '';
         return this.http.get<{ data?: any; error?: string }>(this.apiUrl + `bitvm/status${qs}`);
+    }
+
+    getBitvmProceduralSync(): Observable<{ data?: any; error?: string }> {
+        return this.http.get<{ data?: any; error?: string }>(this.apiUrl + 'bitvm/procedural-sync');
+    }
+
+    getBitvmProceduralConfig(): Observable<{ data?: any; error?: string }> {
+        return this.http.get<{ data?: any; error?: string }>(this.apiUrl + 'bitvm/procedural-config');
+    }
+
+    getBitvmPipeline(): Observable<{ data?: any; error?: string }> {
+        return this.http.get<{ data?: any; error?: string }>(this.apiUrl + 'bitvm/pipeline');
     }
 
     bitvmWatchtowerTick(body?: { propertyId?: number; dlcRef?: string }): Observable<{

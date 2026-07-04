@@ -33,7 +33,7 @@ export class FastifyServer {
     start() {
         handleRoutes(this.server);
         this.mainSocketService.init(this.server);
-        this.server.listen(this.port)
+        this.server.listen(this.port, '127.0.0.1')
             .catch((error) => this.stop());
     }
 

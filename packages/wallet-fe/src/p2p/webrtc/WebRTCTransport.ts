@@ -100,6 +100,7 @@ export class WebRTCTransport implements PeerTransport {
   }
 
   private async startWithCollator(signalingUrl: string): Promise<void> {
+    console.log(`[p2p][transport] starting ws=${signalingUrl}`);
     await this.signaling.connect(signalingUrl, 15000);
     this.status.collatorUrl = signalingUrl;
 
@@ -125,9 +126,11 @@ export class WebRTCTransport implements PeerTransport {
     this.signaling.onMessage(async (msg) => {
       if (!this.pc) return;
       if (msg.t === 'SIGNAL_ANSWER') {
+        console.log(`[p2p][transport] recv SIGNAL_ANSWER ws=${signalingUrl}`);
         await pc.setRemoteDescription({ type: 'answer', sdp: msg.sdp });
       } else if (msg.t === 'SIGNAL_ICE') {
         try {
+          console.log(`[p2p][transport] recv SIGNAL_ICE ws=${signalingUrl}`);
           await pc.addIceCandidate(msg.candidate);
         } catch {}
       } else if (msg.t === 'SIGNAL_ERR') {
@@ -137,9 +140,11 @@ export class WebRTCTransport implements PeerTransport {
     });
 
     // Kick off offer.
+    console.log(`[p2p][transport] send SIGNAL_HELLO ws=${signalingUrl}`);
     this.signaling.send({ t: 'SIGNAL_HELLO', v: 1, clientId: this.clientId });
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    console.log(`[p2p][transport] send SIGNAL_OFFER ws=${signalingUrl}`);
     this.signaling.send({ t: 'SIGNAL_OFFER', v: 1, kind: 'offer', sdp: offer.sdp || '' });
 
     // Wait for DataChannel open.
@@ -147,10 +152,12 @@ export class WebRTCTransport implements PeerTransport {
       const to = setTimeout(() => reject(new Error('datachannel open timeout')), 20000);
       dc.onopen = () => {
         clearTimeout(to);
+        console.log(`[p2p][transport] datachannel open ws=${signalingUrl}`);
         resolve();
       };
       dc.onerror = () => {
         clearTimeout(to);
+        console.warn(`[p2p][transport] datachannel error ws=${signalingUrl}`);
         reject(new Error('datachannel error'));
       };
     });
@@ -178,6 +185,7 @@ export class WebRTCTransport implements PeerTransport {
     this.status.peerId = this.clientId;
     this.lastPongAt = nowMs();
     this.status.lastPongAtMs = this.lastPongAt;
+    console.log(`[p2p][transport] handshake complete ws=${signalingUrl}`);
 
     // Simple ping loop.
     void (async () => {

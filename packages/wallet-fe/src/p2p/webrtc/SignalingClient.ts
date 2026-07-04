@@ -30,18 +30,24 @@ export class SignalingClient {
   async connect(url: string, timeoutMs: number = 15000): Promise<void> {
     await this.disconnect();
     this.url = url;
+    console.log(`[p2p][signal] connecting ws=${url}`);
     const ws = this.wsFactory(url);
     this.ws = ws;
 
     await new Promise<void>((resolve, reject) => {
-      const to = setTimeout(() => reject(new Error('signaling connect timeout')), timeoutMs);
+      const to = setTimeout(() => reject(new Error(`signaling connect timeout ws=${url}`)), timeoutMs);
       ws.onopen = () => {
         clearTimeout(to);
+        console.log(`[p2p][signal] open ws=${url}`);
         resolve();
       };
       ws.onerror = () => {
         clearTimeout(to);
-        reject(new Error('signaling connect failed'));
+        console.warn(`[p2p][signal] error ws=${url}`);
+        reject(new Error(`signaling connect failed ws=${url}`));
+      };
+      ws.onclose = (ev: CloseEvent) => {
+        console.log(`[p2p][signal] closed ws=${url} code=${ev.code} reason=${ev.reason || ''}`.trim());
       };
     });
   }
@@ -58,6 +64,7 @@ export class SignalingClient {
 
   send(msg: SignalMsg) {
     if (!this.ws || this.ws.readyState !== 1) throw new Error('signaling not connected');
+    console.log(`[p2p][signal] send ${msg?.t || 'UNKNOWN'} ws=${this.url || '-'}`);
     this.ws.send(JSON.stringify(msg));
   }
 

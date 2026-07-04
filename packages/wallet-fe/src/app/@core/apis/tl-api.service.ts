@@ -30,4 +30,28 @@ export class NewTradeLayerApiService {
             return { data: res };
         }))
     }
+
+    allocatedRpc(
+        method: string,
+        params: any[] | any,
+        providerNodeId: string,
+        options?: { network?: string; service?: string; timeoutMs?: number },
+    ): Observable<{
+        data?: any;
+        error?: any;
+    }> {
+        if (!this.apiURL) throw new Error("Api Url not found");
+        const body = {
+            method,
+            params,
+            providerNodeId,
+            network: options?.network,
+            service: options?.service,
+            timeoutMs: options?.timeoutMs,
+        };
+        return this.http.post<any>(this.apiURL + '/tl_allocatedRpc', body)
+        .pipe(map((res: any) => {
+            return { data: res };
+        }))
+    }
 }

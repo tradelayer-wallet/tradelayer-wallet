@@ -38,6 +38,24 @@ export interface BitvmStatus {
     fraudProofEmitReady: boolean;
     payoutFinalizedReady: boolean;
   };
+  procedural: {
+    ready: boolean;
+    state: string | null;
+    chainId: string | null;
+    receiptPropertyId: number;
+    receiptTicker: string | null;
+    templateId: string | null;
+    contractId: string | null;
+    fundingTxid: string | null;
+    fundedAmountLtc: number | null;
+    settlementRoute: string | null;
+  };
+  pipeline: {
+    status: string | null;
+    mode: string | null;
+    selectedPath: string | null;
+    settlementValidation: string | null;
+  };
   watchtower?: {
     running: boolean;
     intervalMs: number;
@@ -140,6 +158,14 @@ export class BitvmRuntimeService {
             ...fallbackMerged.hooks,
             ...(remote.hooks || {}),
           },
+          procedural: {
+            ...fallbackMerged.procedural,
+            ...(remote.procedural || {}),
+          },
+          pipeline: {
+            ...fallbackMerged.pipeline,
+            ...(remote.pipeline || {}),
+          },
           watchtower: wtRes?.data ? wtRes.data : this.status.watchtower,
           featureEnabled: this.featureEnabled,
           commitScheme: this.featureEnabled ? 'experimental-binohash' : 'legacy-merkle',
@@ -177,6 +203,14 @@ export class BitvmRuntimeService {
           hooks: {
             ...this.status.hooks,
             ...(remote.hooks || {}),
+          },
+          procedural: {
+            ...this.status.procedural,
+            ...(remote.procedural || {}),
+          },
+          pipeline: {
+            ...this.status.pipeline,
+            ...(remote.pipeline || {}),
           },
           watchtower: res.data.watchtower || this.status.watchtower,
           updatedAt: Date.now(),
@@ -221,6 +255,14 @@ export class BitvmRuntimeService {
           hooks: {
             ...this.status.hooks,
             ...(remote.hooks || {}),
+          },
+          procedural: {
+            ...this.status.procedural,
+            ...(remote.procedural || {}),
+          },
+          pipeline: {
+            ...this.status.pipeline,
+            ...(remote.pipeline || {}),
           },
           watchtower: this.status.watchtower,
           updatedAt: Date.now(),
@@ -302,6 +344,24 @@ export class BitvmRuntimeService {
         challengeObservedReady: false,
         fraudProofEmitReady: false,
         payoutFinalizedReady: false,
+      },
+      procedural: {
+        ready: false,
+        state: null,
+        chainId: null,
+        receiptPropertyId: 0,
+        receiptTicker: null,
+        templateId: null,
+        contractId: null,
+        fundingTxid: null,
+        fundedAmountLtc: null,
+        settlementRoute: null,
+      },
+      pipeline: {
+        status: null,
+        mode: null,
+        selectedPath: null,
+        settlementValidation: null,
       },
       watchtower: {
         running: false,
