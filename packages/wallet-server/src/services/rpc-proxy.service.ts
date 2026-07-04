@@ -74,6 +74,16 @@ function encodeAmount(value: any) {
     return Math.round(n * 1e8).toString(36);
 }
 
+function encodeInteger(value: any) {
+    if (value === undefined || value === null || value === '') return '0';
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.trunc(n).toString(36) : '0';
+}
+
+function encodeBoolean(value: any) {
+    return value === true || value === 1 || value === '1' ? '1' : '0';
+}
+
 function normalizeParams(body: any): any[] {
     return Array.isArray(body?.params)
         ? body.params
@@ -85,24 +95,24 @@ function normalizeParams(body: any): any[] {
 function buildTradeLayerPayload(method: string, body: any) {
     const normalized = method.toLowerCase();
     const params = normalizeParams(body);
+    const source = params.length === 1 && typeof params[0] === 'object'
+        ? params[0]
+        : body || {};
 
     if (normalized === 'tl_createpayload_attestation') {
-        const source = params.length >= 4
+        const attestation = params.length >= 4
             ? { revoke: params[0], id: params[1], targetAddress: params[2], metaData: params[3] }
             : body || {};
         return [
             'tl9',
-            source.revoke ?? 0,
-            encodeBase36(source.id),
-            source.targetAddress || '',
-            source.metaData || '',
+            attestation.revoke ?? 0,
+            encodeBase36(attestation.id),
+            attestation.targetAddress || '',
+            attestation.metaData || '',
         ].join(',');
     }
 
     if (normalized === 'tl_createpayload_commit_tochannel') {
-        const source = params.length === 1 && typeof params[0] === 'object'
-            ? params[0]
-            : body || {};
         const channelAddress = String(source.channelAddress || '');
         const clearLists = Array.isArray(source.clearLists)
             ? `[${source.clearLists.map((item: any) => encodeBase36(item)).join(',')}]`
@@ -121,6 +131,52 @@ function buildTradeLayerPayload(method: string, body: any) {
             payload.push(source.commitClearlistId.toString(36));
         }
         return `tl4${payload.join(',')}`;
+    }
+
+    if (normalized === 'tl_createpayload_withdrawal_fromchannel') {
+        return `tll${[
+            encodeInteger(source.propertyId ?? source.propertyid),
+            encodeAmount(source.amount),
+            source.channelAddress || source.address || '',
+            encodeBoolean(source.isColoredOutput),
+        ].join(',')}`;
+    }
+
+    if (normalized === 'tl_createpayload_simplesend') {
+        if (source.sendAll) {
+            return `tl21;${source.address || source.toAddress || ''}`;
+        }
+        return `tl2${[
+            '0',
+            source.address || source.toAddress || '',
+            encodeInteger(source.propertyId ?? source.propertyid),
+            encodeAmount(source.amount),
+        ].join(';')}`;
+    }
+
+    if (normalized === 'tl_createpayload_instant_trade' || normalized === 'tl_createpayload_instant_ltc_trade') {
+        return `tl3${[
+            encodeInteger(source.propertyId ?? source.propertyIdForSale ?? source.propertyIdOffered),
+            encodeAmount(source.amount ?? source.amountForSale ?? source.amountOffered),
+            source.columnA ?? source.column ?? '',
+            encodeAmount(source.satsExpected ?? source.amountDesired ?? source.expectedSats),
+            source.tokenOutput ?? source.output ?? '',
+            source.payToAddress ?? source.toAddress ?? '',
+            encodeBoolean(source.isColoredOutput),
+        ].join(',')}`;
+    }
+
+    if (normalized === 'tl_createpayload_contract_instant_trade') {
+        return `tli${[
+            encodeInteger(source.contractId),
+            encodeAmount(source.price),
+            encodeInteger(source.amount),
+            encodeBoolean(source.sell),
+            encodeBoolean(source.insurance),
+            encodeBoolean(source.reduce),
+            encodeBoolean(source.post),
+            encodeBoolean(source.stop),
+        ].join(',')}`;
     }
 
     return null;
