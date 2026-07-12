@@ -7,6 +7,7 @@ import { environment } from '../../../environments/environment';
 import { ApiService } from "./api.service";
 import { Subject, fromEvent, Observable } from 'rxjs';
 import { takeUntil, share, shareReplay } from 'rxjs/operators';
+import { ElectronService } from "./electron.service";
 
 export enum SocketEmits {
     LTC_INSTANT_TRADE = 'LTC_INSTANT_TRADE',
@@ -23,6 +24,8 @@ export class SocketService implements OnDestroy {
     private hyperExpressId: string = ''
     private mainSocketWaiting: boolean = false;
     private obServerWaiting: boolean = false;
+    private obConnectionTimeout: ReturnType<typeof setTimeout> | null = null;
+    private readonly obConnectionTimeoutMs = 15000;
     
     // === NEW: Centralized event streams (share across subscribers) ===
     private destroy$ = new Subject<void>();
@@ -32,12 +35,14 @@ export class SocketService implements OnDestroy {
         private toasterService: ToastrService,
         private router: Router,
         private apiService: ApiService,
+        private electronService: ElectronService,
     ) {}
 
     ngOnDestroy() {
         this.destroy$.next();
         this.destroy$.complete();
         this.eventStreams.clear();
+        this.clearObConnectionTimeout();
         if (this._socket) {
             this._socket.disconnect();
             this._socket = null;
@@ -103,19 +108,46 @@ export class SocketService implements OnDestroy {
 
     mainSocketConnect() {
         this.mainSocketWaiting = true;
-        this._socket = io(this.mainSocketUrl, { reconnection: false });
+        const authToken = this.electronService.getLocalApiToken();
+        const query = authToken ? { tl_auth: authToken } : undefined;
+        this._socket = io(this.mainSocketUrl, { reconnection: false, query });
         this.handleMainSocketEvents();
         this.handleMainOBSocketEvents();
         return this._socket;
     }
 
-   obSocketConnect(url: string) {
+    obSocketConnect(url: string) {
+        const normalizedUrl = (url || '').trim();
+        if (!normalizedUrl) {
+            this._obSocketConnected = false;
+            this.obServerWaiting = false;
+            this.toasterService.error('Orderbook server URL is required', 'Error');
+            return;
+        }
+
         this.obServerWaiting = true;
-        this.socket.emit('ob-sockets-connect', url);
+        this.clearObConnectionTimeout();
+        this.obConnectionTimeout = setTimeout(() => {
+            if (!this.obServerWaiting) return;
+            this.obServerWaiting = false;
+            this._obSocketConnected = false;
+            this.toasterService.error('Orderbook connection timed out', 'Error');
+        }, this.obConnectionTimeoutMs);
+
+        this.socket.emit('ob-sockets-connect', normalizedUrl);
     }
 
     obSocketDisconnect() {
+        this.clearObConnectionTimeout();
+        this.obServerWaiting = false;
         this.socket.emit('ob-sockets-disconnect');
+    }
+
+    private clearObConnectionTimeout() {
+        if (this.obConnectionTimeout) {
+            clearTimeout(this.obConnectionTimeout);
+            this.obConnectionTimeout = null;
+        }
     }
 
     private handleMainSocketEvents() {
@@ -126,12 +158,14 @@ export class SocketService implements OnDestroy {
 
     private handleMainOBSocketEvents() {
         this.socket.on(`${obEventPrefix}::connect`, (data) => {
+            this.clearObConnectionTimeout();
             this._obSocketConnected = true;
             this.obServerWaiting = false;
             this.socketId = data.id
         });
 
         this.socket.on(`${obEventPrefix}::connected`, (data) => {
+            this.clearObConnectionTimeout();
             this._obSocketConnected = true;
             this.obServerWaiting = false;
             console.log('connected fired 0'+JSON.stringify(data))
@@ -139,12 +173,15 @@ export class SocketService implements OnDestroy {
         });
 
         this.socket.on(`${obEventPrefix}::connect_error`, () => {
+            this.clearObConnectionTimeout();
             this._obSocketConnected = false;
             this.obServerWaiting = false;
             this.toasterService.error('Orderbook Connection Error, Host is probably down', 'Error');
         });
 
         this.socket.on(`${obEventPrefix}::disconnect`, () => {
+            if (!this._obSocketConnected && !this.obServerWaiting) return;
+            this.clearObConnectionTimeout();
             this._obSocketConnected = false;
             this.obServerWaiting = false;
             this.router.navigateByUrl('/');

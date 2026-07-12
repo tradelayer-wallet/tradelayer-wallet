@@ -7,6 +7,11 @@
     ],
  "extraResources": [
     {
+      "from": "assets",
+      "to": "assets",
+      "filter": ["**/*"]
+    },
+    {
       "from": "trading-algos",
       "to": "trading-algos",
       "filter": ["**/*"]

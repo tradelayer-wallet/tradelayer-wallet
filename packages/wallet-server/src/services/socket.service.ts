@@ -18,6 +18,23 @@ export class SocketService {
     init(app: FastifyInstance) {
         const socketOptions = { cors: { origin: "*", methods: ["GET", "POST"] } };
         this.io = new Server(app.server, socketOptions);
+        this.io.use((socket, next) => {
+            const expectedToken = String(process.env.TL_LOCAL_API_TOKEN || '').trim();
+            if (!expectedToken) {
+                next();
+                return;
+            }
+
+            const authToken = String(socket.handshake.auth?.token || '').trim();
+            const queryToken = String(socket.handshake.query?.tl_auth || '').trim();
+            const providedToken = authToken || queryToken;
+            if (providedToken === expectedToken) {
+                next();
+                return;
+            }
+
+            next(new Error('Unauthorized local socket connection'));
+        });
         this.handleEvents()
     }
 

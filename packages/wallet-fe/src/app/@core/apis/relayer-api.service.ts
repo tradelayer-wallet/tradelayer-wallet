@@ -38,6 +38,17 @@ export class TradeLayerApiService {
         }>(this.apiURL + '/rpc/' + method, body);
     }
 
+    syncWatchOnly(accounts: Array<{ address: string; pubkey: string }>): Observable<{
+        data?: any;
+        error?: any;
+    }> {
+        if (!this.apiURL) throw new Error("Api Url not found");
+        return this.http.post<{
+            data?: any;
+            error?: any;
+        }>(this.apiURL + '/address/sync-watchonly', { accounts });
+    }
+
     validateAddress(address: string): Observable<{
         data?: any;
         error?: any;

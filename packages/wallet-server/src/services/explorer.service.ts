@@ -4,6 +4,23 @@ import path from 'path';
 import crypto from 'crypto';
 
 type AnyRecord = Record<string, any>;
+type BitvmContractRow = {
+  contractId: string;
+  templateId: string;
+  chain: string;
+  fundingTxid: string;
+  depositSats: string;
+  withdrawnSats: string;
+  rolloverSats: string;
+  settlementKind: string;
+  route: string;
+  maturityHeight: string;
+  rollLocktime: string;
+  challengeStart: string;
+  challengeEnd: string;
+  expiryHeight: string;
+  blocksToRoll: string;
+};
 
 const TL_BASE_URL = process.env.TL_LISTENER_BASE_URL || 'http://localhost:3000/';
 const BITVM_ARTIFACT_ROOT = process.env.BITVM_ARTIFACT_ROOT
@@ -30,12 +47,36 @@ function sha256Hex(buffer: Buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
+function valueOr(...values: any[]): string {
+  const found = values.find((value) => value !== null && value !== undefined && value !== '');
+  return String(found ?? 'n/a');
+}
+
+function sumFundingInputs(inputs: any[]): string {
+  const total = safeArray<AnyRecord>(inputs).reduce((sum, input) => sum + Number(input?.amountSats || 0), 0);
+  return Number.isFinite(total) ? String(total) : '0';
+}
+
+function sumField(rows: BitvmContractRow[], field: 'depositSats' | 'withdrawnSats'): string {
+  const total = rows.reduce((sum, row) => sum + Number(row[field] || 0), 0);
+  return Number.isFinite(total) ? String(total) : '0';
+}
+
+function settlementKindFromArtifact(artifact: AnyRecord | null): string {
+  return String(
+    artifact?.settlementBreakdown?.settlementKind
+    || artifact?.deltas?.settlementBreakdown?.settlementKind
+    || artifact?.redemption?.settlementKind
+    || 'unknown'
+  );
+}
+
 function bufferFromHex(value: string) {
   return Buffer.from(String(value || ''), 'hex');
 }
 
 function readU64LE(buffer: Buffer, offset: number) {
-  return buffer.readBigUInt64LE(offset).toString();
+  return (buffer as any).readBigUInt64LE(offset).toString();
 }
 
 function readU16LE(buffer: Buffer, offset: number) {
@@ -96,7 +137,7 @@ function summarizeFundingOutputs(chainTx: AnyRecord | null) {
 
 function decodeReceiptBalanceClaimCompact(hex: string) {
   const buffer = bufferFromHex(hex);
-  if (buffer.length < 4 || buffer.subarray(0, 4).toString('ascii') !== 'rbc1') {
+  if (buffer.length < 4 || (buffer.subarray(0, 4) as any).toString('ascii') !== 'rbc1') {
     return null;
   }
 
@@ -108,14 +149,14 @@ function decodeReceiptBalanceClaimCompact(hex: string) {
   const balanceSats = readU64LE(buffer, offset); offset += 8;
   const index = readU16LE(buffer, offset); offset += 2;
   const accountIdLength = buffer.readUInt8(offset); offset += 1;
-  const accountId = buffer.subarray(offset, offset + accountIdLength).toString('utf8'); offset += accountIdLength;
-  const leafHash = buffer.subarray(offset, offset + 32).toString('hex'); offset += 32;
-  const balanceRoot = buffer.subarray(offset, offset + 32).toString('hex'); offset += 32;
-  const snapshotHash = buffer.subarray(offset, offset + 32).toString('hex'); offset += 32;
+  const accountId = (buffer.subarray(offset, offset + accountIdLength) as any).toString('utf8'); offset += accountIdLength;
+  const leafHash = (buffer.subarray(offset, offset + 32) as any).toString('hex'); offset += 32;
+  const balanceRoot = (buffer.subarray(offset, offset + 32) as any).toString('hex'); offset += 32;
+  const snapshotHash = (buffer.subarray(offset, offset + 32) as any).toString('hex'); offset += 32;
   const siblingCount = buffer.readUInt8(offset); offset += 1;
   const siblings: string[] = [];
   for (let i = 0; i < siblingCount; i++) {
-    siblings.push(buffer.subarray(offset, offset + 32).toString('hex'));
+    siblings.push((buffer.subarray(offset, offset + 32) as any).toString('hex'));
     offset += 32;
   }
 
@@ -240,6 +281,66 @@ export class ExplorerService {
         challengeWitness,
         expiryRedemption
       }
+    };
+  }
+
+  async getBitvmContractLedger(rpcClient?: any) {
+    const [draft, finalized, rollForward, challengeBundle, expiryRedemption, report, chainInfo] = await Promise.all([
+      this.readArtifact('m1_dlc_draft_latest.json'),
+      this.readArtifact('m1_funding_finalized_latest.json'),
+      this.readArtifact('m1_roll_forward_latest.json'),
+      this.readArtifact('m1_challenge_bundle_latest.json'),
+      this.readArtifact('m1_expiry_redemption_latest.json'),
+      this.getBitvmReport(),
+      rpcClient?.call
+        ? rpcClient.call('getblockchaininfo').then((res: any) => res?.data || res).catch(() => null)
+        : Promise.resolve(null)
+    ]);
+
+    const contract = draft?.contract || {};
+    const settlement = expiryRedemption?.settlementBreakdown || expiryRedemption?.deltas?.settlementBreakdown || {};
+    const witness = expiryRedemption?.witnessBlob?.committed || {};
+    const currentEpoch = rollForward?.currentEpoch || {};
+    const fundingInputs = safeArray<AnyRecord>(contract.fundingInputs);
+    const currentBlock = Number(chainInfo?.blocks || expiryRedemption?.chain?.height || 0);
+    const rollLocktime = valueOr(currentEpoch.rollLocktime, contract.refundLocktime, challengeBundle?.selectedPath?.locktime);
+    const blocksToRollNum = Number(rollLocktime || 0) - currentBlock;
+
+    const row: BitvmContractRow = {
+      contractId: valueOr(contract.eventId, currentEpoch.contractId, report?.contractId, 'current-bitvm-contract'),
+      templateId: valueOr(draft?.template?.templateId, report?.template?.templateId, 'n/a'),
+      chain: valueOr(draft?.chain?.chainId, finalized?.chain?.chainId, chainInfo?.chain, 'unknown'),
+      fundingTxid: valueOr(finalized?.txid, currentEpoch.fundingTxid, expiryRedemption?.deposit?.txid, 'n/a'),
+      depositSats: valueOr(expiryRedemption?.deposit?.amountSats, contract.collateralSats, sumFundingInputs(fundingInputs), '0'),
+      withdrawnSats: valueOr(expiryRedemption?.redemption?.amountSats, settlement.redeemedSats, '0'),
+      rolloverSats: valueOr(currentEpoch.rolloverCollateralSats, settlement.rolloverCollateralSats, '0'),
+      settlementKind: valueOr(expiryRedemption?.redemption?.settlementKind, settlement.settlementKind, 'pending'),
+      route: valueOr(settlement.route, currentEpoch.defaultAction, challengeBundle?.selectedPathId, 'n/a'),
+      maturityHeight: valueOr(contract.maturityHeight, expiryRedemption?.deltas?.maturityHeight, 'n/a'),
+      rollLocktime: valueOr(rollLocktime, 'n/a'),
+      challengeStart: valueOr(witness.challengeWindowStart, expiryRedemption?.deltas?.maturityHeight, 'n/a'),
+      challengeEnd: valueOr(witness.challengeWindowEnd, 'n/a'),
+      expiryHeight: valueOr(expiryRedemption?.deltas?.expiryHeight, expiryRedemption?.chain?.height, 'n/a'),
+      blocksToRoll: Number.isFinite(blocksToRollNum) ? String(Math.max(0, blocksToRollNum)) : 'n/a'
+    };
+
+    const hasContractSignal = row.contractId !== 'current-bitvm-contract'
+      || row.fundingTxid !== 'n/a'
+      || Number(row.depositSats || 0) > 0
+      || Number(row.withdrawnSats || 0) > 0;
+    const contracts = hasContractSignal ? [row] : [];
+
+    return {
+      generatedAt: Date.now(),
+      artifactRoot: BITVM_ARTIFACT_ROOT,
+      currentBlock: Number.isFinite(currentBlock) && currentBlock > 0 ? currentBlock : null,
+      chain: valueOr(chainInfo?.chain, draft?.chain?.chainId, finalized?.chain?.chainId, 'unknown'),
+      settlementKind: settlementKindFromArtifact(expiryRedemption),
+      depositedContractCount: contracts.filter((contractRow) => Number(contractRow.depositSats || 0) > 0).length,
+      withdrawnContractCount: contracts.filter((contractRow) => Number(contractRow.withdrawnSats || 0) > 0).length,
+      totalDepositedSats: sumField(contracts, 'depositSats'),
+      totalWithdrawnSats: sumField(contracts, 'withdrawnSats'),
+      contracts
     };
   }
 

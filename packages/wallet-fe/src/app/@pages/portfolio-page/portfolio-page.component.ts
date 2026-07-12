@@ -11,6 +11,9 @@ import { TxsService } from 'src/app/@core/services/txs.service';
 import { ENCODER } from 'src/app/utils/payloads/encoder';
 import { HttpClient } from '@angular/common/http';
 import { MatDialog } from '@angular/material/dialog';
+import { WithdrawDialog } from 'src/app/@shared/dialogs/withdraw/withdraw.component';
+import { SynthMintRedeemDialogComponent } from 'src/app/@shared/dialogs/synth/synth-mint-redeem-dialog.component';
+import { Subscription } from 'rxjs';
 import {
   M1_RECEIPT_PROPERTY_ID,
   M1_RECEIPT_TICKER,
@@ -48,6 +51,11 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
   private proceduralReceiptRefreshId: ReturnType<typeof setInterval> | null = null;
   private attestingAddresses = new Set<string>();
   private attestationStatusByAddress = new Map<string, string | boolean>();
+  private coinBalanceCacheKey = '';
+  private coinBalanceCache: any[] = [];
+  private tokensBalanceCacheKey = '';
+  private tokensBalanceCache: any[] = [];
+  private walletAddressesSub: Subscription | null = null;
 
   constructor(
     private apiService: ApiService,
@@ -69,7 +77,18 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
   }
 
   get coinBalance() {
-    return this.authService.walletAddresses
+    const addresses = this.authService.walletAddresses || [];
+    const cacheKey = [
+      addresses.join('|'),
+      this.balanceService.balancesVersion,
+      this.hideZeroBalances ? '1' : '0',
+    ].join('::');
+
+    if (this.coinBalanceCacheKey === cacheKey) {
+      return this.coinBalanceCache;
+    }
+
+    const nextRows = addresses
       .map((address, index) => {
         const coinBalance = this.balanceService.getCoinBalancesByAddress(address) || {};
         const hasNativeBalance = this.hasNativeBalance(coinBalance);
@@ -83,32 +102,28 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
         };
       })
       .filter((row) => !this.hideZeroBalances || row.hasAnyBalance)
-      .sort((a, b) => {
-        const aConfirmed = Number(a.confirmed || 0);
-        const bConfirmed = Number(b.confirmed || 0);
-        const aUnconfirmed = Number(a.unconfirmed || 0);
-        const bUnconfirmed = Number(b.unconfirmed || 0);
-
-        if (a.hasAnyBalance !== b.hasAnyBalance) {
-          return a.hasAnyBalance ? -1 : 1;
-        }
-
-        if (aConfirmed !== bConfirmed) {
-          return bConfirmed - aConfirmed;
-        }
-
-        if (aUnconfirmed !== bUnconfirmed) {
-          return bUnconfirmed - aUnconfirmed;
-        }
-
-        return a.index - b.index;
-      })
       .map(({ index, hasAnyBalance, ...balanceRow }) => balanceRow);
+
+    this.coinBalanceCacheKey = cacheKey;
+    this.coinBalanceCache = nextRows;
+    return this.coinBalanceCache;
   }
 
   get tokensBalances() {
+    const cacheKey = [
+      this.selectedAddress || '',
+      this.balanceService.balancesVersion,
+      this.receiptPropertyId ?? 'null',
+      this.isLtctest ? '1' : '0',
+      this.proceduralReceipts.length,
+    ].join('::');
+
+    if (this.tokensBalanceCacheKey === cacheKey) {
+      return this.tokensBalanceCache;
+    }
+
     const balances = this.balanceService.getTokensBalancesByAddress(this.selectedAddress);
-    return balances.map((row: any) => {
+    const nextRows = balances.map((row: any) => {
       const procedural = this.getProceduralReceiptForRow(row);
       return {
         ...row,
@@ -119,10 +134,36 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
         contractId: procedural?.contractId || '',
       };
     });
+
+    this.tokensBalanceCacheKey = cacheKey;
+    this.tokensBalanceCache = nextRows;
+    return this.tokensBalanceCache;
+  }
+
+  get selectedCoinBalance() {
+    return this.selectedAddress
+      ? this.balanceService.getCoinBalancesByAddress(this.selectedAddress)
+      : { confirmed: 0, unconfirmed: 0, utxos: [] as any[] };
+  }
+
+  get selectedUtxos() {
+    return this.selectedCoinBalance.utxos || [];
+  }
+
+  formatBalance(value: any): string {
+    return Number(value || 0).toFixed(6);
   }
 
   get isAbleToRpc() {
     return this.rpcService.isAbleToRpc;
+  }
+
+  get walletBootstrapStatus(): string {
+    if (!this.isAbleToRpc) return 'Waiting for wallet RPC...';
+    if (this.authService.isWalletBootstrapInProgress) return 'Loading wallet addresses...';
+    if (!this.authService.walletLoaded) return 'Loading wallet...';
+    if (!this.walletAddresses.length) return 'Wallet loaded, waiting for addresses...';
+    return '';
   }
 
   get isSynced() {
@@ -177,21 +218,41 @@ export class PortfolioPageComponent implements OnInit, OnDestroy {
   }
 
 ngOnInit(): void {
-    this.authService.getAddressesFromWallet().then(() => {
-        this.walletAddresses = this.authService.walletAddresses; // Ensure this happens after addresses are fetched
-        this.updateCachedAttestationStatuses();
-        this.attestationService.refreshAttestations(this.walletAddresses).finally(() => {
+    console.log('[portfolio] init');
+    this.walletAddresses = (this.authService.walletAddresses?.length
+      ? this.authService.walletAddresses
+      : this.authService.derivedWalletAddresses) || [];
+    this.coinBalanceCacheKey = '';
+    this.tokensBalanceCacheKey = '';
+    this.updateCachedAttestationStatuses();
+    this.walletAddressesSub = this.authService.updateAddressesSubs$.subscribe((addresses) => {
+      console.log('[portfolio] wallet addresses updated', addresses);
+      this.walletAddresses = addresses || [];
+      this.coinBalanceCacheKey = '';
+      this.tokensBalanceCacheKey = '';
+      this.updateCachedAttestationStatuses();
+      this.cdr.detectChanges();
+    });
+    void this.authService.getAddressesFromWallet().catch(error => {
+        console.error('Error fetching wallet addresses:', error);
+    });
+    setTimeout(() => {
+      void this.loadReceiptPropertyId();
+      if (this.walletAddresses.length) {
+        void this.attestationService.refreshAttestations(this.walletAddresses).finally(() => {
           this.updateCachedAttestationStatuses();
           this.cdr.detectChanges();
         });
-        this.loadReceiptPropertyId();
-    }).catch(error => {
-        console.error('Error fetching wallet addresses:', error);
-    });
+      }
+    }, 0);
 }
 
 
   ngOnDestroy(): void {
+    if (this.walletAddressesSub) {
+      this.walletAddressesSub.unsubscribe();
+      this.walletAddressesSub = null;
+    }
     if (this.proceduralReceiptRefreshId) {
       clearInterval(this.proceduralReceiptRefreshId);
       this.proceduralReceiptRefreshId = null;
@@ -245,10 +306,10 @@ ngOnInit(): void {
   getReservedOrVestingValue(element: any): string {
     if (element.propertyid === 2 || element.propertyid === 3) {
       // Display the vesting value
-      return element.vesting !== undefined ? element.vesting.toFixed(6) : 'N/A';
+      return Number(element?.vesting || 0).toFixed(6);
     } else {
       // Display the reserved value
-      return element.reserved !== undefined ? element.reserved.toFixed(6) : 'N/A';
+      return Number(element?.reserved || 0).toFixed(6);
     }
   }
 
@@ -288,17 +349,18 @@ ngOnInit(): void {
   openDialog(dialog: string, address?: any, _propId?: number | string, _amount?: number, extraData: any = {}) {
     const data = { address, propId: _propId, amount: _amount, available: _amount, ...extraData };
 
-    let TYPE = null;
     if (dialog === 'deposit') {
-      TYPE = DialogTypes.DEPOSIT;
+      console.log('[portfolio] open deposit dialog', data);
+      return this.dialogService.openDialog(DialogTypes.DEPOSIT, { disableClose: false, data });
     } else if (dialog === 'withdraw') {
-      TYPE = DialogTypes.WITHDRAW;
+      console.log('[portfolio] open withdraw dialog', data);
+      return this.matDialog.open(WithdrawDialog, { disableClose: false, data });
     } else if (dialog === 'synth') {
-      TYPE = DialogTypes.SYNTH;
+      console.log('[portfolio] open synth dialog', data);
+      return this.matDialog.open(SynthMintRedeemDialogComponent, { disableClose: false, data });
     }
-
-    if (!TYPE || !data) return;
-    this.dialogService.openDialog(TYPE, { disableClose: false, data });
+    console.warn('[portfolio] unknown dialog requested', dialog, data);
+    return null;
   }
 
   openTokenizeDialog(address: string, amount?: number) {
@@ -339,23 +401,28 @@ ngOnInit(): void {
 
       if (match?.id != null) {
         this.receiptPropertyId = Number(match.id);
+        this.tokensBalanceCacheKey = '';
         return;
       }
 
       if (Number.isFinite(M1_RECEIPT_PROPERTY_ID) && M1_RECEIPT_PROPERTY_ID > 0) {
         this.receiptPropertyId = Number(M1_RECEIPT_PROPERTY_ID);
+        this.tokensBalanceCacheKey = '';
         return;
       }
 
       this.receiptPropertyId = null;
+      this.tokensBalanceCacheKey = '';
     } catch (error) {
       console.error('Error resolving procedural receipt property id:', error);
       if (Number.isFinite(M1_RECEIPT_PROPERTY_ID) && M1_RECEIPT_PROPERTY_ID > 0) {
         this.receiptPropertyId = Number(M1_RECEIPT_PROPERTY_ID);
+        this.tokensBalanceCacheKey = '';
         return;
       }
 
       this.receiptPropertyId = null;
+      this.tokensBalanceCacheKey = '';
     }
   }
 
@@ -383,9 +450,11 @@ ngOnInit(): void {
         remainingBlocks: receipt?.remainingBlocks != null ? Number(receipt.remainingBlocks) : null,
         canRedeem: Boolean(receipt?.canRedeem),
       }));
+      this.tokensBalanceCacheKey = '';
     } catch (error) {
       console.error('Error fetching procedural receipts:', error);
       this.proceduralReceipts = [];
+      this.tokensBalanceCacheKey = '';
     }
   }
 
@@ -393,7 +462,7 @@ ngOnInit(): void {
   async newAddress() {
       try {
           // Call the RPC service to generate a new address
-          const newAddressRes = await this.rpcService.rpc('getnewaddress', [this.authService.walletLabel]);
+          const newAddressRes = await this.rpcService.rpc('getnewaddress', [this.authService.walletLabel], this.authService.walletLabel);
 
           // Check for errors in the RPC response
           if (newAddressRes.error) {
@@ -412,6 +481,7 @@ ngOnInit(): void {
 
           // Add the new address to the AuthService wallet
           this.authService.walletAddresses = [...this.authService.walletAddresses, newAddress];
+          this.coinBalanceCacheKey = '';
 
           // Notify the user
           this.toastrService.success('New address created successfully', 'Success');
@@ -425,7 +495,9 @@ ngOnInit(): void {
 
 
   async showTokens(address: string) {
+    console.log('[portfolio] showTokens', address);
     this.selectedAddress = address;
+    this.cdr.detectChanges();
     await this.loadProceduralReceipts(address);
     if (this.proceduralReceiptRefreshId) {
       clearInterval(this.proceduralReceiptRefreshId);

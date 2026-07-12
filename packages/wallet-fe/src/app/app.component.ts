@@ -17,6 +17,7 @@ import { WindowsService } from './@core/services/windows.service';
 })
 export class AppComponent {
   private isOnline: boolean = this.connectionService.isOnline;
+  private deferredInitTimer: ReturnType<typeof setTimeout> | null = null;
   constructor(
     private rpcService: RpcService,
     private connectionService: ConnectionService,
@@ -67,10 +68,31 @@ export class AppComponent {
     console.log('initializing services ')
     this.connectionService.onInit();
     this.rpcService.onInit();
-    this.balanceService.onInit();
-    this.attestationService.onInit();
-    this.swapService.onInit();
-    this.nodeRewardService.onInit();
+    this.deferNonEssentialInits();
+  }
+
+  private deferNonEssentialInits() {
+    const bootDeferred = () => {
+      try {
+        console.log('initializing deferred services');
+        this.balanceService.onInit();
+        this.attestationService.onInit();
+        this.swapService.onInit();
+        this.nodeRewardService.onInit();
+      } finally {
+        if (this.deferredInitTimer) {
+          clearTimeout(this.deferredInitTimer);
+          this.deferredInitTimer = null;
+        }
+      }
+    };
+
+    if (typeof (window as any).requestIdleCallback === 'function') {
+      (window as any).requestIdleCallback(() => bootDeferred(), { timeout: 5000 });
+      return;
+    }
+
+    this.deferredInitTimer = setTimeout(() => bootDeferred(), 2500);
   }
 
   handleConnections() {

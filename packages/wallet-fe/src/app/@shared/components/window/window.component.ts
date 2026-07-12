@@ -20,7 +20,7 @@ export class WindowComponent {
   }
 
   get closable() {
-    return this.title !== 'Synchronization' && this.title !== 'Servers';
+    return this.title !== 'Synchronization' && this.title !== 'WebRTC' && this.title !== 'Servers';
   }
 
   minimize() {

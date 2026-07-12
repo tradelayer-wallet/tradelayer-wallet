@@ -24,6 +24,12 @@ export class FuturesPositionsService {
 
     private subs$: Subscription | null = null;
     private mempoolSubs$: Subscription | null = null;
+    private pendingPositionUpdateId: ReturnType<typeof setTimeout> | null = null;
+    private pendingMempoolScanId: ReturnType<typeof setTimeout> | null = null;
+    private positionUpdateInProgress = false;
+    private mempoolScanInProgress = false;
+    private readonly positionPollMs = 10000;
+    private readonly mempoolPollMs = 5000;
 
     // Pending (mempool) + realtime (mark)
     private _pendingPositionDelta: number = 0;
@@ -104,16 +110,36 @@ export class FuturesPositionsService {
 
         this.subs$ = this.rpcService.blockSubs$.subscribe(() => {
             if (!this.activeFutureAddress || !this.selectedContractId) return;
-            this.updatePositions();
+            this.scheduleUpdatePositions();
         });
 
         if (!this.mempoolSubs$) {
-            this.mempoolSubs$ = interval(750).subscribe(() => {
+            this.mempoolSubs$ = interval(this.mempoolPollMs).subscribe(() => {
                 if (!this.activeFutureAddress || !this.selectedContractId) return;
-                this.scanMempoolPending();
+                this.scheduleMempoolScan();
                 this.recomputeRealtimeUpnlDelta();
             });
         }
+    }
+
+    private scheduleUpdatePositions() {
+        if (this.pendingPositionUpdateId) {
+            clearTimeout(this.pendingPositionUpdateId);
+        }
+        this.pendingPositionUpdateId = setTimeout(() => {
+            this.pendingPositionUpdateId = null;
+            this.updatePositions();
+        }, this.positionPollMs);
+    }
+
+    private scheduleMempoolScan() {
+        if (this.pendingMempoolScanId) {
+            clearTimeout(this.pendingMempoolScanId);
+        }
+        this.pendingMempoolScanId = setTimeout(() => {
+            this.pendingMempoolScanId = null;
+            this.scanMempoolPending();
+        }, this.mempoolPollMs);
     }
 
     // ---------------------------------------------------------------------
@@ -121,6 +147,8 @@ export class FuturesPositionsService {
     // ---------------------------------------------------------------------
     updatePositions() {
         if (!this.activeFutureAddress || !this.selectedContractId) return;
+        if (this.positionUpdateInProgress) return;
+        this.positionUpdateInProgress = true;
 
         const params = {
             address: this.activeFutureAddress,
@@ -150,9 +178,11 @@ export class FuturesPositionsService {
                 this.openedPosition = null;
                 this.clearPending();
             }
+            this.positionUpdateInProgress = false;
         }, err => {
             console.error('❌ RPC error in updatePositions:', err);
             this.toastrService.error('Network error fetching position', 'Error');
+            this.positionUpdateInProgress = false;
         });
     }
 
@@ -168,6 +198,8 @@ export class FuturesPositionsService {
             this.clearPending();
             return;
         }
+        if (this.mempoolScanInProgress) return;
+        this.mempoolScanInProgress = true;
 
         const cid = Number(this.selectedContractId);
         console.log('[MP] scan start', { cid, address: this.activeFutureAddress });
@@ -179,6 +211,7 @@ export class FuturesPositionsService {
 
                 if (!txids.length) {
                     this.clearPending();
+                    this.mempoolScanInProgress = false;
                     return;
                 }
 
@@ -272,6 +305,7 @@ export class FuturesPositionsService {
                                 });
                                 this._pendingPositionDelta = count;
                                 this.pendingPositionDeltaByContract[cid] = count;
+                                this.mempoolScanInProgress = false;
                             }
                         })
                         .catch(err => {
@@ -284,6 +318,7 @@ export class FuturesPositionsService {
                             if (checked >= limit) {
                                 this._pendingPositionDelta = count;
                                 this.pendingPositionDeltaByContract[cid] = count;
+                                this.mempoolScanInProgress = false;
                             }
                         });
                 }
@@ -291,6 +326,7 @@ export class FuturesPositionsService {
             .catch(err => {
                 console.error('[MP] getrawmempool failed', err);
                 this.clearPending();
+                this.mempoolScanInProgress = false;
             });
     }
 

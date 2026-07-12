@@ -13,14 +13,14 @@ import { environment } from 'src/environments/environment';
   styleUrls: ['./servers.component.scss']
 })
 export class ServersDialog implements OnInit, OnDestroy {
-  public orderbookServers: string[] = [environment.ENDPOINTS?.[this.network]?.orderbookApiUrl, '@custom'];
-  public apiServers: string[] = [environment.ENDPOINTS?.[this.network]?.relayerUrl, '@custom'];
+  public orderbookServers: string[] = [];
+  public apiServers: string[] = [];
 
   public customApiUrl: string = '';
   public customOrderbookUrl: string = '';
 
-  selectedOrderbookServer: string = this.orderbookServers[0];
-  selectedApiServer: string = this.apiServers[0];
+  selectedOrderbookServer: string = '';
+  selectedApiServer: string = '';
 
   constructor(
     private socketService: SocketService,
@@ -44,8 +44,10 @@ export class ServersDialog implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.syncServerDefaults();
+
     this.socketService.socket.on(`${obEventPrefix}::connect`, () => {
-      const orderbookUrl = (this.selectedOrderbookServer === "@custom" ? this.customOrderbookUrl : this.selectedOrderbookServer) || environment.ENDPOINTS?.[this.network]?.orderbookApiUrl;
+      const orderbookUrl = this.getSelectedOrderbookUrl();
       this.apiService.orderbookUrl = orderbookUrl;
     });
 
@@ -54,7 +56,42 @@ export class ServersDialog implements OnInit, OnDestroy {
     });
   }
 
-  ngOnDestroy() { }
+  ngOnDestroy() {
+  }
+
+  private getNetworkDefaults() {
+    const current = environment.ENDPOINTS?.[this.network];
+    const fallback = current || environment.ENDPOINTS?.LTC || environment.ENDPOINTS?.LTCTEST || environment.ENDPOINTS?.BTC;
+
+    return {
+      orderbookUrl: current?.orderbookApiUrl || fallback?.orderbookApiUrl || '',
+      apiUrl: current?.relayerUrl || fallback?.relayerUrl || '',
+    };
+  }
+
+  private syncServerDefaults() {
+    const defaults = this.getNetworkDefaults();
+    this.orderbookServers = [defaults.orderbookUrl, '@custom'];
+    this.apiServers = [defaults.apiUrl, '@custom'];
+
+    if (!this.selectedOrderbookServer || (this.selectedOrderbookServer !== '@custom' && !this.orderbookServers.includes(this.selectedOrderbookServer))) {
+      this.selectedOrderbookServer = defaults.orderbookUrl;
+    }
+
+    if (!this.selectedApiServer || (this.selectedApiServer !== '@custom' && !this.apiServers.includes(this.selectedApiServer))) {
+      this.selectedApiServer = defaults.apiUrl;
+    }
+  }
+
+  private getSelectedOrderbookUrl() {
+    const url = this.selectedOrderbookServer === '@custom' ? this.customOrderbookUrl : this.selectedOrderbookServer;
+    return (url || '').trim();
+  }
+
+  private getSelectedApiUrl() {
+    const url = this.selectedApiServer === '@custom' ? this.customApiUrl : this.selectedApiServer;
+    return (url || '').trim();
+  }
 
   selectOrderbookServer(url: string) {
     if (this.selectedOrderbookServer === url) return;
@@ -67,11 +104,13 @@ export class ServersDialog implements OnInit, OnDestroy {
   }
 
   connectOrderbookServer() {
-    const orderbookUrl = this.selectedOrderbookServer === "@custom"
-      ? this.customOrderbookUrl
-      : this.selectedOrderbookServer;
-      console.log('setting url '+this.selectedOrderbookServer+' '+orderbookUrl)
-      this.apiService.orderbookUrl = orderbookUrl;
+    const orderbookUrl = this.getSelectedOrderbookUrl();
+    if (!orderbookUrl) {
+      this.toastrService.error('Orderbook server URL is required', 'Connection Error');
+      return;
+    }
+
+    this.apiService.orderbookUrl = orderbookUrl;
     this.socketService.obSocketConnect(orderbookUrl);
   }
   
@@ -91,10 +130,13 @@ export class ServersDialog implements OnInit, OnDestroy {
 
   async connectApiServer() {
     try {
+      const apiUrl = this.getSelectedApiUrl();
+      if (!apiUrl) {
+        this.toastrService.error('API server URL is required', 'Connection Error');
+        return;
+      }
+
       this.loadingService.isLoading = true;
-      const apiUrl = this.selectedApiServer === "@custom"
-        ? this.customApiUrl
-        : this.selectedApiServer;
       this.apiService.apiUrl = apiUrl;
       await this.rpcService.checkNetworkInfo();
       this.loadingService.isLoading = false;

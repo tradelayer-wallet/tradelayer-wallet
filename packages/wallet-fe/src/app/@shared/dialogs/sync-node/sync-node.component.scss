@@ -41,6 +41,14 @@
                 text-align: center;
                 margin: 0.5rem 0;
             }
+            .subtext {
+                text-align: center;
+                margin-top: -0.1rem;
+                font-size: 0.8rem;
+                color: rgba(0, 0, 0, 0.62);
+                max-width: 100%;
+                overflow-wrap: anywhere;
+            }
             button {
                 margin-top: 1rem
             }

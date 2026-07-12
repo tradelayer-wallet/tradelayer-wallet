@@ -29,6 +29,8 @@ mat-card {
 
             .title-text {
                 display: flex;
+                align-items: center;
+                gap: 0.5rem;
                 font-size: 0.75rem;
                 white-space: nowrap;
                 font-weight: 400;
@@ -36,11 +38,34 @@ mat-card {
                 .contract {
                     margin-left: 3px;
                 }
+
+                .mode-pill,
+                .symbol-pill {
+                    border: 1px solid rgba(255, 255, 255, 0.12);
+                    border-radius: 999px;
+                    color: rgba(255, 255, 255, 0.76);
+                    font-size: 0.62rem;
+                    line-height: 1;
+                    padding: 0.22rem 0.42rem;
+                }
+
+                .mode-pill {
+                    background: rgba(42, 194, 121, 0.12);
+                    border-color: rgba(42, 194, 121, 0.3);
+                    color: #8df0b4;
+                }
+
+                .mode-pill.fallback {
+                    background: rgba(255, 183, 77, 0.12);
+                    border-color: rgba(255, 183, 77, 0.3);
+                    color: #ffd18a;
+                }
             }
 
             .controls {
                 display: flex;
                 align-items: center;
+                gap: 0.5rem;
             }
 
             .icons {
@@ -98,5 +123,22 @@ mat-card {
     option {
         background-color: var(--darkBlue2);
         color: var(--white);
+    }
+}
+
+.fallback-button {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--white);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    font-size: 0.68rem;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+
+    &:hover {
+        border-color: var(--accentBlue);
+        background: rgba(255, 255, 255, 0.12);
     }
 }

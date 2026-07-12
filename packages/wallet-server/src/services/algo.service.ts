@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import * as fs from 'fs';
-import * as fsp from 'fs/promises';
+import { promises as fsp } from 'fs';
 import * as path from 'path';
 import type { ProcessDescription } from 'pm2';
 import { v4 as uuidv4 } from 'uuid';
@@ -440,6 +440,7 @@ import { spawn } from 'child_process';
       createdAt: Number(o?.createdAt ?? Date.now()),
       status: o?.status === 'running' ? ('running' as const) : ('stopped' as const),
       amount: typeof o?.amount === 'number' ? o.amount : undefined,
+      meta: (o?.meta && typeof o.meta === 'object') ? o.meta : undefined,
     })).filter(a => a.id && a.fileName && a.fullPath);
   }
 
@@ -912,18 +913,20 @@ import { spawn } from 'child_process';
    * - remove entries for files that no longer exist
    * - update size/createdAt if changed
    * - keep prior status/amount for existing entries
-   */export async function refreshIndex(): Promise<AlgoIndexItem[]> {
-    const entries: Dirent[] = await fsp.readdir(baseDir, { withFileTypes: true });
-    const jsFiles = entries.filter(e => e.isFile() && e.name.toLowerCase().endsWith('.js'));
+   */
+  export async function refreshIndex(): Promise<AlgoIndexItem[]> {
+    const entries = await fsp.readdir(baseDir);
+    const jsFiles = entries.filter((name) => String(name || '').toLowerCase().endsWith('.js'));
 
     const current = await readIndex();
     const byFile = new Map(current.map(i => [i.fileName, i]));
 
     const next: AlgoIndexItem[] = [];
-    for (const f of jsFiles) {
-      const fileName = f.name;
+    for (const fileName of jsFiles) {
       const fullPath = path.join(baseDir, fileName);
       const st = await fsp.stat(fullPath); // promises API
+      const source = await fsp.readFile(fullPath, 'utf8').catch(() => '');
+      const meta = parseAlgoMetaFromSource(source);
 
       const existing = byFile.get(fileName);
       const id = existing?.id ?? crypto.randomBytes(4).toString('hex');
@@ -939,6 +942,7 @@ import { spawn } from 'child_process';
         createdAt: (st as any).birthtimeMs ?? (st as any).ctimeMs ?? Date.now(),
         status,
         amount,
+        meta,
       });
 
       byFile.delete(fileName);
@@ -959,6 +963,7 @@ import { spawn } from 'child_process';
         createdAt: i.createdAt,
         status: i.status ?? 'stopped',
         amount: i.amount ?? 0,
+        meta: i.meta,
       };
     }
   }
@@ -975,6 +980,7 @@ import { spawn } from 'child_process';
         size: i.size,
         createdAt: i.createdAt,
         status: i.status || 'stopped',
+        meta: i.meta,
       }))
     );
   }

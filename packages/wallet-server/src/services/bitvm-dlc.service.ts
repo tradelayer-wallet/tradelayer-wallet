@@ -249,6 +249,7 @@ export async function buildBitvmDlcSetupBlueprint(
     'getnewaddress',
     [config.walletLabel || `bitvm-dlc-${Date.now()}`],
     false,
+    config.walletLabel || undefined,
   );
   const fundingKeyAddress = String(freshFundingAddressRes?.data || '');
   if (!fundingKeyAddress) {

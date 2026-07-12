@@ -2,30 +2,86 @@
   <div class="hero">
     <div>
       <div class="eyebrow">BitVM / DLC</div>
-      <h1>Settlement machine</h1>
-      <p>Inspect the contract graph, circuit size, oracle blobs, and live balances behind the BitVM flows.</p>
+      <h1>Contract ledger</h1>
+      <p>Track deposited contracts, withdrawals, and the rollover block schedule for each active BitVM DLC.</p>
     </div>
     <button (click)="refresh()">Refresh</button>
   </div>
 
   <div class="stats" *ngIf="overview">
     <div class="stat">
-      <div class="label">Chain</div>
-      <div class="value">{{ overview?.chainInfo?.chain || 'unknown' }}</div>
+      <div class="label">Contracts deposited to</div>
+      <div class="value">{{ depositedContractCount }}</div>
+      <div class="hint">{{ totalDepositedSats }} sats deposited</div>
     </div>
     <div class="stat">
-      <div class="label">Blocks</div>
-      <div class="value">{{ overview?.chainInfo?.blocks ?? 'n/a' }}</div>
+      <div class="label">Contracts withdrawn from</div>
+      <div class="value">{{ withdrawnContractCount }}</div>
+      <div class="hint">{{ totalWithdrawnSats }} sats withdrawn</div>
+    </div>
+    <div class="stat">
+      <div class="label">Current block</div>
+      <div class="value">{{ contractLedger?.currentBlock ?? overview?.chainInfo?.blocks ?? overview?.artifacts?.expiryRedemption?.chain?.height ?? 'n/a' }}</div>
+      <div class="hint">{{ contractLedger?.chain || overview?.chainInfo?.chain || overview?.artifacts?.draft?.chain?.chainId || 'unknown chain' }}</div>
     </div>
     <div class="stat">
       <div class="label">Referee gates</div>
       <div class="value">{{ overview?.bitvm?.circuits?.referee?.totalGates ?? 'n/a' }}</div>
-    </div>
-    <div class="stat">
-      <div class="label">Transition gates</div>
-      <div class="value">{{ overview?.bitvm?.circuits?.transition?.totalGates ?? 'n/a' }}</div>
+      <div class="hint">Transition {{ overview?.bitvm?.circuits?.transition?.totalGates ?? 'n/a' }}</div>
     </div>
   </div>
+
+  <section class="panel contract-panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Contracts and Rollover Blocks</h2>
+        <p>Deposit, withdrawal, and rollover state derived from the latest referee artifacts.</p>
+      </div>
+      <span class="status-chip" [ngClass]="settlementChipClass(overview?.artifacts?.expiryRedemption)">
+        {{ settlementKind(overview?.artifacts?.expiryRedemption) }}
+      </span>
+    </div>
+
+    <div class="empty-state" *ngIf="!contractRows.length">
+      No BitVM contract artifacts are loaded yet.
+    </div>
+
+    <div class="contract-table" *ngIf="contractRows.length">
+      <div class="contract-row contract-header">
+        <div>Contract</div>
+        <div>Deposited</div>
+        <div>Withdrawn</div>
+        <div>Rollover</div>
+        <div>Blocks</div>
+      </div>
+      <div class="contract-row" *ngFor="let row of contractRows">
+        <div>
+          <strong>{{ row.contractId }}</strong>
+          <span>{{ row.templateId }} / {{ row.chain }}</span>
+          <span class="mono">Funding {{ row.fundingTxid }}</span>
+        </div>
+        <div>
+          <strong>{{ row.depositSats }}</strong>
+          <span>sats</span>
+        </div>
+        <div>
+          <strong>{{ row.withdrawnSats }}</strong>
+          <span>sats</span>
+        </div>
+        <div>
+          <strong>{{ row.rolloverSats }}</strong>
+          <span>{{ row.route }} / {{ row.settlementKind }}</span>
+        </div>
+        <div class="block-stack">
+          <span>Maturity <strong>{{ row.maturityHeight }}</strong></span>
+          <span>Roll <strong>{{ row.rollLocktime }}</strong></span>
+          <span>Window <strong>{{ row.challengeStart }}</strong> to <strong>{{ row.challengeEnd }}</strong></span>
+          <span>Expiry <strong>{{ row.expiryHeight }}</strong></span>
+          <span>Blocks to roll <strong>{{ row.blocksToRoll }}</strong></span>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <div class="panels">
     <section class="panel">

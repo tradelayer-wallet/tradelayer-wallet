@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, NgZone, OnInit } from '@angular/core';
+import { Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { ConnectionService } from 'src/app/@core/services/connections.service';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
@@ -10,10 +10,12 @@ import { ElectronService } from 'src/app/@core/services/electron.service';
   styleUrls: ['./new-version.component.scss'],
 })
 
-export class NewVersionDialog implements OnInit {
+export class NewVersionDialog implements OnInit, OnDestroy {
   public message: string = 'Checking for updates...';
   public loading: boolean = true;
   public downloadButton: boolean = false;
+  private removeUpdateListener: (() => void) | null = null;
+
   constructor(
     public dialogRef: MatDialogRef<NewVersionDialog>,
     private electronService: ElectronService,
@@ -30,6 +32,11 @@ export class NewVersionDialog implements OnInit {
     
   }
 
+  ngOnDestroy() {
+    this.removeUpdateListener?.();
+    this.removeUpdateListener = null;
+  }
+
   private handleOffline() {
     this.message = 'No internet Connection';
     const sub = this.connectionService.isOnline$.subscribe(isOnline => {
@@ -40,11 +47,12 @@ export class NewVersionDialog implements OnInit {
   }
 
   private handleUpdateEvents() {
-    this.electronService.ipcRenderer.on('angular-electron-message', (channel: any, _data: any) => {
+    this.removeUpdateListener?.();
+    this.removeUpdateListener = this.electronService.onMessage((_data) => {
           if (_data.event !== 'update-app') return;
           this.loading = true;
           this.downloadButton = false;
-          const { state } = _data.data;
+          const { state } = (_data.data as any) || {};
           this.ngZone.run(() => {
             switch (state) {
               case 1:

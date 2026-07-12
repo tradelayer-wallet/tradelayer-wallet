@@ -37,6 +37,10 @@ export class ExplorerApiService {
     return this.http.get(this.apiUrl + 'bitvm/report');
   }
 
+  bitvmContracts(): Observable<any> {
+    return this.http.get(this.apiUrl + 'bitvm/contracts');
+  }
+
   artifacts(): Observable<any> {
     return this.http.get(this.apiUrl + 'artifacts');
   }

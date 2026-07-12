@@ -1,0 +1,79 @@
+<custom-window title='WebRTC'>
+  <div class="dialog-container">
+    <mat-dialog-content class="mat-typography">
+      <div class="content-container">
+        <div class="compact-card">
+          <div class="title-row">
+            <div class="status-dot" [ngClass]="providerCount > 0 ? 'status-on' : 'status-off'"></div>
+            <div class="title-copy">Collator Peer Status</div>
+          </div>
+
+          <div class="settings-panel">
+            <div class="panel-title">TradeLayer Collator</div>
+            <div class="help-text">Enter full WebSocket endpoints, including the <code>/ws</code> path.</div>
+            <textarea
+              class="input-url"
+              rows="4"
+              placeholder="ws://127.0.0.1:8787/ws&#10;wss://api.layerwallet.com/ws"
+              [(ngModel)]="collatorUrlsText"
+            ></textarea>
+            <div class="toggle-row">
+              <label class="toggle-label">
+                <input type="checkbox" [(ngModel)]="autoContribute">
+                Auto-contribute when synced
+              </label>
+              <button mat-stroked-button color="primary" type="button" (click)="saveCollatorConfig()">
+                Save
+              </button>
+            </div>
+          </div>
+
+          <div class="status-grid" *ngIf="collatorStatus">
+            <div class="row">
+              <span class="label">Packets received</span>
+              <span class="value">{{ packetsReceived }}</span>
+            </div>
+            <div class="row">
+              <span class="label">Packets replied</span>
+              <span class="value">{{ packetsReplied }}</span>
+            </div>
+            <div class="row">
+              <span class="label">Connected peers</span>
+              <span class="value">{{ peerCount }}</span>
+            </div>
+            <div class="row">
+              <span class="label">Advertised providers</span>
+              <span class="value">{{ providerCount }}</span>
+            </div>
+            <div class="row">
+              <span class="label">Readiness</span>
+              <span class="value">{{ readiness }}</span>
+            </div>
+            <div class="row">
+              <span class="label">RPC service</span>
+              <span class="value">{{ collatorStatus?.rpcService || 'tradelayer.rpc' }}</span>
+            </div>
+            <div class="row">
+              <span class="label">RPC network</span>
+              <span class="value">{{ collatorStatus?.rpcNetwork || 'unspecified' }}</span>
+            </div>
+            <div class="row wrap">
+              <span class="label">Peers</span>
+              <span class="value">{{ activePeers.length ? activePeers.join(', ') : 'none' }}</span>
+            </div>
+            <div class="row wrap" *ngIf="relaySession?.sessionId">
+              <span class="label">Session</span>
+              <span class="value">{{ relaySession.sessionId }}</span>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button mat-stroked-button color="primary" type="button" (click)="openServers()">
+              Open Servers
+            </button>
+          </div>
+        </div>
+      </div>
+    </mat-dialog-content>
+  </div>
+</custom-window>

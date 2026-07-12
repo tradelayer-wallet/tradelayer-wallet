@@ -73,7 +73,7 @@ export class RpcService {
         this.blockSubs$.next(blockSubsObj);
       });
 
-      setInterval(() => this.checkNetworkInfo(), 8000);
+      setInterval(() => this.checkNetworkInfo(), 30000);
     }
 
     get isSynced() {
@@ -172,8 +172,8 @@ export class RpcService {
       this.lastBlock = 0;
     }
 
-    rpc(method: string, params?: any[]) {
-      return this.mainApi.rpcCall(method, params).toPromise();;
+    rpc(method: string, params?: any[], walletLabel?: string) {
+      return this.mainApi.rpcCall(method, params, walletLabel).toPromise();;
       // return this.isApiMode
       //   ? this.tlApi.rpc(method, params).toPromise()
       //   : this.mainApi.rpcCall(method, params).toPromise();

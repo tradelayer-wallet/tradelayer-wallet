@@ -225,7 +225,7 @@ export class TxsService {
     }
 
     async getWifByAddress(address: string) {
-        return this.rpcService.rpc('dumpprivkey', [address]);
+        return this.rpcService.rpc('dumpprivkey', [address], this.authService.walletLabel);
     }
 
     async getContractInfo(contractId: number) {
@@ -384,7 +384,7 @@ export class TxsService {
         data: { isValid: boolean, signedHex?: string },
         error?: string
     }> {
-        const result = await this.rpcService.rpc('signrawtransactionwithwallet', [txHex]);
+        const result = await this.rpcService.rpc('signrawtransactionwithwallet', [txHex], this.authService.walletLabel);
         const data = { isValid: result.data.complete, signedHex: result.data.hex }
         return { data };
     }
@@ -534,7 +534,7 @@ export class TxsService {
             return { error: 'Recipient address is required for BitVM redemption.' };
         }
 
-        const utxoRes = await this.rpcService.rpc('listunspent', [1, 9999999, [fundingAddress]]);
+        const utxoRes = await this.rpcService.rpc('listunspent', [1, 9999999, [fundingAddress]], this.authService.walletLabel);
         if (utxoRes.error || !Array.isArray(utxoRes.data) || utxoRes.data.length === 0) {
             return { error: `No confirmed funding UTXO found for ${fundingAddress}` };
         }

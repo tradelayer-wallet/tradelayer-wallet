@@ -459,6 +459,14 @@ export const explorerRoutes = (fastify: FastifyInstance, _opts: any, done: any) 
     }
   });
 
+  fastify.get('/api/bitvm/contracts', async (_request, reply) => {
+    try {
+      reply.send(await explorerService.getBitvmContractLedger(fasitfyServer.rpcClient));
+    } catch (error: any) {
+      reply.status(500).send({ error: error?.message || error || 'Undefined Error' });
+    }
+  });
+
   fastify.get('/api/artifacts', async (_request, reply) => {
     try {
       reply.send(await explorerService.listArtifacts());

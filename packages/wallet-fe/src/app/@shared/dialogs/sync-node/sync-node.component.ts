@@ -18,7 +18,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     message: string = '';
     eta: string = 'Calculating Remaining Time ...';
     tlReadyPercent: number = 0;
-    tlEta: string = 'Waiting for TradeLayer parser status ...';
+    tlEta: string = 'Waiting for Litecoin node sync ...';
     tlMessage: string = '';
     tlSyncStatus: any = null;
 
@@ -38,6 +38,8 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     };
 
     private checkIntervalFunc: any;
+    private readonly syncPollIntervalMs = 50000;
+    private readonly rpcRetryDelayMs = 50000;
 
     // Add this variable to prevent multiple sync processes from running simultaneously
     private isCheckingSync: boolean = false;
@@ -85,9 +87,9 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     get tlCurrentBlock() {
         return Number(
-            this.tlProcessedHeight
-            || this.tlTrackHeight
-            || this.tlParsedHeight
+            this.tlSyncStatus?.nodeBlock
+            || this.tlSyncStatus?.currentHeight
+            || this.rpcService.lastBlock
             || this.rpcService.latestTlBlock
             || 0
         );
@@ -113,10 +115,11 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     get tlTargetBlock() {
         return Number(
-            this.tlSyncStatus?.targetHeight
+            this.tlSyncStatus?.headerBlock
+            || this.tlSyncStatus?.targetHeight
             || this.tlSyncStatus?.chainTip
-            || this.tlSyncStatus?.headerBlock
-            || this.tlSyncStatus?.nodeBlock
+            || this.rpcService.headerBlock
+            || this.rpcService.networkBlocks
             || 0
         );
     }
@@ -126,9 +129,12 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     get tlParserLabel() {
-        if (this.tlProcessedHeight) return `Processed: ${this.tlProcessedHeight}`;
+        if (this.tlSyncStatus?.nodeBlock) return `Node: ${this.tlSyncStatus.nodeBlock}`;
+        if (this.tlSyncStatus?.currentHeight) return `Current: ${this.tlSyncStatus.currentHeight}`;
+        if (this.tlSyncStatus?.headerBlock) return `Header: ${this.tlSyncStatus.headerBlock}`;
+        if (this.tlProcessedHeight) return `Parsed: ${this.tlProcessedHeight}`;
         if (this.tlTrackHeight) return `Track: ${this.tlTrackHeight}`;
-        return this.tlParsedHeight ? `Parsed: ${this.tlParsedHeight}` : 'Parsed: waiting...';
+        return 'Node sync: waiting...';
     }
 
     get ltcTipLabel() {
@@ -149,23 +155,23 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     get tlPhaseLabel() {
         const phase = String(this.tlSyncStatus?.phase || '').trim().toLowerCase();
-        if (phase === 'indexing') return 'Indexing TradeLayer transactions';
-        if (phase === 'reconstructing-consensus') return 'Reconstructing TradeLayer consensus';
-        if (phase === 'realtime') return this.tlIsSynced ? 'TradeLayer synchronized' : 'Processing live TradeLayer blocks';
-        if (phase === 'starting') return 'Starting TradeLayer parser';
+        if (phase === 'indexing') return 'Indexing Litecoin blocks';
+        if (phase === 'reconstructing-consensus') return 'Reconstructing TradeLayer state';
+        if (phase === 'realtime') return this.tlIsSynced ? 'Litecoin node synchronized' : 'Processing Litecoin blocks';
+        if (phase === 'starting') return 'Starting Litecoin node sync';
         if (phase === 'waiting') {
             return (this.tlCurrentBlock > 0 || !!this.tlSyncStatus?.initialized)
-                ? 'TradeLayer parser running'
-                : 'Starting TradeLayer parser';
+                ? 'Litecoin node running'
+                : 'Starting Litecoin node sync';
         }
-        if (phase === 'paused') return 'TradeLayer parsing paused';
-        if (phase === 'error') return 'TradeLayer parser error';
+        if (phase === 'paused') return 'Sync paused';
+        if (phase === 'error') return 'TradeLayer sync error';
         if (phase === 'unavailable') return 'TradeLayer listener unavailable';
-        return 'TradeLayer parser status';
+        return 'Node sync status';
     }
 
     get tlStatusText() {
-        const eta = this.tlEta && this.tlEta !== 'Waiting for TradeLayer parser status ...'
+        const eta = this.tlEta && this.tlEta !== 'Waiting for Litecoin node sync ...'
             ? this.tlEta
             : '';
         const message = this.formatDialogError(this.tlSyncStatus?.message || this.tlMessage || '', '');
@@ -178,8 +184,8 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     private isWaitingMessage(value: any): boolean {
         const text = String(value || '').trim().toLowerCase();
         return !text
-            || text === 'waiting for tradelayer parser status ...'
-            || text === 'waiting for tradelayer parser status...'
+            || text === 'waiting for litecoin node sync ...'
+            || text === 'waiting for litecoin node sync...'
             || text === 'waiting';
     }
 
@@ -230,7 +236,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
 
     private checFunction() {
         this.checkSyncThrottled(); // First run
-        this.checkIntervalFunc = setInterval(() => this.checkSyncThrottled(), 5000); // Continue at intervals
+        this.checkIntervalFunc = setInterval(() => this.checkSyncThrottled(), this.syncPollIntervalMs); // Continue at intervals
     }
 
     private countETA(etaData: { stamp: number; blocks: number; }) {
@@ -274,7 +280,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             const message =  hours > 0 ? `${hours} hours ${minutes} minutes` : `${minutes} minutes`;
             this.tlEta = `Remaining ~ ${message}`;
         } else {
-            this.tlEta = 'Waiting for TradeLayer parser status ...';
+            this.tlEta = 'Waiting for Litecoin node sync ...';
         }
     }
 
@@ -287,7 +293,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
                     const result = await this.apiService.mainApi.initTradeLayer().toPromise();
                     console.log('TL Wallet Listener init result: '+JSON.stringify(result))
                      // Adding a delay between initTradeLayer and the next call
-                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    await new Promise(resolve => setTimeout(resolve, this.rpcRetryDelayMs));
 
                     if (result && result.result == true && !this.rpcService.isTLStarted) {
                         console.log('Initialization of listener succeeded');
@@ -322,9 +328,9 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             const status = syncRes?.data;
             if (!status) {
                 this.tlSyncStatus = null;
-                this.tlMessage = 'TradeLayer parser status is unavailable.';
+                this.tlMessage = 'TradeLayer sync status is unavailable.';
                 this.tlReadyPercent = 0;
-                this.tlEta = 'Waiting for TradeLayer parser status ...';
+                this.tlEta = 'Waiting for Litecoin node sync ...';
                 return;
             }
 
@@ -354,11 +360,11 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             if (this.tlCurrentBlock > 0 && this.tlTargetBlock > 0) {
                 this.countTlETA({ stamp: Date.now(), blocks: this.tlCurrentBlock });
             } else if (this.tlCurrentBlock > 0) {
-                this.tlEta = `Parsed block ${this.tlCurrentBlock}`;
+                this.tlEta = `Node block ${this.tlCurrentBlock}`;
             } else if (this.tlMessage && !this.isWaitingMessage(this.tlMessage)) {
                 this.tlEta = this.tlMessage;
             } else {
-                this.tlEta = 'TradeLayer parser starting...';
+                this.tlEta = 'Litecoin node sync starting...';
             }
             return;
         } catch (error: any) {
@@ -366,7 +372,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             const errorMessage = this.formatDialogError(error);
             if (!this.tlSyncStatus) {
                 this.tlReadyPercent = 0;
-                this.tlEta = this.isWaitingMessage(errorMessage) ? 'TradeLayer parser starting...' : errorMessage;
+                this.tlEta = this.isWaitingMessage(errorMessage) ? 'Litecoin node sync starting...' : errorMessage;
                 this.tlMessage = errorMessage;
             } else {
                 this.tlMessage = errorMessage || this.tlMessage;
@@ -384,7 +390,7 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
             await this.checkIsAbleToRpc(); // Attempt to set the RPC flag
 
             if (!this.isAbleToRpc) {
-                await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 2 seconds before retrying
+                await new Promise(resolve => setTimeout(resolve, this.rpcRetryDelayMs)); // Wait before retrying
             }
         }
 
@@ -508,20 +514,22 @@ export class SyncNodeDialog implements OnInit, OnDestroy {
     }
 
     async startWalletNode() {
-        const network = this.network;
-        if (!network) return;
+        const network = this.network || ENetwork.LTCTEST;
         const path = this.defaultDirectoryCheckbox ? '' : this.directory;
         const { reindex, startclean, allowRescan } = this;
         const flags = { reindex, startclean, allowRescan };
+        console.log('[sync-node] startWalletNode click', { network, path, flags });
         this.loadingService.isLoading = true;
-        await this.rpcService.startWalletNode(path, ENetwork[network], flags)
+        await this.rpcService.startWalletNode(path, network as ENetwork, flags)
         .then(async res => {
+            console.log('[sync-node] startWalletNode response', res);
             if (res.error || !res.data) {
-            const configError = res.error.includes("Config file") && res.error.includes("doesn't exist in");
+            const errorText = String(res.error || '');
+            const configError = errorText.includes("Config file") && errorText.includes("doesn't exist in");
             if (configError) {
                 this.dialogService.openDialog(DialogTypes.NEW_NODE, { data: { path }});
             } else {
-                this.toastrService.error(this.formatDialogError(res.error), 'Starting Node Error');
+                this.toastrService.error(this.formatDialogError(errorText || 'Starting wallet node failed'), 'Starting Node Error');
             }
             } else {
                 this.router.navigateByUrl('/');

@@ -26,7 +26,8 @@
     "test:bitvm-plan-a:uphold:bundle": "node scripts/run-bitvm-plan-a.js --require-bundle --verdict uphold",
     "test:bitvm-plan-a:reject:bundle": "node scripts/run-bitvm-plan-a.js --require-bundle --verdict reject",
     "test:bitvm-plan-a:both:bundle": "node scripts/run-bitvm-plan-a.js --require-bundle --both",
-    "test:bitvm-watchtower": "node scripts/run-bitvm-watchtower.js"
+    "test:bitvm-watchtower": "node scripts/run-bitvm-watchtower.js",
+    "test:bitvm-contract-ledger:endpoint": "node scripts/test-bitvm-contract-ledger-endpoint.js"
   },
   "dependencies": {
     "abstract-level": "1.0.3",

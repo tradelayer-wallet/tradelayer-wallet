@@ -1,6 +1,6 @@
 const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
-const CopyPlugin = require("copy-webpack-plugin");
+const fs = require('fs');
 const webpack = require('webpack');
 
 const osPATH = {
@@ -9,12 +9,37 @@ const osPATH = {
     path.resolve(__dirname, 'src', 'core', 'bitcoind.exe'),
   ],
   LINUX: [
-    path.resolve(__dirname, 'src', 'core', 'litecoind'),
+    path.resolve(__dirname, 'src', 'core', 'litecoin.tar.gz'),
   ],
   MAC: [
     path.resolve(__dirname, 'src', 'core', 'litecoind-mac'),
   ],
 };
+
+class CopyAssetsPlugin {
+  constructor(assets) {
+    this.assets = assets;
+  }
+
+  apply(compiler) {
+    compiler.hooks.afterEmit.tapPromise('CopyAssetsPlugin', async () => {
+      await fs.promises.mkdir(compiler.options.output.path, { recursive: true });
+      await Promise.all(this.assets.map(async (assetPath) => {
+        const targetPath = path.join(compiler.options.output.path, path.basename(assetPath));
+        if (fs.existsSync(targetPath)) {
+          const [sourceStat, targetStat] = await Promise.all([
+            fs.promises.stat(assetPath),
+            fs.promises.stat(targetPath),
+          ]);
+          if (sourceStat.size === targetStat.size) {
+            return;
+          }
+        }
+        await fs.promises.copyFile(assetPath, targetPath);
+      }));
+    });
+  }
+}
 
 module.exports = (env) => {
   const { os } = env;
@@ -37,9 +62,7 @@ module.exports = (env) => {
         /\windows.conf.ts?$/,
         envFilePath
       ),
-      new CopyPlugin({
-        patterns: [ ...fromPath ],
-      })
+      new CopyAssetsPlugin(fromPath),
     ],
     entry: path.join(__dirname, './src/index.ts'),
     mode: 'production',

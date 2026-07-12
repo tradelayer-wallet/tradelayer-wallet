@@ -139,14 +139,14 @@ export class MainApiService {
     }
 
 
-    rpcCall(method: string, params?: any[]): Observable<{
+    rpcCall(method: string, params?: any[], walletLabel?: string): Observable<{
         data?: any;
         error?: string;
         statusCode: number;
         IECode: number;
         EECode: number;
     }> {
-        const body = { method, params };
+        const body = { method, params, walletLabel };
         return this.http.post<{
             data?: any;
             error?: string;

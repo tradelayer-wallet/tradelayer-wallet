@@ -11,6 +11,9 @@ export class OBSocketService {
   private ws!: WebSocket;
   private isConnecting = false;
   private reconnectAttempts = 0;
+  private connectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private readonly connectTimeoutMs = 15000;
+  private hasConnected = false;
   // Canonical id received from server after connection
   private _clientId: string | null = null;
   private activeSwapListeners: Map<string, (...args: any[]) => void> = new Map();
@@ -50,12 +53,34 @@ export class OBSocketService {
     }
     console.log('inside connect')
 
+    const targetUrl = String(this.options.url || '').trim();
+    if (!targetUrl) {
+      this.isConnecting = false;
+      this.walletSocket?.emit(`${eventPrefix}::connect_error`);
+      return;
+    }
+
     this.isConnecting = true;
-    this.ws = new WebSocket(this.options.url);
+    this.hasConnected = false;
+    try {
+      this.ws = new WebSocket(targetUrl);
+    } catch (error) {
+      this.isConnecting = false;
+      this.walletSocket?.emit(`${eventPrefix}::connect_error`);
+      return;
+    }
+    this.clearConnectTimeout();
+    this.connectTimeout = setTimeout(() => {
+      if (!this.isConnecting) return;
+      this.clearConnectTimeout();
+      this.scheduleReconnect('connect_error');
+    }, this.connectTimeoutMs);
 
     this.ws.on('open', () => {
+      this.clearConnectTimeout();
       this.isConnecting = false;
       this.reconnectAttempts = 0;
+      this.hasConnected = true;
       // No longer emit socketId here! Just signal connect event.
       this.walletSocket?.emit(`${eventPrefix}::connect`);
     });
@@ -71,11 +96,20 @@ export class OBSocketService {
       this.handleServer(msg);
     });
 
-    this.ws.on('close', () => this.walletSocket?.emit(`${eventPrefix}::disconnect`));
-    this.ws.on('error', () => this.scheduleReconnect('connect_error'));
+    this.ws.on('close', () => {
+      this.clearConnectTimeout();
+      if (this.hasConnected) {
+        this.walletSocket?.emit(`${eventPrefix}::disconnect`);
+      }
+    });
+    this.ws.on('error', () => {
+      this.clearConnectTimeout();
+      this.scheduleReconnect('connect_error');
+    });
   }
 
   private scheduleReconnect(event: string) {
+    this.clearConnectTimeout();
     this.walletSocket?.emit(`${eventPrefix}::${event}`);
     this.reconnectAttempts += 1;
 
@@ -88,10 +122,18 @@ export class OBSocketService {
     }
     this.ws = undefined as any;
     this.isConnecting = false;
+    this.hasConnected = false;
 
     // Quadratic back‑off: 1 s, 4 s, 9 s … capped at 30 s.
     const delay = Math.min(1_000 * this.reconnectAttempts ** 2, 30_000);
     setTimeout(() => this.connect(), delay);
+  }
+
+  private clearConnectTimeout() {
+    if (this.connectTimeout) {
+      clearTimeout(this.connectTimeout);
+      this.connectTimeout = null;
+    }
   }
 
   private heartbeat = setInterval(() => {

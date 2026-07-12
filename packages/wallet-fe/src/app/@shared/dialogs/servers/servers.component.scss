@@ -10,6 +10,19 @@
             .servers-conteiner {
                 width: 100%;
                 padding-bottom: 2rem;
+                .title {
+                    display: block;
+                    margin-bottom: 0.5rem;
+                }
+                .collator-help {
+                    display: block;
+                    font-size: 0.8rem;
+                    line-height: 1.35;
+                    color: rgba(0, 0, 0, 0.68);
+                    margin: -0.15rem 0 0.35rem 10%;
+                    max-width: 90%;
+                    overflow-wrap: anywhere;
+                }
                 .server {
                     display: flex;
                     width: 100%;
@@ -22,11 +35,21 @@
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        p {
-                            width: 7px;
-                            height: 7px;
-                            border-radius: 100%;
+                        .status-light {
+                            width: 0.95rem;
+                            height: 0.95rem;
+                            font-size: 0.95rem;
+                            line-height: 1;
                             margin: 0;
+                            opacity: 0.95;
+                        }
+
+                        .status-on {
+                            color: #19a34a;
+                        }
+
+                        .status-off {
+                            color: #b42318;
                         }
                     }
 
@@ -47,6 +70,35 @@
                         cursor: pointer;
                         &:focus {
                             outline: none;
+                        }
+                    }
+
+                    textarea.input_url {
+                        min-height: 5.5rem;
+                        height: auto;
+                        resize: vertical;
+                        padding: 0.35rem 0;
+                        line-height: 1.2rem;
+                    }
+
+                    &.server-expanded {
+                        height: auto;
+                        min-height: 5.5rem;
+                        align-items: flex-start;
+                        padding-top: 0.35rem;
+                        padding-bottom: 0.35rem;
+
+                        .url,
+                        .input_url {
+                            width: 80%;
+                        }
+
+                        .buttons {
+                            width: 20%;
+                        }
+
+                        .is-selected {
+                            padding-top: 0.25rem;
                         }
                     }
                 }

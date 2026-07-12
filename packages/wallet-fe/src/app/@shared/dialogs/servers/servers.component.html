@@ -13,7 +13,11 @@
                         <div
                             class="is-selected"
                             [ngStyle]="{'visibility' : selectedOrderbookServer === s ? 'visible' : 'hidden'}"
-                        ><p [ngStyle]="{'background-color': isOrderbookConnected ? 'green' : 'red'}"></p></div>
+                        >
+                            <mat-icon class="status-light" [ngClass]="isOrderbookConnected ? 'status-on' : 'status-off'">
+                                fiber_manual_record
+                            </mat-icon>
+                        </div>
                         <div *ngIf="s !== '@custom'" class="url"> {{ s }} </div>
                         <input
                             #input
@@ -44,7 +48,7 @@
                     </div>
                 </div>
 
-                <!-- <div class="servers-conteiner">
+                <div class="servers-conteiner">
                     <div class="title">API Servers</div>
                     <div
                         class="server"
@@ -83,7 +87,7 @@
                             > Connect </button>
                         </div>
                     </div>
-                </div> -->
+                </div>
             </div>
         </mat-dialog-content>
     </div>

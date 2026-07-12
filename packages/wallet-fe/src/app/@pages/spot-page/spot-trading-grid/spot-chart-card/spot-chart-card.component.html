@@ -3,9 +3,21 @@
     <div class="header-wrapper">
       <div class="title-text">
         <span>Chart</span>
+        <span class="mode-pill" [class.fallback]="chartMode === 'fallback'">
+          {{ chartStatus }}
+        </span>
+        <span class="symbol-pill" *ngIf="advancedSymbol">{{ advancedSymbol }}</span>
       </div>
 
       <div class="controls">
+        <button
+          class="fallback-button"
+          *ngIf="chartMode === 'fallback'"
+          type="button"
+          (click)="reloadAdvancedChart()"
+        >
+          Advanced
+        </button>
         <select
           class="tf-select"
           [value]="timeframeSec"

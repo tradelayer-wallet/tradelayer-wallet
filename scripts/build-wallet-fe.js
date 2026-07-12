@@ -3,6 +3,7 @@ const { resolve } = require('path');
 
 require('./cleanup-wallet-fe-install-artifacts');
 
+const nodeMajor = Number.parseInt(process.versions.node.split('.')[0], 10);
 const nodeOptions = new Set(
   String(process.env.NODE_OPTIONS || '')
     .split(/\s+/)
@@ -10,7 +11,11 @@ const nodeOptions = new Set(
     .filter(Boolean),
 );
 
-nodeOptions.add('--openssl-legacy-provider');
+// Only inject the legacy OpenSSL provider on Node versions that need it and accept it.
+// Node 14 rejects this flag in NODE_OPTIONS, which breaks local builds.
+if (Number.isFinite(nodeMajor) && nodeMajor >= 17) {
+  nodeOptions.add('--openssl-legacy-provider');
+}
 if (![...nodeOptions].some((option) => option.startsWith('--max_old_space_size='))) {
   nodeOptions.add('--max_old_space_size=4096');
 }

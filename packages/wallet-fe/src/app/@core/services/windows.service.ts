@@ -1,10 +1,12 @@
 import { Injectable } from "@angular/core";
 import { ServersDialog } from "src/app/@shared/dialogs/servers/servers.component";
 import { SyncNodeDialog } from "src/app/@shared/dialogs/sync-node/sync-node.component";
+import { WebrtcStatusDialog } from "src/app/@shared/dialogs/webrtc-status/webrtc-status.component";
 import { TerminalDialog } from "src/app/@shared/dialogs/terminal/terminal.component";
 
 export const windowComponents = {
     SYNC_WINDOW: SyncNodeDialog,
+    WEBRTC: WebrtcStatusDialog,
     TERMINAL: TerminalDialog,
     SERVERS: ServersDialog,
 };
@@ -25,6 +27,11 @@ export class WindowsService {
             component: windowComponents.SYNC_WINDOW,
             minimized: false,
             title: 'Synchronization'
+        },
+        {
+            component: windowComponents.WEBRTC,
+            minimized: true,
+            title: 'WebRTC'
         },
         {
             component: windowComponents.SERVERS,

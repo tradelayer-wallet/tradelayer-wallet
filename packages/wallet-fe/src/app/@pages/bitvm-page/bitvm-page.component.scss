@@ -59,6 +59,12 @@
   font-size: 22px;
 }
 
+.hint {
+  margin-top: 4px;
+  color: #8fa3bf;
+  font-size: 12px;
+}
+
 .panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -67,6 +73,89 @@
 
 .panel h2 {
   margin: 0 0 12px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.panel-heading h2 {
+  margin: 0;
+}
+
+.panel-heading p {
+  margin: 5px 0 0;
+  color: #8fa3bf;
+}
+
+.contract-panel {
+  padding: 18px;
+}
+
+.empty-state {
+  border: 1px dashed rgba(143,163,191,0.36);
+  border-radius: 12px;
+  color: #8fa3bf;
+  padding: 16px;
+}
+
+.contract-table {
+  display: grid;
+  gap: 8px;
+}
+
+.contract-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.5fr) repeat(3, minmax(110px, 0.6fr)) minmax(260px, 1.4fr);
+  gap: 12px;
+  align-items: stretch;
+  border: 1px solid rgba(38,50,72,0.85);
+  border-radius: 14px;
+  background: rgba(13,19,29,0.9);
+  padding: 12px;
+}
+
+.contract-header {
+  background: rgba(34,48,68,0.72);
+  color: #8fa3bf;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.contract-row div {
+  min-width: 0;
+}
+
+.contract-row strong,
+.contract-row span {
+  display: block;
+}
+
+.contract-row span {
+  color: #8fa3bf;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.contract-row .mono {
+  word-break: break-all;
+}
+
+.block-stack {
+  display: grid;
+  gap: 3px;
+}
+
+.block-stack span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .form-grid {
@@ -254,6 +343,9 @@ pre {
 
 @media (max-width: 1000px) {
   .panels {
+    grid-template-columns: 1fr;
+  }
+  .contract-row {
     grid-template-columns: 1fr;
   }
   .hero {

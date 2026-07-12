@@ -25,6 +25,7 @@ import { OverlayLoadingComponent } from './components/overlay-loading/overlay-lo
 import { SelectNetworkDialog } from './dialogs/select-network/select-network.component';
 import { NewVersionDialog } from './dialogs/new-version/new-version.component';
 import { SyncNodeDialog } from './dialogs/sync-node/sync-node.component';
+import { WebrtcStatusDialog } from './dialogs/webrtc-status/webrtc-status.component';
 import { NewNodeDialog } from './dialogs/new-node/new-node.component';
 import { TerminalDialog } from './dialogs/terminal/terminal.component';
 
@@ -68,6 +69,7 @@ const DIALOGS = [
     SelectNetworkDialog,
     NewVersionDialog,
     SyncNodeDialog,
+    WebrtcStatusDialog,
     NewNodeDialog,
     TerminalDialog,
     EncKeyDialog,

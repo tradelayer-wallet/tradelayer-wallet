@@ -3,6 +3,9 @@
         <h3 class="warning" *ngIf="!isSynced">
           The Node is not synced and the balance may be incorrect.
         </h3>
+        <div class="wallet-bootstrap-status" *ngIf="walletBootstrapStatus">
+          {{ walletBootstrapStatus }}
+        </div>
         <mat-card-header>Balance</mat-card-header>
         <div class="balance-actions">
             <mat-checkbox
@@ -70,12 +73,12 @@
             
                 <ng-container matColumnDef="confirmed">
                     <mat-header-cell *matHeaderCellDef>Confirmed</mat-header-cell>
-                    <mat-cell *matCellDef="let element"> {{ (element.confirmed).toFixed(6) }} </mat-cell>
+                    <mat-cell *matCellDef="let element"> {{ formatBalance(element?.confirmed) }} </mat-cell>
                 </ng-container>
         
                 <ng-container matColumnDef="unconfirmed">
                     <mat-header-cell *matHeaderCellDef>Unconfirmed</mat-header-cell>
-                    <mat-cell *matCellDef="let element"> {{ (element.unconfirmed).toFixed(6) }} </mat-cell>
+                    <mat-cell *matCellDef="let element"> {{ formatBalance(element?.unconfirmed) }} </mat-cell>
                 </ng-container>
 
                 <ng-container matColumnDef="tokens">
@@ -87,11 +90,36 @@
 
                 <ng-container matColumnDef="actions">
                     <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
-                    <mat-cell *matCellDef="let element"> 
-                        <button mat-button type="button" class="action-button" (click)="openDialog('deposit', element.address, -1); $event.stopPropagation()">Receive</button>
-                        <button mat-button type="button" class="action-button" (click)="openDialog('withdraw', element.address, -1); $event.stopPropagation()">Send</button>
-                        <button mat-button type="button" class="action-button" (click)="openTokenizeDialog(element.address, element.confirmed); $event.stopPropagation()">Tokenize</button>
-                        <button mat-button type="button" class="action-button" (click)="showTokens(element.address); $event.stopPropagation()">Show Tokens</button>
+                    <mat-cell *matCellDef="let element">
+                        <div class="action-group">
+                          <button
+                            mat-icon-button
+                            type="button"
+                            class="action-button action-send"
+                            matTooltip="Send"
+                            aria-label="Send"
+                            (click)="openDialog('withdraw', element.address, -1); $event.stopPropagation()">
+                            <mat-icon>south_west</mat-icon>
+                          </button>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            class="action-button action-tokenize"
+                            matTooltip="Tokenize"
+                            aria-label="Tokenize"
+                            (click)="openTokenizeDialog(element.address, element.confirmed); $event.stopPropagation()">
+                            <mat-icon>token</mat-icon>
+                          </button>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            class="action-button action-show-tokens"
+                            matTooltip="Show Tokens"
+                            aria-label="Show Tokens"
+                            (click)="showTokens(element.address); $event.stopPropagation()">
+                            <mat-icon>inventory_2</mat-icon>
+                          </button>
+                        </div>
                     </mat-cell>
                 </ng-container>
 
@@ -99,6 +127,48 @@
                 <mat-row *matRowDef="let row; columns: cryptoBalanceColumns;"></mat-row>
             </mat-table>
         </mat-card-content>
+        <div class="selected-utxo-card" *ngIf="selectedAddress">
+          <div class="selected-utxo-header">
+            <span>UTXOs</span>
+            <span class="selected-utxo-address" (click)="copy(selectedAddress)">{{ selectedAddress }}</span>
+          </div>
+            <div class="selected-utxo-summary">
+            Confirmed: {{ formatBalance(selectedCoinBalance.confirmed) }}
+            <span class="summary-divider">|</span>
+            Unconfirmed: {{ formatBalance(selectedCoinBalance.unconfirmed) }}
+            <span class="summary-divider">|</span>
+            Count: {{ selectedUtxos.length }}
+          </div>
+
+          <div class="no-tokens" *ngIf="!selectedUtxos?.length">
+            No UTXOs returned for selected address.
+          </div>
+
+          <mat-table [dataSource]="selectedUtxos" *ngIf="selectedUtxos?.length">
+            <ng-container matColumnDef="txid">
+              <mat-header-cell *matHeaderCellDef>Txid</mat-header-cell>
+              <mat-cell *matCellDef="let element">{{ element?.txid || '-' }}</mat-cell>
+            </ng-container>
+
+            <ng-container matColumnDef="vout">
+              <mat-header-cell *matHeaderCellDef>Vout</mat-header-cell>
+              <mat-cell *matCellDef="let element">{{ element?.vout ?? 0 }}</mat-cell>
+            </ng-container>
+
+            <ng-container matColumnDef="amount">
+              <mat-header-cell *matHeaderCellDef>Amount</mat-header-cell>
+              <mat-cell *matCellDef="let element">{{ formatBalance(element?.amount) }}</mat-cell>
+            </ng-container>
+
+            <ng-container matColumnDef="confirmations">
+              <mat-header-cell *matHeaderCellDef>Confirmations</mat-header-cell>
+              <mat-cell *matCellDef="let element">{{ element?.confirmations ?? 0 }}</mat-cell>
+            </ng-container>
+
+            <mat-header-row *matHeaderRowDef="['txid', 'vout', 'amount', 'confirmations']"></mat-header-row>
+            <mat-row *matRowDef="let row; columns: ['txid', 'vout', 'amount', 'confirmations'];"></mat-row>
+          </mat-table>
+        </div>
     </mat-card>
 
    <mat-card *ngIf="selectedAddress">
@@ -127,10 +197,10 @@
         </ng-container>
 
         <!-- Available Column -->
-        <ng-container matColumnDef="available">
+          <ng-container matColumnDef="available">
           <mat-header-cell *matHeaderCellDef>Available</mat-header-cell>
           <mat-cell *matCellDef="let element">
-            {{ element?.available !== undefined ? element.available.toFixed(6) : 'N/A' }}
+            {{ formatBalance(element?.available) }}
           </mat-cell>
         </ng-container>
 
@@ -148,7 +218,7 @@
           <ng-container matColumnDef="margin">
             <mat-header-cell *matHeaderCellDef>Margin</mat-header-cell>
             <mat-cell *matCellDef="let element">
-              {{ element?.margin !== undefined ? element.margin.toFixed(6) : 'N/A' }}
+              {{ formatBalance(element?.margin) }}
             </mat-cell>
           </ng-container>
 
@@ -156,7 +226,7 @@
           <ng-container matColumnDef="channel">
             <mat-header-cell *matHeaderCellDef>Channel</mat-header-cell>
             <mat-cell *matCellDef="let element">
-              {{ element?.channel !== undefined ? element.channel.toFixed(6) : 'N/A' }}
+              {{ formatBalance(element?.channel) }}
             </mat-cell>
           </ng-container>
 
@@ -183,16 +253,27 @@
         <ng-container matColumnDef="actions">
           <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
           <mat-cell *matCellDef="let element">
-            <button mat-button type="button" class="action-button" (click)="openDialog('deposit', selectedAddress, element.propertyid); $event.stopPropagation()">Receive</button>
-            <button mat-button type="button" class="action-button" (click)="openDialog('withdraw', selectedAddress, element.propertyid); $event.stopPropagation()">Send</button>
-             <button
-              mat-button
-              type="button"
-              class="action-button"
-              [disabled]="isProceduralReceiptRow(element) && !canRedeemProceduralRow(element)"
-              (click)="openTokenActionDialog(selectedAddress, element); $event.stopPropagation()">
-              {{ getMintRedeemLabel(element) }}
-            </button>
+            <div class="action-group">
+              <button
+                mat-icon-button
+                type="button"
+                class="action-button action-send"
+                matTooltip="Send"
+                aria-label="Send"
+                (click)="openDialog('withdraw', selectedAddress, element.propertyid); $event.stopPropagation()">
+                <mat-icon>south_west</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                type="button"
+                class="action-button action-mint-redeem"
+                matTooltip="{{ getMintRedeemLabel(element) }}"
+                aria-label="{{ getMintRedeemLabel(element) }}"
+                [disabled]="isProceduralReceiptRow(element) && !canRedeemProceduralRow(element)"
+                (click)="openTokenActionDialog(selectedAddress, element); $event.stopPropagation()">
+                <mat-icon>{{ isProceduralReceiptRow(element) || isSyntheticRow(element) ? 'currency_exchange' : 'add_circle' }}</mat-icon>
+              </button>
+            </div>
           </mat-cell>
         </ng-container>
 

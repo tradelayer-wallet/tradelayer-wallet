@@ -1,6 +1,20 @@
-<tl-side-nav *ngIf="isNetworkSelected" (keydown.shift.t)="openHiddenTerminal()">
+<tl-side-nav (keydown.shift.t)="openHiddenTerminal()">
     <tl-layout>
-        <router-outlet></router-outlet>
+        <ng-container *ngIf="isNetworkSelected; else startupShell">
+            <router-outlet></router-outlet>
+        </ng-container>
+        <ng-template #startupShell>
+            <div class="startup-shell">
+                <div class="startup-shell-card">
+                    <div class="startup-shell-kicker">TradeLayer Wallet</div>
+                    <div class="startup-shell-title">Warming up services</div>
+                    <div class="startup-shell-copy">
+                        Waiting for network selection and wallet RPC to finish attaching.
+                    </div>
+                    <mat-spinner diameter="44"></mat-spinner>
+                </div>
+            </div>
+        </ng-template>
     </tl-layout>
     <ng-container>
         <ng-template *ngFor='let w of windows' [ngComponentOutlet]="w.component"></ng-template>

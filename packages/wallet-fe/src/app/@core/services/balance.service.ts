@@ -44,9 +44,14 @@ export class BalanceService {
     private pendingMempoolOutputCache: {
         expiresAt: number;
         outputsByAddress: Map<string, IUTXO[]>;
+        spentOutpoints: Set<string>;
     } | null = null;
-    private readonly pendingMempoolCacheMs = 5000;
+    private readonly pendingMempoolCacheMs = 15000;
+    private readonly balanceRefreshIntervalMs = 300000;
+    private readonly balanceRefreshBlockCooldownMs = 300000;
     private updateInProgress = false;
+    private pendingBalanceRefreshId: ReturnType<typeof setTimeout> | null = null;
+    private _balancesVersion = 0;
 
     // public balanceLoading: boolean = false;
 
@@ -71,6 +76,10 @@ export class BalanceService {
         return this._allBalancesObj;
     }
 
+    get balancesVersion() {
+        return this._balancesVersion;
+    }
+
     getCoinBalancesByAddress(_address: string) {
         const address = _address;
         if (!address) return emptyBalanceObj.coinBalance;
@@ -88,32 +97,49 @@ export class BalanceService {
         //this.tlApi.rpc('tl_getAllBalancesForAddress')
         this.authService.updateAddressesSubs$
             .subscribe(kp => {
+                console.log('[balance] wallet address set changed', kp);
                 if (!kp.length) this.restartBalance();
-                this.updateBalances();
+                this.scheduleBalanceRefresh(true, 0);
             });
 
         this.rpcService.blockSubs$
-            .subscribe(() => this.updateBalances(false));
+            .subscribe(() => this.scheduleBalanceRefresh(false, this.balanceRefreshBlockCooldownMs));
 
-        setInterval(() => this.updateBalances(false), 20000);
+        setInterval(() => this.scheduleBalanceRefresh(false, 0), this.balanceRefreshIntervalMs);
+    }
+
+    private scheduleBalanceRefresh(notiffy: boolean, delayMs: number) {
+        if (this.pendingBalanceRefreshId) {
+            clearTimeout(this.pendingBalanceRefreshId);
+            this.pendingBalanceRefreshId = null;
+        }
+
+        this.pendingBalanceRefreshId = setTimeout(() => {
+            this.pendingBalanceRefreshId = null;
+            void this.updateBalances(notiffy);
+        }, Math.max(0, Number(delayMs || 0)));
     }
 
     async updateBalances(notiffy: boolean = true) {
         if (this.updateInProgress) return;
         this.updateInProgress = true;
+        console.log('[balance] updateBalances start', { notify: notiffy, addresses: this.authService.walletAddresses?.length || 0 });
         // this.balanceLoading = true;
         try {
             const addressesArray = this.authService.walletAddresses;
             for (let i = 0; i < addressesArray?.length; i++) {
                 const address = addressesArray[i];
+                console.log('[balance] refreshing address', address);
                 await this.updateCoinBalanceForAddressFromUnspents(address);
                 await this.updateTokensBalanceForAddress(address);
             }
             this.pruneStaleBalances(addressesArray);
         } catch(err: any) {
             this.toastrService.warning(err.message || `Error with updating balances`, 'Balance Error');
+            console.warn('[balance] updateBalances error', err?.message || err);
         } finally {
             this.updateInProgress = false;
+            console.log('[balance] updateBalances end');
         }
         // this.balanceLoading = false;
     }
@@ -131,6 +157,7 @@ export class BalanceService {
                 coinBalance: coinObj,
             },
         };
+        this._balancesVersion += 1;
     }
 
     private async consolidateWallet(address: string, network: string) {
@@ -176,6 +203,7 @@ export class BalanceService {
         if (tokensBalanceArrRes.error || !tokensBalanceArrRes.data) throw new Error(tokensBalanceArrRes.error || `Error with updating balances`);
         if (!this._allBalancesObj[address]) this._allBalancesObj[address] = emptyBalanceObj;
         this._allBalancesObj[address].tokensBalance = tokensBalanceArrRes.data;
+        this._balancesVersion += 1;
     }
 
     private extractVoutAddress(vout: any): string {
@@ -189,9 +217,20 @@ export class BalanceService {
     }
 
     private async getPendingMempoolOutputsByAddress(): Promise<Map<string, IUTXO[]>> {
+        const scan = await this.getPendingMempoolState();
+        return scan.outputsByAddress;
+    }
+
+    private async getPendingMempoolState(): Promise<{
+        outputsByAddress: Map<string, IUTXO[]>;
+        spentOutpoints: Set<string>;
+    }> {
         const now = Date.now();
         if (this.pendingMempoolOutputCache && this.pendingMempoolOutputCache.expiresAt > now) {
-            return this.pendingMempoolOutputCache.outputsByAddress;
+            return {
+                outputsByAddress: this.pendingMempoolOutputCache.outputsByAddress,
+                spentOutpoints: this.pendingMempoolOutputCache.spentOutpoints,
+            };
         }
 
         const mempoolRes = await this.rpcService.rpc('getrawmempool', []);
@@ -200,8 +239,12 @@ export class BalanceService {
             this.pendingMempoolOutputCache = {
                 expiresAt: now + this.pendingMempoolCacheMs,
                 outputsByAddress: empty,
+                spentOutpoints: new Set<string>(),
             };
-            return empty;
+            return {
+                outputsByAddress: empty,
+                spentOutpoints: this.pendingMempoolOutputCache.spentOutpoints,
+            };
         }
 
         const pendingOutputs = new Map<string, IUTXO>();
@@ -249,8 +292,12 @@ export class BalanceService {
         this.pendingMempoolOutputCache = {
             expiresAt: Date.now() + this.pendingMempoolCacheMs,
             outputsByAddress,
+            spentOutpoints,
         };
-        return outputsByAddress;
+        return {
+            outputsByAddress,
+            spentOutpoints,
+        };
     }
 
     private async getPendingMempoolOutputsForAddress(address: string): Promise<IUTXO[]> {
@@ -260,42 +307,54 @@ export class BalanceService {
 
     private async getCoinBalanceObjForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
+        console.log('[balance] fetching utxos for address', address);
         const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [address]]);
         console.log('returning UTXOs for '+address+' in get coin balances '+JSON.stringify(luRes))
         if (luRes.error || !luRes.data) return { error: luRes.error || 'Undefined Error' };
 
         const utxos = luRes.data as IUTXO[];
+        const pendingState = await this.getPendingMempoolState();
+        const liveUtxos = utxos.filter((utxo) => !pendingState.spentOutpoints.has(`${utxo.txid}:${utxo.vout}`));
         const pendingByOutpoint = new Map<string, IUTXO>();
-        utxos
+        liveUtxos
             .filter(utxo => utxo.confirmations < minBlocksForBalanceConf)
             .forEach((utxo) => pendingByOutpoint.set(`${utxo.txid}:${utxo.vout}`, utxo));
 
         try {
-            const pendingMempoolOutputs = await this.getPendingMempoolOutputsForAddress(address);
+            const pendingMempoolOutputs = pendingState.outputsByAddress.get(address) || [];
             pendingMempoolOutputs.forEach((utxo) => {
                 pendingByOutpoint.set(`${utxo.txid}:${utxo.vout}`, utxo);
             });
+            const spentCount = utxos.length - liveUtxos.length;
+            if (spentCount > 0 || pendingMempoolOutputs.length > 0) {
+                console.log('[balance] mempool pending applied', {
+                    address,
+                    spentCount,
+                    pendingInCount: pendingMempoolOutputs.length,
+                });
+            }
         } catch (error) {
             console.warn(`Unable to scan mempool outputs for ${address}`, error);
         }
 
-        const _confirmed = utxos
+        const _confirmed = liveUtxos
             .filter(utxo => utxo.confirmations >= minBlocksForBalanceConf)
             .reduce((a, b) => a + b.amount, 0);
         const _unconfirmed = Array.from(pendingByOutpoint.values())
             .reduce((a, b) => a + b.amount, 0);
         const confirmed = parseFloat(_confirmed.toFixed(8));
         const unconfirmed = parseFloat(_unconfirmed.toFixed(8));
-        const utxoOutpoints = new Set(utxos.map((utxo) => `${utxo.txid}:${utxo.vout}`));
+        const utxoOutpoints = new Set(liveUtxos.map((utxo) => `${utxo.txid}:${utxo.vout}`));
         const scannedPendingUtxos = Array.from(pendingByOutpoint.values())
             .filter((utxo) => !utxoOutpoints.has(`${utxo.txid}:${utxo.vout}`));
 
-        return { data: { confirmed, unconfirmed, utxos: [...utxos, ...scannedPendingUtxos] } };
+        return { data: { confirmed, unconfirmed, utxos: [...liveUtxos, ...scannedPendingUtxos] } };
     }
 
     
     private async getTokensBalanceArrForAddress(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
+        console.log('[balance] fetching token balances for address', address);
         const balanceRes = await this.tlApi.rpc('getAllBalancesForAddress', [address]).toPromise();
         console.log('1st load of balance '+address+JSON.stringify(balanceRes))
         if (!balanceRes.data || balanceRes.error) return { data: [] };
@@ -336,6 +395,7 @@ export class BalanceService {
 
     private restartBalance() {
         this._allBalancesObj = {};
+        this._balancesVersion += 1;
     }
 
     private pruneStaleBalances(activeAddresses: string[]) {
@@ -347,5 +407,6 @@ export class BalanceService {
             }
         });
         this._allBalancesObj = nextBalances;
+        this._balancesVersion += 1;
     }
 }
