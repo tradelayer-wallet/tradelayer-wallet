@@ -102,14 +102,23 @@ export const tlRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
         reply.status(200).send({ message: 'Test route working' });
     });
 
-    fastify.post('/getChannelColumn', async (request: FastifyRequest<{ Body: [string, string] }>, reply:FastifyReply) => {
+    fastify.post('/getChannelColumn', async (request: FastifyRequest<{ Body: any }>, reply:FastifyReply) => {
         console.log('Inside getChannelColumn Fastify, Request Body: ' + JSON.stringify(request.body));
         try {
-            // Extract channel and cpAddress from the array in request.body
-            const [channel, cpAddress] = request.body;
+            const body: any = request.body || {};
+            const params = Array.isArray(body) ? body : (Array.isArray(body.params) ? body.params : []);
+            const channelAddress = body.channelAddress || body.channel || params[0];
+            const newCommitAddress = body.newCommitAddress || body.myAddress || body.myAddr || body.buyerAddress || params[1];
+            const cpAddress = body.cpAddress || body.cpAddr || params[2];
+            if (!channelAddress || !newCommitAddress || !cpAddress) {
+                return reply.status(400).send('channelAddress, newCommitAddress, and cpAddress are required');
+            }
 
-            // Make the API call to the external service with the correct format
-            const column = await axios.post(baseURL + 'tl_getChannelColumn', { channel, cpAddress });
+            const column = await axios.post(baseURL + 'tl_getChannelColumn', {
+                channelAddress,
+                newCommitAddress,
+                cpAddress,
+            });
 
             // Send the response back to the client
             reply.status(200).send(column.data);  // Assuming column is returned in column.data
