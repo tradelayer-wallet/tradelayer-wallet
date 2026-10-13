@@ -3,13 +3,33 @@
 // it on every HTTP request (`x-tl-auth` header) and on the socket.io
 // handshake (`auth: { token }`). See issue #45 (finding C1).
 let cachedToken: string | null = null;
+let warnedNoElectron = false;
 
 export const getLocalAuthToken = async (): Promise<string | null> => {
     if (cachedToken) return cachedToken;
     try {
         // Guard for non-Electron contexts (e.g. `ng serve` in a browser).
         const requireFn = (<any>window).require;
-        if (!requireFn) return null;
+        if (!requireFn) {
+            // Dev fallback: a developer running the FE outside the Electron
+            // shell can expose the local server's per-session token manually
+            // (e.g. from the server log) as `window.__TL_DEV_TOKEN__`.
+            const devToken = (<any>window).__TL_DEV_TOKEN__;
+            if (typeof devToken === 'string' && devToken) {
+                cachedToken = devToken;
+                return cachedToken;
+            }
+            if (!warnedNoElectron) {
+                warnedNoElectron = true;
+                console.error(
+                    '[local-auth] No Electron shell detected: the local wallet API requires the ' +
+                    'per-session auth token from the Electron main process, so every request will ' +
+                    'be rejected with 403. Run the wallet inside Electron, or for development set ' +
+                    'window.__TL_DEV_TOKEN__ to the local server token.',
+                );
+            }
+            return null;
+        }
         const { ipcRenderer } = requireFn('electron');
         const token = await ipcRenderer?.invoke('get-local-auth-token');
         if (typeof token === 'string' && token) cachedToken = token;
