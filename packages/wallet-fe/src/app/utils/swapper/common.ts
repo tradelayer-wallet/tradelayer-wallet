@@ -1,5 +1,10 @@
+// Wire name of every swap event, in both directions. The orderbook server routes
+// by sessionId, never by socket, so there is no per-socket channel name.
+export const SWAP_EVENT = 'swap';
+
 export class SwapEvent {
     constructor(
+        public sessionId: string,
         public eventName: string,
         public socketId: string,
         public data: any = null,

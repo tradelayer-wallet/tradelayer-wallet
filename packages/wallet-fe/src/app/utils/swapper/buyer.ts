@@ -1,10 +1,11 @@
 import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildLTCITTxConfig, IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
-import { IMSChannelData, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
+import { IMSChannelData, SWAP_EVENT, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
 import { Swap } from "./swap";
 
 export class BuySwapper extends Swap {
     constructor(
+        sessionId: string,
         typeTrade: ETradeType,
         tradeInfo: IFuturesTradeProps | ISpotTradeProps, 
         buyerInfo: IBuyerSellerInfo,
@@ -13,34 +14,33 @@ export class BuySwapper extends Swap {
         socket: SocketClient,
         txsService: TxsService,
     ) {
-        super(typeTrade, tradeInfo, buyerInfo, sellerInfo, client, socket, txsService);
+        super(sessionId, typeTrade, tradeInfo, buyerInfo, sellerInfo, client, socket, txsService);
         this.handleOnEvents();
         this.onReady();
     }
 
     private handleOnEvents() {
-        this.removePreviuesListeners();
-        const _eventName = `${this.cpInfo.socketId}::swap`;
-        this.socket.on(_eventName, (eventData: SwapEvent) => {
-            const { socketId, data } = eventData;
-            this.eventSubs$.next(eventData);
-            switch (eventData.eventName) {
-                case 'TERMINATE_TRADE':
-                    this.onTerminateTrade.bind(this)(socketId, data);
-                    break;
-                case 'SELLER:STEP1':
-                    this.onStep1.bind(this)(socketId, data);
-                    break;
-                case 'SELLER:STEP3':
-                    this.onStep3.bind(this)(socketId, data);
-                    break;
-                case 'SELLER:STEP5':
-                    this.onStep5.bind(this)(socketId, data);
-                    break;
-                default:
-                    break;
-            }
-        });
+        this.socket.on(SWAP_EVENT, this.onSwapEvent);
+    }
+
+    protected handleSwapEvent(eventData: SwapEvent) {
+        const { socketId, data } = eventData;
+        switch (eventData.eventName) {
+            case 'TERMINATE_TRADE':
+                this.onTerminateTrade.bind(this)(socketId, data);
+                break;
+            case 'SELLER:STEP1':
+                this.onStep1.bind(this)(socketId, data);
+                break;
+            case 'SELLER:STEP3':
+                this.onStep3.bind(this)(socketId, data);
+                break;
+            case 'SELLER:STEP5':
+                this.onStep5.bind(this)(socketId, data);
+                break;
+            default:
+                break;
+        }
     }
 
     private async onStep1(cpId: string, msData: IMSChannelData) {
@@ -51,8 +51,7 @@ export class BuySwapper extends Swap {
             if (amaRes.error || !amaRes.data) throw new Error(`addmultisigaddress: ${amaRes.error}`);
             if (amaRes.data.redeemScript !== msData.redeemScript) throw new Error(`redeemScript of Multysig is not matching`);
             this.multySigChannelData = msData;
-            const swapEvent = new SwapEvent('BUYER:STEP2', this.myInfo.socketId);
-            this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+            this.emitSwapEvent('BUYER:STEP2');
         } catch (error: any) {
             const errorMessge = error.message || 'Undefined Error';
             this.terminateTrade(`Step 1: ${errorMessge}`);
@@ -82,8 +81,7 @@ export class BuySwapper extends Swap {
                     };
                     const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
                     if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
-                    const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
-                    this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+                    this.emitSwapEvent('BUYER:STEP4', rawHexRes.data.psbtHex);
                 } else {
                     const ctcpParams = [propIdDesired, (amountDesired).toString()];
                     const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
@@ -136,8 +134,7 @@ export class BuySwapper extends Swap {
                     };
                     const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
                     if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
-                    const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
-                    this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+                    this.emitSwapEvent('BUYER:STEP4', rawHexRes.data.psbtHex);
                 }
             } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {
                 const { contract_id, amount, price, } = this.tradeInfo;
@@ -192,8 +189,7 @@ export class BuySwapper extends Swap {
                 };
                 const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
                 if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
-                const swapEvent = new SwapEvent('BUYER:STEP4', this.myInfo.socketId, rawHexRes.data.psbtHex);
-                this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+                this.emitSwapEvent('BUYER:STEP4', rawHexRes.data.psbtHex);
             } else {
                 throw new Error(`Unrecognized Trade Type: ${this.typeTrade}`);
             }
@@ -214,8 +210,7 @@ export class BuySwapper extends Swap {
         const finalTxIdRes = await this.txsService.sendTx(signRes.data.finalHex);
         if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(`Step 5: sendRawTransaction: ${finalTxIdRes.error}` || `Error with sending Raw Tx`);
         if (this.readyRes) this.readyRes({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });
-        const swapEvent = new SwapEvent('BUYER:STEP6', this.myInfo.socketId, finalTxIdRes.data);
-        this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);
+        this.emitSwapEvent('BUYER:STEP6', finalTxIdRes.data);
         this.removePreviuesListeners();
     }
 }

@@ -10,6 +10,7 @@ import { IFuturesOrder } from "./futures-services/futures-orderbook.service";
 import { ESounds, SoundsService } from "./sound.service";
 
 interface IChannelSwapData {
+    sessionId: string;
     tradeInfo: ITradeInfo;
     unfilled: ISpotOrder | IFuturesOrder;
     isBuyer: boolean;
@@ -36,7 +37,13 @@ export class SwapService {
     onInit() {
         this.socket.on(`${obEventPrefix}::new-channel`, async (swapConfig: IChannelSwapData) => {
                 this.loadingService.tradesLoading = false;
-                const res = await this.channelSwap(swapConfig.tradeInfo, swapConfig.isBuyer);
+                // A swap is identified only by the server-issued sessionId. Without it no
+                // event can be sent or accepted, so refuse the swap rather than guess.
+                if (typeof swapConfig.sessionId !== 'string' || !swapConfig.sessionId) {
+                    this.toastrService.error('Swap session id missing', 'Trade Error');
+                    return;
+                }
+                const res = await this.channelSwap(swapConfig.sessionId, swapConfig.tradeInfo, swapConfig.isBuyer);
                 if (res.error || !res.data?.txid) {
                     this.toastrService.error(res.error, 'Trade Error')
                 } else {
@@ -53,11 +60,11 @@ export class SwapService {
         });
     }
 
-    private async channelSwap(tradeInfo: ITradeInfo, isBuyer: boolean) {
+    private async channelSwap(sessionId: string, tradeInfo: ITradeInfo, isBuyer: boolean) {
         const { buyer, seller, props, type } = tradeInfo;
         const swapper = isBuyer
-            ? new BuySwapper(type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService)
-            : new SellSwapper(type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService);
+            ? new BuySwapper(sessionId, type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService)
+            : new SellSwapper(sessionId, type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService);
         swapper.eventSubs$.subscribe(eventData => {
             this.toastrService.info(eventData.eventName, 'Trade Info', { timeOut: 3000 });
         });
