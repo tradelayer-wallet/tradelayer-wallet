@@ -5,6 +5,19 @@
 let cachedToken: string | null = null;
 let warnedNoElectron = false;
 
+// True only when `url` has the same origin (scheme, host, port) as `base`. Used
+// to decide where the token may be sent. A string-prefix test is not enough:
+// `http://localhost:1986` is a prefix of `http://localhost:19860/...` (another
+// local service) and of `http://localhost:1986@evil.example/`, whose origin is
+// evil.example.
+export const isSameOrigin = (url: string, base: string): boolean => {
+    try {
+        return new URL(url).origin === new URL(base).origin;
+    } catch (e) {
+        return false;
+    }
+};
+
 export const getLocalAuthToken = async (): Promise<string | null> => {
     if (cachedToken) return cachedToken;
     try {
