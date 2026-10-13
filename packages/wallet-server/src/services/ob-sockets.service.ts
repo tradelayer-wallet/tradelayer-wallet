@@ -54,17 +54,13 @@ export class OBSocketService {
         });
 
 
-        const swapEventName = 'swap';
-        this.walletSocket.on(`${this.socket.id}::${swapEventName}`, (data) => {
-            this.socket.emit(`${this.socket.id}::${swapEventName}`, data);
+        // Swap events are not keyed by socket. Both directions use the single `swap`
+        // event, relayed unchanged; the orderbook server routes them by sessionId.
+        this.walletSocket.on('swap', (data) => {
+            this.socket.emit('swap', data);
         });
-
-        this.socket.on('new-channel', (d) => {
-            const cpSocketId = d.isBuyer ? d.tradeInfo.seller.socketId : d.tradeInfo.buyer.socketId;
-            this.socket.removeAllListeners(`${cpSocketId}::${swapEventName}`);
-            this.socket.on(`${cpSocketId}::${swapEventName}`, (data) => {
-                this.walletSocket.emit(`${cpSocketId}::${swapEventName}`, data);
-            });
+        this.socket.on('swap', (data) => {
+            this.walletSocket.emit('swap', data);
         });
     }
 }
