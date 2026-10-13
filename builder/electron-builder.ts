@@ -15,7 +15,6 @@ export class ElectronApp {
         this.app = app;
         this.handleOnEvents();
         this.handleAngularSignals()
-        this.disableSecurityWarnings();
         this.startChildProcess();
     }
 
@@ -121,7 +120,6 @@ export class ElectronApp {
         this.mainWindow = new BrowserWindow(windowOptions);
         this.handleMainWindowEvents();
         this.loadUrl(this.mainWindow);
-        this.mainWindow.webContents.openDevTools();
     }
 
     private loadUrl(window: BrowserWindow) {
@@ -132,10 +130,6 @@ export class ElectronApp {
               slashes: true
             }),
         );
-    }
-
-    private disableSecurityWarnings() {
-        process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
     }
 }
 
