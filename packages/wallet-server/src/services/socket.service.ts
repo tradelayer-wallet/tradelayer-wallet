@@ -4,13 +4,17 @@ import { IncomingMessage } from "http";
 import { fasitfyServer } from "..";
 import { authTokensMatch, isLoopbackHostHeader } from "../utils/auth.util";
 
-// The wallet UI is loaded from file:// inside Electron, which sends
-// `Origin: null`; loopback http(s) origins are allowed for development.
-// Everything else (any remote website) is rejected. See issue #45 (C2).
+// Origins accepted on socket.io requests (see issue #45, C2). Electron loads
+// the wallet UI from file:// and its WebSocket upgrades carry `Origin: file://`
+// (checked against Electron 13.6.9); its XHR and fetch requests carry no Origin
+// header. `null` (opaque origin) is also accepted, as before. Loopback http(s)
+// origins are accepted for development. Any other origin, including every
+// remote website, is rejected. Host is checked separately, and the token is
+// still required for every socket.io connection.
 const LOCAL_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i;
 
 const isAllowedSocketOrigin = (origin: string | undefined): boolean => {
-    if (!origin || origin === 'null') return true;
+    if (!origin || origin === 'null' || origin === 'file://') return true;
     return LOCAL_ORIGIN_REGEX.test(origin);
 };
 
@@ -18,7 +22,7 @@ const isAllowedOrigin = (origin: string | undefined, callback: (err: Error | nul
     callback(null, isAllowedSocketOrigin(origin));
 };
 
-// Shared Host + Origin predicate for every socket.io enforcement point below.
+// Host + Origin predicate for socket.io requests; used by the verify wrapper in init().
 const isAllowedSocketRequest = (req: IncomingMessage): boolean =>
     isLoopbackHostHeader(req.headers?.host) && isAllowedSocketOrigin(req.headers?.origin);
 
@@ -34,63 +38,39 @@ export class SocketService {
     init(app: FastifyInstance, authToken: string) {
         const socketOptions = {
             cors: { origin: isAllowedOrigin, methods: ["GET", "POST"] },
-            // engine.io intercepts /socket.io/ at the raw HTTP server before
-            // any Fastify hook runs (proven: the Host check never executed for
-            // handshakes and the CORS origin function never ran for WebSocket
-            // upgrades). Host + Origin are therefore enforced in the engine.io
-            // layers; exactly what runs where:
-            //
-            //  * `allowRequest` (engine.io option): sid-less handshakes ONLY —
-            //    engine.io's `verify()` calls it in the no-sid branch; polls
-            //    and upgrades that carry a sid skip it entirely.
-            //  * the `io.engine.verify` wrapper installed below: re-applies the
-            //    same Host + Origin check to EVERY engine.io request — the
-            //    handshake, follow-up long-polls on an existing sid, and
-            //    WebSocket upgrades — so a session cannot drift to a
-            //    non-loopback Host/Origin after the handshake.
-            //  * the `io.use` middleware below: re-checks Host + Origin on the
-            //    handshake headers once per socket.io connection, together
-            //    with the per-session auth token.
-            //
-            // WebSocket frames ride the connection validated at the upgrade,
-            // and long-poll requests are checked per HTTP request by the
-            // verify wrapper, so no per-packet `socket.use` layer is needed.
-            // See issue #45 follow-up.
-            allowRequest: (req: IncomingMessage, callback: (err: string | null, success: boolean) => void) => {
-                callback(null, isAllowedSocketRequest(req));
-            },
         };
         this.io = new Server(app.server, socketOptions);
-        // engine.io `verify()` only evaluates `allowRequest` for sid-less
-        // handshakes, so wrap `verify` to enforce Host + Origin on the requests
-        // it otherwise lets through unchecked (sid-bearing long-polls and
-        // upgrades). `engine.verify` is an engine.io internal; the wrapper is
-        // defensive about it missing (then `allowRequest` + `io.use` still
-        // enforce the handshake) and delegates to the original afterwards.
-        // Error code 4 is engine.io `Server.errors.FORBIDDEN` -> HTTP 403 on
-        // polls, 400 on aborted upgrades.
+
+        // Host + Origin enforcement for socket.io, in one place. engine.io
+        // answers origin-form `/socket.io/` requests on the raw HTTP server
+        // before any Fastify hook runs, so the check lives in engine.io's
+        // `verify()`, which every engine.io request goes through: the handshake,
+        // sid-bearing long-polls, and WebSocket upgrades. (engine.io's own
+        // `allowRequest` option runs only for sid-less handshakes, so it is not
+        // used.) Rejected requests get engine.io's FORBIDDEN code (4): HTTP 403
+        // on polls and 400 on aborted upgrades.
+        //
+        // `engine.verify` is an engine.io internal. If it is missing we cannot
+        // enforce the check, so startup fails instead of running without it.
         const engine = this.io.engine as unknown as {
-            verify: (req: IncomingMessage, upgrade: boolean, fn: (errorCode?: number, errorContext?: unknown) => void) => void;
+            verify?: (req: IncomingMessage, upgrade: boolean, fn: (errorCode?: number, errorContext?: unknown) => void) => void;
         };
-        if (typeof engine.verify === 'function') {
-            const verifyRequest = engine.verify.bind(engine);
-            engine.verify = (req, upgrade, fn) => {
-                if (!isAllowedSocketRequest(req)) {
-                    return fn(4, { message: 'Forbidden Host or Origin header' });
-                }
-                verifyRequest(req, upgrade, fn);
-            };
+        if (typeof engine.verify !== 'function') {
+            throw new Error('socket.io engine has no verify(): cannot enforce Host/Origin, refusing to start');
         }
-        // Authenticate the socket.io handshake with the per-session token
-        // generated by the Electron main process. The token is only read from
-        // `handshake.auth`; a `query.token` fallback is deliberately absent
-        // because query strings leak into URLs and logs. Host + Origin are
-        // re-checked here as well (defense in depth on the handshake headers).
-        // See issue #45 (C1).
+        const verifyRequest = engine.verify.bind(engine);
+        engine.verify = (req, upgrade, fn) => {
+            if (!isAllowedSocketRequest(req)) {
+                return fn(4, { message: 'Forbidden Host or Origin header' });
+            }
+            verifyRequest(req, upgrade, fn);
+        };
+
+        // Per-session token, read from `handshake.auth` only. A `query.token`
+        // fallback is deliberately absent because query strings leak into URLs
+        // and logs. (Host and Origin for this handshake were already checked by
+        // the verify wrapper above.) See issue #45 (C1).
         this.io.use((socket, next) => {
-            const headersOk = isLoopbackHostHeader(socket.handshake.headers?.host)
-                && isAllowedSocketOrigin(socket.handshake.headers?.origin);
-            if (!headersOk) return next(new Error('forbidden handshake headers'));
             const token = socket.handshake.auth?.token;
             if (authTokensMatch(token, authToken)) return next();
             next(new Error('unauthorized'));
