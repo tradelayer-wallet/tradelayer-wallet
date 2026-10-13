@@ -37,6 +37,11 @@ export class FastifyServer {
         //    .startsWith('/api/')` failed while find-my-way still routed the
         //    request). The pathname is now parsed robustly via `new URL` and
         //    auth is required regardless of the path.
+        //    Precise scope: the hook runs on every request that reaches
+        //    Fastify's hook pipeline. Fastify's default `onBadUrl` handler
+        //    404s malformed request targets (e.g. `GET http://localhost` with
+        //    no path, or `OPTIONS *`) before any hook runs — those responses
+        //    are unauthenticated, but no route is reachable through them.
         this._server.addHook('onRequest', (request, reply, next) => {
             if (!isLoopbackHostHeader(request.headers.host)) {
                 reply.status(403).send({ error: 'Forbidden Host header' });
