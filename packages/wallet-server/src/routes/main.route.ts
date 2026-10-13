@@ -4,10 +4,50 @@ import { startWalletNode, createConfigFile, stopWalletNode } from "../services/n
 import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
 
+// Conservative allowlist of node RPC methods actually used by the wallet FE
+// (call sites of rpcService.rpc / mainApi.rpcCall in packages/wallet-fe).
+// Key-export, node-control or destructive methods (dumpprivatekey,
+// importprivkey, stop, setban, ...) must NEVER be added here (issue #45, C1).
+const RPC_ALLOWLIST: string[] = [
+    // Litecoin Core
+    'abortrescan',
+    'addmultisigaddress',
+    'createwallet',
+    'decoderawtransaction',
+    'getaddressesbylabel',
+    'getblockchaininfo',
+    'getnewaddress',
+    'listunspent',
+    'loadwallet',
+    'sendrawtransaction',
+    'signrawtransaction',
+    'validateaddress',
+    // TradeLayer
+    'tl_check_commits',
+    'tl_check_kyc',
+    'tl_createpayload_attestation',
+    'tl_createpayload_commit_tochannel',
+    'tl_createpayload_contract_instant_trade',
+    'tl_createpayload_instant_ltc_trade',
+    'tl_createpayload_instant_trade',
+    'tl_createpayload_sendactivation',
+    'tl_createpayload_sendvesting',
+    'tl_createpayload_simplesend',
+    'tl_createpayload_withdrawal_fromchannel',
+    'tl_decodetransaction',
+    'tl_getfullposition',
+    'tl_getinfo',
+    'tl_isaddresswinner',
+    'tl_listnodereward_addresses',
+];
+
 export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
     fastify.post('rpc-call', async (request, reply) => {
         try {
             const { method, params } = request.body as { method: string, params: any[] };
+            if (typeof method !== 'string' || !RPC_ALLOWLIST.includes(method)) {
+                return reply.status(403).send({ error: 'Forbidden: RPC method not allowed' });
+            }
             if (!fasitfyServer.rpcClient) throw new Error("No RPC Client initialized");
             const _params = params?.length ? params : [];
             const res = await fasitfyServer.rpcClient.call(method, ..._params);

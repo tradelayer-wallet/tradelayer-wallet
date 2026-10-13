@@ -5,6 +5,7 @@ import { Socket } from "socket.io-client";
 import { io } from 'socket.io-client'
 import { environment } from '../../../environments/environment';
 import { ApiService } from "./api.service";
+import { getLocalAuthToken } from '../../utils/local-auth.util';
 
 export enum SocketEmits {
     LTC_INSTANT_TRADE = 'LTC_INSTANT_TRADE',
@@ -52,7 +53,14 @@ export class SocketService {
 
     mainSocketConnect() {
         this.mainSocketWaiting = true;
-        this._socket = io(this.mainSocketUrl, { reconnection: false });
+        this._socket = io(this.mainSocketUrl, {
+            reconnection: false,
+            // Authenticate the handshake with the per-session local-server
+            // token fetched from the Electron main process (issue #45, C1).
+            auth: (cb: (data: object) => void) => {
+                getLocalAuthToken().then(token => cb({ token }));
+            },
+        });
         this.handleMainSocketEvents();
         this.handleMainOBSocketEvents();
         return this._socket;

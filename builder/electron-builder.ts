@@ -4,11 +4,15 @@ import { FastifyServer } from '../packages/wallet-server/src/fastify-server';
 
 import * as url from 'url';
 import * as path from 'path';
+import * as crypto from 'crypto';
 
 export class ElectronApp {
     private app: App;
     private autoUpdater: AutoUpdater;
     private localServer: FastifyServer;
+    // Random per-session token shared with the local wallet server; required
+    // on every /keys and /api request and socket.io handshake (issue #45, C1).
+    private localAuthToken: string = crypto.randomBytes(32).toString('hex');
     public mainWindow: BrowserWindow | null = null;
 
     constructor(app: App) {
@@ -21,7 +25,7 @@ export class ElectronApp {
 
     private startChildProcess() {
         const { initLoclaServer } = require('../dist/server');
-        this.localServer = initLoclaServer(this.safeExist.bind(this));
+        this.localServer = initLoclaServer(this.safeExist.bind(this), this.localAuthToken);
     }
 
     private safeExist() {
@@ -32,6 +36,10 @@ export class ElectronApp {
     }
 
     private handleAngularSignals() {
+        // The renderer fetches the per-session auth token for the local
+        // wallet server through this channel (see wallet-fe local-auth.util).
+        ipcMain.handle('get-local-auth-token', () => this.localAuthToken);
+
         ipcMain.on('angular-electron-message', (_, message) => {
             const { event, data } = message;
             switch (event) {
