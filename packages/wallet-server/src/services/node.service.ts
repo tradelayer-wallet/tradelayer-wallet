@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { defaultDirObj } from "../conf/windows.conf";
-import { RpcClient } from 'tl-rpc';
+import { WireRpcClient } from "../utils/rpc-wire";
 import { fasitfyServer } from "..";
 
 interface IFlagsObject {
@@ -114,7 +114,7 @@ const checkIsCoreStarted = async (
     return new Promise(async (resolve) => {
         const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
         const port = rpcport ? rpcport : isTestnet ? 18332 : 8332;
-        const client = new RpcClient({
+        const client = new WireRpcClient({
             username: rpcuser,
             password: rpcpassword,
             host: rpchost || 'localhost',
