@@ -1,7 +1,7 @@
 import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
 import { IMSChannelData, isTxid, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
-import { assertPsbtMatchesTrade, IPsbtExpectation, ltcToSats, TRADE_EXPIRY_BLOCKS, TRADE_EXPIRY_TOLERANCE_BLOCKS } from "./psbt-guard";
+import { assertPsbtMatchesTrade, assertSellerSignature, IPsbtExpectation, ltcToSats, TRADE_EXPIRY_BLOCKS, TRADE_EXPIRY_TOLERANCE_BLOCKS } from "./psbt-guard";
 import { Swap } from "./swap";
 
 export class SellSwapper extends Swap {
@@ -143,6 +143,10 @@ export class SellSwapper extends Swap {
 
         const sellerAddress = this.myInfo.keypair.address;
         const buyerAddress = this.cpInfo.keypair.address;
+        const sellerPubkeyHex = this.myInfo.keypair.pubkey;
+        const buyerPubkeyHex = this.cpInfo.keypair.pubkey;
+        const commitRedeemScriptHex = this.multySigChannelData?.redeemScript;
+        if (!sellerPubkeyHex || !buyerPubkeyHex || !commitRedeemScriptHex) throw new Error(`keys or channel redeem script unknown`);
         const [sellerVa, buyerVa] = await Promise.all([
             this.client('validateaddress', [sellerAddress]),
             this.client('validateaddress', [buyerAddress]),
@@ -184,6 +188,9 @@ export class SellSwapper extends Swap {
                 scriptHex: channelScript,
             },
             opReturnScriptHexes,
+            sellerPubkeyHex,
+            buyerPubkeyHex,
+            commitRedeemScriptHex,
         };
     }
 
@@ -210,16 +217,28 @@ export class SellSwapper extends Swap {
             const expected = await this.buildPsbtExpectation();
             const decRes = await this.client('decodepsbt', [psbtHex]);
             if (decRes.error || !decRes.data) throw new Error(`decodepsbt: ${decRes.error}`);
-            assertPsbtMatchesTrade(decRes.data, expected);
+            const { txid, commitIndex } = assertPsbtMatchesTrade(decRes.data, expected);
             const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
             if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
             const signRes = await this.txsService.signPsbt({ wif, psbtHex });
             if (signRes.error || !signRes.data?.psbtHex) throw new Error(`Sign Tx: ${signRes.error}`);
+            // The PSBT that goes back must be the validated transaction, with this wallet's
+            // signature on the commit input and on nothing else.
+            const signedRes = await this.client('decodepsbt', [signRes.data.psbtHex]);
+            if (signedRes.error || !signedRes.data) throw new Error(`decodepsbt (signed): ${signedRes.error}`);
+            assertSellerSignature(signedRes.data, { txid, commitIndex, sellerPubkeyHex: expected.sellerPubkeyHex });
             this.emitSwapEvent(`SELLER:STEP5`, signRes.data.psbtHex);
         } catch (error: any) {
             const errorMessge = error.message || 'Undefined Error';
-            this.terminateTrade(`Step 4: ${errorMessge}`);
+            this.terminateTrade(`Step 4: ${errorMessge}${this.commitNotice()}`);
         }
+    }
+
+    // Appended to a step 4 refusal. The commit was broadcast at step 2 and cannot be
+    // unwound: it sits in the 2-of-2 channel, and spending it needs the buyer's signature too.
+    private commitNotice(): string {
+        if (!this.commitUtxo) return '';
+        return ` Commit output ${this.commitUtxo.txid}:${this.commitUtxo.vout} is in the 2-of-2 channel; spending it needs the buyer's signature.`;
     }
 
     private async onStep6(cpId: string, finalTx: string) {

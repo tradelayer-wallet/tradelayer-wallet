@@ -5,9 +5,17 @@
 // The expected shape is the one the relayer builder produces for an LTC-for-tokens spot
 // trade, wallet-server/src/services/tx-builder.service.ts buildLTCInstatTx (lines 86-138):
 //   inputs : the seller's commit output (always first), then only the buyer's own UTXOs
-//   outputs: seller <- sellerSats, buyer <- change, one OP_RETURN with the TL payload (0 value)
+//   outputs: buyer <- change, seller <- sellerSats, one OP_RETURN with the TL payload (0 value)
 //   fee    : 0.3 * 0.002 LTC per input (getEnoughInputs2, line 211/214), 60000 sat per input
 // Anything else is refused.
+//
+// Script forms. The relayer's PSBT builder (wallet-server crypto.util buildPsbt) writes the
+// witness UTXO of every buyer input as P2WPKH(buyer key) and the commit as P2WSH(redeem script),
+// while the address the wallet trades from is BIP49 (auth.service m/49): P2SH(P2WPKH(key)).
+// The on-chain spend is valid either way (the finalizer pushes the redeem script), so both
+// forms are accepted, and only when the address is derived from the key the form names.
+
+import { enc, RIPEMD160, SHA256 } from 'crypto-js';
 
 export const SATS_PER_LTC = 100000000;
 // tx-builder.service.ts getEnoughInputs2: 0.3 * minFeeLtcPerKb per input.
@@ -29,6 +37,7 @@ export interface IPsbtInputExpectation {
     txid: string;
     vout: number;
     sats: number;
+    // scriptPubKey hex of the channel output, as the node reports it.
     scriptHex: string;
 }
 
@@ -36,7 +45,7 @@ export interface IPsbtExpectation {
     // scriptPubKey hex of the seller's address: receives exactly sellerSats.
     sellerScriptHex: string;
     // scriptPubKey hex of the buyer's address: the change output, and the only script an
-    // input besides the seller's commit may spend.
+    // input besides the seller's commit may spend (in either form, see the header).
     buyerScriptHex: string;
     sellerSats: number;
     // Smallest output the chain accepts for the buyer's change.
@@ -45,6 +54,11 @@ export interface IPsbtExpectation {
     commit: IPsbtInputExpectation;
     // Every OP_RETURN scriptPubKey hex the trade payload may produce (one per accepted expiry).
     opReturnScriptHexes: string[];
+    // The two keys. The address scripts above must derive from these keys.
+    sellerPubkeyHex: string;
+    buyerPubkeyHex: string;
+    // Redeem script of the 2-of-2 channel that the commit output pays to.
+    commitRedeemScriptHex: string;
 }
 
 const refuse = (why: string): never => {
@@ -62,6 +76,9 @@ const asArray = (v: unknown, what: string): any[] =>
 
 const asHex = (v: unknown, what: string): string =>
     typeof v === 'string' && /^([0-9a-f]{2})+$/i.test(v) ? v.toLowerCase() : refuse(`${what} is not hex`);
+
+const asPubkey = (v: unknown, what: string): string =>
+    typeof v === 'string' && /^(02|03)[0-9a-f]{64}$/i.test(v) ? v.toLowerCase() : refuse(`${what} is not a compressed public key`);
 
 const asTxid = (v: unknown, what: string): string =>
     typeof v === 'string' && /^[0-9a-f]{64}$/i.test(v) ? v.toLowerCase() : refuse(`${what} is not a txid`);
@@ -91,15 +108,57 @@ export const psbtTxid = (decoded: unknown): string | null => {
 
 const outpointKey = (txid: string, vout: number) => `${txid}:${vout}`;
 
+// Script builders, lowercase hex. p2wpkh and p2wsh are the witness programs; p2sh wraps one.
+const hash160Hex = (hex: string): string => RIPEMD160(SHA256(enc.Hex.parse(hex))).toString(enc.Hex);
+const sha256Hex = (hex: string): string => SHA256(enc.Hex.parse(hex)).toString(enc.Hex);
+const p2wpkhOf = (pubHex: string): string => `0014${hash160Hex(pubHex)}`;
+const p2wshOf = (redeemHex: string): string => `0020${sha256Hex(redeemHex)}`;
+const p2shOf = (scriptHex: string): string => `a914${hash160Hex(scriptHex)}87`;
+
+// The buyer's and the channel's scripts, as the PSBT may state them. Each must be one of the
+// forms derived from the key (or redeem script) that the trade names, otherwise refused.
+const buyerInputScripts = (buyerScript: string, buyerPub: string): Set<string> => {
+    const wpkh = p2wpkhOf(buyerPub);
+    if (buyerScript !== wpkh && buyerScript !== p2shOf(wpkh)) refuse('buyer address is not derived from the buyer key');
+    return new Set([buyerScript, wpkh]);
+};
+const commitInputScripts = (channelScript: string, redeemHex: string): Set<string> => {
+    const wsh = p2wshOf(redeemHex);
+    if (channelScript !== wsh && channelScript !== p2shOf(wsh)) refuse('channel address is not the 2-of-2 of this swap');
+    return new Set([channelScript, wsh]);
+};
+
+// A PSBT input that already carries a signature, a non-ALL sighash, or a finalized script
+// is refused before signing. Only SIGHASH_ALL is ever produced here; a signature the
+// counterparty pre-filled would make the seller's own signature step meaningless.
+const refuseUnsignedRecord = (rec: Record<string, any>, i: number): void => {
+    if (rec.sighash !== undefined && rec.sighash !== 'ALL') refuse(`input ${i} sighash is ${String(rec.sighash)}, only ALL is signed`);
+    if (rec.partial_signatures !== undefined) {
+        const sigs = asObject(rec.partial_signatures, `input ${i} partial_signatures`);
+        if (Object.keys(sigs).length > 0) refuse(`input ${i} already carries a signature`);
+    }
+    if (Object.keys(rec).some((k) => /^final_script/i.test(k))) refuse(`input ${i} is already finalized`);
+};
+
 // Throws unless the decoded PSBT is exactly the expected LTC-for-tokens trade transaction.
 // `decoded` is a decodepsbt result (Bitcoin Core / Litecoin Core shape: tx.vin, tx.vout,
 // inputs[i].witness_utxo). Every field the check relies on is required; a missing or
-// malformed one refuses. The check never signs or sends anything.
-export const assertPsbtMatchesTrade = (decoded: unknown, expected: IPsbtExpectation): void => {
+// malformed one refuses. Returns the transaction id and the commit input index. The check
+// never signs or sends anything.
+export const assertPsbtMatchesTrade = (decoded: unknown, expected: IPsbtExpectation): { txid: string; commitIndex: number } => {
+    const sellerPub = asPubkey(expected.sellerPubkeyHex, 'seller pubkey');
+    const buyerPub = asPubkey(expected.buyerPubkeyHex, 'buyer pubkey');
+    if (sellerPub === buyerPub) refuse('seller and buyer keys are the same');
     const sellerScript = asHex(expected.sellerScriptHex, 'expected seller script');
     const buyerScript = asHex(expected.buyerScriptHex, 'expected buyer script');
     if (sellerScript === buyerScript) refuse('seller and buyer scripts are the same');
-    const commitScript = asHex(expected.commit.scriptHex, 'expected commit script');
+    const sellerWpkh = p2wpkhOf(sellerPub);
+    if (sellerScript !== sellerWpkh && sellerScript !== p2shOf(sellerWpkh)) refuse('seller address is not derived from the seller key');
+    const buyerScripts = buyerInputScripts(buyerScript, buyerPub);
+    const commitScripts = commitInputScripts(
+        asHex(expected.commit.scriptHex, 'expected commit script'),
+        asHex(expected.commitRedeemScriptHex, 'expected commit redeem script'),
+    );
     const commitKey = outpointKey(asTxid(expected.commit.txid, 'expected commit txid'), asIndex(expected.commit.vout, 'expected commit vout'));
     const opReturns = new Set(expected.opReturnScriptHexes.map((h) => asHex(h, 'expected OP_RETURN script')));
     if (!(expected.sellerSats > 0) || !Number.isSafeInteger(expected.sellerSats)) refuse('expected seller amount invalid');
@@ -114,27 +173,32 @@ export const assertPsbtMatchesTrade = (decoded: unknown, expected: IPsbtExpectat
     if (vin.length === 0) refuse('no inputs');
     if (psbtInputs.length !== vin.length) refuse('input records do not match the transaction inputs');
     if (tx.locktime !== 0) refuse('transaction has a locktime');
+    const txid = psbtTxid(root) ?? refuse('transaction id missing');
 
     // Inputs: the commit output exactly once, with the amount and script this swap created.
-    // Every other input must be at the buyer's address. The seller's key only signs its own
-    // script, so no other input is touched by the seller's signature.
+    // Every other input must be at the buyer's address (either form). The seller's key only
+    // signs scripts it derives, and no buyer form derives from it, so no other input is signed.
     let inSats = 0;
     let commitSeen = 0;
+    let commitIndex = -1;
     const seen = new Set<string>();
     vin.forEach((input, i) => {
         const inObj = asObject(input, `input ${i}`);
         const key = outpointKey(asTxid(inObj.txid, `input ${i} txid`), asIndex(inObj.vout, `input ${i} vout`));
         if (seen.has(key)) refuse(`input ${i} repeats an earlier input`);
         seen.add(key);
-        const utxo = asObject(asObject(psbtInputs[i], `input record ${i}`).witness_utxo, `input ${i} witness_utxo`);
+        const rec = asObject(psbtInputs[i], `input record ${i}`);
+        refuseUnsignedRecord(rec, i);
+        const utxo = asObject(rec.witness_utxo, `input ${i} witness_utxo`);
         const sats = ltcToSats(utxo.amount, `input ${i} amount`);
         const scriptHex = asHex(asObject(utxo.scriptPubKey, `input ${i} scriptPubKey`).hex, `input ${i} script`);
         if (key === commitKey) {
             commitSeen++;
-            if (sats !== expected.commit.sats || scriptHex !== commitScript) {
+            commitIndex = i;
+            if (sats !== expected.commit.sats || !commitScripts.has(scriptHex)) {
                 refuse('commit input does not match the commit output of this swap');
             }
-        } else if (scriptHex !== buyerScript) {
+        } else if (!buyerScripts.has(scriptHex)) {
             refuse(`input ${i} is not at the buyer's address`);
         }
         inSats += sats;
@@ -175,4 +239,23 @@ export const assertPsbtMatchesTrade = (decoded: unknown, expected: IPsbtExpectat
     });
     if (sellerOuts !== 1 || buyerOuts !== 1 || dataOuts !== 1) refuse('output set differs from the agreed trade');
     if (inSats - outSats !== fee) refuse('fee differs from the agreed fee');
+    return { txid, commitIndex };
+};
+
+// Checks the PSBT this wallet returns after signing. It must be the same transaction that was
+// validated, and it must carry this wallet's signature on the commit input and on no other.
+export const assertSellerSignature = (
+    decodedSigned: unknown,
+    expected: { txid: string; commitIndex: number; sellerPubkeyHex: string },
+): void => {
+    const pub = asPubkey(expected.sellerPubkeyHex, 'seller pubkey');
+    if (psbtTxid(decodedSigned) !== expected.txid) refuse('signed PSBT is a different transaction');
+    const inputs = asArray(asObject(decodedSigned, 'signed PSBT').inputs, 'signed PSBT inputs');
+    if (inputs.length <= expected.commitIndex) refuse('signed PSBT has no commit input');
+    inputs.forEach((rec, i) => {
+        const sigs = isObject(rec) && isObject(rec.partial_signatures) ? rec.partial_signatures : {};
+        const mine = Object.keys(sigs).some((k) => k.toLowerCase() === pub && typeof sigs[k] === 'string' && /^[0-9a-f]+$/i.test(sigs[k]));
+        if (i === expected.commitIndex && !mine) refuse('seller signature missing on the commit input');
+        if (i !== expected.commitIndex && mine) refuse(`seller signature added to input ${i}`);
+    });
 };
