@@ -2,6 +2,15 @@
 // by sessionId, never by socket, so there is no per-socket channel name.
 export const SWAP_EVENT = 'swap';
 
+// The single definition of a valid swap session id: the orderbook server issues
+// 256 random bits as lowercase hex. Anything else is refused.
+export const isSessionId = (value: unknown): value is string =>
+    typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
+
+// Bitcoin-family transaction id: 32 bytes as 64 hex characters.
+export const isTxid = (value: unknown): value is string =>
+    typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value);
+
 export class SwapEvent {
     constructor(
         public sessionId: string,

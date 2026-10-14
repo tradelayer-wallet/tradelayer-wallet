@@ -1,5 +1,5 @@
 import { BuySwapper } from './buyer';
 import { SellSwapper } from './seller';
-import { ITradeInfo } from './common';
+import { ITradeInfo, isSessionId, isTxid } from './common';
 
-export { BuySwapper, SellSwapper, ITradeInfo };
+export { BuySwapper, SellSwapper, ITradeInfo, isSessionId, isTxid };

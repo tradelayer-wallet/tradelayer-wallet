@@ -1,13 +1,13 @@
 import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
-import { IMSChannelData, SWAP_EVENT, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
+import { IMSChannelData, isTxid, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
 import { Swap } from "./swap";
 
 export class SellSwapper extends Swap {
     constructor(
         sessionId: string,
         typeTrade: ETradeType,
-        tradeInfo: IFuturesTradeProps | ISpotTradeProps, 
+        tradeInfo: IFuturesTradeProps | ISpotTradeProps,
         sellerInfo: IBuyerSellerInfo,
         buyerInfo: IBuyerSellerInfo,
         client: TClient,
@@ -15,21 +15,12 @@ export class SellSwapper extends Swap {
         txsService: TxsService,
     ) {
         super(sessionId, typeTrade, tradeInfo, sellerInfo, buyerInfo, client, socket, txsService);
-        this.handleOnEvents();
-        this.onReady();
         this.initTrade();
-    }
-
-    private handleOnEvents() {
-        this.socket.on(SWAP_EVENT, this.onSwapEvent);
     }
 
     protected handleSwapEvent(eventData: SwapEvent) {
         const { socketId, data } = eventData;
         switch (eventData.eventName) {
-            case 'TERMINATE_TRADE':
-                this.onTerminateTrade.bind(this)(socketId, data);
-                break;
             case 'BUYER:STEP2':
                 this.onStep2.bind(this)(socketId);
                 break;
@@ -142,9 +133,8 @@ export class SellSwapper extends Swap {
     private async onStep6(cpId: string, finalTx: string) {
         try {
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
-            const data = { txid: finalTx, seller: true, trade: this.tradeInfo };
-            this.readyRes({ data });
-            this.removePreviuesListeners();
+            if (!isTxid(finalTx)) throw new Error(`BUYER:STEP6 txid is not 64 hex characters`);
+            this.finish({ data: { txid: finalTx, seller: true, trade: this.tradeInfo } });
         } catch (error: any) {
             const errorMessge = error.message || 'Undefined Error';
             this.terminateTrade(`Step 6: ${errorMessge}`);

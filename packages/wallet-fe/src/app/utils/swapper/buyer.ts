@@ -1,13 +1,17 @@
 import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildLTCITTxConfig, IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
-import { IMSChannelData, SWAP_EVENT, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
+import { IMSChannelData, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
 import { Swap } from "./swap";
 
 export class BuySwapper extends Swap {
+    // Txid of the unsigned transaction this wallet built in BUYER:STEP4. The PSBT the
+    // seller returns must carry this same txid, or it is not signed.
+    private expectedTxid: string | null = null;
+
     constructor(
         sessionId: string,
         typeTrade: ETradeType,
-        tradeInfo: IFuturesTradeProps | ISpotTradeProps, 
+        tradeInfo: IFuturesTradeProps | ISpotTradeProps,
         buyerInfo: IBuyerSellerInfo,
         sellerInfo: IBuyerSellerInfo,
         client: TClient,
@@ -15,20 +19,20 @@ export class BuySwapper extends Swap {
         txsService: TxsService,
     ) {
         super(sessionId, typeTrade, tradeInfo, buyerInfo, sellerInfo, client, socket, txsService);
-        this.handleOnEvents();
-        this.onReady();
     }
 
-    private handleOnEvents() {
-        this.socket.on(SWAP_EVENT, this.onSwapEvent);
+    // Sends the PSBT this wallet built, after recording the txid it must come back with.
+    private async sendPsbtToSeller(psbtHex: string) {
+        const decRes = await this.client('decodepsbt', [psbtHex]);
+        const txid = decRes.data?.tx?.txid;
+        if (decRes.error || typeof txid !== 'string' || !txid) throw new Error(`decodepsbt: ${decRes.error}`);
+        this.expectedTxid = txid;
+        this.emitSwapEvent('BUYER:STEP4', psbtHex);
     }
 
     protected handleSwapEvent(eventData: SwapEvent) {
         const { socketId, data } = eventData;
         switch (eventData.eventName) {
-            case 'TERMINATE_TRADE':
-                this.onTerminateTrade.bind(this)(socketId, data);
-                break;
             case 'SELLER:STEP1':
                 this.onStep1.bind(this)(socketId, data);
                 break;
@@ -81,7 +85,7 @@ export class BuySwapper extends Swap {
                     };
                     const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
                     if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
-                    this.emitSwapEvent('BUYER:STEP4', rawHexRes.data.psbtHex);
+                    await this.sendPsbtToSeller(rawHexRes.data.psbtHex);
                 } else {
                     const ctcpParams = [propIdDesired, (amountDesired).toString()];
                     const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
@@ -134,7 +138,7 @@ export class BuySwapper extends Swap {
                     };
                     const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
                     if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
-                    this.emitSwapEvent('BUYER:STEP4', rawHexRes.data.psbtHex);
+                    await this.sendPsbtToSeller(rawHexRes.data.psbtHex);
                 }
             } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {
                 const { contract_id, amount, price, } = this.tradeInfo;
@@ -189,7 +193,7 @@ export class BuySwapper extends Swap {
                 };
                 const rawHexRes = await this.txsService.buildLTCITTx(buildOptions);
                 if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
-                this.emitSwapEvent('BUYER:STEP4', rawHexRes.data.psbtHex);
+                await this.sendPsbtToSeller(rawHexRes.data.psbtHex);
             } else {
                 throw new Error(`Unrecognized Trade Type: ${this.typeTrade}`);
             }
@@ -202,6 +206,13 @@ export class BuySwapper extends Swap {
     private async onStep5(cpId: string, psbtHex: string) {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Step 5: Error with p2p connection: code 4');
         if (!psbtHex) return this.terminateTrade('Step 5: PsbtHex Not Provided');
+        // Sign only the transaction this wallet built. The seller returns the PSBT
+        // with its signature added; any change to its inputs or outputs changes the
+        // txid, and such a PSBT is refused before anything is signed or broadcast.
+        const decRes = await this.client('decodepsbt', [psbtHex]);
+        if (decRes.error || !this.expectedTxid || decRes.data?.tx?.txid !== this.expectedTxid) {
+            return this.terminateTrade('Step 5: PSBT does not match the transaction this wallet built');
+        }
         const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
         if (!wif) return this.terminateTrade(`Step 5: getWifByAddress: WIF not found: ${this.myInfo.keypair.address}`);
         const signRes = await this.txsService.signPsbt({ wif, psbtHex });
@@ -209,8 +220,7 @@ export class BuySwapper extends Swap {
         if (!signRes.data.isFinished || !signRes.data.finalHex) return this.terminateTrade(`Step 5: Transaction not Full Synced`);
         const finalTxIdRes = await this.txsService.sendTx(signRes.data.finalHex);
         if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(`Step 5: sendRawTransaction: ${finalTxIdRes.error}` || `Error with sending Raw Tx`);
-        if (this.readyRes) this.readyRes({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });
         this.emitSwapEvent('BUYER:STEP6', finalTxIdRes.data);
-        this.removePreviuesListeners();
+        this.finish({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });
     }
 }

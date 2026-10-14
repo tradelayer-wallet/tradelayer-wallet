@@ -1,13 +1,23 @@
 import { TxsService } from "src/app/@core/services/txs.service";
-import { ETradeType, IBuyerSellerInfo, IFuturesTradeProps, IMSChannelData, ISpotTradeProps, SWAP_EVENT, SwapEvent, TClient } from "./common";
+import { ETradeType, IBuyerSellerInfo, IFuturesTradeProps, IMSChannelData, ISpotTradeProps, isSessionId, SWAP_EVENT, SwapEvent, TClient } from "./common";
 import { Socket as SocketClient } from 'socket.io-client';
 import { Subject } from "rxjs";
 
+export interface ISwapResult {
+    data?: any;
+    error?: any;
+}
+
 export abstract class Swap {
-    readyRes: (value: { data?: any, error?: any }) => void = () => {};
     eventSubs$: Subject<SwapEvent> = new Subject();
     multySigChannelData: IMSChannelData | null = null;
+    readonly ready: Promise<ISwapResult>;
+    private resolveReady: (value: ISwapResult) => void = () => {};
+    // Set exactly once, by finish(). Nothing is sent or handled after it.
     private settled = false;
+    // Protocol steps already handled. Each step arrives at most once, so a replayed
+    // step is dropped instead of running its handler (and its signing/broadcast) again.
+    private readonly handled = new Set<string>();
     constructor(
         // Server-issued id of this swap, taken from `new-channel`. Every event this
         // swap sends carries it, and every inbound event must match it.
@@ -19,51 +29,58 @@ export abstract class Swap {
         public client: TClient,
         public socket: SocketClient,
         public txsService: TxsService,
-    ) { }
+    ) {
+        if (!isSessionId(sessionId)) throw new Error('Swap sessionId must be 64 lowercase hex characters');
+        this.ready = new Promise<ISwapResult>((res) => { this.resolveReady = res; });
+        this.socket.on(SWAP_EVENT, this.onSwapEvent);
+        // Safety net: a swap that has not settled within 60 s is terminated. Once
+        // settled the timer does nothing, so no late TERMINATE_TRADE is sent.
+        setTimeout(() => {
+            if (!this.settled) this.terminateTrade('Undefined Error code 1');
+        }, 60000);
+    }
 
     // The only place a swap event is sent. Every send goes through here, so the
-    // sessionId cannot be left off.
+    // sessionId cannot be left off, and nothing is sent once the swap has settled.
     protected emitSwapEvent(eventName: string, data: any = null): void {
+        if (this.settled) return;
         this.socket.emit(SWAP_EVENT, new SwapEvent(this.sessionId, eventName, this.myInfo.socketId, data));
     }
 
-    // Listener for this session only. Fails closed: an event for any other session
-    // is dropped before it reaches the state machine.
+    // Listener for this session only. Fails closed: an event for any other session,
+    // a settled swap, or a repeated step is dropped before it reaches a handler.
     protected onSwapEvent = (eventData: SwapEvent) => {
-        if (!this.sessionId || eventData?.sessionId !== this.sessionId) return;
+        if (this.settled || eventData?.sessionId !== this.sessionId) return;
+        if (this.handled.has(eventData.eventName)) return;
+        this.handled.add(eventData.eventName);
         this.eventSubs$.next(eventData);
+        if (eventData.eventName === 'TERMINATE_TRADE') {
+            // The counterparty ended the swap. Nothing is sent back.
+            this.finish({ error: eventData.data ?? 'Undefined Reason' });
+            return;
+        }
         this.handleSwapEvent(eventData);
     };
 
     protected abstract handleSwapEvent(eventData: SwapEvent): void;
 
-    onReady() {
-        return new Promise<{ data?: any, error?: any }>((res) => {
-            this.readyRes = (value) => {
-                this.settled = true;
-                res(value);
-            };
-            setTimeout(() => {
-                // A settled swap must not send a late TERMINATE_TRADE: the orderbook
-                // server rejects events for a settled session.
-                if (!this.settled) this.terminateTrade('Undefined Error code 1');
-            }, 60000);
-        });
-    }
-
+    // Sends TERMINATE_TRADE to the counterparty and ends the swap. Does nothing once
+    // the swap has settled.
     terminateTrade(reason: string = 'No info'): void {
+        if (this.settled) return;
         this.emitSwapEvent('TERMINATE_TRADE', reason);
-        this.onTerminateTrade('', reason);
+        this.finish({ error: reason });
     }
 
-    onTerminateTrade(cpId: string, reason: string = 'Undefined Reason') {
-        if (this.readyRes) this.readyRes({ error: reason });
-        this.removePreviuesListeners();
-    }
-
-    removePreviuesListeners() {
+    // Ends the swap locally (counterparty terminated, or success). The only exit path:
+    // it detaches this session's listener and completes the result exactly once.
+    protected finish(result: ISwapResult): void {
+        if (this.settled) return;
+        this.settled = true;
         // Removes only this session's listener. A bare off(event) would also remove
         // every other concurrent session's listener on this socket.
         this.socket.off(SWAP_EVENT, this.onSwapEvent);
+        this.eventSubs$.complete();
+        this.resolveReady(result);
     }
 }
