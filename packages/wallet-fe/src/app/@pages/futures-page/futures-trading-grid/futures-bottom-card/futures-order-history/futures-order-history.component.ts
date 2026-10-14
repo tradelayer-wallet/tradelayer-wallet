@@ -15,6 +15,7 @@ export class FuturesOrderHistoryComponent {
     ) {}
     
     get orderHistory() {
-      return this.futuresOrdersService.orderHistory?.reverse() || [];
+      // A copy: reverse() on the service's array flipped the stored order on every read.
+      return [...(this.futuresOrdersService.orderHistory || [])].reverse();
     }
 }
