@@ -127,9 +127,13 @@ const buyerInputScripts = (buyerScript: string, buyerPub: string): Set<string> =
     if (buyerScript !== wpkh && buyerScript !== p2shOf(wpkh)) refuse('buyer address is not derived from the buyer key');
     return new Set([buyerScript, wpkh]);
 };
-// The two script forms a channel may take for a redeem script: the P2WSH witness program, and
-// P2SH wrapping it. Which one a node's address uses depends on its address type setting, so both
-// sides accept either, and each checks the script (not the address string) against the redeem script.
+// The witness program of a channel redeem script: the script the relayer's PSBT builder and the
+// signers describe a commit input with. A channel paid through P2SH wrapping (P2SH-P2WSH) cannot be
+// signed on that path, because the signed script would not be the one on the chain.
+export const channelWitnessScript = (redeemHex: string): string => p2wshOf(redeemHex);
+
+// The two script forms the seller's guard accepts for a channel: the P2WSH witness program, and
+// P2SH wrapping it. The buyer accepts only the first (channelWitnessScript).
 export const channelScriptForms = (redeemHex: string): Set<string> => {
     const wsh = p2wshOf(redeemHex);
     return new Set([wsh, p2shOf(wsh)]);

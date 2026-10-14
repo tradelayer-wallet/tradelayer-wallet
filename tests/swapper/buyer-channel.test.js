@@ -58,7 +58,8 @@ const makeState = () => ({
 // Script each address encodes on this node: the P2WSH and P2SH-P2WSH forms of the channel redeem script,
 // and a valid address for a different 2-of-2 (not this trade's channel).
 const SCRIPT_OF = {
-    'MS-ADDR': fx.SPK.MS, // P2WSH of the redeem script
+    'MS-ADDR': fx.SPK.MS, // P2WSH of the redeem script (the buyer's own node)
+    'MS-SELLER-ENC': fx.SPK.MS, // the same P2WSH script, as a counterparty node may encode it
     'MS-P2SH': fx.p2shOf(fx.p2wshOf(fx.REDEEM)), // P2SH-P2WSH of the same redeem script
     'MS-OTHER': fx.p2wshOf('5151'), // a different witness script
 };
@@ -160,16 +161,30 @@ test('REGRESSION: a throw while signing at SELLER:STEP5 ends the swap with a Ste
     assert.equal(b.state.broadcasts, 1, 'only the commit was broadcast');
 });
 
-test('an honest seller whose address is the P2SH-P2WSH form of the same channel is accepted and paid at that address', async () => {
-    // Seller and buyer nodes may differ in address type, so the same script is encoded differently.
+test('an honest seller whose address encodes the same P2WSH channel with a different string is accepted and paid at its address', async () => {
+    // Seller and buyer nodes may differ in address type, so the same script is written differently.
     // The old check compared address strings and refused this honest step.
     const b = startBuyer();
-    b.sock.deliver('SELLER:STEP1', { address: 'MS-P2SH', redeemScript: fx.REDEEM, scriptPubKey: fx.SPK.MS });
+    b.sock.deliver('SELLER:STEP1', { address: 'MS-SELLER-ENC', redeemScript: fx.REDEEM, scriptPubKey: fx.SPK.MS });
     await waitFor(() => sentNames(b.sock).includes('BUYER:STEP2'), { message: 'BUYER:STEP2' });
-    assert.ok(!sentNames(b.sock).includes('TERMINATE_TRADE'), 'honest P2SH-P2WSH channel refused');
+    assert.ok(!sentNames(b.sock).includes('TERMINATE_TRADE'), 'honest P2WSH channel refused');
     b.sock.deliver('SELLER:STEP3', commitUtxo);
     await waitFor(() => b.state.buildTxTo.length === 1, { message: 'commit built' });
-    assert.deepStrictEqual(b.state.buildTxTo, ['MS-P2SH']);
+    assert.deepStrictEqual(b.state.buildTxTo, ['MS-SELLER-ENC']);
+});
+
+test('a P2SH-P2WSH channel is refused at SELLER:STEP1, so no commit is built or broadcast', async () => {
+    // The commit input of a P2SH channel cannot be signed on the PSBT path, so the trade would fail
+    // after the commit was paid. The buyer refuses it first.
+    const b = startBuyer();
+    b.sock.deliver('SELLER:STEP1', { address: 'MS-P2SH', redeemScript: fx.REDEEM, scriptPubKey: fx.SPK.MS });
+    await waitFor(() => lastSent(b.sock)?.eventName === 'TERMINATE_TRADE', { message: 'refusal' });
+    const res = await b.sw.ready;
+    assert.match(String(res.error), /^Step 1: address of Multysig is not matching$/);
+    b.sock.deliver('SELLER:STEP3', commitUtxo);
+    await sleep(20);
+    assert.deepStrictEqual(b.state.buildTxTo, []);
+    assert.equal(b.state.broadcasts, 0);
 });
 
 test('a valid address for a different 2-of-2 or witness script is refused at SELLER:STEP1', async () => {
