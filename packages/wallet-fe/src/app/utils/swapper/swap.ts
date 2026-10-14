@@ -18,6 +18,8 @@ export abstract class Swap {
     // Protocol steps already handled. Each step arrives at most once, so a replayed
     // step is dropped instead of running its handler (and its signing/broadcast) again.
     private readonly handled = new Set<string>();
+    // Cleared by finish(), so a settled swap does not keep a timer (and the process) alive.
+    private safetyTimer: ReturnType<typeof setTimeout> | null = null;
     constructor(
         // Server-issued id of this swap, taken from `new-channel`. Every event this
         // swap sends carries it, and every inbound event must match it.
@@ -35,9 +37,11 @@ export abstract class Swap {
         this.socket.on(SWAP_EVENT, this.onSwapEvent);
         // Safety net: a swap that has not settled within 60 s is terminated. Once
         // settled the timer does nothing, so no late TERMINATE_TRADE is sent.
-        setTimeout(() => {
+        this.safetyTimer = setTimeout(() => {
             if (!this.settled) this.terminateTrade('Undefined Error code 1');
         }, 60000);
+        // Under Node (the tests) an unref'd timer does not keep the process alive. No-op in the browser.
+        (this.safetyTimer as any)?.unref?.();
     }
 
     // The only place a swap event is sent. Every send goes through here, so the
@@ -77,6 +81,7 @@ export abstract class Swap {
     protected finish(result: ISwapResult): void {
         if (this.settled) return;
         this.settled = true;
+        if (this.safetyTimer) clearTimeout(this.safetyTimer);
         // Removes only this session's listener. A bare off(event) would also remove
         // every other concurrent session's listener on this socket.
         this.socket.off(SWAP_EVENT, this.onSwapEvent);

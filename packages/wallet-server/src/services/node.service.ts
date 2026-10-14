@@ -55,7 +55,8 @@ export const createConfigFile = async (options: {
         const fileExist = existsSync(filePath);
         if (fileExist) throw('litecoin.conf file Already exist in provided directory!');
         const fileData = `rpcuser=${username}\nrpcpassword=${password}\nrpcport=${port}\ntxindex=1`;
-        writeFileSync(filePath, fileData);
+        // The file holds the RPC password: owner read/write only (POSIX; ignored on Windows).
+        writeFileSync(filePath, fileData, { mode: 0o600 });
         return { data: `litecoin.conf file was created` };
     } catch (error) {
         return { error: error || 'Creating Config File Undefined Error' };

@@ -69,7 +69,11 @@ export const signPsbtRawtTx = (signOptions: {
         const _network = networks[network];
         const keyPair = ECPair.fromWIF(wif, _network);
         const psbt = Psbt.fromHex(psbtHex);
-        psbt.signAllInputs(keyPair);
+        // The sighash type of each input comes from the PSBT, which a counterparty
+        // supplies. Only SIGHASH_ALL is ever signed: an input that asks for NONE or
+        // SINGLE (with or without ANYONECANPAY) is left unsigned, so it cannot be used
+        // to authorize a different transaction.
+        psbt.signAllInputs(keyPair, [Transaction.SIGHASH_ALL]);
         const newPsbtHex = psbt.toHex();
         try {
             psbt.finalizeAllInputs();

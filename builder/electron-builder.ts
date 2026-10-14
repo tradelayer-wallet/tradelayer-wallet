@@ -1,5 +1,6 @@
-import { App, app, BrowserWindow, globalShortcut, ipcMain, dialog } from 'electron';
+import { App, app, BrowserWindow, globalShortcut, ipcMain, dialog, WebContents } from 'electron';
 import { AutoUpdater } from './auto-updater';
+import { isAllowedAppNavigation } from './navigation-guard';
 import { FastifyServer } from '../packages/wallet-server/src/fastify-server';
 
 import * as url from 'url';
@@ -95,8 +96,21 @@ export class ElectronApp {
         });
     }
 
+    // The window runs with Node integration, so it must never load remote content or
+    // open windows of its own (see navigation-guard.ts). Installed before the first load.
+    private guardWindowNavigation(webContents: WebContents) {
+        const appIndex = path.join(__dirname, './fe/index.html');
+        const refuseUnlessApp = (event: Electron.Event, url: string) => {
+            if (!isAllowedAppNavigation(url, appIndex)) event.preventDefault();
+        };
+        webContents.on('will-navigate', refuseUnlessApp);
+        webContents.on('will-redirect', refuseUnlessApp);
+        webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    }
+
     private handleMainWindowEvents() {
         if (!this.mainWindow) return;
+        this.guardWindowNavigation(this.mainWindow.webContents);
         this.mainWindow.webContents.on('did-fail-load', () => {
             if (this.mainWindow) this.loadUrl(this.mainWindow);
         });

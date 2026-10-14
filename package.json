@@ -19,7 +19,8 @@
     "install:all": "npm install && npm install --prefix ./packages/wallet-fe",
     "build:all:windows": "npm run fe:build && npm run server:build:windows && npm run electron:build",
     "build:all:linux": "npm run fe:build && npm run server:build:linux && npm run electron:build",
-    "build:all:mac": "npm run fe:build && npm run server:build:mac && npm run electron:build"
+    "build:all:mac": "npm run fe:build && npm run server:build:mac && npm run electron:build",
+    "test": "node --test \"tests/**/*.test.js\""
   },
   "dependencies": {
     "@trezor/connect": "^9.0.2",

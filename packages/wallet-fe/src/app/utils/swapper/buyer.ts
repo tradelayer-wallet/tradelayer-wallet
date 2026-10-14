@@ -55,7 +55,17 @@ export class BuySwapper extends Swap {
             const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
             if (amaRes.error || !amaRes.data) throw new Error(`addmultisigaddress: ${amaRes.error}`);
             if (amaRes.data.redeemScript !== msData.redeemScript) throw new Error(`redeemScript of Multysig is not matching`);
-            this.multySigChannelData = msData;
+            // The commit is paid to the channel address at step 3, so the address and its
+            // scriptPubKey come from this node's own derivation of the redeem script. The
+            // counterparty's address is only accepted when it equals that derivation.
+            if (amaRes.data.address !== msData.address) throw new Error(`address of Multysig is not matching`);
+            const vaRes = await this.client('validateaddress', [amaRes.data.address]);
+            if (vaRes.error || !vaRes.data?.scriptPubKey) throw new Error(`validateaddress: ${vaRes.error}`);
+            this.multySigChannelData = {
+                address: amaRes.data.address,
+                redeemScript: amaRes.data.redeemScript,
+                scriptPubKey: vaRes.data.scriptPubKey,
+            };
             this.emitSwapEvent('BUYER:STEP2');
         } catch (error: any) {
             const errorMessge = error.message || 'Undefined Error';
@@ -205,23 +215,28 @@ export class BuySwapper extends Swap {
     }
 
     private async onStep5(cpId: string, psbtHex: string) {
-        if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Step 5: Error with p2p connection: code 4');
-        if (!psbtHex) return this.terminateTrade('Step 5: PsbtHex Not Provided');
-        // Sign only the transaction this wallet built. The seller returns the PSBT
-        // with its signature added; any change to its inputs or outputs changes the
-        // txid, and such a PSBT is refused before anything is signed or broadcast.
-        const decRes = await this.client('decodepsbt', [psbtHex]);
-        if (decRes.error || !this.expectedTxid || psbtTxid(decRes.data) !== this.expectedTxid) {
-            return this.terminateTrade('Step 5: PSBT does not match the transaction this wallet built');
+        try {
+            if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Step 5: Error with p2p connection: code 4');
+            if (!psbtHex) return this.terminateTrade('Step 5: PsbtHex Not Provided');
+            // Sign only the transaction this wallet built. The seller returns the PSBT
+            // with its signature added; any change to its inputs or outputs changes the
+            // txid, and such a PSBT is refused before anything is signed or broadcast.
+            const decRes = await this.client('decodepsbt', [psbtHex]);
+            if (decRes.error || !this.expectedTxid || psbtTxid(decRes.data) !== this.expectedTxid) {
+                return this.terminateTrade('Step 5: PSBT does not match the transaction this wallet built');
+            }
+            const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
+            if (!wif) return this.terminateTrade(`Step 5: getWifByAddress: WIF not found: ${this.myInfo.keypair.address}`);
+            const signRes = await this.txsService.signPsbt({ wif, psbtHex });
+            if (signRes.error || !signRes.data) return this.terminateTrade(`Step 5: signPsbt: ${signRes.error}`);
+            if (!signRes.data.isFinished || !signRes.data.finalHex) return this.terminateTrade(`Step 5: Transaction not Full Synced`);
+            const finalTxIdRes = await this.txsService.sendTx(signRes.data.finalHex);
+            if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(`Step 5: sendRawTransaction: ${finalTxIdRes.error}` || `Error with sending Raw Tx`);
+            this.emitSwapEvent('BUYER:STEP6', finalTxIdRes.data);
+            this.finish({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });
+        } catch (error: any) {
+            // Called without await from the event dispatcher: a throw here would be an unhandled rejection.
+            this.terminateTrade(`Step 5: ${error?.message || 'Undefined Error'}`);
         }
-        const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
-        if (!wif) return this.terminateTrade(`Step 5: getWifByAddress: WIF not found: ${this.myInfo.keypair.address}`);
-        const signRes = await this.txsService.signPsbt({ wif, psbtHex });
-        if (signRes.error || !signRes.data) return this.terminateTrade(`Step 5: signPsbt: ${signRes.error}`);
-        if (!signRes.data.isFinished || !signRes.data.finalHex) return this.terminateTrade(`Step 5: Transaction not Full Synced`);
-        const finalTxIdRes = await this.txsService.sendTx(signRes.data.finalHex);
-        if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(`Step 5: sendRawTransaction: ${finalTxIdRes.error}` || `Error with sending Raw Tx`);
-        this.emitSwapEvent('BUYER:STEP6', finalTxIdRes.data);
-        this.finish({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });
     }
 }
