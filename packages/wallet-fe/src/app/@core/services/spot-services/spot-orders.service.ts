@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
 import { ISpotOrder } from "./spot-orderbook.service";
+import { withOrderDecimals } from "src/app/utils/order-decimals";
 
 interface ITradeConf {
     keypair: {
@@ -58,11 +59,11 @@ export class SpotOrdersService {
 
     newOrder(orderConf: ISpotTradeConf) {
         this.loadingService.tradesLoading = true;
-        this.socket.emit('new-order', orderConf);
+        this.socket.emit('new-order', withOrderDecimals(orderConf));
     }
 
     addLiquidity(orders: ISpotTradeConf[]) {
-        this.socket.emit('many-orders', orders);
+        this.socket.emit('many-orders', orders.map(withOrderDecimals));
     }
 
     closeOpenedOrder(uuid: string) {

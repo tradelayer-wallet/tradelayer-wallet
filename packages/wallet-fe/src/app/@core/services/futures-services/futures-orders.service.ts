@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
 import { IFuturesOrder } from "./futures-orderbook.service";
+import { withOrderDecimals } from "src/app/utils/order-decimals";
 
 interface ITradeConf {
     keypair: {
@@ -60,11 +61,11 @@ export class FuturesOrdersService {
 
     newOrder(orderConf: IFuturesTradeConf) {
         this.loadingService.tradesLoading = true;
-        this.socket.emit('new-order', orderConf);
+        this.socket.emit('new-order', withOrderDecimals(orderConf));
     }
 
     addLiquidity(orders: IFuturesTradeConf[]) {
-        this.socket.emit('many-orders', orders);
+        this.socket.emit('many-orders', orders.map(withOrderDecimals));
     }
 
     closeOpenedOrder(uuid: string) {
