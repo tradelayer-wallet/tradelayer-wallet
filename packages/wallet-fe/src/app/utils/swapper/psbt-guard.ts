@@ -127,10 +127,17 @@ const buyerInputScripts = (buyerScript: string, buyerPub: string): Set<string> =
     if (buyerScript !== wpkh && buyerScript !== p2shOf(wpkh)) refuse('buyer address is not derived from the buyer key');
     return new Set([buyerScript, wpkh]);
 };
-const commitInputScripts = (channelScript: string, redeemHex: string): Set<string> => {
+// The two script forms a channel may take for a redeem script: the P2WSH witness program, and
+// P2SH wrapping it. Which one a node's address uses depends on its address type setting, so both
+// sides accept either, and each checks the script (not the address string) against the redeem script.
+export const channelScriptForms = (redeemHex: string): Set<string> => {
     const wsh = p2wshOf(redeemHex);
-    if (channelScript !== wsh && channelScript !== p2shOf(wsh)) refuse('channel address is not the 2-of-2 of this swap');
-    return new Set([channelScript, wsh]);
+    return new Set([wsh, p2shOf(wsh)]);
+};
+const commitInputScripts = (channelScript: string, redeemHex: string): Set<string> => {
+    const forms = channelScriptForms(redeemHex);
+    if (!forms.has(channelScript)) refuse('channel address is not the 2-of-2 of this swap');
+    return new Set([channelScript, p2wshOf(redeemHex)]);
 };
 
 // A PSBT input that already carries a signature, a non-ALL sighash, or a finalized script

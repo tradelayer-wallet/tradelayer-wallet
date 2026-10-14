@@ -159,7 +159,13 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
       };
-      this.futuresOrdersService.newOrder(order);
+      try {
+        this.futuresOrdersService.newOrder(order);
+      } catch (error: any) {
+        // Refused before anything is sent: the amount or price cannot be sent exactly.
+        this.toastrService.error(error?.message || 'Order was not sent');
+        return;
+      }
       this.buySellGroup.reset();
     }
 

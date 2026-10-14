@@ -2,7 +2,7 @@ import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildLTCITTxConfig, IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
 import { IMSChannelData, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
 import { Swap } from "./swap";
-import { psbtTxid, TRADE_EXPIRY_BLOCKS } from "./psbt-guard";
+import { channelScriptForms, psbtTxid, TRADE_EXPIRY_BLOCKS } from "./psbt-guard";
 
 export class BuySwapper extends Swap {
     // Txid of the unsigned transaction this wallet built in BUYER:STEP4. The PSBT the
@@ -55,16 +55,22 @@ export class BuySwapper extends Swap {
             const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
             if (amaRes.error || !amaRes.data) throw new Error(`addmultisigaddress: ${amaRes.error}`);
             if (amaRes.data.redeemScript !== msData.redeemScript) throw new Error(`redeemScript of Multysig is not matching`);
-            // The commit is paid to the channel address at step 3, so the address and its
-            // scriptPubKey come from this node's own derivation of the redeem script. The
-            // counterparty's address is only accepted when it equals that derivation.
-            if (amaRes.data.address !== msData.address) throw new Error(`address of Multysig is not matching`);
-            const vaRes = await this.client('validateaddress', [amaRes.data.address]);
-            if (vaRes.error || !vaRes.data?.scriptPubKey) throw new Error(`validateaddress: ${vaRes.error}`);
+            // The commit is paid to the channel at step 3. The redeem script above is the 2-of-2 this
+            // node derived from the keys. The counterparty's address is accepted only if its script is
+            // one of the two forms of that redeem script (P2WSH or P2SH-P2WSH). The address string is
+            // not compared: two nodes with different address-type settings encode the same script
+            // differently, and both forms are valid channels (the seller's guard accepts both).
+            const vaRes = await this.client('validateaddress', [msData.address]);
+            if (vaRes.error) throw new Error(`validateaddress: ${vaRes.error}`);
+            // No script means the address is not valid on this network: the same refusal as a wrong script.
+            const scriptPubKey = typeof vaRes.data?.scriptPubKey === 'string' ? vaRes.data.scriptPubKey.toLowerCase() : '';
+            if (!scriptPubKey || !channelScriptForms(amaRes.data.redeemScript).has(scriptPubKey)) {
+                throw new Error(`address of Multysig is not matching`);
+            }
             this.multySigChannelData = {
-                address: amaRes.data.address,
+                address: msData.address,
                 redeemScript: amaRes.data.redeemScript,
-                scriptPubKey: vaRes.data.scriptPubKey,
+                scriptPubKey,
             };
             this.emitSwapEvent('BUYER:STEP2');
         } catch (error: any) {

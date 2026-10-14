@@ -60,8 +60,10 @@ export class FuturesOrdersService {
 
 
     newOrder(orderConf: IFuturesTradeConf) {
+        // Converted first: a value that cannot be sent exactly throws before the loading flag is set.
+        const order = withOrderDecimals(orderConf);
         this.loadingService.tradesLoading = true;
-        this.socket.emit('new-order', withOrderDecimals(orderConf));
+        this.socket.emit('new-order', order);
     }
 
     addLiquidity(orders: IFuturesTradeConf[]) {

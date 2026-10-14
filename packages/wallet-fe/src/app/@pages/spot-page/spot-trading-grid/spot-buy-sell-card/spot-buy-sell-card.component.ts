@@ -173,7 +173,13 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         isLimitOrder: this.isLimitSelected,
         marketName: this.selectedMarket.pairString,
       };
-      this.spotOrdersService.newOrder(order);
+      try {
+        this.spotOrdersService.newOrder(order);
+      } catch (error: any) {
+        // Refused before anything is sent: the amount or price cannot be sent exactly.
+        this.toastrService.error(error?.message || 'Order was not sent');
+        return;
+      }
       this.buySellGroup.reset();
     }
 
