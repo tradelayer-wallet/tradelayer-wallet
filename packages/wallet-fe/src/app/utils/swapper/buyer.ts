@@ -2,6 +2,7 @@ import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildLTCITTxConfig, IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
 import { IMSChannelData, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
 import { Swap } from "./swap";
+import { psbtTxid, TRADE_EXPIRY_BLOCKS } from "./psbt-guard";
 
 export class BuySwapper extends Swap {
     // Txid of the unsigned transaction this wallet built in BUYER:STEP4. The PSBT the
@@ -24,8 +25,8 @@ export class BuySwapper extends Swap {
     // Sends the PSBT this wallet built, after recording the txid it must come back with.
     private async sendPsbtToSeller(psbtHex: string) {
         const decRes = await this.client('decodepsbt', [psbtHex]);
-        const txid = decRes.data?.tx?.txid;
-        if (decRes.error || typeof txid !== 'string' || !txid) throw new Error(`decodepsbt: ${decRes.error}`);
+        const txid = decRes.error ? null : psbtTxid(decRes.data);
+        if (!txid) throw new Error(`decodepsbt: ${decRes.error}`);
         this.expectedTxid = txid;
         this.emitSwapEvent('BUYER:STEP4', psbtHex);
     }
@@ -68,7 +69,7 @@ export class BuySwapper extends Swap {
             if (!this.multySigChannelData) throw new Error(`Wrong Multisig Data Provided`);
             const tlgiRes = await this.client('tl_getinfo');
             if (tlgiRes.error || !tlgiRes.data?.block) throw new Error(`tl_getinfo: ${tlgiRes.error}`);
-            const bbData = tlgiRes.data.block + 100;
+            const bbData = tlgiRes.data.block + TRADE_EXPIRY_BLOCKS;
             if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
                 const { propIdDesired, amountDesired, amountForSale, propIdForSale } = this.tradeInfo;
 
@@ -210,7 +211,7 @@ export class BuySwapper extends Swap {
         // with its signature added; any change to its inputs or outputs changes the
         // txid, and such a PSBT is refused before anything is signed or broadcast.
         const decRes = await this.client('decodepsbt', [psbtHex]);
-        if (decRes.error || !this.expectedTxid || decRes.data?.tx?.txid !== this.expectedTxid) {
+        if (decRes.error || !this.expectedTxid || psbtTxid(decRes.data) !== this.expectedTxid) {
             return this.terminateTrade('Step 5: PSBT does not match the transaction this wallet built');
         }
         const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);

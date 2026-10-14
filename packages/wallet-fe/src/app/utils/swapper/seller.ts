@@ -1,9 +1,13 @@
 import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
 import { IMSChannelData, isTxid, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
+import { assertPsbtMatchesTrade, IPsbtExpectation, ltcToSats, TRADE_EXPIRY_BLOCKS, TRADE_EXPIRY_TOLERANCE_BLOCKS } from "./psbt-guard";
 import { Swap } from "./swap";
 
 export class SellSwapper extends Swap {
+    // The seller's own commit output, set in onStep2. The only input the seller signs for.
+    private commitUtxo: IUTXO | null = null;
+
     constructor(
         sessionId: string,
         typeTrade: ETradeType,
@@ -58,6 +62,9 @@ export class SellSwapper extends Swap {
         try {
             if (!this.multySigChannelData?.address) throw new Error(`Error with finding Multisig Address`);
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
+            // Refuse an unmodelled trade before the commit is broadcast: a commit that is never
+            // traded leaves the seller's output in the channel.
+            if (!this.isModelledTrade()) throw new Error(`trade not modelled: refusing before commit`);
 
             const fromKeyPair = { address: this.myInfo.keypair.address };
             const toKeyPair = { address: this.multySigChannelData.address };
@@ -107,6 +114,7 @@ export class SellSwapper extends Swap {
                 scriptPubKey: this.multySigChannelData.scriptPubKey,
                 redeemScript: this.multySigChannelData.redeemScript,
             } as IUTXO;
+            this.commitUtxo = utxoData;
 
             this.emitSwapEvent(`SELLER:STEP3`, utxoData);
         } catch (error: any) {
@@ -115,10 +123,94 @@ export class SellSwapper extends Swap {
         }
     }
 
+    // Only the LTC-for-tokens spot trade has a modelled transaction (see buildPsbtExpectation).
+    // Token-for-token and futures trades use other commit legs and payloads, not modelled here.
+    private isModelledTrade(): boolean {
+        return this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo && this.tradeInfo.propIdForSale === -1;
+    }
+
+    // The transaction this seller will co-sign, rebuilt from the agreed trade and this node.
+    // It mirrors buildLTCInstatTx (wallet-server tx-builder.service.ts:86-138) for the
+    // LTC-for-tokens spot trade. Nothing comes from the buyer except the PSBT itself.
+    private async buildPsbtExpectation(): Promise<IPsbtExpectation> {
+        if (!this.isModelledTrade() || !('propIdDesired' in this.tradeInfo)) {
+            throw new Error(`trade not modelled: refusing to sign`);
+        }
+        const { propIdDesired, amountDesired, amountForSale } = this.tradeInfo;
+        const commit = this.commitUtxo;
+        const channelScript = this.multySigChannelData?.scriptPubKey;
+        if (!commit || !channelScript) throw new Error(`commit output of this swap is unknown`);
+
+        const sellerAddress = this.myInfo.keypair.address;
+        const buyerAddress = this.cpInfo.keypair.address;
+        const [sellerVa, buyerVa] = await Promise.all([
+            this.client('validateaddress', [sellerAddress]),
+            this.client('validateaddress', [buyerAddress]),
+        ]);
+        const sellerScript = sellerVa.data?.scriptPubKey;
+        const buyerScript = buyerVa.data?.scriptPubKey;
+        if (sellerVa.error || !sellerScript || buyerVa.error || !buyerScript) throw new Error(`validateaddress: no script`);
+
+        // Dust value of the seller's output: the relayer's getMinVoutAmount, run on this node.
+        const refRes = await this.client('tl_createrawtx_reference', ['', sellerAddress]);
+        if (refRes.error || !refRes.data) throw new Error(`tl_createrawtx_reference: ${refRes.error}`);
+        const refDec = await this.client('decoderawtransaction', [refRes.data]);
+        if (refDec.error) throw new Error(`decoderawtransaction: ${refDec.error}`);
+        const dustSats = ltcToSats(parseFloat(refDec.data?.vout?.[0]?.value), 'dust');
+        // buildLTCInstatTx: the seller output is max(amount, minAmount).
+        const sellerSats = Math.max(ltcToSats(amountForSale, 'amountForSale'), dustSats);
+
+        // The expiry is buyer tip + TRADE_EXPIRY_BLOCKS, so accept a small window around ours.
+        const tlgi = await this.client('tl_getinfo');
+        const tip = tlgi.data?.block;
+        if (tlgi.error || !Number.isSafeInteger(tip)) throw new Error(`tl_getinfo: ${tlgi.error}`);
+        const expiries: number[] = [];
+        for (let d = -TRADE_EXPIRY_TOLERANCE_BLOCKS; d <= TRADE_EXPIRY_TOLERANCE_BLOCKS; d++) {
+            expiries.push(tip + TRADE_EXPIRY_BLOCKS + d);
+        }
+        const opReturnScriptHexes = await Promise.all(
+            expiries.map((expiry) => this.opReturnScriptFor(propIdDesired, amountDesired, amountForSale, expiry)),
+        );
+
+        return {
+            sellerScriptHex: sellerScript,
+            buyerScriptHex: buyerScript,
+            sellerSats,
+            dustSats,
+            commit: {
+                txid: commit.txid,
+                vout: commit.vout,
+                sats: ltcToSats(commit.amount, 'commit amount'),
+                scriptHex: channelScript,
+            },
+            opReturnScriptHexes,
+        };
+    }
+
+    // OP_RETURN scriptPubKey the TL payload for these parameters produces, as the relayer
+    // builds it (tl_createpayload_instant_ltc_trade, then tl_createrawtx_opreturn).
+    private async opReturnScriptFor(propId: number, amountDesired: number, amountForSale: number, expiry: number): Promise<string> {
+        const payloadRes = await this.client('tl_createpayload_instant_ltc_trade', [propId, amountDesired.toString(), amountForSale.toString(), expiry]);
+        if (payloadRes.error || !payloadRes.data) throw new Error(`tl_createpayload_instant_ltc_trade: ${payloadRes.error}`);
+        const rawRes = await this.client('tl_createrawtx_opreturn', ['', payloadRes.data]);
+        if (rawRes.error || !rawRes.data) throw new Error(`tl_createrawtx_opreturn: ${rawRes.error}`);
+        const decRes = await this.client('decoderawtransaction', [rawRes.data]);
+        if (decRes.error || !Array.isArray(decRes.data?.vout)) throw new Error(`decoderawtransaction: ${decRes.error}`);
+        const dataOuts = decRes.data.vout.filter((o: any) => typeof o?.scriptPubKey?.hex === 'string' && o.scriptPubKey.hex.toLowerCase().startsWith('6a'));
+        if (dataOuts.length !== 1) throw new Error(`trade payload did not produce one OP_RETURN output`);
+        return dataOuts[0].scriptPubKey.hex.toLowerCase();
+    }
+
     private async onStep4(cpId: string, psbtHex: string) {
         try {
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
             if (!psbtHex) throw new Error(`PsbtHex for syncing not provided`);
+            // Sign only the agreed transaction: rebuild it here, compare it with the PSBT, and
+            // refuse, with nothing signed, on any difference.
+            const expected = await this.buildPsbtExpectation();
+            const decRes = await this.client('decodepsbt', [psbtHex]);
+            if (decRes.error || !decRes.data) throw new Error(`decodepsbt: ${decRes.error}`);
+            assertPsbtMatchesTrade(decRes.data, expected);
             const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
             if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
             const signRes = await this.txsService.signPsbt({ wif, psbtHex });
