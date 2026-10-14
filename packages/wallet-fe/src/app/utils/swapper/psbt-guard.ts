@@ -83,6 +83,11 @@ const asPubkey = (v: unknown, what: string): string =>
 const asTxid = (v: unknown, what: string): string =>
     typeof v === 'string' && /^[0-9a-f]{64}$/i.test(v) ? v.toLowerCase() : refuse(`${what} is not a txid`);
 
+// A BIP68 relative timelock is an input sequence with the disable flag (bit 31) clear. The
+// builder's sequences (0xffffffff, and 0xfffffffd/0xfffffffe for RBF or locktime) all set it.
+const asSequence = (v: unknown, what: string): number =>
+    Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= 0xffffffff ? (v as number) : refuse(`${what} is not a sequence number`);
+
 const asIndex = (v: unknown, what: string): number =>
     Number.isSafeInteger(v) && (v as number) >= 0 ? (v as number) : refuse(`${what} is not an output index`);
 
@@ -187,6 +192,7 @@ export const assertPsbtMatchesTrade = (decoded: unknown, expected: IPsbtExpectat
         const key = outpointKey(asTxid(inObj.txid, `input ${i} txid`), asIndex(inObj.vout, `input ${i} vout`));
         if (seen.has(key)) refuse(`input ${i} repeats an earlier input`);
         seen.add(key);
+        if ((asSequence(inObj.sequence, `input ${i} sequence`) & 0x80000000) === 0) refuse(`input ${i} carries a relative timelock`);
         const rec = asObject(psbtInputs[i], `input record ${i}`);
         refuseUnsignedRecord(rec, i);
         const utxo = asObject(rec.witness_utxo, `input ${i} witness_utxo`);
