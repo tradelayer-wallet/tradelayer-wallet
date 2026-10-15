@@ -7,6 +7,9 @@ import { Swap } from "./swap";
 export class SellSwapper extends Swap {
     // The seller's own commit output, set in onStep2. The only input the seller signs for.
     private commitUtxo: IUTXO | null = null;
+    // Txid of the transaction this seller validated and signed, set in onStep4. The broadcast
+    // must be that transaction; a counterparty's claim of any other txid is refused.
+    private validatedTxid: string | null = null;
 
     constructor(
         sessionId: string,
@@ -218,6 +221,7 @@ export class SellSwapper extends Swap {
             const decRes = await this.client('decodepsbt', [psbtHex]);
             if (decRes.error || !decRes.data) throw new Error(`decodepsbt: ${decRes.error}`);
             const { txid, commitIndex } = assertPsbtMatchesTrade(decRes.data, expected);
+            this.validatedTxid = txid;
             const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
             if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
             const signRes = await this.txsService.signPsbt({ wif, psbtHex });
@@ -245,6 +249,7 @@ export class SellSwapper extends Swap {
         try {
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
             if (!isTxid(finalTx)) throw new Error(`BUYER:STEP6 txid is not 64 hex characters`);
+            if (finalTx.toLowerCase() !== this.validatedTxid) throw new Error(`BUYER:STEP6 txid is not the transaction this swap signed`);
             this.finish({ data: { txid: finalTx, seller: true, trade: this.tradeInfo } });
         } catch (error: any) {
             const errorMessge = error.message || 'Undefined Error';

@@ -155,10 +155,23 @@ test('honest PSBT is signed once; the swap then completes on BUYER:STEP6', async
     await waitFor(() => sentNames(sock).includes('SELLER:STEP5'), { message: 'SELLER:STEP5' });
     assert.deepStrictEqual(state.calls.sign, [psbtHex], 'honest PSBT not signed exactly once');
     assert.strictEqual(sock.sent.find((e) => e.eventName === 'SELLER:STEP5').data, `SIGNED:${psbtHex}`);
+    const txid = state.psbts[psbtHex].tx.txid;
+    inbound(sock, S, 'BUYER:STEP6', txid, 'OB-B');
+    const res = await settle(sw);
+    assert.deepStrictEqual(res, { data: { txid, seller: true, trade: spotProps } });
+    assert.strictEqual(sock.listenerCount(SWAP_EVENT), 0);
+});
+
+test('BUYER:STEP6 with a txid other than the signed transaction is refused', async () => {
+    const S = '4'.repeat(64);
+    const { sw, sock, state } = await sellerAtStep3(S);
+    state.psbts.P = fx.decodedFrom(fx.honestSpec());
+    inbound(sock, S, 'BUYER:STEP4', 'P');
+    await waitFor(() => sentNames(sock).includes('SELLER:STEP5'), { message: 'SELLER:STEP5' });
     inbound(sock, S, 'BUYER:STEP6', FINAL_TXID, 'OB-B');
     const res = await settle(sw);
-    assert.deepStrictEqual(res, { data: { txid: FINAL_TXID, seller: true, trade: spotProps } });
-    assert.strictEqual(sock.listenerCount(SWAP_EVENT), 0);
+    assert.match(String(res.error), /^Step 6: .*not the transaction this swap signed/);
+    assert.deepStrictEqual(sentNames(sock).slice(-1), ['TERMINATE_TRADE']);
 });
 
 test('honest PSBT with a buyer-funded input and an expiry at the window edge is signed', async () => {
