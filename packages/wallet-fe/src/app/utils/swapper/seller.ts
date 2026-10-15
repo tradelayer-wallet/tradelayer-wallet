@@ -1,6 +1,6 @@
 import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
-import { IMSChannelData, isTxid, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
+import { IMSChannelData, isTxid, rpcAmount, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
 import { assertPsbtMatchesTrade, assertSellerSignature, IPsbtExpectation, ltcToSats, TRADE_EXPIRY_BLOCKS, TRADE_EXPIRY_TOLERANCE_BLOCKS } from "./psbt-guard";
 import { Swap } from "./swap";
 
@@ -73,10 +73,10 @@ export class SellSwapper extends Swap {
             const ctcpParams = [];
             if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
                 const { propIdDesired, amountDesired } = this.tradeInfo;
-                ctcpParams.push(propIdDesired, (amountDesired).toString());
+                ctcpParams.push(propIdDesired, rpcAmount(amountDesired));
             } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {
                 const { amount, collateral } = this.tradeInfo;
-                ctcpParams.push(collateral, (amount).toString());
+                ctcpParams.push(collateral, rpcAmount(amount));
             } else {
                 throw new Error(`Unrecognized Trade Type: ${this.typeTrade}`);
             }
@@ -197,7 +197,7 @@ export class SellSwapper extends Swap {
     // OP_RETURN scriptPubKey the TL payload for these parameters produces, as the relayer
     // builds it (tl_createpayload_instant_ltc_trade, then tl_createrawtx_opreturn).
     private async opReturnScriptFor(propId: number, amountDesired: number, amountForSale: number, expiry: number): Promise<string> {
-        const payloadRes = await this.client('tl_createpayload_instant_ltc_trade', [propId, amountDesired.toString(), amountForSale.toString(), expiry]);
+        const payloadRes = await this.client('tl_createpayload_instant_ltc_trade', [propId, rpcAmount(amountDesired), rpcAmount(amountForSale), expiry]);
         if (payloadRes.error || !payloadRes.data) throw new Error(`tl_createpayload_instant_ltc_trade: ${payloadRes.error}`);
         const rawRes = await this.client('tl_createrawtx_opreturn', ['', payloadRes.data]);
         if (rawRes.error || !rawRes.data) throw new Error(`tl_createrawtx_opreturn: ${rawRes.error}`);

@@ -1,6 +1,6 @@
 import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildLTCITTxConfig, IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
-import { IMSChannelData, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
+import { IMSChannelData, rpcAmount, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
 import { Swap } from "./swap";
 import { channelWitnessScript, psbtTxid, TRADE_EXPIRY_BLOCKS } from "./psbt-guard";
 
@@ -91,7 +91,7 @@ export class BuySwapper extends Swap {
                 const { propIdDesired, amountDesired, amountForSale, propIdForSale } = this.tradeInfo;
 
                 if (propIdForSale === -1) {
-                    const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), (amountForSale).toString(), bbData ];
+                    const cpitLTCOptions = [ propIdDesired, rpcAmount(amountDesired), rpcAmount(amountForSale), bbData ];
                     const cpitRes = await this.client('tl_createpayload_instant_ltc_trade', cpitLTCOptions);
                     if (cpitRes.error || !cpitRes.data) throw new Error(`tl_createpayload_instant_ltc_trade: ${cpitRes.error}`);
                     const buildOptions: IBuildLTCITTxConfig = {
@@ -105,7 +105,7 @@ export class BuySwapper extends Swap {
                     if (rawHexRes.error || !rawHexRes.data?.psbtHex) throw new Error(`Build Trade: ${rawHexRes.error}`);
                     await this.sendPsbtToSeller(rawHexRes.data.psbtHex);
                 } else {
-                    const ctcpParams = [propIdDesired, (amountDesired).toString()];
+                    const ctcpParams = [propIdDesired, rpcAmount(amountDesired)];
                     const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
                     if (cpctcRes.error || !cpctcRes.data) throw new Error(`tl_createpayload_commit_tochannel: ${cpctcRes.error}`);
                     
@@ -144,7 +144,7 @@ export class BuySwapper extends Swap {
                         redeemScript: this.multySigChannelData.redeemScript,
                     } as IUTXO;
         
-                    const cpitLTCOptions = [ propIdDesired, (amountDesired).toString(), propIdForSale, (amountForSale).toString(), bbData ];
+                    const cpitLTCOptions = [ propIdDesired, rpcAmount(amountDesired), propIdForSale, rpcAmount(amountForSale), bbData ];
                     const cpitRes = await this.client('tl_createpayload_instant_trade', cpitLTCOptions);
                     if (cpitRes.error || !cpitRes.data) throw new Error(`tl_createpayload_instant_trade: ${cpitRes.error}`);
                     const buildOptions: IBuildLTCITTxConfig = {
@@ -160,7 +160,7 @@ export class BuySwapper extends Swap {
                 }
             } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {
                 const { contract_id, amount, price, } = this.tradeInfo;
-                const ctcpParams = [contract_id, (amount).toString()];
+                const ctcpParams = [contract_id, rpcAmount(amount)];
                 const cpctcRes = await this.client('tl_createpayload_commit_tochannel', ctcpParams);
                 if (cpctcRes.error || !cpctcRes.data) throw new Error(`tl_createpayload_commit_tochannel: ${cpctcRes.error}`);
                 
@@ -199,7 +199,7 @@ export class BuySwapper extends Swap {
                     redeemScript: this.multySigChannelData.redeemScript,
                 } as IUTXO;
                 // contractid, amount, height, price, action(buy), leverage
-                const cpcitOptions = [ contract_id, (amount).toString(), bbData, (price).toString(), 1, "1" ];
+                const cpcitOptions = [ contract_id, rpcAmount(amount), bbData, rpcAmount(price), 1, "1" ];
                 const cpcitRes = await this.client('tl_createpayload_contract_instant_trade', cpcitOptions);
                 if (cpcitRes.error || !cpcitRes.data) throw new Error(`tl_createpayload_contract_instant_trade: ${cpcitRes.error}`);
                 const buildOptions: IBuildLTCITTxConfig = {

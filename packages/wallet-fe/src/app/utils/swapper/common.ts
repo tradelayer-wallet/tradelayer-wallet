@@ -11,6 +11,10 @@ export const isSessionId = (value: unknown): value is string =>
 export const isTxid = (value: unknown): value is string =>
     typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value);
 
+// Decimal string of an amount for an RPC argument: at most 8 places, never exponent form.
+// String(5e-7) is "5e-7", which the RPC does not take as an amount.
+export const rpcAmount = (value: number): string => value.toFixed(8).replace(/\.?0+$/, '');
+
 export class SwapEvent {
     constructor(
         public sessionId: string,
