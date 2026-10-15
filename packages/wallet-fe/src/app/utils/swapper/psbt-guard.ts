@@ -16,8 +16,8 @@
 // forms are accepted, and only when the address is derived from the key the form names.
 
 import { enc, RIPEMD160, SHA256 } from 'crypto-js';
+import { ltcToSats as toSats } from '../units';
 
-export const SATS_PER_LTC = 100000000;
 // tx-builder.service.ts getEnoughInputs2: 0.3 * minFeeLtcPerKb per input.
 export const LTC_FEE_SATS_PER_INPUT = 60000;
 // Ceiling on the fee of one trade transaction. The exact fee above already bounds it;
@@ -28,10 +28,6 @@ export const MAX_TRADE_FEE_SATS = 5000000;
 // of its own tip + TRADE_EXPIRY_BLOCKS. This is the only value the seller does not derive exactly.
 export const TRADE_EXPIRY_BLOCKS = 100;
 export const TRADE_EXPIRY_TOLERANCE_BLOCKS = 6;
-
-// Float representation tolerance for LTC amounts in decodepsbt output (1e-6 sat). Not an
-// economic tolerance: a value that is not a whole number of satoshis is refused.
-const SAT_EPSILON = 1e-6;
 
 export interface IPsbtInputExpectation {
     txid: string;
@@ -91,17 +87,14 @@ const asSequence = (v: unknown, what: string): number =>
 const asIndex = (v: unknown, what: string): number =>
     Number.isSafeInteger(v) && (v as number) >= 0 ? (v as number) : refuse(`${what} is not an output index`);
 
-// Converts an LTC amount to satoshis. Refuses anything that is not a whole number of satoshis.
+// An LTC amount from the PSBT or the node, in satoshis. The conversion and its rule are in units.ts; a
+// refusal here is reported as a PSBT refusal.
 export const ltcToSats = (value: unknown, what = 'amount'): number => {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-        return refuse(`${what} is not a non-negative number`);
+    try {
+        return toSats(value, what);
+    } catch (error: any) {
+        return refuse(error.message);
     }
-    const scaled = value * SATS_PER_LTC;
-    const sats = Math.round(scaled);
-    if (!Number.isSafeInteger(sats) || Math.abs(scaled - sats) > SAT_EPSILON) {
-        return refuse(`${what} is not a whole number of satoshis`);
-    }
-    return sats;
 };
 
 // Transaction id of a decoded PSBT, or null when it is absent or malformed. Used by both

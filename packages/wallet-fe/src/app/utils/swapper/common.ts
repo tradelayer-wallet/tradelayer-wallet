@@ -7,13 +7,18 @@ export const SWAP_EVENT = 'swap';
 export const isSessionId = (value: unknown): value is string =>
     typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
 
-// Bitcoin-family transaction id: 32 bytes as 64 hex characters.
+// Bitcoin-family transaction id: 32 bytes as 64 hex characters, lowercase on the wire.
 export const isTxid = (value: unknown): value is string =>
-    typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value);
+    typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
 
-// Decimal string of an amount for an RPC argument: at most 8 places, never exponent form.
-// String(5e-7) is "5e-7", which the RPC does not take as an amount.
-export const rpcAmount = (value: number): string => value.toFixed(8).replace(/\.?0+$/, '');
+// Negotiation must finish within this time. The server's SWAP_TIMEOUT_MS (120 s) is longer, so the
+// wallet ends its own swap first. protocol-v2.md B.6.
+export const NEGOTIATION_TIMEOUT_MS = 60000;
+// After the seller's signature, the buyer may broadcast. The wallet waits this long for the server's
+// verdict (protocol-v2.md B.6). It matches the server default.
+export const SIGNED_WINDOW_MS = 600000;
+// The reason text sent with TERMINATE_TRADE is bounded by the schema (256 characters).
+export const MAX_REASON_LENGTH = 256;
 
 export class SwapEvent {
     constructor(
@@ -34,11 +39,14 @@ export type TClient = (method: string, ...args: any[]) => Promise<{
     error?: string;
 }>;
 
+// Trade props as they arrive: amounts and prices are integer units (protocol-v2.md B.1). The UI model
+// holds the same fields as display numbers (protocol.ts toDisplayTrade).
 export interface ISpotTradeProps {
     amountDesired: number;
     amountForSale: number;
-    propIdDesired: number;
-    propIdForSale: number;
+    price: number;
+    propIdDesired: number | string;
+    propIdForSale: number | string;
 };
 
 export interface IFuturesTradeProps {
@@ -46,13 +54,13 @@ export interface IFuturesTradeProps {
     contract_id: number;
     price: number;
     levarage: number;
-    collateral: number;
+    collateral: number | string;
 };
 
 export interface IMSChannelData {
     address: string;
     redeemScript: string;
-    scriptPubKey?: string;
+    scriptPubKey: string;
 };
 
 export interface IBuyerSellerKeyPair {

@@ -17,6 +17,8 @@ const RPC_ALLOWLIST: string[] = [
     'decodepsbt',
     'decoderawtransaction',
     'getaddressesbylabel',
+    // Read-only: the buyer asks whether a transaction it signed reached the node after a failed send.
+    'getrawtransaction',
     'getblockchaininfo',
     'getnewaddress',
     'listunspent',

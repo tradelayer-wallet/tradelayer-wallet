@@ -12,6 +12,8 @@ const { EventEmitter } = require('events');
 const { loadTs, REPO } = require('../support/ts-loader');
 const fx = require('../support/psbt-fixture');
 
+// The PSBT the stubs return, as hex on the wire.
+const PSBT1 = Buffer.from('PSBT-1').toString('hex');
 const SWAP_EVENT = 'swap';
 const SID = 'b1'.repeat(32);
 const UTILS_DIR = path.join(REPO, 'packages', 'wallet-fe', 'src', 'app', 'utils');
@@ -45,7 +47,7 @@ const buyerParty = { keypair: { address: 'B-ADDR', pubkey: fx.BUYER_PUB }, socke
 const sellerParty = { keypair: { address: 'S-ADDR', pubkey: fx.SELLER_PUB }, socketId: 'OB-S' };
 // Token-for-token spot trade: the buyer commits its own tokens to the channel (the branch
 // that pays a commit to the channel address).
-const tokenTrade = { propIdDesired: 11, amountDesired: 1, propIdForSale: 12, amountForSale: 1 };
+const tokenTrade = { propIdDesired: 11, amountDesired: 100000000, propIdForSale: 12, amountForSale: 100000000, price: 100000000 };
 
 const makeState = () => ({
     buildTxTo: [],
@@ -74,7 +76,7 @@ const nodeStub = () => async (method, params = []) => {
         case 'tl_createpayload_commit_tochannel': return { data: 'PAY-COMMIT' };
         case 'tl_createpayload_instant_trade': return { data: 'PAY-TRADE' };
         case 'decoderawtransaction': return { data: { vout: [{ value: 2, n: 0, scriptPubKey: { addresses: ['MS-ADDR'], hex: fx.SPK.MS } }] } };
-        case 'decodepsbt': return params[0] === 'PSBT-1'
+        case 'decodepsbt': return params[0] === PSBT1
             ? { data: { tx: { txid: fx.TXID } } }
             : { error: 'TX decode failed' };
         default: return { error: `unstubbed rpc ${method}` };
@@ -89,7 +91,7 @@ const txsStub = (state) => ({
     },
     signTx: async () => ({ data: { isValid: true, signedHex: 'SIGNED-COMMIT' } }),
     sendTx: async () => { state.broadcasts++; return { data: fx.COMMIT_TXID }; },
-    buildLTCITTx: async (cfg) => { state.trade.push(cfg); return { data: { psbtHex: 'PSBT-1' } }; },
+    buildLTCITTx: async (cfg) => { state.trade.push(cfg); return { data: { psbtHex: PSBT1 } }; },
     signPsbt: async ({ psbtHex }) => {
         state.signed.push(psbtHex);
         if (state.signThrows) throw new Error('signer unavailable');
@@ -106,7 +108,7 @@ const startBuyer = () => {
     return { sw, sock, state };
 };
 
-const commitUtxo = { txid: fx.COMMIT_TXID, vout: 0, amount: 2, scriptPubKey: fx.SPK.MS_PSBT, redeemScript: fx.REDEEM };
+const commitUtxo = { txid: fx.COMMIT_TXID, vout: 0, sats: 200000000, scriptPubKey: fx.SPK.MS_PSBT, redeemScript: fx.REDEEM };
 
 // Drives a buyer through step 3, so the commit is built and the trade PSBT is sent (BUYER:STEP4).
 const buyerAtStep4 = async (step1Data) => {
@@ -132,7 +134,7 @@ test('REGRESSION: a SELLER:STEP1 whose channel address is not the one its redeem
     b.sock.deliver('SELLER:STEP1', { address: 'ATTACKER-ADDR', redeemScript: fx.REDEEM, scriptPubKey: fx.SPK.S });
     await waitFor(() => lastSent(b.sock)?.eventName === 'TERMINATE_TRADE', { message: 'refusal' });
     const res = await b.sw.ready;
-    assert.match(String(res.error), /^Step 1: address of Multysig is not matching$/);
+    assert.match(String(res.reason), /^Step 1: address of Multysig is not matching$/);
     assert.ok(!sentNames(b.sock).includes('BUYER:STEP2'), 'BUYER:STEP2 sent after a mismatched address');
     // The commit that would follow is never built, so nothing is paid to the attacker address.
     b.sock.deliver('SELLER:STEP3', commitUtxo);
@@ -154,9 +156,9 @@ test('REGRESSION: the commit goes to the locally derived channel, and its script
 test('REGRESSION: a throw while signing at SELLER:STEP5 ends the swap with a Step 5 reason instead of an unhandled rejection', async () => {
     const b = await buyerAtStep4({ address: 'MS-ADDR', redeemScript: fx.REDEEM, scriptPubKey: fx.SPK.MS });
     b.state.signThrows = true;
-    b.sock.deliver('SELLER:STEP5', 'PSBT-1');
+    b.sock.deliver('SELLER:STEP5', PSBT1);
     const res = await b.sw.ready;
-    assert.match(String(res.error), /^Step 5: signer unavailable$/);
+    assert.match(String(res.reason), /^Step 5: signer unavailable$/);
     assert.deepStrictEqual(sentNames(b.sock).slice(-1), ['TERMINATE_TRADE']);
     assert.equal(b.state.broadcasts, 1, 'only the commit was broadcast');
 });
@@ -180,7 +182,7 @@ test('a P2SH-P2WSH channel is refused at SELLER:STEP1, so no commit is built or 
     b.sock.deliver('SELLER:STEP1', { address: 'MS-P2SH', redeemScript: fx.REDEEM, scriptPubKey: fx.SPK.MS });
     await waitFor(() => lastSent(b.sock)?.eventName === 'TERMINATE_TRADE', { message: 'refusal' });
     const res = await b.sw.ready;
-    assert.match(String(res.error), /^Step 1: address of Multysig is not matching$/);
+    assert.match(String(res.reason), /^Step 1: address of Multysig is not matching$/);
     b.sock.deliver('SELLER:STEP3', commitUtxo);
     await sleep(20);
     assert.deepStrictEqual(b.state.buildTxTo, []);
@@ -192,6 +194,6 @@ test('a valid address for a different 2-of-2 or witness script is refused at SEL
     b.sock.deliver('SELLER:STEP1', { address: 'MS-OTHER', redeemScript: fx.REDEEM, scriptPubKey: fx.SPK.MS });
     await waitFor(() => lastSent(b.sock)?.eventName === 'TERMINATE_TRADE', { message: 'refusal' });
     const res = await b.sw.ready;
-    assert.match(String(res.error), /^Step 1: address of Multysig is not matching$/);
+    assert.match(String(res.reason), /^Step 1: address of Multysig is not matching$/);
     assert.ok(!sentNames(b.sock).includes('BUYER:STEP2'));
 });

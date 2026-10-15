@@ -4,17 +4,9 @@ import { RpcService } from "./rpc.service";
 import { obEventPrefix, SocketService } from "./socket.service";
 import { TxsService } from "./txs.service";
 import { LoadingService } from "./loading.service";
-import { BuySwapper, SellSwapper, ITradeInfo, isSessionId } from 'src/app/utils/swapper';
-import { ISpotOrder } from "./spot-services/spot-orderbook.service";
-import { IFuturesOrder } from "./futures-services/futures-orderbook.service";
+import { BuySwapper, SellSwapper, ITradeInfo, TSwapResult } from 'src/app/utils/swapper';
+import { parseNewChannel } from 'src/app/utils/swapper/protocol';
 import { ESounds, SoundsService } from "./sound.service";
-
-interface IChannelSwapData {
-    sessionId: string;
-    tradeInfo: ITradeInfo;
-    unfilled: ISpotOrder | IFuturesOrder;
-    isBuyer: boolean;
-}
 
 // Text that came from the counterparty or the server, shown in a toast: control
 // characters removed and length bounded. Toastr renders it as text (enableHtml is off).
@@ -45,49 +37,50 @@ export class SwapService {
     }
 
     onInit() {
-        this.socket.on(`${obEventPrefix}::new-channel`, async (swapConfig: IChannelSwapData) => {
-                this.loadingService.tradesLoading = false;
-                // A swap is identified only by the server-issued sessionId. Without a
-                // well-formed one no event can be sent or accepted, so refuse the swap.
-                const sessionId = swapConfig?.sessionId;
-                if (!isSessionId(sessionId)) {
-                    this.toastrService.error('Swap session id missing or malformed', 'Trade Error');
-                    return;
-                }
-                // A second new-channel for a live session would start a second state
-                // machine on the same session (double signing). Refuse it; keep the first.
-                if (this.activeSessions.has(sessionId)) {
-                    this.toastrService.error('Swap session already active', 'Trade Error');
-                    return;
-                }
-                this.activeSessions.add(sessionId);
-                try {
-                    const res = await this.channelSwap(sessionId, swapConfig.tradeInfo, swapConfig.isBuyer);
-                    if (res.error || !res.data?.txid) {
-                        this.toastrService.error(toastText(res.error, 'Trade failed'), 'Trade Error');
-                    } else {
-                        this.soundsService.playSound(ESounds.TRADE_COMPLETED);
-                    }
-                } finally {
-                    this.activeSessions.delete(sessionId);
-                }
-                // const mySocketId = swapConfig.isBuyer
-                //     ? swapConfig.tradeInfo.buyer.socketId
-                //     : swapConfig.tradeInfo.seller.socketId;
-                // const unffiledSocketIf = swapConfig.unfilled?.socket_id;
-                // const takerSocketId = swapConfig.tradeInfo?.taker;
-                // if (unffiledSocketIf !== mySocketId && takerSocketId === mySocketId) {
-                //     this.loadingService.tradesLoading = false;
-                // }
+        this.socket.on(`${obEventPrefix}::new-channel`, async (raw: unknown) => {
+            this.loadingService.tradesLoading = false;
+            // The one check of the new-channel message. Without a well-formed one nothing is started.
+            const offer = parseNewChannel(raw);
+            if (!offer.data) {
+                this.toastrService.error(toastText(offer.error, 'Swap offer malformed'), 'Trade Error');
+                return;
+            }
+            const { sessionId, tradeInfo, isBuyer } = offer.data;
+            // A second new-channel for a live session would start a second state
+            // machine on the same session (double signing). Refuse it; keep the first.
+            if (this.activeSessions.has(sessionId)) {
+                this.toastrService.error('Swap session already active', 'Trade Error');
+                return;
+            }
+            this.activeSessions.add(sessionId);
+            try {
+                const res = await this.channelSwap(sessionId, tradeInfo, isBuyer);
+                this.report(res);
+            } finally {
+                this.activeSessions.delete(sessionId);
+            }
         });
     }
 
-    private async channelSwap(sessionId: string, tradeInfo: ITradeInfo, isBuyer: boolean) {
+    // Every swap ends in one of three states (protocol-v2.md B.5). Unverified shows the txid the wallet
+    // holds, so the user can check the chain.
+    private report(res: TSwapResult) {
+        if (res.status === 'settled') {
+            this.soundsService.playSound(ESounds.TRADE_COMPLETED);
+        } else if (res.status === 'aborted') {
+            this.toastrService.error(toastText(res.reason, 'Trade failed'), 'Trade Error');
+        } else {
+            const txid = res.txid ? ` Transaction ${res.txid}.` : '';
+            this.toastrService.warning(`The trade outcome could not be verified.${txid} Check the chain before trading again.`, 'Trade Unverified');
+        }
+    }
+
+    private async channelSwap(sessionId: string, tradeInfo: ITradeInfo, isBuyer: boolean): Promise<TSwapResult> {
         const { buyer, seller, props, type } = tradeInfo;
         const swapper = isBuyer
             ? new BuySwapper(sessionId, type, props, buyer, seller, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService)
             : new SellSwapper(sessionId, type, props, seller, buyer, this.rpcService.rpc.bind(this.rpcService), this.socket, this.txsService);
-        swapper.eventSubs$.subscribe(eventData => {
+        swapper.eventSubs$.subscribe((eventData) => {
             this.toastrService.info(toastText(eventData.eventName, 'Counterparty update'), 'Trade Info', { timeOut: 3000 });
         });
         return swapper.ready;

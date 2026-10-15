@@ -45,13 +45,18 @@ class FakeSocket extends EventEmitter {
     deliver(ev, ...args) { return super.emit(ev, ...args); }
 }
 
+// PSBT payloads are hex on the wire (protocol-v2.md B.3.5); the fixtures name them by text.
+const hx = (text) => Buffer.from(text).toString('hex');
+const P = hx('P');
+
 const sentNames = (sock) => sock.sent.map((e) => e.eventName);
 const inbound = (sock, sid, eventName, data = null, socketId = 'OB-B') =>
     sock.deliver(SWAP_EVENT, { sessionId: sid, eventName, socketId, data });
 
 const sellerParty = { keypair: { address: 'S-ADDR', pubkey: fx.SELLER_PUB }, socketId: 'OB-S' };
 const buyerParty = { keypair: { address: 'B-ADDR', pubkey: fx.BUYER_PUB }, socketId: 'OB-B' };
-const spotProps = { propIdDesired: 11, amountDesired: 1, propIdForSale: -1, amountForSale: 1 };
+// Integer units: 1 token, 1 LTC (1e8 sats), and 1 LTC per token in sats per whole token.
+const spotProps = { propIdDesired: 11, amountDesired: 100000000, propIdForSale: -1, amountForSale: 100000000, price: 100000000 };
 
 // Node stub. `state.psbts` maps a PSBT hex to its decodepsbt result (or an error).
 const nodeStub = (state) => async (method, params = []) => {
@@ -125,12 +130,12 @@ const settle = (sw, ms = 3000) => Promise.race([
 // Delivers a BUYER:STEP4 carrying `decoded` and asserts the refusal contract.
 const expectRefused = async (sid, decoded, reasonRe, opts = {}) => {
     const { sw, sock, state } = await sellerAtStep3(sid, opts);
-    const psbtHex = `PSBT-${sid.slice(0, 8)}`;
+    const psbtHex = hx(`PSBT-${sid.slice(0, 8)}`);
     state.psbts[psbtHex] = decoded;
     inbound(sock, sid, 'BUYER:STEP4', psbtHex);
     const res = await settle(sw);
-    assert.match(String(res.error), reasonRe, `wrong refusal reason: ${res.error}`);
-    assert.match(String(res.error), /^Step 4: /, `refusal not from step 4: ${res.error}`);
+    assert.match(String(res.reason), reasonRe, `wrong refusal reason: ${res.reason}`);
+    assert.match(String(res.reason), /^Step 4: /, `refusal not from step 4: ${res.reason}`);
     assert.strictEqual(state.calls.sign.length, 0, `signed a refused PSBT: ${state.calls.sign}`);
     assert.deepStrictEqual(sentNames(sock).slice(-1), ['TERMINATE_TRADE'], 'no TERMINATE_TRADE sent');
     assert.ok(!sentNames(sock).includes('SELLER:STEP5'), 'SELLER:STEP5 sent for a refused PSBT');
@@ -149,7 +154,7 @@ const test = (name, fn) => nodeTest(name, fn);
 test('honest PSBT is signed once; the swap then completes on BUYER:STEP6', async () => {
     const S = '1'.repeat(64);
     const { sw, sock, state } = await sellerAtStep3(S);
-    const psbtHex = 'PSBT-HONEST';
+    const psbtHex = hx('PSBT-HONEST');
     state.psbts[psbtHex] = fx.decodedFrom(fx.honestSpec());
     inbound(sock, S, 'BUYER:STEP4', psbtHex);
     await waitFor(() => sentNames(sock).includes('SELLER:STEP5'), { message: 'SELLER:STEP5' });
@@ -158,31 +163,32 @@ test('honest PSBT is signed once; the swap then completes on BUYER:STEP6', async
     const txid = state.psbts[psbtHex].tx.txid;
     inbound(sock, S, 'BUYER:STEP6', txid, 'OB-B');
     const res = await settle(sw);
-    assert.deepStrictEqual(res, { data: { txid, seller: true, trade: spotProps } });
+    assert.deepStrictEqual(res, { status: 'settled', txid, trade: spotProps });
     assert.strictEqual(sock.listenerCount(SWAP_EVENT), 0);
 });
 
 test('BUYER:STEP6 with a txid other than the signed transaction is refused', async () => {
     const S = '4'.repeat(64);
     const { sw, sock, state } = await sellerAtStep3(S);
-    state.psbts.P = fx.decodedFrom(fx.honestSpec());
-    inbound(sock, S, 'BUYER:STEP4', 'P');
+    state.psbts[P] = fx.decodedFrom(fx.honestSpec());
+    inbound(sock, S, 'BUYER:STEP4', P);
     await waitFor(() => sentNames(sock).includes('SELLER:STEP5'), { message: 'SELLER:STEP5' });
     inbound(sock, S, 'BUYER:STEP6', FINAL_TXID, 'OB-B');
+    // The seller finishes unverified with the txid it signed, and sends nothing after its signature.
     const res = await settle(sw);
-    assert.match(String(res.error), /^Step 6: .*not the transaction this swap signed/);
-    assert.deepStrictEqual(sentNames(sock).slice(-1), ['TERMINATE_TRADE']);
+    assert.deepStrictEqual(res, { status: 'unverified', txid: state.psbts[P].tx.txid });
+    assert.deepStrictEqual(sentNames(sock).slice(-1), ['SELLER:STEP5']);
 });
 
 test('honest PSBT with a buyer-funded input and an expiry at the window edge is signed', async () => {
     for (const expiry of [fx.EXPIRY - 6, fx.EXPIRY + 6]) {
         const sid = '2'.repeat(60) + String(expiry).padStart(4, '0');
         const { sw, sock, state } = await sellerAtStep3(sid);
-        state.psbts.P = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC, expiry }));
-        inbound(sock, sid, 'BUYER:STEP4', 'P');
+        state.psbts[P] = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC, expiry }));
+        inbound(sock, sid, 'BUYER:STEP4', P);
         await waitFor(() => sentNames(sock).includes('SELLER:STEP5'), { message: `signed at expiry ${expiry}` });
-        assert.deepStrictEqual(state.calls.sign, ['P']);
-        inbound(sock, sid, 'TERMINATE_TRADE', 'done');
+        assert.deepStrictEqual(state.calls.sign, [P]);
+        inbound(sock, sid, 'SERVER:STATE', { state: 'expired-unverified', txid: null }, null);
         await sw.ready;
     }
 });
@@ -190,13 +196,13 @@ test('honest PSBT with a buyer-funded input and an expiry at the window edge is 
 test('replayed BUYER:STEP4 with the same honest PSBT signs once', async () => {
     const S = '3'.repeat(64);
     const { sw, sock, state } = await sellerAtStep3(S);
-    state.psbts.P = fx.decodedFrom(fx.honestSpec());
-    inbound(sock, S, 'BUYER:STEP4', 'P');
-    inbound(sock, S, 'BUYER:STEP4', 'P');
+    state.psbts[P] = fx.decodedFrom(fx.honestSpec());
+    inbound(sock, S, 'BUYER:STEP4', P);
+    inbound(sock, S, 'BUYER:STEP4', P);
     await waitFor(() => sentNames(sock).includes('SELLER:STEP5'), { message: 'SELLER:STEP5' });
     await sleep(20);
-    assert.deepStrictEqual(state.calls.sign, ['P'], 'replayed step signed again');
-    inbound(sock, S, 'TERMINATE_TRADE', 'done');
+    assert.deepStrictEqual(state.calls.sign, [P], 'replayed step signed again');
+    inbound(sock, S, 'SERVER:STATE', { state: 'expired-unverified', txid: null }, null);
     await sw.ready;
 });
 
@@ -362,7 +368,7 @@ test('a token-for-token trade is refused before any PSBT is read', async () => {
     await waitFor(() => sentNames(sock).includes('SELLER:STEP1'));
     inbound(sock, S, 'BUYER:STEP2');
     const res = await settle(sw);
-    assert.match(String(res.error), /Step 2: trade not modelled/);
+    assert.match(String(res.reason), /Step 2: trade not modelled/);
     // Refused before the commit is built or broadcast: no output is locked in the channel.
     assert.strictEqual(state.calls.buildCommit, 0, 'commit built for an unmodelled trade');
     assert.strictEqual(state.calls.broadcast, 0, 'commit broadcast for an unmodelled trade');
@@ -376,10 +382,10 @@ test('an RPC failure while rebuilding the expectation refuses, nothing is signed
     const { sw, sock, state } = await sellerAtStep3(S, {
         over: { validateaddress: (p) => (p[0] === 'B-ADDR' ? { error: 'node down' } : { data: { isvalid: true, scriptPubKey: fx.SPK.S } }) },
     });
-    state.psbts.P = fx.decodedFrom(spec());
-    inbound(sock, S, 'BUYER:STEP4', 'P');
+    state.psbts[P] = fx.decodedFrom(spec());
+    inbound(sock, S, 'BUYER:STEP4', P);
     const res = await settle(sw);
-    assert.match(String(res.error), /Step 4: validateaddress/);
+    assert.match(String(res.reason), /Step 4: validateaddress/);
     assert.deepStrictEqual(state.calls.sign, []);
 });
 
@@ -464,7 +470,7 @@ const relayerTradePsbt = ({ fundSats = 3 * fx.LTC, sellerSats = fx.LTC, expiry =
 // Runs the seller's step 4 with a given validated/returned PSBT and the given node overrides.
 const runStep4 = async (sid, decoded, { over = {} } = {}) => {
     const { sw, sock, state } = await sellerAtStep3(sid, { over });
-    const psbtHex = `P6-${sid.slice(0, 8)}`;
+    const psbtHex = hx(`P6-${sid.slice(0, 8)}`);
     state.psbts[psbtHex] = decoded;
     inbound(sock, sid, 'BUYER:STEP4', psbtHex);
     const res = await settle(sw);
@@ -488,7 +494,7 @@ test('R6: the relayer-built BIP49 buyer PSBT is accepted and signed once (the ro
     inbound(sock, S, 'BUYER:STEP4', psbtHex);
     await waitFor(() => sentNames(sock).includes('SELLER:STEP5'), { message: 'SELLER:STEP5 for the relayer PSBT' });
     assert.deepStrictEqual(state.calls.sign, [psbtHex]);
-    inbound(sock, S, 'TERMINATE_TRADE', 'done');
+    inbound(sock, S, 'SERVER:STATE', { state: 'expired-unverified', txid: null }, null);
     await sw.ready;
 });
 
@@ -497,10 +503,10 @@ test('R6: a bech32 (native P2WPKH) buyer with a P2WSH channel is accepted', asyn
     const sc = fx.scriptsFor({ buyerAddr: 'p2wpkh', channel: 'p2wsh' });
     const over = { validateaddress: overValidate({ 'S-ADDR': sc.S, 'B-ADDR': sc.B, 'MS-ADDR': sc.MS }) };
     const { sw, sock, state } = await sellerAtStep3(S, { over });
-    state.psbts.P = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC, buyerScript: sc.B, sellerScript: sc.S }));
-    inbound(sock, S, 'BUYER:STEP4', 'P');
+    state.psbts[P] = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC, buyerScript: sc.B, sellerScript: sc.S }));
+    inbound(sock, S, 'BUYER:STEP4', P);
     await waitFor(() => sentNames(sock).includes('SELLER:STEP5'), { message: 'SELLER:STEP5 bech32 buyer' });
-    inbound(sock, S, 'TERMINATE_TRADE', 'done');
+    inbound(sock, S, 'SERVER:STATE', { state: 'expired-unverified', txid: null }, null);
     await sw.ready;
 });
 
@@ -509,10 +515,10 @@ test('R6: a channel the node reports as P2SH(P2WSH) with the builder P2WSH witne
     const sc = fx.scriptsFor({ buyerAddr: 'p2sh', channel: 'p2sh' });
     const over = { validateaddress: overValidate({ 'S-ADDR': sc.S, 'B-ADDR': sc.B, 'MS-ADDR': sc.MS }) };
     const { sw, sock, state } = await sellerAtStep3(S, { over });
-    state.psbts.P = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC }));
-    inbound(sock, S, 'BUYER:STEP4', 'P');
+    state.psbts[P] = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC }));
+    inbound(sock, S, 'BUYER:STEP4', P);
     await waitFor(() => sentNames(sock).includes('SELLER:STEP5'), { message: 'SELLER:STEP5 P2SH channel' });
-    inbound(sock, S, 'TERMINATE_TRADE', 'done');
+    inbound(sock, S, 'SERVER:STATE', { state: 'expired-unverified', txid: null }, null);
     await sw.ready;
 });
 
@@ -532,10 +538,10 @@ test('R6: a buyer address not derived from the buyer key is refused before the P
     const wrong = fx.p2shOf(fx.wpkh(fx.OTHER_PUB));
     const over = { validateaddress: overValidate({ 'S-ADDR': fx.SPK.S, 'B-ADDR': wrong, 'MS-ADDR': fx.SPK.MS }) };
     const { sw, sock, state } = await sellerAtStep3('e3'.repeat(32), { over });
-    state.psbts.P = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC, buyerScript: wrong }));
-    inbound(sock, 'e3'.repeat(32), 'BUYER:STEP4', 'P');
+    state.psbts[P] = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC, buyerScript: wrong }));
+    inbound(sock, 'e3'.repeat(32), 'BUYER:STEP4', P);
     const res = await settle(sw);
-    assert.match(String(res.error), /buyer address is not derived from the buyer key/);
+    assert.match(String(res.reason), /buyer address is not derived from the buyer key/);
     assert.strictEqual(state.calls.sign.length, 0);
     assert.ok(!sentNames(sock).includes('SELLER:STEP5'));
 });
@@ -551,10 +557,10 @@ test('R6: a channel address that is not the 2-of-2 of this swap is refused befor
     const forged = fx.p2wshOf('52' + '21' + fx.BUYER_PUB.slice(2) + '21' + fx.OTHER_PUB.slice(2) + '52ae');
     const over = { validateaddress: overValidate({ 'S-ADDR': fx.SPK.S, 'B-ADDR': fx.SPK.B, 'MS-ADDR': forged }) };
     const { sw, sock, state } = await sellerAtStep3('e5'.repeat(32), { over });
-    state.psbts.P = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC }));
-    inbound(sock, 'e5'.repeat(32), 'BUYER:STEP4', 'P');
+    state.psbts[P] = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC }));
+    inbound(sock, 'e5'.repeat(32), 'BUYER:STEP4', P);
     const res = await settle(sw);
-    assert.match(String(res.error), /channel address is not the 2-of-2 of this swap/);
+    assert.match(String(res.reason), /channel address is not the 2-of-2 of this swap/);
     assert.strictEqual(state.calls.sign.length, 0);
 });
 
@@ -591,38 +597,38 @@ test('R6: an input that is already finalized is refused, nothing signed', async 
 
 test('R6: the seller signature is missing after signing: no SELLER:STEP5, the swap terminates', async () => {
     const { sw, sock, state } = await sellerAtStep3('f1'.repeat(32));
-    state.psbts.P = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC }));
+    state.psbts[P] = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC }));
     // signPsbt returns a PSBT with no partial signature on the commit input.
     sw.txsService.signPsbt = async ({ psbtHex }) => {
         state.calls.sign.push(psbtHex);
         state.psbts[`SIGNED:${psbtHex}`] = state.psbts[psbtHex];
         return { data: { psbtHex: `SIGNED:${psbtHex}`, isFinished: false } };
     };
-    inbound(sock, 'f1'.repeat(32), 'BUYER:STEP4', 'P');
+    inbound(sock, 'f1'.repeat(32), 'BUYER:STEP4', P);
     const res = await settle(sw);
-    assert.match(String(res.error), /seller signature missing on the commit input/);
+    assert.match(String(res.reason), /seller signature missing on the commit input/);
     assert.ok(!sentNames(sock).includes('SELLER:STEP5'), 'SELLER:STEP5 sent without the seller signature');
     assert.deepStrictEqual(sentNames(sock).slice(-1), ['TERMINATE_TRADE']);
 });
 
 test('R6: a signed PSBT that is a different transaction is refused, nothing returned', async () => {
     const { sw, sock, state } = await sellerAtStep3('f2'.repeat(32));
-    state.psbts.P = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC }));
+    state.psbts[P] = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC }));
     sw.txsService.signPsbt = async ({ psbtHex }) => {
         state.calls.sign.push(psbtHex);
         const other = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC, sellerSats: fx.LTC + 1 }), { txid: 'b'.repeat(64) });
         state.psbts[`SIGNED:${psbtHex}`] = fx.withSellerSignature(other);
         return { data: { psbtHex: `SIGNED:${psbtHex}`, isFinished: false } };
     };
-    inbound(sock, 'f2'.repeat(32), 'BUYER:STEP4', 'P');
+    inbound(sock, 'f2'.repeat(32), 'BUYER:STEP4', P);
     const res = await settle(sw);
-    assert.match(String(res.error), /signed PSBT is a different transaction/);
+    assert.match(String(res.reason), /signed PSBT is a different transaction/);
     assert.ok(!sentNames(sock).includes('SELLER:STEP5'));
 });
 
 test('R6: a seller signature added to a buyer input is refused, nothing returned', async () => {
     const { sw, sock, state } = await sellerAtStep3('f3'.repeat(32));
-    state.psbts.P = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC }));
+    state.psbts[P] = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC }));
     sw.txsService.signPsbt = async ({ psbtHex }) => {
         state.calls.sign.push(psbtHex);
         const d = fx.withSellerSignature(state.psbts[psbtHex], 0);
@@ -630,17 +636,17 @@ test('R6: a seller signature added to a buyer input is refused, nothing returned
         state.psbts[`SIGNED:${psbtHex}`] = d;
         return { data: { psbtHex: `SIGNED:${psbtHex}`, isFinished: false } };
     };
-    inbound(sock, 'f3'.repeat(32), 'BUYER:STEP4', 'P');
+    inbound(sock, 'f3'.repeat(32), 'BUYER:STEP4', P);
     const res = await settle(sw);
-    assert.match(String(res.error), /seller signature added to input 1/);
+    assert.match(String(res.reason), /seller signature added to input 1/);
     assert.ok(!sentNames(sock).includes('SELLER:STEP5'));
 });
 
 test('R6: the step 4 refusal tells the user which commit output is stranded in the channel', async () => {
     const d = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC, sellerSats: fx.LTC + 1 }));
     const { res } = await runStep4('f4'.repeat(32), d);
-    assert.match(String(res.error), /^Step 4: /);
-    assert.match(String(res.error), new RegExp(`Commit output ${fx.COMMIT_TXID}:0 is in the 2-of-2 channel; spending it needs the buyer's signature\\.`));
+    assert.match(String(res.reason), /^Step 4: /);
+    assert.match(String(res.reason), new RegExp(`Commit output ${fx.COMMIT_TXID}:0 is in the 2-of-2 channel; spending it needs the buyer's signature\\.`));
 });
 
 // ---- attack matrix on the validator (direct) -----------------------------------------
@@ -772,11 +778,11 @@ test('R6: a relayer-built PSBT with two buyer inputs (fee 60000 sat per input) i
     assert.ok(!built.error, built.error);
     const decoded = decodeLikeCore(built.data);
     const { sw, sock, state } = await sellerAtStep3(S);
-    state.psbts.P = decoded;
-    inbound(sock, S, 'BUYER:STEP4', 'P');
+    state.psbts[P] = decoded;
+    inbound(sock, S, 'BUYER:STEP4', P);
     await waitFor(() => sentNames(sock).includes('SELLER:STEP5'), { message: 'SELLER:STEP5 two buyer inputs' });
-    assert.deepStrictEqual(state.calls.sign, ['P']);
-    inbound(sock, S, 'TERMINATE_TRADE', 'done');
+    assert.deepStrictEqual(state.calls.sign, [P]);
+    inbound(sock, S, 'SERVER:STATE', { state: 'expired-unverified', txid: null }, null);
     await sw.ready;
 });
 

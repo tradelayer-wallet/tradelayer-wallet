@@ -1,12 +1,14 @@
 import { Socket as SocketClient } from 'socket.io-client';
-import { IBuildTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
-import { IMSChannelData, isTxid, rpcAmount, SwapEvent, IBuyerSellerInfo, TClient, IFuturesTradeProps, ISpotTradeProps, ETradeType } from "./common";
-import { assertPsbtMatchesTrade, assertSellerSignature, IPsbtExpectation, ltcToSats, TRADE_EXPIRY_BLOCKS, TRADE_EXPIRY_TOLERANCE_BLOCKS } from "./psbt-guard";
+import { IBuildTxConfig, TxsService } from "src/app/@core/services/txs.service";
+import { IBuyerSellerInfo, IFuturesTradeProps, IMSChannelData, ISpotTradeProps, ETradeType, TClient } from "./common";
+import { assertPsbtMatchesTrade, assertSellerSignature, IPsbtExpectation, TRADE_EXPIRY_BLOCKS, TRADE_EXPIRY_TOLERANCE_BLOCKS } from "./psbt-guard";
 import { Swap } from "./swap";
+import { ICommitUtxo, ISwapRelay, TSwapEventData } from "./protocol";
+import { ltcToSats, unitsToDecimal } from "../units";
 
 export class SellSwapper extends Swap {
     // The seller's own commit output, set in onStep2. The only input the seller signs for.
-    private commitUtxo: IUTXO | null = null;
+    private commitUtxo: ICommitUtxo | null = null;
     // Txid of the transaction this seller validated and signed, set in onStep4. The broadcast
     // must be that transaction; a counterparty's claim of any other txid is refused.
     private validatedTxid: string | null = null;
@@ -25,17 +27,21 @@ export class SellSwapper extends Swap {
         this.initTrade();
     }
 
-    protected handleSwapEvent(eventData: SwapEvent) {
-        const { socketId, data } = eventData;
-        switch (eventData.eventName) {
+    protected outcomeTxid(): string | null {
+        return this.validatedTxid;
+    }
+
+    protected handleSwapEvent(event: ISwapRelay & { socketId: string }) {
+        const { socketId, data } = event;
+        switch (event.eventName) {
             case 'BUYER:STEP2':
-                this.onStep2.bind(this)(socketId);
+                this.onStep2(socketId);
                 break;
             case 'BUYER:STEP4':
-                this.onStep4.bind(this)(socketId, data);
+                this.onStep4(socketId, data as string);
                 break;
             case 'BUYER:STEP6':
-                this.onStep6.bind(this)(socketId, data);
+                this.onStep6(socketId, data as TSwapEventData['BUYER:STEP6']);
                 break;
             default:
                 break;
@@ -76,10 +82,10 @@ export class SellSwapper extends Swap {
             const ctcpParams = [];
             if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
                 const { propIdDesired, amountDesired } = this.tradeInfo;
-                ctcpParams.push(propIdDesired, rpcAmount(amountDesired));
+                ctcpParams.push(propIdDesired, unitsToDecimal(amountDesired));
             } else if (this.typeTrade === ETradeType.FUTURES && 'contract_id' in this.tradeInfo) {
                 const { amount, collateral } = this.tradeInfo;
-                ctcpParams.push(collateral, rpcAmount(amount));
+                ctcpParams.push(collateral, unitsToDecimal(amount));
             } else {
                 throw new Error(`Unrecognized Trade Type: ${this.typeTrade}`);
             }
@@ -110,13 +116,14 @@ export class SellSwapper extends Swap {
             if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
             const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
             if (!vout) throw new Error(`decoderawtransaction (2): ${drtRes.error}`);
-            const utxoData = {
-                amount: vout.value,
-                vout: vout.n,
+            // The node's LTC float becomes satoshis once, here. Everything else on the wire is satoshis.
+            const utxoData: ICommitUtxo = {
                 txid: commiTxSendRes.data,
+                vout: vout.n,
+                sats: ltcToSats(vout.value, 'commit amount'),
                 scriptPubKey: this.multySigChannelData.scriptPubKey,
                 redeemScript: this.multySigChannelData.redeemScript,
-            } as IUTXO;
+            };
             this.commitUtxo = utxoData;
 
             this.emitSwapEvent(`SELLER:STEP3`, utxoData);
@@ -164,8 +171,8 @@ export class SellSwapper extends Swap {
         const refDec = await this.client('decoderawtransaction', [refRes.data]);
         if (refDec.error) throw new Error(`decoderawtransaction: ${refDec.error}`);
         const dustSats = ltcToSats(parseFloat(refDec.data?.vout?.[0]?.value), 'dust');
-        // buildLTCInstatTx: the seller output is max(amount, minAmount).
-        const sellerSats = Math.max(ltcToSats(amountForSale, 'amountForSale'), dustSats);
+        // buildLTCInstatTx: the seller output is max(amount, minAmount). The agreed value is already in satoshis.
+        const sellerSats = Math.max(amountForSale, dustSats);
 
         // The expiry is buyer tip + TRADE_EXPIRY_BLOCKS, so accept a small window around ours.
         const tlgi = await this.client('tl_getinfo');
@@ -187,7 +194,7 @@ export class SellSwapper extends Swap {
             commit: {
                 txid: commit.txid,
                 vout: commit.vout,
-                sats: ltcToSats(commit.amount, 'commit amount'),
+                sats: commit.sats,
                 scriptHex: channelScript,
             },
             opReturnScriptHexes,
@@ -199,8 +206,8 @@ export class SellSwapper extends Swap {
 
     // OP_RETURN scriptPubKey the TL payload for these parameters produces, as the relayer
     // builds it (tl_createpayload_instant_ltc_trade, then tl_createrawtx_opreturn).
-    private async opReturnScriptFor(propId: number, amountDesired: number, amountForSale: number, expiry: number): Promise<string> {
-        const payloadRes = await this.client('tl_createpayload_instant_ltc_trade', [propId, rpcAmount(amountDesired), rpcAmount(amountForSale), expiry]);
+    private async opReturnScriptFor(propId: number | string, amountDesired: number, amountForSale: number, expiry: number): Promise<string> {
+        const payloadRes = await this.client('tl_createpayload_instant_ltc_trade', [propId, unitsToDecimal(amountDesired), unitsToDecimal(amountForSale), expiry]);
         if (payloadRes.error || !payloadRes.data) throw new Error(`tl_createpayload_instant_ltc_trade: ${payloadRes.error}`);
         const rawRes = await this.client('tl_createrawtx_opreturn', ['', payloadRes.data]);
         if (rawRes.error || !rawRes.data) throw new Error(`tl_createrawtx_opreturn: ${rawRes.error}`);
@@ -232,6 +239,9 @@ export class SellSwapper extends Swap {
             if (signedRes.error || !signedRes.data) throw new Error(`decodepsbt (signed): ${signedRes.error}`);
             assertSellerSignature(signedRes.data, { txid, commitIndex, sellerPubkeyHex: expected.sellerPubkeyHex });
             this.emitSwapEvent(`SELLER:STEP5`, signRes.data.psbtHex);
+            // The signature is out: the buyer may broadcast now. The seller never terminates from here.
+            this.committed = true;
+            this.startSignedWindow();
         } catch (error: any) {
             const errorMessge = error.message || 'Undefined Error';
             this.terminateTrade(`Step 4: ${errorMessge}${this.commitNotice()}`);
@@ -245,15 +255,13 @@ export class SellSwapper extends Swap {
         return ` Commit output ${this.commitUtxo.txid}:${this.commitUtxo.vout} is in the 2-of-2 channel; spending it needs the buyer's signature.`;
     }
 
-    private async onStep6(cpId: string, finalTx: string) {
-        try {
-            if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
-            if (!isTxid(finalTx)) throw new Error(`BUYER:STEP6 txid is not 64 hex characters`);
-            if (finalTx.toLowerCase() !== this.validatedTxid) throw new Error(`BUYER:STEP6 txid is not the transaction this swap signed`);
-            this.finish({ data: { txid: finalTx, seller: true, trade: this.tradeInfo } });
-        } catch (error: any) {
-            const errorMessge = error.message || 'Undefined Error';
-            this.terminateTrade(`Step 6: ${errorMessge}`);
+    // BUYER:STEP6 reports the broadcast txid. The seller finishes only if it is the transaction it
+    // signed. Any other txid cannot be the agreed trade, so the outcome is reported as unverified.
+    private onStep6(cpId: string, txid: string) {
+        if (cpId !== this.cpInfo.socketId || txid !== this.validatedTxid) {
+            this.finish({ status: 'unverified', txid: this.validatedTxid });
+            return;
         }
+        this.finish({ status: 'settled', txid, trade: this.tradeInfo });
     }
 }

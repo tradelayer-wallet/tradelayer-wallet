@@ -2,7 +2,7 @@ import { Injectable } from "@angular/core";
 import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
 import { ISpotOrder } from "./spot-orderbook.service";
-import { withOrderDecimals } from "src/app/utils/order-decimals";
+import { toWireOrder } from "src/app/utils/units";
 
 interface ITradeConf {
     keypair: {
@@ -59,13 +59,13 @@ export class SpotOrdersService {
 
     newOrder(orderConf: ISpotTradeConf) {
         // Converted first: a value that cannot be sent exactly throws before the loading flag is set.
-        const order = withOrderDecimals(orderConf);
+        const order = toWireOrder(orderConf);
         this.loadingService.tradesLoading = true;
         this.socket.emit('new-order', order);
     }
 
     addLiquidity(orders: ISpotTradeConf[]) {
-        this.socket.emit('many-orders', orders.map(withOrderDecimals));
+        this.socket.emit('many-orders', orders.map(toWireOrder));
     }
 
     closeOpenedOrder(uuid: string) {
