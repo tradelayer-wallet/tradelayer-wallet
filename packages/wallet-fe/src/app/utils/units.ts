@@ -6,6 +6,10 @@
 // whole token.
 export const UNIT_SCALE = 100000000;
 
+// The property id of LTC: 0, on the wire and in the wallet. It is the TradeLayer consensus id (LTC is
+// the first cardinal) and the id the orderbook lists LTC under. Token ids start at 1, so 0 names no token.
+export const LTC_PROPERTY_ID = 0;
+
 export type TOrderAction = 'BUY' | 'SELL';
 
 // A quantity on the wire: a safe integer, not negative. Positivity is a rule of each field.

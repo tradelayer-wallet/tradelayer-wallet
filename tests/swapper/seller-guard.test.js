@@ -56,7 +56,7 @@ const inbound = (sock, sid, eventName, data = null, socketId = 'OB-B') =>
 const sellerParty = { keypair: { address: 'S-ADDR', pubkey: fx.SELLER_PUB }, socketId: 'OB-S' };
 const buyerParty = { keypair: { address: 'B-ADDR', pubkey: fx.BUYER_PUB }, socketId: 'OB-B' };
 // Integer units: 1 token, 1 LTC (1e8 sats), and 1 LTC per token in sats per whole token.
-const spotProps = { propIdDesired: 11, amountDesired: 100000000, propIdForSale: -1, amountForSale: 100000000, price: 100000000 };
+const spotProps = { propIdDesired: 11, amountDesired: 100000000, propIdForSale: 0, amountForSale: 100000000, price: 100000000 };
 
 // Node stub. `state.psbts` maps a PSBT hex to its decodepsbt result (or an error).
 const nodeStub = (state) => async (method, params = []) => {

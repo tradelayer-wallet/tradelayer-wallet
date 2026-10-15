@@ -15,6 +15,7 @@ import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
+import { LTC_PROPERTY_ID } from 'src/app/utils/units';
 
 const minFeeLtcPerKb = 0.002;
 const minVOutAmount = 0.000036;
@@ -218,7 +219,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     getNameBalanceInfo(token: IToken) {
-      const _balance = token.propertyId === -1
+      const _balance = token.propertyId === LTC_PROPERTY_ID
         ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
         : this.balanceService.getTokensBalancesByAddress(this.futureAddress)
           ?.find(e => e.propertyid === token.propertyId)?.balance;

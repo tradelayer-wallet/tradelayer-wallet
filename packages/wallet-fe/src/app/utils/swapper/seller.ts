@@ -4,7 +4,7 @@ import { IBuyerSellerInfo, IFuturesTradeProps, IMSChannelData, ISpotTradeProps, 
 import { assertPsbtMatchesTrade, assertSellerSignature, IPsbtExpectation, TRADE_EXPIRY_BLOCKS, TRADE_EXPIRY_TOLERANCE_BLOCKS } from "./psbt-guard";
 import { Swap } from "./swap";
 import { ICommitUtxo, ISwapRelay, TSwapEventData } from "./protocol";
-import { ltcToSats, unitsToDecimal } from "../units";
+import { LTC_PROPERTY_ID, ltcToSats, unitsToDecimal } from "../units";
 
 export class SellSwapper extends Swap {
     // The seller's own commit output, set in onStep2. The only input the seller signs for.
@@ -136,7 +136,7 @@ export class SellSwapper extends Swap {
     // Only the LTC-for-tokens spot trade has a modelled transaction (see buildPsbtExpectation).
     // Token-for-token and futures trades use other commit legs and payloads, not modelled here.
     private isModelledTrade(): boolean {
-        return this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo && this.tradeInfo.propIdForSale === -1;
+        return this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo && this.tradeInfo.propIdForSale === LTC_PROPERTY_ID;
     }
 
     // The transaction this seller will co-sign, rebuilt from the agreed trade and this node.

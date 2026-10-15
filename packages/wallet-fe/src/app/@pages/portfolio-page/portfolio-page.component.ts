@@ -10,6 +10,7 @@ import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { TxsService } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
+import { LTC_PROPERTY_ID } from 'src/app/utils/units';
 
 @Component({
   selector: 'tl-portoflio-page',
@@ -20,6 +21,7 @@ export class PortfolioPageComponent implements OnInit {
   cryptoBalanceColumns: string[] = ['address', 'confirmed', 'unconfirmed', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'balance', 'actions'];
   selectedAddress: string = '';
+  readonly ltcPropertyId = LTC_PROPERTY_ID;
 
   constructor(
     private balanceService: BalanceService,

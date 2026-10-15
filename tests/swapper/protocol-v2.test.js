@@ -114,7 +114,7 @@ const sentNames = (sock) => sock.sent.map((e) => e.eventName);
 
 const buyerParty = { keypair: { address: 'B-ADDR', pubkey: fx.BUYER_PUB }, socketId: 'OB-B' };
 const sellerParty = { keypair: { address: 'S-ADDR', pubkey: fx.SELLER_PUB }, socketId: 'OB-S' };
-const spotProps = { propIdDesired: 11, amountDesired: 100000000, propIdForSale: -1, amountForSale: 100000000, price: 100000000 };
+const spotProps = { propIdDesired: 11, amountDesired: 100000000, propIdForSale: 0, amountForSale: 100000000, price: 100000000 };
 const COMMIT = { txid: fx.COMMIT_TXID, vout: 0, sats: 200000000, scriptPubKey: fx.SPK.MS_PSBT, redeemScript: fx.REDEEM };
 
 // Node and transaction stubs for a buyer that reaches BUYER:STEP4 and then the signed step.

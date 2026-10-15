@@ -16,6 +16,7 @@ import { ISpotTradeConf, SpotOrdersService } from 'src/app/@core/services/spot-s
 import { IUTXO } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
+import { LTC_PROPERTY_ID } from 'src/app/utils/units';
 
 const minFeeLtcPerKb = 0.002;
 const minVOutAmount = 0.000036;
@@ -121,7 +122,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         ? this.selectedMarket.second_token.propertyId
         : this.selectedMarket.first_token.propertyId;
 
-      const _available = propId === -1
+      const _available = propId === LTC_PROPERTY_ID
         ? safeNumber(this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed - this.getFees(isBuy))
         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
           ?.find((t: any) => t.propertyid === propId)
@@ -154,7 +155,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const market = this.selectedMarket;
       const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
-      if (!propIdForSale || !propIdDesired || (!price && this.isLimitSelected) || !amount) return;
+      if (propIdForSale === undefined || propIdDesired === undefined || (!price && this.isLimitSelected) || !amount) return;
       if (!this.spotKeyPair) return;
   
       const order: ISpotTradeConf = { 
@@ -296,7 +297,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     getNameBalanceInfo(token: IToken) {
-      const _balance = token.propertyId === -1
+      const _balance = token.propertyId === LTC_PROPERTY_ID
         ? this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmed
         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
           ?.find(e => e.propertyid === token.propertyId)?.balance;
@@ -308,8 +309,8 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     private getInOrderAmount(propertyId: number) {
       const num = this.spotOrdersService.openedOrders.map(o => {
         const { amount, price, id_for_sale } = o.props;
-        if (propertyId === -1) {
-          if (id_for_sale === -1) return safeNumber(amount * price);
+        if (propertyId === LTC_PROPERTY_ID) {
+          if (id_for_sale === LTC_PROPERTY_ID) return safeNumber(amount * price);
           return 0.001;
         } else {
           if (id_for_sale === propertyId) return safeNumber(amount * price);
@@ -338,13 +339,13 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         : this.selectedMarket.first_token.propertyId;
 
       const finalInputs: number[] = [];
-      const _amount = propId !== -1
+      const _amount = propId !== LTC_PROPERTY_ID
         ? safeNumber(minVOutAmount * 2)
         : safeNumber((amount * price) + minVOutAmount);
       const _allAmounts = this.balanceService.getCoinBalancesByAddress(this.spotAddress).utxos
         .map(r => r.amount)
         .sort((a, b) => b - a);
-      const allAmounts =  propId !== -1
+      const allAmounts =  propId !== LTC_PROPERTY_ID
         ? _allAmounts
         : [minVOutAmount, ..._allAmounts]
       allAmounts.forEach(u => {

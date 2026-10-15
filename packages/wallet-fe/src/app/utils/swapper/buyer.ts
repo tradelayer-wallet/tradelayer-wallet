@@ -4,7 +4,7 @@ import { IBuyerSellerInfo, IFuturesTradeProps, IMSChannelData, ISpotTradeProps, 
 import { Swap } from "./swap";
 import { channelWitnessScript, psbtTxid, TRADE_EXPIRY_BLOCKS } from "./psbt-guard";
 import { ICommitUtxo, ISwapRelay, TSwapEventData } from "./protocol";
-import { satsToLtc, unitsToDecimal } from "../units";
+import { LTC_PROPERTY_ID, satsToLtc, unitsToDecimal } from "../units";
 
 export class BuySwapper extends Swap {
     // Txid of the unsigned transaction this wallet built in BUYER:STEP4. The PSBT the seller returns
@@ -106,7 +106,7 @@ export class BuySwapper extends Swap {
             if (this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo) {
                 const { propIdDesired, amountDesired, amountForSale, propIdForSale } = this.tradeInfo;
 
-                if (propIdForSale === -1) {
+                if (propIdForSale === LTC_PROPERTY_ID) {
                     const cpitLTCOptions = [ propIdDesired, unitsToDecimal(amountDesired), unitsToDecimal(amountForSale), bbData ];
                     const cpitRes = await this.client('tl_createpayload_instant_ltc_trade', cpitLTCOptions);
                     if (cpitRes.error || !cpitRes.data) throw new Error(`tl_createpayload_instant_ltc_trade: ${cpitRes.error}`);
