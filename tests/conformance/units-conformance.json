@@ -1,0 +1,147 @@
+{
+  "description": "Shared units rules (protocol-v2.md B.2). Identical in tl-orderbook-server and tradelayer-wallet; each repo runs every vector against its own module.",
+  "version": 1,
+  "isWireUnits": [
+    {
+      "input": 0,
+      "expect": true
+    },
+    {
+      "input": 1,
+      "expect": true
+    },
+    {
+      "input": 9007199254740991,
+      "expect": true
+    },
+    {
+      "input": 9007199254740992,
+      "expect": false
+    },
+    {
+      "input": 1e+21,
+      "expect": false
+    },
+    {
+      "input": -1,
+      "expect": false
+    },
+    {
+      "input": 1.5,
+      "expect": false
+    },
+    {
+      "input": 1e-8,
+      "expect": false
+    },
+    {
+      "input": "1",
+      "expect": false
+    },
+    {
+      "input": null,
+      "expect": false
+    },
+    {
+      "input": true,
+      "expect": false
+    }
+  ],
+  "valueSats": [
+    {
+      "amountUnits": 100000000,
+      "priceSats": 10000,
+      "expect": 10000
+    },
+    {
+      "amountUnits": 50000000,
+      "priceSats": 30000000,
+      "expect": 15000000
+    },
+    {
+      "amountUnits": 1,
+      "priceSats": 1,
+      "expect": null
+    },
+    {
+      "amountUnits": 100000000,
+      "priceSats": 1,
+      "expect": 1
+    },
+    {
+      "amountUnits": 13779,
+      "priceSats": 150000000,
+      "expect": null
+    },
+    {
+      "amountUnits": 0,
+      "priceSats": 5,
+      "expect": 0
+    },
+    {
+      "amountUnits": 5,
+      "priceSats": 0,
+      "expect": 0
+    },
+    {
+      "amountUnits": 9007199254740991,
+      "priceSats": 100000000,
+      "expect": 9007199254740991
+    },
+    {
+      "amountUnits": 9007199254740991,
+      "priceSats": 2,
+      "expect": null
+    },
+    {
+      "amountUnits": 100000001,
+      "priceSats": 100000000,
+      "expect": 100000001
+    },
+    {
+      "amountUnits": 900719925474,
+      "priceSats": 10000000,
+      "expect": null
+    },
+    {
+      "amountUnits": 100000000,
+      "priceSats": 9007199254740991,
+      "expect": 9007199254740991
+    },
+    {
+      "amountUnits": 123456789,
+      "priceSats": 87654321,
+      "expect": null
+    },
+    {
+      "amountUnits": 1000000000000,
+      "priceSats": 1000000000000,
+      "expect": null
+    },
+    {
+      "amountUnits": 7,
+      "priceSats": 14285714,
+      "expect": null
+    },
+    {
+      "amountUnits": -1,
+      "priceSats": 100000000,
+      "expect": null
+    },
+    {
+      "amountUnits": 9007199254740992,
+      "priceSats": 1,
+      "expect": null
+    },
+    {
+      "amountUnits": 1.5,
+      "priceSats": 100000000,
+      "expect": null
+    },
+    {
+      "amountUnits": 100000000,
+      "priceSats": "100000000",
+      "expect": null
+    }
+  ]
+}
