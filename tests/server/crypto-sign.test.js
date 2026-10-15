@@ -60,3 +60,38 @@ for (const [name, type] of [['NONE', 0x02], ['SINGLE', 0x03], ['NONE|ANYONECANPA
         }
     });
 }
+
+// Network names. One resolver turns a name into network parameters. An unknown name is refused by
+// every function that takes one; none signs or builds for a default network.
+const { buildPsbt: buildPsbtFromRaw, getKeyPair } = loadTs(path.join(SERVER_SRC, 'utils', 'crypto.util.ts')).exports;
+
+const rawTx = () => {
+    const tx = new bitcoin.Transaction();
+    tx.addInput(Buffer.alloc(32, 1), 0);
+    tx.addOutput(Buffer.from(`0014${'22'.repeat(20)}`, 'hex'), 90000);
+    return tx.toHex();
+};
+
+test('the signer refuses an unknown network name', () => {
+    const res = signPsbtRawtTx({ wif, network: 'NOPE', psbtHex: buildPsbt() });
+    assert.match(String(res.error), /Network not found/);
+    assert.equal(res.data, undefined);
+});
+
+test('an inherited property name is not a network', () => {
+    const res = signPsbtRawtTx({ wif, network: 'constructor', psbtHex: buildPsbt() });
+    assert.match(String(res.error), /Network not found/);
+});
+
+test('buildPsbt builds for a known network and refuses an unknown one', () => {
+    const ok = buildPsbtFromRaw({ rawtx: rawTx(), inputs: [], network: 'LTC' });
+    assert.equal(ok.error, undefined);
+    assert.ok(ok.data);
+    const bad = buildPsbtFromRaw({ rawtx: rawTx(), inputs: [], network: 'NOPE' });
+    assert.match(String(bad.error), /Network not found/);
+    assert.equal(bad.data, undefined);
+});
+
+test('address derivation refuses an unknown network name', () => {
+    assert.throws(() => getKeyPair('NOPE', 'abandon '.repeat(11) + 'about', "m/49'/2'/0'/0/0"), /Network not found/);
+});
