@@ -53,3 +53,18 @@ test('key export, node control and wallet import methods stay refused', async ()
         assert.equal(await callRoute(method), 403, `${method} was allowed`);
     }
 });
+
+test('a failed RPC call replies with the error message, not an empty object', async () => {
+    const { mainRoutes: routes } = loadTs(path.join(SRC, 'routes', 'main.route.ts'), {
+        '../index': { fasitfyServer: { rpcClient: null } },
+        '../services/node.service': {},
+        '../services/tx-builder.service': {},
+        '../utils/crypto.util': {},
+    }).exports;
+    const app = Fastify({ logger: false });
+    app.register(routes, { prefix: '/api/' });
+    const res = await app.inject({ method: 'POST', url: '/api/rpc-call', payload: { method: 'getblockchaininfo', params: [] } });
+    await app.close();
+    assert.equal(res.statusCode, 500);
+    assert.deepStrictEqual(res.json(), { error: 'No RPC Client initialized' });
+});

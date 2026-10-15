@@ -6,6 +6,13 @@ import { IOBSocketServiceOptions, OBSocketService } from './services/ob-sockets.
 import { authTokensMatch, isLoopbackHostHeader } from './utils/auth.util';
 import * as killPort from 'kill-port';
 
+// Removes every listener from a socket and disconnects it. The one teardown for both connections.
+const closeSocket = (socket?: { offAny(): void; disconnect(): void }) => {
+    if (!socket) return;
+    socket.offAny();
+    socket.disconnect();
+};
+
 export class FastifyServer {
     private _server: FastifyInstance;
     public rpcClient: RpcClient;
@@ -98,18 +105,12 @@ export class FastifyServer {
 
 
     clearMainSocketConnection() {
-        if (this.mainSocketService?.currentSocket) {
-            this.mainSocketService?.currentSocket.offAny();
-            this.mainSocketService?.currentSocket.disconnect();
-        }
+        closeSocket(this.mainSocketService?.currentSocket);
         this.mainSocketService = null;
     }
 
     clearOBSocketConnection() {
-        if (this.obSocketService?.socket) {
-            this.obSocketService.socket.offAny();
-            this.obSocketService.socket.disconnect();
-        }
+        closeSocket(this.obSocketService?.socket);
         this.obSocketService = null;
     }
 }

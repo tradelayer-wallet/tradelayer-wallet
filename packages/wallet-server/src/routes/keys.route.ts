@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { generateNewWallet, getKeyPair, getManyKeyPair, TNetwork } from "../utils/crypto.util";
+import { sendError } from "../utils/common.util";
 
 export const keysRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
     fastify.post('new-wallet', (request, reply) => {
@@ -9,7 +10,7 @@ export const keysRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             if (result.error) throw new Error(result.error);
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -22,7 +23,7 @@ export const keysRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             if (result.error) throw new Error(result.error);
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -34,7 +35,7 @@ export const keysRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             if (result.error) throw new Error(result.error);
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 

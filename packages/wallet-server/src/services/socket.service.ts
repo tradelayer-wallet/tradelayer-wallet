@@ -105,7 +105,7 @@ export class SocketService {
                 if (infoRes.error && infoRes.error.includes('ECONNREFUSED')) {
                     const check = await client.call('getblockchaininfo');
                     if (check.error || !check.data) {
-                        this.currentSocket.emit("core-error", check.error || 'Undefined Error. code 3')
+                        this.currentSocket?.emit("core-error", check.error || 'Undefined Error. code 3')
                         this.stopBlockCounting();
                     }
                 }
@@ -114,7 +114,7 @@ export class SocketService {
             const header = infoRes?.data?.headers;
             if (height && this.lastBlock < height) {
                 this.lastBlock = height;
-                this.currentSocket.emit('new-block', { height, header });
+                this.currentSocket?.emit('new-block', { height, header });
             }
         }, ms);
     }

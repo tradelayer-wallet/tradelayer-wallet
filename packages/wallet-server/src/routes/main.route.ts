@@ -3,6 +3,7 @@ import { fasitfyServer } from "../index";
 import { startWalletNode, createConfigFile, stopWalletNode } from "../services/node.service";
 import { buildLTCInstatTx, buildTx, IBuildLTCITTxConfig, IBuildTxConfig, ISignPsbtConfig, ISignTxConfig, signTx } from "../services/tx-builder.service";
 import { signPsbtRawtTx } from "../utils/crypto.util";
+import { sendError } from "../utils/common.util";
 
 // Conservative allowlist of node RPC methods actually used by the wallet FE
 // (call sites of rpcService.rpc / mainApi.rpcCall in packages/wallet-fe).
@@ -56,7 +57,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const res = await fasitfyServer.rpcClient.call(method, ..._params);
             reply.status(200).send(res);
         } catch (error) {
-            reply.status(500).send({ error: error || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -78,7 +79,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const result = await startWalletNode(walletNodeOptions);
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -87,7 +88,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const result = await stopWalletNode();
             reply.status(result.error ? 500 : 200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error?.message || error || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -103,7 +104,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const result = await createConfigFile(options);
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -115,7 +116,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const hexResult = await buildTx(txConfig, isApiMode);
             reply.status(200).send(hexResult);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -127,7 +128,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const hexResult = await buildLTCInstatTx(txConfig, isApiMode);
             reply.status(200).send(hexResult);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -137,7 +138,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const result = await signTx({ rawtx, wif, network, inputs, psbtHex });
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -147,7 +148,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const result = signPsbtRawtTx({ wif, network, psbtHex });
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -158,7 +159,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const result = { data: true };
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
