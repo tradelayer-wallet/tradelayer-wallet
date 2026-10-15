@@ -54,6 +54,7 @@ export const createConfigFile = async (options: {
         const filePath = join(directory, 'litecoin.conf');
         const fileExist = existsSync(filePath);
         if (fileExist) throw('litecoin.conf file Already exist in provided directory!');
+        if (/[\r\n]/.test(`${username}${password}`)) throw('Username and password cannot contain line breaks');
         const fileData = `rpcuser=${username}\nrpcpassword=${password}\nrpcport=${port}\ntxindex=1`;
         // The file holds the RPC password: owner read/write only (POSIX; ignored on Windows).
         writeFileSync(filePath, fileData, { mode: 0o600 });
@@ -97,47 +98,48 @@ export const stopWalletNode = async () => {
         return { data: true };
 }
 
+// Splits at the first '=' only: the value is everything after it, so a password that contains '=' is read whole.
 const structureConfFile = (conf: string) => {
     const confObj = {};
     conf.split('\n').forEach((l: string) => {
-        const a = l.split('=');
-        if (l.startsWith('#') || !a[0] || !a[1]) return;
-        confObj[a[0]] = a[1].replace('\r', '');
+        const eq = l.indexOf('=');
+        if (l.startsWith('#') || eq < 1 || eq === l.length - 1) return;
+        confObj[l.slice(0, eq)] = l.slice(eq + 1).replace('\r', '');
     });
     return confObj;
 };
 
+// Litecoin Core's RPC_IN_WARMUP: the node has the RPC port open and is still loading its block index.
+const RPC_IN_WARMUP = -28;
+const CORE_START_ATTEMPTS = 300;
+const CORE_START_INTERVAL_MS = 1000;
+
+// Waits while the node is starting (no RPC port yet, or still loading). Any other answer that is
+// not a result (a wrong password, a timeout) is reported as the error, not as a started node.
 const checkIsCoreStarted = async (
         configObj: any,
         isTestnet: boolean,
     ) => {
-    return new Promise(async (resolve) => {
-        const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
-        const port = rpcport ? rpcport : isTestnet ? 18332 : 8332;
-        const client = new WireRpcClient({
-            username: rpcuser,
-            password: rpcpassword,
-            host: rpchost || 'localhost',
-            port: port,
-            timeout: 2000,
-        });
-
-        const finalCheck = () => new Promise(async checkResolve => {
-            await client.call('getblockchaininfo')
-                .then(async checkRes => {
-                    if (!checkRes?.error?.includes("ECONNREFUSED")) {
-                        fasitfyServer.rpcClient = client;
-                        fasitfyServer.rpcPort = port;
-                        fasitfyServer.mainSocketService.startBlockCounting(2000);
-                        checkResolve({ data: true });
-                    } else {
-                        const subCheck = await finalCheck();
-                        checkResolve({ data: subCheck });
-                    }
-                });
-        });
-
-        const finalRes = await finalCheck();
-        resolve({ data: finalRes });
+    const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
+    const port = rpcport ? rpcport : isTestnet ? 19332 : 9332;
+    const client = new WireRpcClient({
+        username: rpcuser,
+        password: rpcpassword,
+        host: rpchost || 'localhost',
+        port: port,
+        timeout: 2000,
     });
+
+    for (let attempt = 1; ; attempt++) {
+        const checkRes = await client.call('getblockchaininfo');
+        if (checkRes.data) {
+            fasitfyServer.rpcClient = client;
+            fasitfyServer.rpcPort = port;
+            fasitfyServer.mainSocketService.startBlockCounting(2000);
+            return { data: true };
+        }
+        const starting = checkRes.error?.includes('ECONNREFUSED') || checkRes.EECode === RPC_IN_WARMUP;
+        if (!starting || attempt >= CORE_START_ATTEMPTS) return { error: checkRes.error || 'Undefined Error' };
+        await new Promise((res) => setTimeout(res, CORE_START_INTERVAL_MS));
+    }
 };
