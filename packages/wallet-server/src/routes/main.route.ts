@@ -85,7 +85,7 @@ export const mainRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
     fastify.post('stop-wallet-node', async (request, reply) => {
         try {
             const result = await stopWalletNode();
-            reply.status(200).send(result);
+            reply.status(result.error ? 500 : 200).send(result);
         } catch (error) {
             reply.status(500).send({ error: error?.message || error || 'Undefined Error' })
         }

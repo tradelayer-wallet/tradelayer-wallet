@@ -84,19 +84,19 @@ export const startWalletNode = async (walletNodeOptions: any) => {
     }
 };
 
+// A failed stop keeps the connection: the node may still be running and the wallet still
+// needs to reach it. A node that is already down (ECONNREFUSED) counts as stopped.
 export const stopWalletNode = async () => {
-        const stopRes = await fasitfyServer.rpcClient?.call('stop');
-        const checkPromise = new Promise(async checkResolve => {
-            const checkRes = await fasitfyServer.rpcClient.call('getblockchaininfo');
-            checkRes?.error?.includes("ECONNREFUSED")
-                ? checkResolve(true)
-                : await checkPromise;
-        });
-        fasitfyServer.mainSocketService.stopBlockCounting();
-        fasitfyServer.rpcClient = null;
-        fasitfyServer.rpcPort = null;
-        return { data: true };
-}
+    const client = fasitfyServer.rpcClient;
+    if (client) {
+        const stopRes = await client.call('stop');
+        if (stopRes.error && !stopRes.error.includes('ECONNREFUSED')) return { error: stopRes.error };
+    }
+    fasitfyServer.mainSocketService.stopBlockCounting();
+    fasitfyServer.rpcClient = null;
+    fasitfyServer.rpcPort = null;
+    return { data: true };
+};
 
 // Splits at the first '=' only: the value is everything after it, so a password that contains '=' is read whole.
 const structureConfFile = (conf: string) => {
