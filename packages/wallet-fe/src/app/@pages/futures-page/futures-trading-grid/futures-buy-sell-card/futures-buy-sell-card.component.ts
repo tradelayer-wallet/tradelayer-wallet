@@ -27,7 +27,6 @@ const minVOutAmount = 0.000036;
 })
 export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
-    private _isLimitSelected: boolean = true;
     public buySellGroup: FormGroup = new FormGroup({});
 
     constructor(
@@ -65,15 +64,6 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       return this.futuresOrderbookService.currentPrice;
     }
 
-    get isLimitSelected() {
-      return this._isLimitSelected;
-    }
-
-    set isLimitSelected(value: boolean) {
-      this._isLimitSelected = value;
-      this.buySellGroup.controls.price.setValue(this.currentPrice);
-    }
-
     get reLayerApi() {
       return this.apiService.tlApi;
     }
@@ -100,11 +90,8 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
     getMaxAmount(isBuy: boolean) {
       if (!this.futureAddress) return 0;
-      if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
-      const _price = this.isLimitSelected 
-        ? this.buySellGroup.value['price'] 
-        : this.currentPrice;
-      const price = safeNumber(_price);
+      if (!this.buySellGroup?.controls?.['price']?.value) return 0;
+      const price = safeNumber(this.buySellGroup.value['price']);
 
       const propId = this.selectedMarket.collateral.propertyId;
 
@@ -133,14 +120,13 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         return;
       }
       const amount = this.buySellGroup.value.amount;
-      const _price = this.buySellGroup.value.price;
-      const price = this.isLimitSelected ? _price : this.currentPrice;
+      const price = this.buySellGroup.value.price;
       const levarage = 1;
       const market = this.selectedMarket;
       const collateral = market.collateral.propertyId;
       const contract_id = market.contract_id;
 
-      if (!contract_id || (!price && this.isLimitSelected) || !amount) return;
+      if (contract_id === undefined || contract_id === null || !price || !amount) return;
       if (!this.futureKeyPair) return;
   
       const order: IFuturesTradeConf = { 
@@ -157,7 +143,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
           collateral: collateral,
           levarage: levarage,
         },
-        isLimitOrder: this.isLimitSelected,
+        isLimitOrder: true,
         marketName: this.selectedMarket.pairString,
       };
       try {

@@ -18,20 +18,8 @@
     </div>
   </mat-card-title>
   <mat-card-content>
-    <div class="order-type">
-      <div class="order-type-buttons">
-        <p
-          [ngClass]="{ selected: isLimitSelected }"
-          (click)="isLimitSelected = true"
-        >Limit</p>
-        <p
-          [ngClass]="{ selected: !isLimitSelected }"
-          (click)="isLimitSelected = false"
-        >Market</p>
-      </div>
-    </div>
     <div class="buy-sell-form" [formGroup]='buySellGroup'>
-      <div class="custom-form-field" *ngIf='isLimitSelected'>
+      <div class="custom-form-field">
         <div class="prefix">Price</div>
         <input type='number' formControlName="price">
         <div class="suffix">{{ selectedMarket.second_token.shortName }}</div>

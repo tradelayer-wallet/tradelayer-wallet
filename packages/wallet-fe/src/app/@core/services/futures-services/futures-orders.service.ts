@@ -11,7 +11,7 @@ interface ITradeConf {
     };
     action: "BUY" | "SELL";
     type: "FUTURES";
-    isLimitOrder: boolean;
+    isLimitOrder: true;
     marketName: string;
 }
 

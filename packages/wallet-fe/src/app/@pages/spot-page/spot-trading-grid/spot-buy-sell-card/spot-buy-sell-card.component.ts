@@ -29,7 +29,6 @@ const minVOutAmount = 0.000036;
 export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
     buySellGroup: FormGroup = new FormGroup({});
-    private _isLimitSelected: boolean = true;
 
     constructor(
       private spotMarketsService: SpotMarketsService,
@@ -64,15 +63,6 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
     get currentPrice() {
       return this.spotOrderbookService.currentPrice;
-    }
-
-    get isLimitSelected() {
-      return this._isLimitSelected;
-    }
-
-    set isLimitSelected(value: boolean) {
-      this._isLimitSelected = value;
-      this.buySellGroup.controls.price.setValue(this.currentPrice);
     }
 
     get reLayerApi() {
@@ -112,11 +102,8 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
     getMaxAmount(isBuy: boolean) {
       if (!this.spotAddress) return 0;
-      if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
-      const _price = this.isLimitSelected 
-        ? this.buySellGroup.value['price'] 
-        : this.currentPrice;
-      const price = safeNumber(_price);
+      if (!this.buySellGroup?.controls?.['price']?.value) return 0;
+      const price = safeNumber(this.buySellGroup.value['price']);
 
       const propId = isBuy
         ? this.selectedMarket.second_token.propertyId
@@ -149,13 +136,12 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         return;
       }
       const amount = this.buySellGroup.value.amount;
-      const _price = this.buySellGroup.value.price;
-      const price = this.isLimitSelected ? _price : this.currentPrice;
+      const price = this.buySellGroup.value.price;
 
       const market = this.selectedMarket;
       const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
-      if (propIdForSale === undefined || propIdDesired === undefined || (!price && this.isLimitSelected) || !amount) return;
+      if (propIdForSale === undefined || propIdDesired === undefined || !price || !amount) return;
       if (!this.spotKeyPair) return;
   
       const order: ISpotTradeConf = { 
@@ -171,7 +157,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
           amount: amount,
           price: price,
         },
-        isLimitOrder: this.isLimitSelected,
+        isLimitOrder: true,
         marketName: this.selectedMarket.pairString,
       };
       try {
@@ -223,7 +209,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       //       address: this.spotKeyPair?.address,
       //       pubkey: this.spotKeyPair?.pubkey,
       //     },
-      //     isLimitOrder: this.isLimitSelected,
+      //     isLimitOrder: true,
       //     marketName: this.selectedMarket.pairString,
       //   };
 

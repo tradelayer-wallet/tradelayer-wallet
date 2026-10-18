@@ -18,3 +18,18 @@ const angularCore = {
 const loadApp = (relPath, stubs = {}) => loadTs(path.join(APP, relPath), { '@angular/core': angularCore, ...stubs }).exports;
 
 module.exports = { APP, angularCore, loadApp };
+
+// A FormGroup stand-in with the members the cards use: value, controls[k].value and setValue, reset.
+const formGroup = (init) => {
+    const group = { value: { ...init }, controls: {}, valid: true };
+    for (const key of Object.keys(init)) {
+        group.controls[key] = {
+            get value() { return group.value[key]; },
+            setValue(v) { group.value[key] = v; },
+        };
+    }
+    group.reset = () => { for (const key of Object.keys(init)) group.value[key] = null; };
+    return group;
+};
+
+module.exports.formGroup = formGroup;
