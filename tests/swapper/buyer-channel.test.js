@@ -13,7 +13,7 @@ const { loadTs, REPO } = require('../support/ts-loader');
 const fx = require('../support/psbt-fixture');
 
 // The PSBT the stubs return, as hex on the wire.
-const PSBT1 = Buffer.from('PSBT-1').toString('hex');
+const PSBT1 = fx.psbtHex('PSBT-1');
 const SWAP_EVENT = 'swap';
 const SID = 'b1'.repeat(32);
 const UTILS_DIR = path.join(REPO, 'packages', 'wallet-fe', 'src', 'app', 'utils');
@@ -77,7 +77,7 @@ const nodeStub = () => async (method, params = []) => {
         case 'tl_createpayload_commit_tochannel': return { data: 'PAY-COMMIT' };
         case 'tl_createpayload_instant_ltc_trade': return { data: 'PAY-LTC' };
         case 'decoderawtransaction': return { data: { vout: [{ value: 2, n: 0, scriptPubKey: { addresses: ['MS-ADDR'], hex: fx.SPK.MS } }] } };
-        case 'decodepsbt': return params[0] === PSBT1
+        case 'decodepsbt': return fx.hexOfNodeArg(params[0]) === PSBT1
             ? { data: { tx: { txid: fx.TXID } } }
             : { error: 'TX decode failed' };
         default: return { error: `unstubbed rpc ${method}` };

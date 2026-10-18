@@ -39,6 +39,14 @@ export type TClient = (method: string, ...args: any[]) => Promise<{
     error?: string;
 }>;
 
+// The node's decodepsbt takes a base64 PSBT, and the wallet carries PSBTs as hex. This is the only
+// place that converts them and the only caller of decodepsbt.
+export const decodePsbt = (client: TClient, psbtHex: string) => {
+    if (!/^([0-9a-f]{2})+$/i.test(psbtHex)) throw new Error('PSBT is not hex');
+    const binary = psbtHex.match(/../g)!.map((byte) => String.fromCharCode(parseInt(byte, 16))).join('');
+    return client('decodepsbt', [btoa(binary)]);
+};
+
 // Trade props as they arrive: amounts and prices are integer units (protocol-v2.md B.1). The UI model
 // holds the same fields as display numbers (protocol.ts toDisplayTrade).
 export interface ISpotTradeProps {

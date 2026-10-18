@@ -46,7 +46,7 @@ class FakeSocket extends EventEmitter {
 }
 
 // PSBT payloads are hex on the wire (protocol-v2.md B.3.5); the fixtures name them by text.
-const hx = (text) => Buffer.from(text).toString('hex');
+const hx = fx.psbtHex;
 const P = hx('P');
 
 const sentNames = (sock) => sock.sent.map((e) => e.eventName);
@@ -87,7 +87,7 @@ const nodeStub = (state) => async (method, params = []) => {
             return { error: `unstubbed raw ${raw}` };
         }
         case 'decodepsbt': {
-            const d = state.psbts[params[0]];
+            const d = state.psbts[fx.hexOfNodeArg(params[0])];
             return d === undefined ? { error: 'TX decode failed' } : (d.error ? { error: d.error } : { data: d });
         }
         default: return { error: `unstubbed rpc ${method}` };
@@ -103,7 +103,7 @@ const makeTxs = (state) => ({
     signPsbt: async ({ psbtHex }) => {
         state.calls.sign.push(psbtHex);
         // The signed PSBT decodes as the same transaction, with the seller's signature on input 0.
-        const signed = `SIGNED:${psbtHex}`;
+        const signed = fx.psbtHex(`SIGNED:${psbtHex}`);
         if (state.psbts[psbtHex] && !state.psbts[psbtHex].error) state.psbts[signed] = fx.withSellerSignature(state.psbts[psbtHex]);
         return { data: { psbtHex: signed, isFinished: false } };
     },
@@ -159,7 +159,7 @@ test('honest PSBT is signed once; the swap then completes on BUYER:STEP6', async
     inbound(sock, S, 'BUYER:STEP4', psbtHex);
     await waitFor(() => sentNames(sock).includes('SELLER:STEP5'), { message: 'SELLER:STEP5' });
     assert.deepStrictEqual(state.calls.sign, [psbtHex], 'honest PSBT not signed exactly once');
-    assert.strictEqual(sock.sent.find((e) => e.eventName === 'SELLER:STEP5').data, `SIGNED:${psbtHex}`);
+    assert.strictEqual(sock.sent.find((e) => e.eventName === 'SELLER:STEP5').data, fx.psbtHex(`SIGNED:${psbtHex}`));
     const txid = state.psbts[psbtHex].tx.txid;
     inbound(sock, S, 'BUYER:STEP6', txid, 'OB-B');
     const res = await settle(sw);
@@ -601,8 +601,8 @@ test('R6: the seller signature is missing after signing: no SELLER:STEP5, the sw
     // signPsbt returns a PSBT with no partial signature on the commit input.
     sw.txsService.signPsbt = async ({ psbtHex }) => {
         state.calls.sign.push(psbtHex);
-        state.psbts[`SIGNED:${psbtHex}`] = state.psbts[psbtHex];
-        return { data: { psbtHex: `SIGNED:${psbtHex}`, isFinished: false } };
+        state.psbts[fx.psbtHex(`SIGNED:${psbtHex}`)] = state.psbts[psbtHex];
+        return { data: { psbtHex: fx.psbtHex(`SIGNED:${psbtHex}`), isFinished: false } };
     };
     inbound(sock, 'f1'.repeat(32), 'BUYER:STEP4', P);
     const res = await settle(sw);
@@ -617,8 +617,8 @@ test('R6: a signed PSBT that is a different transaction is refused, nothing retu
     sw.txsService.signPsbt = async ({ psbtHex }) => {
         state.calls.sign.push(psbtHex);
         const other = fx.decodedFrom(fx.honestSpec({ fundSats: 3 * fx.LTC, sellerSats: fx.LTC + 1 }), { txid: 'b'.repeat(64) });
-        state.psbts[`SIGNED:${psbtHex}`] = fx.withSellerSignature(other);
-        return { data: { psbtHex: `SIGNED:${psbtHex}`, isFinished: false } };
+        state.psbts[fx.psbtHex(`SIGNED:${psbtHex}`)] = fx.withSellerSignature(other);
+        return { data: { psbtHex: fx.psbtHex(`SIGNED:${psbtHex}`), isFinished: false } };
     };
     inbound(sock, 'f2'.repeat(32), 'BUYER:STEP4', P);
     const res = await settle(sw);
@@ -633,8 +633,8 @@ test('R6: a seller signature added to a buyer input is refused, nothing returned
         state.calls.sign.push(psbtHex);
         const d = fx.withSellerSignature(state.psbts[psbtHex], 0);
         d.inputs[1].partial_signatures = { [fx.SELLER_PUB]: '3044' + '01' };
-        state.psbts[`SIGNED:${psbtHex}`] = d;
-        return { data: { psbtHex: `SIGNED:${psbtHex}`, isFinished: false } };
+        state.psbts[fx.psbtHex(`SIGNED:${psbtHex}`)] = d;
+        return { data: { psbtHex: fx.psbtHex(`SIGNED:${psbtHex}`), isFinished: false } };
     };
     inbound(sock, 'f3'.repeat(32), 'BUYER:STEP4', P);
     const res = await settle(sw);

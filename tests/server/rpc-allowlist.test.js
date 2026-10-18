@@ -35,7 +35,7 @@ const swapperRpcMethods = () => {
     for (const file of fs.readdirSync(SWAPPER_DIR)) {
         if (!file.endsWith('.ts')) continue;
         const source = fs.readFileSync(path.join(SWAPPER_DIR, file), 'utf8');
-        for (const m of source.matchAll(/this\.client\(\s*['"]([a-z_]+)['"]/g)) names.add(m[1]);
+        for (const m of source.matchAll(/\bclient\(\s*['"]([a-z_]+)['"]/g)) names.add(m[1]);
     }
     return [...names].sort();
 };

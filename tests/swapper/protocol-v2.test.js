@@ -17,7 +17,7 @@ const freshRequire = (rel) => loadTs(path.join(UTILS_DIR, rel)).exports;
 
 const SID = 'c3'.repeat(32);
 const TXID = 'ab'.repeat(32);
-const hx = (text) => Buffer.from(text).toString('hex');
+const hx = fx.psbtHex;
 // Waits on setImmediate, not setTimeout, so the mocked timers of the timer tests never stall the helpers.
 const sleep = (ms) => new Promise((res) => {
     const end = Date.now() + ms;
@@ -130,7 +130,7 @@ const makeBuyerDeps = (opts = {}) => {
             case 'tl_createpayload_commit_tochannel': return { data: 'PAY-COMMIT' };
             case 'tl_createpayload_instant_ltc_trade': return { data: 'PAY-TRADE' };
             case 'decoderawtransaction': return { data: { vout: [{ value: 2, n: 0, scriptPubKey: { addresses: ['MS-ADDR'], hex: fx.SPK.MS } }] } };
-            case 'decodepsbt': return params[0] === hx('PSBT-B') ? { data: psbt } : { error: 'TX decode failed' };
+            case 'decodepsbt': return fx.hexOfNodeArg(params[0]) === hx('PSBT-B') ? { data: psbt } : { error: 'TX decode failed' };
             case 'getrawtransaction': return opts.onChain ? { data: { txid: fx.TXID } } : { error: 'No such mempool transaction' };
             default: return { error: `unstubbed rpc ${method}` };
         }

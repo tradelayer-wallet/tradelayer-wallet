@@ -1,6 +1,6 @@
 import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildLTCITTxConfig, IUTXO, TxsService } from "src/app/@core/services/txs.service";
-import { IBuyerSellerInfo, IFuturesTradeProps, IMSChannelData, ISpotTradeProps, ETradeType, TClient } from "./common";
+import { decodePsbt, IBuyerSellerInfo, IFuturesTradeProps, IMSChannelData, ISpotTradeProps, ETradeType, TClient } from "./common";
 import { Swap } from "./swap";
 import { channelWitnessScript, psbtTxid, TRADE_EXPIRY_BLOCKS } from "./psbt-guard";
 import { ICommitUtxo, ISwapRelay, TSwapEventData } from "./protocol";
@@ -31,7 +31,7 @@ export class BuySwapper extends Swap {
 
     // Sends the PSBT this wallet built, after recording the txid it must come back with.
     private async sendPsbtToSeller(psbtHex: string) {
-        const decRes = await this.client('decodepsbt', [psbtHex]);
+        const decRes = await decodePsbt(this.client, psbtHex);
         const txid = decRes.error ? null : psbtTxid(decRes.data);
         if (!txid) throw new Error(`decodepsbt: ${decRes.error}`);
         this.expectedTxid = txid;
@@ -135,7 +135,7 @@ export class BuySwapper extends Swap {
             // Sign only the transaction this wallet built. The seller returns the PSBT
             // with its signature added; any change to its inputs or outputs changes the
             // txid, and such a PSBT is refused before anything is signed or broadcast.
-            const decRes = await this.client('decodepsbt', [psbtHex]);
+            const decRes = await decodePsbt(this.client, psbtHex);
             if (decRes.error || !this.expectedTxid || psbtTxid(decRes.data) !== this.expectedTxid) {
                 return this.terminateTrade('Step 5: PSBT does not match the transaction this wallet built');
             }

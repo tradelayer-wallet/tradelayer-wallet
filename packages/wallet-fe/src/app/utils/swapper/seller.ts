@@ -1,6 +1,6 @@
 import { Socket as SocketClient } from 'socket.io-client';
 import { IBuildTxConfig, TxsService } from "src/app/@core/services/txs.service";
-import { IBuyerSellerInfo, IFuturesTradeProps, IMSChannelData, ISpotTradeProps, ETradeType, TClient } from "./common";
+import { decodePsbt, IBuyerSellerInfo, IFuturesTradeProps, IMSChannelData, ISpotTradeProps, ETradeType, TClient } from "./common";
 import { assertPsbtMatchesTrade, assertSellerSignature, IPsbtExpectation, TRADE_EXPIRY_BLOCKS, TRADE_EXPIRY_TOLERANCE_BLOCKS } from "./psbt-guard";
 import { Swap } from "./swap";
 import { ICommitUtxo, ISwapRelay, TSwapEventData } from "./protocol";
@@ -226,7 +226,7 @@ export class SellSwapper extends Swap {
             // Sign only the agreed transaction: rebuild it here, compare it with the PSBT, and
             // refuse, with nothing signed, on any difference.
             const expected = await this.buildPsbtExpectation();
-            const decRes = await this.client('decodepsbt', [psbtHex]);
+            const decRes = await decodePsbt(this.client, psbtHex);
             if (decRes.error || !decRes.data) throw new Error(`decodepsbt: ${decRes.error}`);
             const { txid, commitIndex } = assertPsbtMatchesTrade(decRes.data, expected);
             this.validatedTxid = txid;
@@ -236,7 +236,7 @@ export class SellSwapper extends Swap {
             if (signRes.error || !signRes.data?.psbtHex) throw new Error(`Sign Tx: ${signRes.error}`);
             // The PSBT that goes back must be the validated transaction, with this wallet's
             // signature on the commit input and on nothing else.
-            const signedRes = await this.client('decodepsbt', [signRes.data.psbtHex]);
+            const signedRes = await decodePsbt(this.client, signRes.data.psbtHex);
             if (signedRes.error || !signedRes.data) throw new Error(`decodepsbt (signed): ${signedRes.error}`);
             assertSellerSignature(signedRes.data, { txid, commitIndex, sellerPubkeyHex: expected.sellerPubkeyHex });
             this.emitSwapEvent(`SELLER:STEP5`, signRes.data.psbtHex);

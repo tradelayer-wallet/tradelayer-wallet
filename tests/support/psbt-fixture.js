@@ -128,8 +128,22 @@ const withSellerSignature = (decoded, commitIndex = 0, pub = SELLER_PUB) => {
     return out;
 };
 
+// A PSBT as the wallet carries it: hex of the PSBT magic followed by the text (the fixtures name a PSBT by text).
+const PSBT_MAGIC = '70736274ff';
+const psbtHex = (text) => PSBT_MAGIC + toHex(text);
+
+// The node's decodepsbt takes a base64 PSBT. The stub accepts only that form, as the node does: canonical
+// base64 of bytes that start with the PSBT magic. Returns the hex of those bytes, or null for anything else.
+const hexOfNodeArg = (arg) => {
+    if (typeof arg !== 'string') return null;
+    const bytes = Buffer.from(arg, 'base64');
+    if (bytes.toString('base64') !== arg || bytes.subarray(0, 5).toString('hex') !== PSBT_MAGIC) return null;
+    return bytes.toString('hex');
+};
+
 module.exports = {
     LTC, FEE_PER_INPUT, DUST, TIP, EXPIRY, TXID, COMMIT_TXID, FUND_TXID, SPK, ADDR,
     SELLER_PUB, BUYER_PUB, OTHER_PUB, REDEEM, scriptsFor, wpkh, p2shOf, p2wshOf,
     payloadFor, opReturnFor, honestSpec, decodedFrom, expectation, withSellerSignature, range,
+    psbtHex, hexOfNodeArg,
 };

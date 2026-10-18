@@ -17,7 +17,7 @@ const freshRequire = (rel) => loadTs(path.join(UTILS_DIR, rel)).exports;
 
 const SWAP_EVENT = 'swap';
 const SID = 'c3'.repeat(32);
-const PSBT1 = Buffer.from('PSBT-1').toString('hex');
+const PSBT1 = fx.psbtHex('PSBT-1');
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 const waitFor = async (fn, { timeout = 3000, interval = 10, message = 'condition' } = {}) => {
     const start = Date.now();
@@ -58,7 +58,7 @@ const nodeStub = (calls) => async (method, params = []) => {
         case 'tl_createpayload_instant_ltc_trade': return { data: 'PAY-LTC' };
         case 'tl_createpayload_commit_tochannel': return { data: 'PAY-COMMIT' };
         case 'decoderawtransaction': return { data: { vout: [{ value: 2, n: 0, scriptPubKey: { addresses: ['MS-ADDR'], hex: fx.SPK.MS } }] } };
-        case 'decodepsbt': return params[0] === PSBT1 ? { data: { tx: { txid: fx.TXID } } } : { error: 'TX decode failed' };
+        case 'decodepsbt': return fx.hexOfNodeArg(params[0]) === PSBT1 ? { data: { tx: { txid: fx.TXID } } } : { error: 'TX decode failed' };
         default: return { error: `unstubbed rpc ${method}` };
     }
 };
