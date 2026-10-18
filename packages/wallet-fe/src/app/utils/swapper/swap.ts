@@ -6,6 +6,7 @@ import {
     MAX_REASON_LENGTH, NEGOTIATION_TIMEOUT_MS, SIGNED_WINDOW_MS, SWAP_EVENT, SwapEvent, TClient,
 } from "./common";
 import { ISwapRelay, parseSwapRelay } from "./protocol";
+import { LTC_PROPERTY_ID } from "../units";
 
 // How a swap ends. `settled` is recorded by the orderbook. `unverified` means the wallet cannot tell
 // whether the trade happened: the txid, if the wallet knows it, is shown so the user can check the chain.
@@ -82,6 +83,13 @@ export abstract class Swap {
 
     // The txid this side can name when the outcome is unverified: the one it built or signed.
     protected abstract outcomeTxid(): string | null;
+
+    // Only the LTC-for-tokens spot trade has a modelled transaction (see the seller's buildPsbtExpectation).
+    // Token-for-token and futures trades use other commit legs and payloads, not modelled here. Both sides
+    // refuse them before any commit is broadcast.
+    protected isModelledTrade(): boolean {
+        return this.typeTrade === ETradeType.SPOT && 'propIdDesired' in this.tradeInfo && this.tradeInfo.propIdForSale === LTC_PROPERTY_ID;
+    }
 
     // The orderbook's verdict. It arrives once the orderbook has the outcome, so it decides the result.
     private onServerState(state: { state: string; txid: string | null }): void {

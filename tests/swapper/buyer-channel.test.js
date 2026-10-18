@@ -45,8 +45,9 @@ const lastSent = (sock) => sock.sent[sock.sent.length - 1];
 
 const buyerParty = { keypair: { address: 'B-ADDR', pubkey: fx.BUYER_PUB }, socketId: 'OB-B' };
 const sellerParty = { keypair: { address: 'S-ADDR', pubkey: fx.SELLER_PUB }, socketId: 'OB-S' };
-// Token-for-token spot trade: the buyer commits its own tokens to the channel (the branch
-// that pays a commit to the channel address).
+// The LTC-for-token spot trade: the only trade the seller models, so the one the buyer runs.
+const ltcTrade = { propIdDesired: 11, amountDesired: 100000000, propIdForSale: 0, amountForSale: 200000000, price: 200000000 };
+// Token-for-token spot trade: not modelled. The buyer must refuse it before it commits anything.
 const tokenTrade = { propIdDesired: 11, amountDesired: 100000000, propIdForSale: 12, amountForSale: 100000000, price: 100000000 };
 
 const makeState = () => ({
@@ -74,7 +75,7 @@ const nodeStub = () => async (method, params = []) => {
             : { data: { isvalid: false } };
         case 'tl_getinfo': return { data: { block: fx.TIP } };
         case 'tl_createpayload_commit_tochannel': return { data: 'PAY-COMMIT' };
-        case 'tl_createpayload_instant_trade': return { data: 'PAY-TRADE' };
+        case 'tl_createpayload_instant_ltc_trade': return { data: 'PAY-LTC' };
         case 'decoderawtransaction': return { data: { vout: [{ value: 2, n: 0, scriptPubKey: { addresses: ['MS-ADDR'], hex: fx.SPK.MS } }] } };
         case 'decodepsbt': return params[0] === PSBT1
             ? { data: { tx: { txid: fx.TXID } } }
@@ -99,12 +100,12 @@ const txsStub = (state) => ({
     },
 });
 
-const startBuyer = () => {
+const startBuyer = (trade = ltcTrade) => {
     const { BuySwapper } = freshRequire('swapper/index.js');
     const { ETradeType } = freshRequire('swapper/common.js');
     const sock = new FakeSocket();
     const state = makeState();
-    const sw = new BuySwapper(SID, ETradeType.SPOT, tokenTrade, buyerParty, sellerParty, nodeStub(), sock, txsStub(state));
+    const sw = new BuySwapper(SID, ETradeType.SPOT, trade, buyerParty, sellerParty, nodeStub(), sock, txsStub(state));
     return { sw, sock, state };
 };
 
@@ -143,14 +144,14 @@ test('REGRESSION: a SELLER:STEP1 whose channel address is not the one its redeem
     assert.equal(b.state.broadcasts, 0);
 });
 
-test('REGRESSION: the commit goes to the locally derived channel, and its script is the derived one, not the counterparty value', async () => {
-    // The counterparty supplies a wrong scriptPubKey. The address matches, so the step is accepted,
-    // but the buyer must use the scriptPubKey its own node reports for that address.
-    const b = await buyerAtStep4({ address: 'MS-ADDR', redeemScript: fx.REDEEM, scriptPubKey: 'deadbeef' });
-    assert.deepStrictEqual(b.state.buildTxTo, ['MS-ADDR']);
+test('the LTC trade spends the seller commit output, and the buyer broadcasts nothing before the seller signs', async () => {
+    const b = await buyerAtStep4({ address: 'MS-ADDR', redeemScript: fx.REDEEM, scriptPubKey: fx.SPK.MS });
+    assert.deepStrictEqual(b.state.buildTxTo, [], 'the buyer built a commit of its own');
+    assert.equal(b.state.broadcasts, 0);
     const trade = b.state.trade[0];
-    assert.equal(trade.commitUTXOs[1].scriptPubKey, fx.SPK.MS, 'trade input uses the counterparty scriptPubKey');
-    assert.equal(trade.commitUTXOs[1].redeemScript, fx.REDEEM);
+    assert.equal(trade.commitUTXOs.length, 1);
+    assert.equal(trade.commitUTXOs[0].txid, fx.COMMIT_TXID);
+    assert.equal(trade.commitUTXOs[0].vout, commitUtxo.vout);
 });
 
 test('REGRESSION: a throw while signing at SELLER:STEP5 ends the swap with a Step 5 reason instead of an unhandled rejection', async () => {
@@ -160,10 +161,10 @@ test('REGRESSION: a throw while signing at SELLER:STEP5 ends the swap with a Ste
     const res = await b.sw.ready;
     assert.match(String(res.reason), /^Step 5: signer unavailable$/);
     assert.deepStrictEqual(sentNames(b.sock).slice(-1), ['TERMINATE_TRADE']);
-    assert.equal(b.state.broadcasts, 1, 'only the commit was broadcast');
+    assert.equal(b.state.broadcasts, 0, 'nothing is broadcast before the seller signs');
 });
 
-test('an honest seller whose address encodes the same P2WSH channel with a different string is accepted and paid at its address', async () => {
+test('an honest seller whose address encodes the same P2WSH channel with a different string is accepted and answered with BUYER:STEP4', async () => {
     // Seller and buyer nodes may differ in address type, so the same script is written differently.
     // The old check compared address strings and refused this honest step.
     const b = startBuyer();
@@ -171,8 +172,8 @@ test('an honest seller whose address encodes the same P2WSH channel with a diffe
     await waitFor(() => sentNames(b.sock).includes('BUYER:STEP2'), { message: 'BUYER:STEP2' });
     assert.ok(!sentNames(b.sock).includes('TERMINATE_TRADE'), 'honest P2WSH channel refused');
     b.sock.deliver('SELLER:STEP3', commitUtxo);
-    await waitFor(() => b.state.buildTxTo.length === 1, { message: 'commit built' });
-    assert.deepStrictEqual(b.state.buildTxTo, ['MS-SELLER-ENC']);
+    await waitFor(() => sentNames(b.sock).includes('BUYER:STEP4'), { message: 'BUYER:STEP4' });
+    assert.ok(!sentNames(b.sock).includes('TERMINATE_TRADE'), 'honest P2WSH channel refused at step 3');
 });
 
 test('a P2SH-P2WSH channel is refused at SELLER:STEP1, so no commit is built or broadcast', async () => {
@@ -196,4 +197,34 @@ test('a valid address for a different 2-of-2 or witness script is refused at SEL
     const res = await b.sw.ready;
     assert.match(String(res.reason), /^Step 1: address of Multysig is not matching$/);
     assert.ok(!sentNames(b.sock).includes('BUYER:STEP2'));
+});
+
+test('REGRESSION: a SELLER:STEP3 for a token-for-token trade is refused before any commit is broadcast', async () => {
+    // The seller refuses this trade before its own commit (Step 2), so an honest seller never sends
+    // SELLER:STEP3 for it. A seller that sends it anyway must not get the buyer's tokens committed.
+    const b = startBuyer(tokenTrade);
+    b.sock.deliver('SELLER:STEP1', { address: 'MS-ADDR', redeemScript: fx.REDEEM, scriptPubKey: fx.SPK.MS });
+    await waitFor(() => sentNames(b.sock).includes('BUYER:STEP2'), { message: 'BUYER:STEP2' });
+    b.sock.deliver('SELLER:STEP3', commitUtxo);
+    await waitFor(() => sentNames(b.sock).includes('TERMINATE_TRADE') || sentNames(b.sock).includes('BUYER:STEP4'), { message: 'buyer decision' });
+    assert.ok(!sentNames(b.sock).includes('BUYER:STEP4'), 'BUYER:STEP4 sent for an unmodelled trade');
+    assert.deepStrictEqual(b.state.buildTxTo, []);
+    assert.equal(b.state.broadcasts, 0);
+    assert.match(String((await b.sw.ready).reason), /^Step 3: trade not modelled/);
+});
+
+test('REGRESSION: a SELLER:STEP3 for a futures trade is refused before any commit is broadcast', async () => {
+    const { BuySwapper } = freshRequire('swapper/index.js');
+    const { ETradeType } = freshRequire('swapper/common.js');
+    const sock = new FakeSocket();
+    const state = makeState();
+    const futures = { contract_id: 7, amount: 100000000, price: 100000000, levarage: 1, collateral: 0 };
+    const sw = new BuySwapper(SID, ETradeType.FUTURES, futures, buyerParty, sellerParty, nodeStub(), sock, txsStub(state));
+    sock.deliver('SELLER:STEP1', { address: 'MS-ADDR', redeemScript: fx.REDEEM, scriptPubKey: fx.SPK.MS });
+    await waitFor(() => sentNames(sock).includes('BUYER:STEP2'), { message: 'BUYER:STEP2' });
+    sock.deliver('SELLER:STEP3', commitUtxo);
+    await waitFor(() => sentNames(sock).includes('TERMINATE_TRADE') || sentNames(sock).includes('BUYER:STEP4'), { message: 'buyer decision' });
+    assert.deepStrictEqual(state.buildTxTo, []);
+    assert.equal(state.broadcasts, 0);
+    assert.match(String((await sw.ready).reason), /^Step 3: trade not modelled/);
 });
