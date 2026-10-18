@@ -143,5 +143,115 @@
       "priceSats": "100000000",
       "expect": null
     }
+  ],
+  "typedInput": [
+    {
+      "fn": "toWireAmount",
+      "input": "12345678.12345678",
+      "expect": 1234567812345678
+    },
+    {
+      "fn": "toWireAmount",
+      "input": 12345678.12345678,
+      "expect": 1234567812345678
+    },
+    {
+      "fn": "toWirePrice",
+      "action": "SELL",
+      "input": "17532574.82937023",
+      "expect": 1753257482937023
+    },
+    {
+      "fn": "toWirePrice",
+      "action": "SELL",
+      "input": 17532574.82937023,
+      "expect": 1753257482937023
+    },
+    {
+      "fn": "toWirePrice",
+      "action": "BUY",
+      "input": "17532574.82937023",
+      "expect": 1753257482937023
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "0x10",
+      "expect": null
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "0b1",
+      "expect": null
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "0o7",
+      "expect": null
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "1e-7",
+      "expect": null
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "1E3",
+      "expect": null
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "+1",
+      "expect": null
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "1 2",
+      "expect": null
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "1_000",
+      "expect": null
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "-1",
+      "expect": null
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "0",
+      "expect": null
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "  2  ",
+      "expect": 200000000
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "5.",
+      "expect": 500000000
+    },
+    {
+      "fn": "toWireAmount",
+      "input": ".5",
+      "expect": 50000000
+    },
+    {
+      "fn": "toWireAmount",
+      "input": "0.123456789",
+      "expect": 12345678
+    },
+    {
+      "fn": "toWireAmount",
+      "input": 5e-7,
+      "expect": 50
+    },
+    {
+      "fn": "toWireAmount",
+      "input": 1e+21,
+      "expect": null
+    }
   ]
 }

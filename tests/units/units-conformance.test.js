@@ -12,7 +12,7 @@ const { test } = require('node:test');
 const { loadTs, REPO } = require('../support/ts-loader');
 
 const VECTORS = path.join(REPO, 'tests', 'conformance', 'units-conformance.json');
-const EXPECTED_SHA256 = '95cd95b834cdbb4df37b7275132f0cc03c0860e07f6d8977256ef6cc331783e6';
+const EXPECTED_SHA256 = 'c68d619fd9a05e837a77092cdd808eb3ed1ea52e26b71449a6043f22ab71393c';
 const units = loadTs(path.join(REPO, 'packages', 'wallet-fe', 'src', 'app', 'utils', 'units.ts')).exports;
 
 test('the vendored conformance file is the pinned copy', () => {
@@ -32,5 +32,15 @@ test('every valueSats vector holds', () => {
     const vectors = JSON.parse(fs.readFileSync(VECTORS, 'utf8'));
     for (const v of vectors.valueSats) {
         assert.equal(units.valueSats(v.amountUnits, v.priceSats), v.expect, `valueSats(${v.amountUnits}, ${v.priceSats})`);
+    }
+});
+
+test('every typedInput vector holds: typed text is read as typed, and a refused spelling throws', () => {
+    const vectors = JSON.parse(fs.readFileSync(VECTORS, 'utf8'));
+    for (const v of vectors.typedInput) {
+        const call = () => (v.fn === 'toWirePrice' ? units.toWirePrice(v.input, v.action) : units.toWireAmount(v.input));
+        const label = `${v.fn}(${JSON.stringify(v.input)}${v.action ? `, ${v.action}` : ''})`;
+        if (v.expect === null) assert.throws(call, undefined, `${label} must be refused`);
+        else assert.equal(call(), v.expect, label);
     }
 });

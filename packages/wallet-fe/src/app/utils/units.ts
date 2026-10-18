@@ -44,28 +44,41 @@ export const valueSats = (amountUnits: number, priceSats: number): number | null
     return Number.isSafeInteger(quotient) ? quotient : null;
 };
 
-// The decimal digits of a finite positive number, from its 15-significant-digit form. That form drops
-// binary noise (2.0999999999999996 reads as 2.1) and keeps every decimal a person types.
-const decimalParts = (value: number): { int: string; frac: string } => {
-    const [mantissa, exp = '0'] = value.toPrecision(15).split('e');
+// Plain decimal text: digits with at most one point, as the extension's amount rule reads it. Anything
+// else (hex, binary, octal, exponent, a sign, an embedded space) is refused, not converted.
+const PLAIN_DECIMAL = /^(\d+\.?\d*|\.\d+)$/;
+
+// The plain decimal text of a finite number, from its shortest round-trip form. That form is what a
+// person typed (String(0.1 + 0.2) is "0.30000000000000004", String(5e-7) is "5e-7"), so an exponent form is
+// expanded to the same digits: 5e-7 reads as 0.0000005. No binary rounding is applied to the digits.
+const expandExponent = (text: string): string => {
+    const [mantissa, exp] = text.split('e');
+    if (exp === undefined) return text;
     const [intPart, fracPart = ''] = mantissa.split('.');
     const digits = intPart + fracPart;
     const point = intPart.length + Number(exp);
-    if (point <= 0) return { int: '0', frac: '0'.repeat(-point) + digits };
-    if (point >= digits.length) return { int: digits + '0'.repeat(point - digits.length), frac: '' };
-    return { int: digits.slice(0, point), frac: digits.slice(point) };
+    if (point <= 0) return `0.${'0'.repeat(-point)}${digits}`;
+    if (point >= digits.length) return digits + '0'.repeat(point - digits.length);
+    return `${digits.slice(0, point)}.${digits.slice(point)}`;
+};
+
+// The typed value as plain decimal text. Throws when it is not a positive plain decimal.
+const typedText = (raw: number | string, field: string): string => {
+    const text = typeof raw === 'string'
+        ? raw.trim()
+        : Number.isFinite(raw) && raw > 0 ? expandExponent(String(raw)) : '';
+    if (!PLAIN_DECIMAL.test(text) || !/[1-9]/.test(text)) {
+        throw new Error(`${field} must be a positive number written in plain decimal, got ${String(raw)}`);
+    }
+    return text;
 };
 
 // Units of 1e-8 for a typed value, rounded down, or up when roundUp. Throws when the result cannot be
-// sent exactly: not positive, not finite, zero after rounding, or beyond the safe integer range.
+// sent exactly: not positive, not plain decimal, zero after rounding, or beyond the safe integer range.
 const toUnitsFromInput = (raw: number | string, roundUp: boolean, field: string): number => {
-    const value = typeof raw === 'string' ? Number(raw.trim()) : raw;
-    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-        throw new Error(`${field} must be a positive number, got ${String(raw)}`);
-    }
-    const { int, frac } = decimalParts(value);
-    const kept = (int + frac.slice(0, 8).padEnd(8, '0')).replace(/^0+(?=\d)/, '');
-    const dropped = frac.slice(8);
+    const [whole, places = ''] = typedText(raw, field).split('.');
+    const kept = (whole + places.slice(0, 8).padEnd(8, '0')).replace(/^0+(?=\d)/, '');
+    const dropped = places.slice(8);
     if (kept.length > String(Number.MAX_SAFE_INTEGER).length || Number(kept) > Number.MAX_SAFE_INTEGER) {
         throw new Error(`${field} is too large to send exactly`);
     }
@@ -84,10 +97,14 @@ export const toWireAmount = (value: number | string, field = 'amount'): number =
 export const toWirePrice = (value: number | string, action: TOrderAction): number =>
     toUnitsFromInput(value, action === 'SELL', 'price');
 
-// The futures leverage: a whole number of at least 1.
+// The futures leverage: a whole number of at least 1, written in plain decimal ("2.0" is 2).
 export const toWireLeverage = (value: number | string): number => {
-    const n = typeof value === 'string' ? Number(value.trim()) : value;
-    if (!Number.isInteger(n) || n < 1) throw new Error(`leverage must be a whole number of at least 1, got ${String(value)}`);
+    const text = typeof value === 'string' ? value.trim() : Number.isFinite(value) ? expandExponent(String(value)) : '';
+    const [whole, places = ''] = text.split('.');
+    const n = Number(whole);
+    if (!PLAIN_DECIMAL.test(text) || !/^0*$/.test(places) || !Number.isSafeInteger(n) || n < 1) {
+        throw new Error(`leverage must be a whole number of at least 1, got ${String(value)}`);
+    }
     return n;
 };
 

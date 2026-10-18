@@ -14,7 +14,7 @@ const units = loadTs(path.join(APP, 'units.ts')).exports;
 
 test('typed amounts round down to whole units, and 0.1 + 0.2 is exactly 0.3', () => {
     assert.equal(units.toWireAmount(0.1 + 0.2), 30000000);
-    assert.equal(units.toWireAmount('1e-8'), 1);
+    assert.throws(() => units.toWireAmount('1e-8'), /written in plain decimal/, 'exponent text is refused, not read');
     assert.equal(units.toWireAmount(0.123456789), 12345678, 'the ninth decimal is dropped, never rounded up');
     assert.equal(units.toWireAmount(1.9e-8), 1);
 });
@@ -39,6 +39,14 @@ test('leverage is a whole number of at least 1', () => {
     assert.equal(units.toWireLeverage('3'), 3);
     assert.throws(() => units.toWireLeverage(0), /whole number of at least 1/);
     assert.throws(() => units.toWireLeverage(1.5), /whole number of at least 1/);
+});
+
+test('leverage text is read as typed: radix, exponent and sign spellings are refused, not converted', () => {
+    assert.throws(() => units.toWireLeverage('0x3'), /whole number of at least 1/);
+    assert.throws(() => units.toWireLeverage('3e0'), /whole number of at least 1/);
+    assert.throws(() => units.toWireLeverage('+3'), /whole number of at least 1/);
+    assert.throws(() => units.toWireLeverage(' 3 4 '), /whole number of at least 1/);
+    assert.equal(units.toWireLeverage(' 3 '), 3);
 });
 
 test('toWireOrder converts amount and price, keeps the collateral id, and does not mutate its input', () => {
