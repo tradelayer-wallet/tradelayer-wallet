@@ -7,7 +7,7 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service';
-import { LTC_PROPERTY_ID } from 'src/app/utils/units';
+import { LTC_PROPERTY_ID, toWireAmount, unitsToDecimal } from 'src/app/utils/units';
 
 @Component({
   selector: 'withdraw-dialog',
@@ -119,7 +119,7 @@ export class WithdrawDialog {
                 const toKeyPair = { address: toAddress };
                 const txOptions: IBuildTxConfig = { fromKeyPair, toKeyPair };
                 if (propId !== LTC_PROPERTY_ID) {
-                    const payloadParams = [this.propId, (amount).toString()];
+                    const payloadParams = [this.propId, unitsToDecimal(toWireAmount(amount))];
                     const payloadRes = await this.rpcService.rpc('tl_createpayload_simplesend', payloadParams);
                     if (payloadRes.error || !payloadRes.data) throw new Error(`tl_createpayload_simplesend: ${payloadRes.error}`);
                     txOptions.payload = payloadRes.data;

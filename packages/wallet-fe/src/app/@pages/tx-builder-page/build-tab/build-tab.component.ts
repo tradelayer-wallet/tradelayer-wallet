@@ -3,6 +3,7 @@ import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms'
 import { ToastrService } from 'ngx-toastr';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { TxsService } from 'src/app/@core/services/txs.service';
+import { toWireAmount, unitsToDecimal } from 'src/app/utils/units';
 
 class Input {
   constructor(
@@ -10,7 +11,7 @@ class Input {
     public code: string,
     public type: string, 
     public required: boolean,
-    public typeExpected: 'int' | 'str',
+    public typeExpected: 'int' | 'amount',
     ) {}
 }
 
@@ -28,13 +29,13 @@ const txTypes: ITXType[] = [
     rpc: 'tl_createpayload_simplesend',
     inputs: [
       new Input('Property ID','prop_id', 'NUMBER', true, 'int'),
-      new Input('Amount', 'amount', 'NUMBER', true, 'str'),
+      new Input('Amount', 'amount', 'NUMBER', true, 'amount'),
     ],
   },
   {
     rpc: 'tl_createpayload_sendvesting',
     inputs: [
-      new Input('Amount', 'amount', 'NUMBER', true, 'str'),
+      new Input('Amount', 'amount', 'NUMBER', true, 'amount'),
     ],
   },
   {
@@ -90,12 +91,12 @@ export class BuildTxTabComponent implements OnInit {
   async build() {
     this.output = '';
     if (!this.selectedTxType || !this.txTypeForm?.valid) return;
-    const payloadParams = this.selectedTxType.inputs.map(i => {
-      const value = this.txTypeForm?.get(i.code)?.value;
-      if (i.typeExpected === 'str') return value.toString();
-      return parseFloat(value);
-    });
     try {
+      const payloadParams = this.selectedTxType.inputs.map(i => {
+        const value = this.txTypeForm?.get(i.code)?.value;
+        if (i.typeExpected === 'amount') return unitsToDecimal(toWireAmount(value, i.code));
+        return parseFloat(value);
+      });
       const payloadRes = await this.rpcService.rpc(this.selectedTxType.rpc, payloadParams);
       if (payloadRes.error || !payloadRes.data) throw new Error(payloadRes.error || 'Undefined Error. Code 1');
       const payload = payloadRes.data;

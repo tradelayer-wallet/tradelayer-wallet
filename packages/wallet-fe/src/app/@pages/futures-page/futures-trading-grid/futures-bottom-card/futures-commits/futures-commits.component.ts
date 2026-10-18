@@ -6,6 +6,7 @@ import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { ToastrService } from 'ngx-toastr';
 import { FuturesChannelsService, IChannelCommit } from 'src/app/@core/services/futures-services/futures-channels.service';
+import { toWireAmount, unitsToDecimal } from 'src/app/utils/units';
 
 @Component({
   selector: 'tl-futures-commits',
@@ -33,7 +34,7 @@ export class FuturesChannelsComponent implements OnInit, OnDestroy {
     async closeCommit(commit: IChannelCommit) {
       this.loadingService.isLoading = true;
       try {
-        const payloadConfig = [commit.propertyId, (commit.amount).toString()];
+        const payloadConfig = [commit.propertyId, unitsToDecimal(toWireAmount(commit.amount))];
         const payloadRes = await this.rpcService.rpc('tl_createpayload_withdrawal_fromchannel', payloadConfig);
         if (payloadRes.error || !payloadRes.data) throw new Error(payloadRes.error);
         const config: IBuildTxConfig = {
