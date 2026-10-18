@@ -100,3 +100,49 @@ test('toWireResult leaves strings, numbers and error fields as they are, and kee
     assert.equal(Object.getPrototypeOf(out.data), Object.prototype);
     assert.equal({}.polluted, undefined);
 });
+
+test('a node that sends the headers and then stalls the body gives ETIMEDOUT', async () => {
+    const server = http.createServer((req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.write('{"result":'); // the body never completes
+    });
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    let guard;
+    try {
+        // The guard turns a call that never resolves into a failed assertion instead of a stuck test run.
+        const outcome = await Promise.race([
+            clientFor(server.address().port, 50).call('anymethod'),
+            new Promise((res) => { guard = setTimeout(() => res('still pending after 2 s'), 2000); }),
+        ]);
+        assert.deepEqual(outcome, { error: 'ETIMEDOUT' });
+    } finally {
+        clearTimeout(guard);
+        server.closeAllConnections();
+        server.close();
+    }
+});
+
+test('an honest response whose body arrives in several chunks is read in full', async () => {
+    const body = JSON.stringify({ result: { txid: 'ab'.repeat(32), rows: Array.from({ length: 2000 }, (_, i) => ({ i })) }, error: null, id: 1 });
+    const server = http.createServer((req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        let sent = 0;
+        const step = () => {
+            const end = Math.min(sent + 4096, body.length);
+            res.write(body.slice(sent, end));
+            sent = end;
+            if (sent < body.length) setTimeout(step, 5); else res.end();
+        };
+        step();
+    });
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    try {
+        const res = await clientFor(server.address().port, 2000).call('anymethod');
+        assert.equal(res.statusCode, 200);
+        assert.equal(res.data.rows.length, 2000);
+        assert.equal(res.data.rows[1999].i, 1999);
+    } finally {
+        server.closeAllConnections();
+        server.close();
+    }
+});

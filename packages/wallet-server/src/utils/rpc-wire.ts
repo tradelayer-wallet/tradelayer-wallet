@@ -99,8 +99,9 @@ export class WireRpcClient extends RpcClient {
                 agent: false,
                 auth: `${username}:${password}`,
             });
+            // The timeout covers the whole exchange: it is cleared only when the body ends or the request fails.
             const timer = setTimeout(() => {
-                request.destroy(); // a node that never answers must not keep the socket open
+                request.destroy(); // a node that never answers, or stops mid-body, must not keep the socket open
                 resolve({ error: 'ETIMEDOUT' });
             }, timeout);
             request.on('error', (error: Error) => {
@@ -108,11 +109,11 @@ export class WireRpcClient extends RpcClient {
                 resolve({ error: error.message });
             });
             request.on('response', (response: http.IncomingMessage) => {
-                clearTimeout(timer);
                 let buffer = '';
                 response.setEncoding('utf8');
                 response.on('data', (chunk: string) => (buffer += chunk));
                 response.on('end', () => {
+                    clearTimeout(timer);
                     const { statusCode } = response;
                     try {
                         if (statusCode === 401) return resolve({ error: 'Unauthorized', statusCode, IECode: 4 });
