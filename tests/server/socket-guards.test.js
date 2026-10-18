@@ -55,3 +55,60 @@ test('the orderbook relay drops events while the wallet socket is gone', () => {
     assert.doesNotThrow(() => obSocket.emit('order:saved', { id: 1 }));
     assert.doesNotThrow(() => obSocket.emit('swap', { sessionId: 'x' }));
 });
+
+test('the orderbook relay follows the wallet socket after the UI reconnects', async () => {
+    const http = require('http');
+    const { Server } = require('socket.io');
+    const { io } = require('socket.io-client');
+    const TOKEN = 'test-token';
+    const listen = (server) => new Promise((res) => server.listen(0, '127.0.0.1', res));
+    const until = async (cond) => {
+        for (let i = 0; i < 300 && !cond(); i++) await sleep(10);
+    };
+
+    const fasitfyServer = {};
+    const { SocketService } = loadTs(path.join(SRC, 'socket.service.ts'), { '..': { fasitfyServer } }).exports;
+    const { OBSocketService } = loadTs(path.join(SRC, 'ob-sockets.service.ts'), { '..': { fasitfyServer } }).exports;
+    fasitfyServer.initOBSocketConnection = (options) => {
+        fasitfyServer.obSocketService?.socket.disconnect();
+        fasitfyServer.obSocketService = new OBSocketService(options);
+    };
+
+    const obHttp = http.createServer();
+    const obServer = new Server(obHttp);
+    const fromWallet = [];
+    obServer.on('connection', (socket) => socket.onAny((event) => fromWallet.push(event)));
+    await listen(obHttp);
+
+    const mainHttp = http.createServer();
+    const main = new SocketService();
+    fasitfyServer.mainSocketService = main;
+    main.init({ server: mainHttp }, TOKEN);
+    await listen(mainHttp);
+    const connectWallet = () => new Promise((res, rej) => {
+        const socket = io(`http://127.0.0.1:${mainHttp.address().port}`, { reconnection: false, auth: { token: TOKEN } });
+        socket.on('connect', () => res(socket));
+        socket.on('connect_error', rej);
+    });
+
+    const first = await connectWallet();
+    first.emit('ob-sockets-connect', `http://127.0.0.1:${obHttp.address().port}`);
+    await until(() => fasitfyServer.obSocketService?.socket.connected);
+    first.emit('new-order', { probe: 'before-reconnect' });
+    await until(() => fromWallet.includes('new-order'));
+    first.disconnect();
+
+    const second = await connectWallet();
+    second.emit('new-order', { probe: 'after-reconnect' });
+    second.emit('swap', { sessionId: 'x', eventName: 'BUYER:STEP4', socketId: 'b', data: 'hex' });
+    await until(() => fromWallet.includes('swap'));
+
+    try {
+        assert.deepStrictEqual(fromWallet, ['new-order', 'new-order', 'swap']);
+    } finally {
+        second.disconnect();
+        fasitfyServer.obSocketService?.socket.disconnect();
+        main.io.close();
+        obServer.close();
+    }
+});

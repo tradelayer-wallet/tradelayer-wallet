@@ -85,7 +85,8 @@ export class SocketService {
     private onConnection(socket: Socket) {
         if (this.currentSocket) this.currentSocket.offAny();
         this.currentSocket = socket;
-    
+        fasitfyServer.obSocketService?.attachWallet(socket);
+
         this.currentSocket.on('ob-sockets-connect', (url: string) => {
             fasitfyServer.initOBSocketConnection({ url });
         });

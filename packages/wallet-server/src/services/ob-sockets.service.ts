@@ -1,4 +1,5 @@
 import { io, Socket as SocketClient } from 'socket.io-client';
+import type { Socket as WalletSocket } from 'socket.io';
 import { fasitfyServer } from '..';
 
 export interface IOBSocketServiceOptions {
@@ -6,8 +7,12 @@ export interface IOBSocketServiceOptions {
 }
 
 const eventPrefix = 'OB_SOCKET'
+// Wallet events relayed to the orderbook. Swap events are not keyed by socket; the orderbook routes them by sessionId.
+const relayedFromWallet = ['update-orderbook', 'new-order', 'close-order', 'many-orders', 'swap'];
+
 export class OBSocketService {
     public socket: SocketClient;
+    private relayWallet: WalletSocket | null = null;
 
     constructor(
         private options: IOBSocketServiceOptions,
@@ -32,6 +37,18 @@ export class OBSocketService {
         this.walletSocket?.emit(eventName, ...args);
     }
 
+    // Binds the outbound relay to the wallet's current socket. SocketService calls this for every new wallet
+    // socket, so a reconnected UI is relayed as well; the previous socket's listener is removed.
+    attachWallet(wallet: WalletSocket) {
+        this.relayWallet?.offAny(this.relayFromWallet);
+        this.relayWallet = wallet;
+        wallet.onAny(this.relayFromWallet);
+    }
+
+    private relayFromWallet = (eventName: string, data: any) => {
+        if (relayedFromWallet.includes(eventName) && this.socket.connected) this.socket.emit(eventName, data);
+    };
+
     private handleEvents() {
         // from Server To wallet;
         const orderEvents = [
@@ -47,19 +64,10 @@ export class OBSocketService {
             this.socket.on(eventName, (data: any) => this.toWallet(`${eventPrefix}::${eventName}`, data));
         });
 
-        //from Wallet ToServer;
-        ["update-orderbook", "new-order", "close-order", 'many-orders'].forEach(eventName => {
-            this.walletSocket?.on(eventName, (data: any) => {
-                this.socket.emit(eventName, data);
-            });
-        });
+        const wallet = this.walletSocket;
+        if (wallet) this.attachWallet(wallet);
 
-
-        // Swap events are not keyed by socket. Both directions use the single `swap`
-        // event, relayed unchanged; the orderbook server routes them by sessionId.
-        this.walletSocket?.on('swap', (data) => {
-            this.socket.emit('swap', data);
-        });
+        // Both swap directions use the single `swap` event, relayed unchanged.
         this.socket.on('swap', (data) => {
             this.toWallet('swap', data);
         });
