@@ -799,3 +799,73 @@ matrix('sequence 0xfffffffe (locktime-enabled, no relative lock) is accepted (co
     d.tx.vin[0].sequence = 0xfffffffe;
 }, null);
 matrix('sequence above 32 bits is refused', (d) => { d.tx.vin[1].sequence = 0x1ffffffff; }, /is not a sequence number/);
+
+// ---- after the seller's commit is broadcast ---------------------------------------------
+const STRANDED = `Commit output ${fx.COMMIT_TXID}:0 is in the 2-of-2 channel; spending it needs the buyer's signature.`;
+const untilTrue = async (cond) => {
+    for (let i = 0; i < 10000 && !cond(); i++) await new Promise((res) => setImmediate(res));
+    assert.ok(cond(), 'condition not reached');
+};
+
+test('REGRESSION: a TERMINATE from the buyer after the seller commit ends the swap with the stranded-commit notice', async () => {
+    const S = '16'.repeat(32);
+    const { sw, sock } = await sellerAtStep3(S);
+    inbound(sock, S, 'TERMINATE_TRADE', 'buyer gave up');
+    const res = await settle(sw);
+    assert.equal(res.status, 'aborted');
+    assert.equal(res.reason, `buyer gave up ${STRANDED}`);
+});
+
+test('REGRESSION: an orderbook abort after the seller commit ends the swap with the stranded-commit notice', async () => {
+    const S = '17'.repeat(32);
+    const { sw, sock } = await sellerAtStep3(S);
+    inbound(sock, S, 'SERVER:STATE', { state: 'aborted', txid: null }, null);
+    const res = await settle(sw);
+    assert.equal(res.status, 'aborted');
+    assert.equal(res.reason, `The orderbook ended the swap ${STRANDED}`);
+});
+
+test('REGRESSION: the seller negotiation window restarts when its commit is broadcast', async (t) => {
+    const S = '18'.repeat(32);
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const { SellSwapper } = freshRequire('swapper/index.js');
+    const { ETradeType } = freshRequire('swapper/common.js');
+    const sock = new FakeSocket();
+    const state = { psbts: {}, over: {}, calls: { sign: [], buildCommit: 0, broadcast: 0 } };
+    const sw = new SellSwapper(S, ETradeType.SPOT, spotProps, sellerParty, buyerParty, nodeStub(state), sock, makeTxs(state));
+    await untilTrue(() => sentNames(sock).includes('SELLER:STEP1'));
+    t.mock.timers.tick(59000);
+    inbound(sock, S, 'BUYER:STEP2');
+    await untilTrue(() => sentNames(sock).includes('SELLER:STEP3'));
+    // 89 s after the swap began. The 60 s window from the start has passed; the buyer has had 30 s since the commit.
+    t.mock.timers.tick(30000);
+    assert.ok(!sentNames(sock).includes('TERMINATE_TRADE'), 'the negotiation window did not restart at the commit');
+    // 60 s after the commit the window ends, with the notice.
+    t.mock.timers.tick(31000);
+    assert.equal((await sw.ready).reason, `Negotiation timed out ${STRANDED}`);
+});
+
+test('REGRESSION: a negotiation timeout that fires while the commit is being built stops the broadcast', async () => {
+    const S = '19'.repeat(32);
+    const { SellSwapper } = freshRequire('swapper/index.js');
+    const { ETradeType } = freshRequire('swapper/common.js');
+    const sock = new FakeSocket();
+    let building = false;
+    let release;
+    const gate = new Promise((res) => { release = res; });
+    const state = {
+        psbts: {},
+        over: { tl_createpayload_commit_tochannel: async () => { building = true; await gate; return { data: 'PAY-COMMIT' }; } },
+        calls: { sign: [], buildCommit: 0, broadcast: 0 },
+    };
+    const sw = new SellSwapper(S, ETradeType.SPOT, spotProps, sellerParty, buyerParty, nodeStub(state), sock, makeTxs(state));
+    await waitFor(() => sentNames(sock).includes('SELLER:STEP1'), { message: 'SELLER:STEP1' });
+    inbound(sock, S, 'BUYER:STEP2');
+    await untilTrue(() => building);
+    sw.terminateTrade('Negotiation timed out');
+    release();
+    await settle(sw);
+    await sleep(20);
+    assert.equal(state.calls.broadcast, 0, 'commit broadcast after the swap ended');
+    assert.deepStrictEqual(sentNames(sock), ['SELLER:STEP1', 'TERMINATE_TRADE']);
+});

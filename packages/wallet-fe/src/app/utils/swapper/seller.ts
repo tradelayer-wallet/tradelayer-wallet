@@ -101,32 +101,39 @@ export class SellSwapper extends Swap {
             const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
             if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
 
+            // Everything the commit output is recorded with is read before anything is signed or sent. After the
+            // broadcast nothing may throw, so a broadcast commit is always recorded.
+            const drtRes = await this.client("decoderawtransaction", [rawtx]);
+            if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
+            const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
+            if (!vout) throw new Error(`decoderawtransaction (2): ${drtRes.error}`);
+            // The node's LTC float becomes satoshis once, here. Everything else on the wire is satoshis.
+            const sats = ltcToSats(vout.value, 'commit amount');
+
             // sign Commit Tx
             const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
             if (cimmitTxSignRes.error || !cimmitTxSignRes.data) throw new Error(`Sign Commit TX: ${cimmitTxSignRes.error}`);
             const { isValid, signedHex } = cimmitTxSignRes.data;
             if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
 
+            // The negotiation window may have ended while the commit was being built. Then the swap is over,
+            // and nothing may be broadcast.
+            if (this.isFinished) return;
+
             // send Commit Tx
             const commiTxSendRes = await this.txsService.sendTx(signedHex);
             if (commiTxSendRes.error || !commiTxSendRes.data) throw new Error(`Send Commit TX: ${commiTxSendRes.error}`);
 
-            // 
-            const drtRes = await this.client("decoderawtransaction", [rawtx]);
-            if (drtRes.error || !drtRes.data?.vout) throw new Error(`decoderawtransaction: ${drtRes.error}`);
-            const vout = drtRes.data.vout.find((o: any) => o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address);
-            if (!vout) throw new Error(`decoderawtransaction (2): ${drtRes.error}`);
-            // The node's LTC float becomes satoshis once, here. Everything else on the wire is satoshis.
-            const utxoData: ICommitUtxo = {
+            this.commitUtxo = {
                 txid: commiTxSendRes.data,
                 vout: vout.n,
-                sats: ltcToSats(vout.value, 'commit amount'),
+                sats,
                 scriptPubKey: this.multySigChannelData.scriptPubKey,
                 redeemScript: this.multySigChannelData.redeemScript,
             };
-            this.commitUtxo = utxoData;
-
-            this.emitSwapEvent(`SELLER:STEP3`, utxoData);
+            // The buyer's answer is due now, so the negotiation window restarts at the commit.
+            this.startNegotiationWindow();
+            this.emitSwapEvent(`SELLER:STEP3`, this.commitUtxo);
         } catch (error: any) {
             const errorMessge = error.message || 'Undefined Error';
             this.terminateTrade(`Step 2: ${errorMessge}`);
@@ -238,13 +245,14 @@ export class SellSwapper extends Swap {
             this.startSignedWindow();
         } catch (error: any) {
             const errorMessge = error.message || 'Undefined Error';
-            this.terminateTrade(`Step 4: ${errorMessge}${this.commitNotice()}`);
+            this.terminateTrade(`Step 4: ${errorMessge}`);
         }
     }
 
-    // Appended to a step 4 refusal. The commit was broadcast at step 2 and cannot be
-    // unwound: it sits in the 2-of-2 channel, and spending it needs the buyer's signature too.
-    private commitNotice(): string {
+    // Appended to every abort once the commit is broadcast (see finish in swap.ts). The commit was
+    // broadcast at step 2 and cannot be unwound: it sits in the 2-of-2 channel, and spending it needs
+    // the buyer's signature too.
+    protected abortNotice(): string {
         if (!this.commitUtxo) return '';
         return ` Commit output ${this.commitUtxo.txid}:${this.commitUtxo.vout} is in the 2-of-2 channel; spending it needs the buyer's signature.`;
     }

@@ -45,7 +45,7 @@ export abstract class Swap {
         if (!isSessionId(sessionId)) throw new Error('Swap sessionId must be 64 lowercase hex characters');
         this.ready = new Promise<TSwapResult>((res) => { this.resolveReady = res; });
         this.socket.on(SWAP_EVENT, this.onSwapEvent);
-        this.arm(NEGOTIATION_TIMEOUT_MS, () => this.terminateTrade('Negotiation timed out'));
+        this.startNegotiationWindow();
     }
 
     // The only place a swap event is sent. Nothing is sent once the swap has ended.
@@ -84,6 +84,11 @@ export abstract class Swap {
     // The txid this side can name when the outcome is unverified: the one it built or signed.
     protected abstract outcomeTxid(): string | null;
 
+    // Appended to the reason of every aborted outcome. A side that has broadcast a commit overrides it.
+    protected abortNotice(): string {
+        return '';
+    }
+
     // Only the LTC-for-tokens spot trade has a modelled transaction (see the seller's buildPsbtExpectation).
     // Token-for-token and futures trades use other commit legs and payloads, not modelled here. Both sides
     // refuse them before any commit is broadcast.
@@ -100,6 +105,11 @@ export abstract class Swap {
         } else if (state.state === 'expired-unverified') {
             this.finish({ status: 'unverified', txid: this.outcomeTxid() });
         }
+    }
+
+    // The counterparty must send its next step within the negotiation window, or the swap is terminated.
+    protected startNegotiationWindow(): void {
+        this.arm(NEGOTIATION_TIMEOUT_MS, () => this.terminateTrade('Negotiation timed out'));
     }
 
     // From the seller's signature on, the orderbook gives the buyer a bounded time to report. Both
@@ -134,6 +144,7 @@ export abstract class Swap {
     // The one exit: listener removed, timer cleared, result resolved once.
     protected finish(result: TSwapResult): void {
         if (this.finished) return;
+        if (result.status === 'aborted') result = { status: 'aborted', reason: result.reason + this.abortNotice() };
         this.finished = true;
         this.disarm();
         // Removes only this session's listener. A bare off(event) would also remove every other
