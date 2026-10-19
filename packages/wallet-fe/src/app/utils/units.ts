@@ -44,6 +44,19 @@ export const valueSats = (amountUnits: number, priceSats: number): number | null
     return Number.isSafeInteger(quotient) ? quotient : null;
 };
 
+// The largest amount at or below maxUnits whose value at priceUnits is a whole number of satoshis. The
+// value is amount * price / UNIT_SCALE, so the amounts that settle are the multiples of
+// UNIT_SCALE / gcd(price, UNIT_SCALE). Max uses this, so the order it fills is one valueSats accepts.
+export const largestSettleableAmount = (maxUnits: number, priceUnits: number): number => {
+    for (const units of [maxUnits, priceUnits]) {
+        if (!isWireUnits(units)) throw new Error(`not a quantity in units: ${String(units)}`);
+    }
+    let gcd = priceUnits;
+    let rest = UNIT_SCALE;
+    while (rest) [gcd, rest] = [rest, gcd % rest];
+    return maxUnits - (maxUnits % (UNIT_SCALE / gcd));
+};
+
 // Plain decimal text: digits with at most one point, as the extension's amount rule reads it. Anything
 // else (hex, binary, octal, exponent, a sign, an embedded space) is refused, not converted.
 const PLAIN_DECIMAL = /^(\d+\.?\d*|\.\d+)$/;
