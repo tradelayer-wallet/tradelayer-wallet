@@ -16,7 +16,7 @@ import { ISpotTradeConf, SpotOrdersService } from 'src/app/@core/services/spot-s
 import { IUTXO } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
-import { LTC_PROPERTY_ID, ltcToSats, satsToLtc } from 'src/app/utils/units';
+import { largestSettleableAmount, LTC_PROPERTY_ID, ltcToSats, satsToLtc, toWireAmount, toWireOrder, toWirePrice, unitsToNumber, valueSats } from 'src/app/utils/units';
 
 const minFeeLtcPerKb = 0.002;
 const minVOutAmount = 0.000036;
@@ -117,7 +117,20 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       const inOrderBalance = this.getInOrderAmount(propId);
       const available = (_available || 0) - inOrderBalance;
       if (!available || ((available / price) <= 0)) return 0;
-      return isBuy ? (available / price) : available;
+      return this.settleableAmount(isBuy ? (available / price) : available, price, isBuy);
+    }
+
+    // The largest amount Max may show: the orderbook settles a spot order only when its value is a whole
+    // number of satoshis at its price, so the amount is cut to a multiple of the settleable step. Zero when
+    // the amount or price cannot be sent at all.
+    private settleableAmount(amount: number, price: number, isBuy: boolean): number {
+      try {
+        const maxUnits = toWireAmount(amount, 'Max amount');
+        const priceUnits = toWirePrice(price, isBuy ? 'BUY' : 'SELL');
+        return unitsToNumber(largestSettleableAmount(maxUnits, priceUnits));
+      } catch {
+        return 0;
+      }
     }
 
 
@@ -158,9 +171,13 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         marketName: this.selectedMarket.pairString,
       };
       try {
+        const { props } = toWireOrder(order);
+        if (valueSats(props.amount, props.price) === null) {
+          throw new Error('The trade value of this amount at this price is not a whole number of satoshis, so the orderbook would refuse it. Use Max, or change the amount.');
+        }
         this.spotOrdersService.newOrder(order);
       } catch (error: any) {
-        // Refused before anything is sent: the amount or price cannot be sent exactly.
+        // Refused before anything is sent: the amount or price cannot be sent exactly, or would not settle.
         this.toastrService.error(error?.message || 'Order was not sent');
         return;
       }
