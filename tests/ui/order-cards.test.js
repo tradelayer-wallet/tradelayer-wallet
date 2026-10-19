@@ -72,14 +72,14 @@ const futuresCard = (sock, market) => {
     return card;
 };
 
-test('a spot card order is a limit order even after the Market tab was selected: the orderbook refuses any other', () => {
+test('a spot card order is sent as a limit order, with the typed amount and price in units', () => {
     const sock = recordingSocket();
     const card = spotCard(sock);
-    card.isLimitSelected = false;
     card.handleBuySell(true);
     assert.equal(sock.emitted.length, 1);
     assert.equal(sock.emitted[0].event, 'new-order');
     assert.equal(sock.emitted[0].payload.isLimitOrder, true);
+    assert.equal(sock.emitted[0].payload.props.amount, 200000000);
     assert.equal(sock.emitted[0].payload.props.price, 50000000);
 });
 
