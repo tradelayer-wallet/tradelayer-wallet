@@ -6,6 +6,7 @@ import { IRewardKeyPair, NodeRewardService } from 'src/app/@core/services/node-r
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { first } from 'rxjs/operators';
 import { BalanceService } from 'src/app/@core/services/balance.service';
+import { ltcToSats, unitsToDecimal } from 'src/app/utils/units';
 
 @Component({
     templateUrl: './node-reward-page.component.html',
@@ -62,7 +63,7 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
 
     toggleAutoClaim(keyPair: IRewardKeyPair) {
       const balanceObj = this.balanceService.getCoinBalancesByAddress(keyPair.address);
-      if (balanceObj.confirmed < 0.001) {
+      if (balanceObj.confirmedSats < ltcToSats(0.001)) {
         this.toastrService.error('You need at least 0.001 LTC', 'Error');
         return;
       }
@@ -80,6 +81,6 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
 
     getAddressBalance(address: string) {
       const balanceObj = this.balanceService.getCoinBalancesByAddress(address);
-      return `${balanceObj.confirmed}/${balanceObj.unconfirmed}`;
+      return `${unitsToDecimal(balanceObj.confirmedSats)}/${unitsToDecimal(balanceObj.unconfirmedSats)}`;
     }
   }

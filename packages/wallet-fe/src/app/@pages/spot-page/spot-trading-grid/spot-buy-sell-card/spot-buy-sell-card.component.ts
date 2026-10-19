@@ -16,7 +16,7 @@ import { ISpotTradeConf, SpotOrdersService } from 'src/app/@core/services/spot-s
 import { IUTXO } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
-import { LTC_PROPERTY_ID } from 'src/app/utils/units';
+import { LTC_PROPERTY_ID, ltcToSats, satsToLtc } from 'src/app/utils/units';
 
 const minFeeLtcPerKb = 0.002;
 const minVOutAmount = 0.000036;
@@ -103,30 +103,27 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     getMaxAmount(isBuy: boolean) {
       if (!this.spotAddress) return 0;
       if (!this.buySellGroup?.controls?.['price']?.value) return 0;
-      const price = safeNumber(this.buySellGroup.value['price']);
+      const price = this.buySellGroup.value['price'];
 
       const propId = isBuy
         ? this.selectedMarket.second_token.propertyId
         : this.selectedMarket.first_token.propertyId;
 
       const _available = propId === LTC_PROPERTY_ID
-        ? safeNumber(this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed - this.getFees(isBuy))
+        ? satsToLtc(this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmedSats - ltcToSats(this.getFees(isBuy)))
         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
           ?.find((t: any) => t.propertyid === propId)
           ?.balance;
       const inOrderBalance = this.getInOrderAmount(propId);
-      const available = safeNumber((_available || 0 )- inOrderBalance);
+      const available = (_available || 0) - inOrderBalance;
       if (!available || ((available / price) <= 0)) return 0;
-      const _max = isBuy ? (available / price) : available;
-      const max = safeNumber(_max);
-      return max;
+      return isBuy ? (available / price) : available;
     }
 
 
     handleBuySell(isBuy: boolean) {
       const fee = this.getFees(isBuy);
-      const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed || 0) - fee)
-      if (available < 0) {
+      if (this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmedSats < ltcToSats(fee)) {
         this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
         return;
       }
@@ -284,7 +281,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
     getNameBalanceInfo(token: IToken) {
       const _balance = token.propertyId === LTC_PROPERTY_ID
-        ? this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmed
+        ? satsToLtc(this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmedSats)
         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
           ?.find(e => e.propertyid === token.propertyId)?.balance;
       const inOrderBalance = this.getInOrderAmount(token.propertyId);

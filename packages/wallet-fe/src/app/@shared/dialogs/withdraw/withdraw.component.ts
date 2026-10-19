@@ -7,7 +7,7 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service';
-import { LTC_PROPERTY_ID, toWireAmount, unitsToDecimal } from 'src/app/utils/units';
+import { LTC_PROPERTY_ID, satsToLtc, toWireAmount, unitsToDecimal } from 'src/app/utils/units';
 
 @Component({
   selector: 'withdraw-dialog',
@@ -51,7 +51,7 @@ export class WithdrawDialog {
     get maxWithdrawAmount() {
         if (this.propId === LTC_PROPERTY_ID) {
             const balanceObj = this.balanceService.getCoinBalancesByAddress(this.fromAddress);
-            return balanceObj.confirmed;
+            return satsToLtc(balanceObj.confirmedSats);
         } else {
             const balanceObj = this.balanceService.getTokensBalancesByAddress(this.fromAddress)
                 .find((o: any) => o.propertyid === this.propId);

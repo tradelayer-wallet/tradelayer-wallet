@@ -40,7 +40,7 @@ const spotCard = (sock) => {
     const loading = { tradesLoading: false };
     const orders = new SpotOrdersService({ socket: sock.socket }, loading);
     const card = new SpotBuySellCardComponent(
-        { selectedMarket: SPOT_MARKET }, { getCoinBalancesByAddress: () => ({ confirmed: 1, utxos: [] }) }, null,
+        { selectedMarket: SPOT_MARKET }, { getCoinBalancesByAddress: () => ({ confirmedSats: 100000000, utxos: [] }) }, null,
         orders, { currentPrice: 0.5 }, { walletKeys: { spot: [{ address: 'SPOT', pubkey: 'PK' }] } },
         { error() {} }, { getAttByAddress: () => true }, loading, null, null, null,
     );
@@ -64,7 +64,7 @@ const futuresCard = (sock, market) => {
     const loading = { tradesLoading: false };
     const orders = new FuturesOrdersService({ socket: sock.socket }, loading);
     const card = new FuturesBuySellCardComponent(
-        { selectedMarket: market }, { getCoinBalancesByAddress: () => ({ confirmed: 1, utxos: [] }) }, null,
+        { selectedMarket: market }, { getCoinBalancesByAddress: () => ({ confirmedSats: 100000000, utxos: [] }) }, null,
         { walletKeys: { futures: [{ address: 'FUT', pubkey: 'PK' }] } }, { error() {} }, { getAttByAddress: () => true },
         loading, null, null, orders, { currentPrice: 0.5 }, null,
     );
