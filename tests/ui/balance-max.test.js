@@ -89,3 +89,19 @@ test('the amount Max fills in is never more than the UTXOs hold once it is sent'
     assert.ok(units.toWireAmount(card.buySellGroup.value.amount) <= 100000060,
         `Max sends ${units.toWireAmount(card.buySellGroup.value.amount)} units of LTC`);
 });
+
+test('a node UTXO of 258.1 LTC is an honest balance: it is summed, and the addresses after it are read', async () => {
+    const balance = await loadedBalance([{ ...UTXOS[0], amount: 258.1 }]);
+    assert.equal(balance.getCoinBalancesByAddress('SPOT').confirmedSats, 25810000000);
+    assert.equal(balance.getCoinBalancesByAddress('SPOT').utxos.length, 1);
+    assert.equal(balance.sumAvailableCoins, 258.1);
+});
+
+test('the real balance service sums a listunspent of 0.5 and 258.1018652 LTC without skipping it', async () => {
+    const balance = await loadedBalance([
+        { ...UTXOS[0], txid: 'aa', amount: 0.5 },
+        { ...UTXOS[0], txid: 'bb', amount: 258.1018652 },
+    ]);
+    assert.equal(balance.getCoinBalancesByAddress('SPOT').confirmedSats, 50000000 + 25810186520);
+    assert.equal(balance.getCoinBalancesByAddress('SPOT').utxos.length, 2);
+});

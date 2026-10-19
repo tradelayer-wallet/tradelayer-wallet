@@ -123,18 +123,16 @@ export const unitsToDecimal = (units: number): string => {
 // where a value is shown or divided for display, never sent back.
 export const unitsToNumber = (units: number): number => units / UNIT_SCALE;
 
-// Satoshis of an LTC amount a node reports as a float. Refuses anything that is not a whole number
-// of satoshis: the rounding error of a float is below 1e-6 satoshi, so a larger gap is not rounding.
-const SAT_EPSILON = 1e-6;
+// Satoshis of an LTC amount a node or a PSBT reports as a float. The satoshis are read from the number's
+// shortest decimal text, with the typed rule: a node writes at most 8 places, so a value with more places
+// (0.1 + 0.2 is "0.30000000000000004") is refused, and a float is never scaled and rounded to one.
 export const ltcToSats = (value: unknown, what = 'amount'): number => {
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
         throw new Error(`${what} is not a non-negative number`);
     }
-    const scaled = value * UNIT_SCALE;
-    const sats = Math.round(scaled);
-    if (!isWireUnits(sats) || Math.abs(scaled - sats) > SAT_EPSILON) {
-        throw new Error(`${what} is not a whole number of satoshis`);
-    }
+    const [whole, places = ''] = expandExponent(String(value)).split('.');
+    const sats = places.length > 8 ? NaN : Number(whole + places.padEnd(8, '0'));
+    if (!isWireUnits(sats)) throw new Error(`${what} is not a whole number of satoshis`);
     return sats;
 };
 

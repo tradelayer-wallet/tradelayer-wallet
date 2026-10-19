@@ -76,12 +76,49 @@ test('unitsToDecimal writes exact decimals, never exponent form, trailing zeros 
     assert.throws(() => units.unitsToDecimal(-1), /not a quantity in units/);
 });
 
-test('ltcToSats takes whole satoshis from a node float and refuses anything else', () => {
-    assert.equal(units.ltcToSats(0.00006), 6000);
-    assert.equal(units.ltcToSats(0.1 + 0.2), 30000000, 'float noise below 1e-6 satoshi is not a fraction');
-    assert.throws(() => units.ltcToSats(0.000000015), /not a whole number of satoshis/);
-    assert.throws(() => units.ltcToSats(-1), /not a non-negative number/);
-    assert.throws(() => units.ltcToSats('1'), /not a non-negative number/);
+test('ltcToSats reads a node float as the satoshis its shortest decimal text names', () => {
+    const honest = [
+        [0.00006, 6000],
+        [258.1, 25810000000],
+        [86.00000001, 8600000001],
+        [1000.12345678, 100012345678],
+        [21000000, 2100000000000000],
+        [0.00000001, 1],
+        [5e-7, 50], // String(5e-7) is "5e-7": the exponent is expanded to the same digits
+    ];
+    for (const [value, sats] of honest) assert.equal(units.ltcToSats(value), sats, `ltcToSats(${String(value)})`);
+
+    const refused = [
+        0.1 + 0.2, // "0.30000000000000004": more than 8 decimal places
+        1.000000015, // 9 decimal places
+        1e-9, // "1e-9": 9 decimal places once expanded
+        123456789.12345678, // 1.2e16 satoshis: above the safe integer range, and above the LTC supply
+        1e21, // not a safe integer of satoshis
+        -1,
+        NaN,
+        Infinity,
+        '1',
+    ];
+    for (const value of refused) {
+        assert.throws(() => units.ltcToSats(value), /not a whole number of satoshis|not a non-negative number/, `ltcToSats(${String(value)})`);
+    }
+});
+
+test('ltcToSats reads every 8-decimal node value up to 300 LTC back to its satoshis', () => {
+    let state = 0x2545f491;
+    const next = () => {
+        state ^= state << 13;
+        state ^= state >>> 17;
+        state ^= state << 5;
+        return state >>> 0;
+    };
+    for (let i = 0; i < 20000; i++) {
+        const sats = (next() * 65536 + (next() & 0xffff)) % 30000000000;
+        const whole = Math.floor(sats / 100000000);
+        const frac = String(sats % 100000000).padStart(8, '0').replace(/0+$/, '');
+        const text = frac ? `${whole}.${frac}` : `${whole}`;
+        assert.equal(units.ltcToSats(Number(text)), sats, `node value ${text}`);
+    }
 });
 
 test('satsToLtc and unitsToNumber are the one display and node-float conversion', () => {
