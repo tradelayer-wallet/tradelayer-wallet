@@ -6,7 +6,9 @@ import { TxsService } from "./txs.service";
 import { LoadingService } from "./loading.service";
 import { BuySwapper, SellSwapper, ITradeInfo, TSwapResult } from 'src/app/utils/swapper';
 import { parseNewChannel } from 'src/app/utils/swapper/protocol';
+import { MAX_REASON_LENGTH, SWAP_EVENT, SwapEvent } from 'src/app/utils/swapper/common';
 import { ESounds, SoundsService } from "./sound.service";
+import { OrderLedgerService } from "./order-ledger.service";
 
 // Text that came from the counterparty or the server, shown in a toast: control
 // characters removed and length bounded. Toastr renders it as text (enableHtml is off).
@@ -30,6 +32,7 @@ export class SwapService {
         private toastrService: ToastrService,
         private loadingService: LoadingService,
         private soundsService: SoundsService,
+        private orderLedger: OrderLedgerService,
     ) {}
 
     private get socket() {
@@ -37,6 +40,10 @@ export class SwapService {
     }
 
     onInit() {
+        // The orderbook drops a socket's resting orders when it disconnects, so the orders this wallet
+        // placed end with the orderbook connection.
+        this.socket.on(`${obEventPrefix}::connect`, () => this.orderLedger.clear());
+        this.socket.on(`${obEventPrefix}::disconnect`, () => this.orderLedger.clear());
         this.socket.on(`${obEventPrefix}::new-channel`, async (raw: unknown) => {
             this.loadingService.tradesLoading = false;
             // The one check of the new-channel message. Without a well-formed one nothing is started.
@@ -52,14 +59,32 @@ export class SwapService {
                 this.toastrService.error('Swap session already active', 'Trade Error');
                 return;
             }
+            // The orderbook names the trade, this wallet's side included. A swap starts only for a trade that
+            // fits an open order this wallet placed (order-ledger.ts); its amount is reserved until the swap ends.
+            const claim = this.orderLedger.reserve(tradeInfo, isBuyer);
+            if (!claim.reservation) {
+                this.refuse(sessionId, isBuyer ? tradeInfo.buyer.socketId : tradeInfo.seller.socketId, claim.error);
+                return;
+            }
             this.activeSessions.add(sessionId);
+            let res: TSwapResult | null = null;
             try {
-                const res = await this.channelSwap(sessionId, tradeInfo, isBuyer);
+                res = await this.channelSwap(sessionId, tradeInfo, isBuyer);
                 this.report(res);
             } finally {
                 this.activeSessions.delete(sessionId);
+                // An aborted swap traded nothing. A settled one filled the reserved amount, and an unverified
+                // one may have, so both keep it.
+                if (!res || res.status === 'aborted') this.orderLedger.release(claim.reservation);
             }
         });
+    }
+
+    // Ends a swap this wallet will not take part in, at once, so the orderbook does not wait out its timer.
+    private refuse(sessionId: string, mySocketId: string, reason = 'Swap offer refused') {
+        const text = `Swap offer refused: ${reason}`.slice(0, MAX_REASON_LENGTH);
+        this.socket.emit(SWAP_EVENT, new SwapEvent(sessionId, 'TERMINATE_TRADE', mySocketId, text));
+        this.toastrService.error(text, 'Trade Error');
     }
 
     // Every swap ends in one of three states (protocol-v2.md B.5). Unverified shows the txid the wallet

@@ -53,11 +53,13 @@ const cardWith = ({ ltcSats = 1000000000, tokens = 0, price, amount = null }) =>
     const { SpotBuySellCardComponent } = loadApp('@pages/spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component.ts', cardStubs);
     const { SpotOrdersService } = loadApp('@core/services/spot-services/spot-orders.service.ts', {
         ...cardStubs, '../loading.service': { LoadingService: class {} }, '../socket.service': { SocketService: class {} },
+        '../order-ledger.service': { OrderLedgerService: class {} },
     });
     const emitted = [];
     const toasts = [];
     const loading = { tradesLoading: false };
-    const orders = new SpotOrdersService({ socket: { emit: (event, payload) => emitted.push({ event, payload }) } }, loading);
+    const ledger = { record() {}, forget() {}, clear() {} };
+    const orders = new SpotOrdersService({ socket: { emit: (event, payload) => emitted.push({ event, payload }) } }, loading, ledger);
     const balance = {
         getCoinBalancesByAddress: () => ({ confirmedSats: ltcSats, utxos: [] }),
         getTokensBalancesByAddress: () => [{ propertyid: 11, balance: tokens }],

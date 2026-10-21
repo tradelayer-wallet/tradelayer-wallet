@@ -3,6 +3,7 @@ import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
 import { ISpotOrder } from "./spot-orderbook.service";
 import { toWireOrder } from "src/app/utils/units";
+import { OrderLedgerService } from "../order-ledger.service";
 
 interface ITradeConf {
     keypair: {
@@ -35,6 +36,7 @@ export class SpotOrdersService {
     constructor(
         private socketService: SocketService,
         private loadingService: LoadingService,
+        private orderLedger: OrderLedgerService,
     ) { }
 
     get socket() {
@@ -61,18 +63,25 @@ export class SpotOrdersService {
         // Converted first: a value that cannot be sent exactly throws before the loading flag is set.
         const order = toWireOrder(orderConf);
         this.loadingService.tradesLoading = true;
+        // Recorded as sent, before it is sent: a swap for it can start as soon as the orderbook matches it.
+        this.orderLedger.record(order);
         this.socket.emit('new-order', order);
     }
 
     addLiquidity(orders: ISpotTradeConf[]) {
-        this.socket.emit('many-orders', orders.map(toWireOrder));
+        const wire = orders.map(toWireOrder);
+        wire.forEach((order) => this.orderLedger.record(order));
+        this.socket.emit('many-orders', wire);
     }
 
     closeOpenedOrder(uuid: string) {
+        const order = this._openedOrders.find((o: any) => o.uuid === uuid) as any;
+        if (order?.keypair && order?.props) this.orderLedger.forget(order);
         this.socket.emit('close-order', uuid);
     }
 
     closeAllOrders() {
         this._openedOrders.forEach(o => this.closeOpenedOrder(o.uuid));
+        this.orderLedger.clear();
     }
 }

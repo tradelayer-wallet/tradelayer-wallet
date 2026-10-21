@@ -32,13 +32,17 @@ const SPOT_MARKET = {
     second_token: { propertyId: 0, shortName: 'LTC', fullName: 'Litecoin' },
 };
 
-const spotCard = (sock) => {
+// The order ledger SpotOrdersService records each order into before it is sent (order-ledger.ts).
+const recordingLedger = () => ({ recorded: [], record(order) { this.recorded.push(order); }, forget() {}, clear() {} });
+
+const spotCard = (sock, ledger = recordingLedger()) => {
     const { SpotBuySellCardComponent } = loadApp('@pages/spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component.ts', cardStubs);
     const { SpotOrdersService } = loadApp('@core/services/spot-services/spot-orders.service.ts', {
         ...unitsStub, '../loading.service': { LoadingService: class {} }, '../socket.service': { SocketService: class {} },
+        '../order-ledger.service': { OrderLedgerService: class {} },
     });
     const loading = { tradesLoading: false };
-    const orders = new SpotOrdersService({ socket: sock.socket }, loading);
+    const orders = new SpotOrdersService({ socket: sock.socket }, loading, ledger);
     const card = new SpotBuySellCardComponent(
         { selectedMarket: SPOT_MARKET }, { getCoinBalancesByAddress: () => ({ confirmedSats: 100000000, utxos: [] }) }, null,
         orders, { currentPrice: 0.5 }, { walletKeys: { spot: [{ address: 'SPOT', pubkey: 'PK' }] } },
@@ -74,13 +78,16 @@ const futuresCard = (sock, market) => {
 
 test('a spot card order is sent as a limit order, with the typed amount and price in units', () => {
     const sock = recordingSocket();
-    const card = spotCard(sock);
+    const ledger = recordingLedger();
+    const card = spotCard(sock, ledger);
     card.handleBuySell(true);
     assert.equal(sock.emitted.length, 1);
     assert.equal(sock.emitted[0].event, 'new-order');
     assert.equal(sock.emitted[0].payload.isLimitOrder, true);
     assert.equal(sock.emitted[0].payload.props.amount, 200000000);
     assert.equal(sock.emitted[0].payload.props.price, 50000000);
+    // The order a swap may later start from is exactly the one sent.
+    assert.deepEqual(ledger.recorded, [sock.emitted[0].payload]);
 });
 
 test('the spot and futures pages have no Market tab (the dead branch is deleted, not hidden)', () => {
