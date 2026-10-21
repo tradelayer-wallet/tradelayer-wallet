@@ -83,6 +83,10 @@ export class TxsService {
         return this.authService.getWifByAddress(address);
     }
 
+    ownsKeyPair(address: string, pubkey: string): boolean {
+        return this.authService.ownsKeyPair(address, pubkey);
+    }
+
     async buildLTCITTx(
         buildTxConfig: IBuildLTCITTxConfig,
     ): Promise<{ data?: { rawtx: string; inputs: IUTXO[], psbtHex?: string }, error?: string }>

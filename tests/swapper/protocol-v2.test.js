@@ -137,6 +137,7 @@ const makeBuyerDeps = (opts = {}) => {
     };
     const txs = {
         getWifByAddress: () => 'WIF',
+        ownsKeyPair: () => true,
         buildTx: async () => ({ data: { inputs: [], rawtx: 'RAW-COMMIT' } }),
         signTx: async () => ({ data: { isValid: true, signedHex: 'SIGNED-COMMIT' } }),
         sendTx: async (hex) => {

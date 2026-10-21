@@ -118,6 +118,17 @@ export abstract class Swap {
         this.arm(SIGNED_WINDOW_MS, () => this.finish({ status: 'unverified', txid: this.outcomeTxid() }));
     }
 
+    // The orderbook names both parties' keys in the trade. This wallet's side must be a key pair the wallet
+    // holds, with that very pubkey. Otherwise the 2-of-2 is built from a key that is not this wallet's, and
+    // the seller's commit, once broadcast into it, is held by whoever holds the keys the trade named. Each
+    // side checks this before it builds the channel; the PSBT check at step 4 comes after the commit is out.
+    protected assertOwnKeyPair(): void {
+        const { address, pubkey } = this.myInfo.keypair;
+        if (!this.txsService.ownsKeyPair(address, pubkey)) {
+            throw new Error(`the trade names a key pair this wallet does not hold for ${address}`);
+        }
+    }
+
     // Sends TERMINATE_TRADE to the counterparty and ends the swap as aborted. Does nothing once the swap
     // has ended or passed the point of no return.
     terminateTrade(reason: string = 'No info'): void {

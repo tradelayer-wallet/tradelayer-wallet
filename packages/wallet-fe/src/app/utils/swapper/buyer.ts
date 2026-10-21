@@ -58,6 +58,7 @@ export class BuySwapper extends Swap {
     private async onStep1(cpId: string, msData: IMSChannelData) {
         try {
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
+            this.assertOwnKeyPair();
             const pubKeys = [this.cpInfo.keypair.pubkey, this.myInfo.keypair.pubkey];
             const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);
             if (amaRes.error || !amaRes.data) throw new Error(`addmultisigaddress: ${amaRes.error}`);

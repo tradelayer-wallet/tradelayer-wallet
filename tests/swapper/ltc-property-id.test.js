@@ -65,6 +65,7 @@ const nodeStub = (calls) => async (method, params = []) => {
 
 const txsStub = () => ({
     getWifByAddress: () => 'WIF',
+    ownsKeyPair: () => true,
     buildTx: async () => ({ data: { inputs: [], rawtx: 'RAW-COMMIT' } }),
     signTx: async () => ({ data: { isValid: true, signedHex: 'SIGNED-COMMIT' } }),
     sendTx: async () => ({ data: fx.COMMIT_TXID }),

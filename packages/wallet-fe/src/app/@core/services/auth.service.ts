@@ -146,6 +146,15 @@ export class AuthService {
         return this.listOfallAddresses?.find(e => e.address === address)?.wif || null;
     }
 
+    // True only for a key pair this wallet holds: the address together with that very pubkey.
+    ownsKeyPair(address: string, pubkey: string): boolean {
+        if (typeof address !== 'string' || typeof pubkey !== 'string' || !pubkey) return false;
+        const wanted = pubkey.toLowerCase();
+        return !!this.listOfallAddresses?.some(
+            e => e.address === address && typeof e.pubkey === 'string' && e.pubkey.toLowerCase() === wanted,
+        );
+    }
+
     async getAddressesFromWallet() {
         try {
             if (!this.isAbleToRpc) return;

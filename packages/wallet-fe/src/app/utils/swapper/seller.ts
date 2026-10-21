@@ -50,6 +50,7 @@ export class SellSwapper extends Swap {
 
     private async initTrade() {
         try {
+            this.assertOwnKeyPair();
             const pubKeys = [this.myInfo.keypair.pubkey, this.cpInfo.keypair.pubkey];
 
             const amaRes = await this.client("addmultisigaddress", [2, pubKeys]);

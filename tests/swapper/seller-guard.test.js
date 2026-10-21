@@ -97,6 +97,7 @@ const nodeStub = (state) => async (method, params = []) => {
 const makeTxs = (state) => ({
     calls: state.calls,
     getWifByAddress: () => 'WIF',
+    ownsKeyPair: () => true,
     buildTx: async () => { state.calls.buildCommit++; return { data: { inputs: [], rawtx: 'RAW-COMMIT' } }; },
     signTx: async () => ({ data: { isValid: true, signedHex: 'SIGNED-COMMIT' } }),
     sendTx: async () => { state.calls.broadcast++; return { data: fx.COMMIT_TXID }; },

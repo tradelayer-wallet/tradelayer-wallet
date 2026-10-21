@@ -86,6 +86,7 @@ const nodeStub = () => async (method, params = []) => {
 
 const txsStub = (state) => ({
     getWifByAddress: () => 'WIF',
+    ownsKeyPair: () => true,
     buildTx: async (cfg) => {
         state.buildTxTo.push(cfg.toKeyPair.address);
         return { data: { inputs: [], rawtx: 'RAW-COMMIT' } };
