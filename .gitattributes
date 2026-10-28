@@ -1,0 +1,3 @@
+# Vendored test vectors are pinned by sha256 in the tests. A checkout that converts line
+# endings (core.autocrlf on Windows) changes the bytes and fails the pin, so they are never converted.
+tests/conformance/units-conformance.json -text

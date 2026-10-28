@@ -7,11 +7,7 @@ import { LoadingService } from "../loading.service";
 import { AuthService } from "../auth.service";
 import { ITradeInfo } from "src/app/utils/swapper";
 import { ISpotTradeProps } from "src/app/utils/swapper/common";
-
-interface ISpotOrderbookData {
-    orders: ISpotOrder[],
-    history: ISpotHistoryTrade[],
-}
+import { parseOrderbookData, toDisplayOrder, toDisplayTrade } from "src/app/utils/swapper/protocol";
 
 export interface ISpotHistoryTrade extends ITradeInfo<ISpotTradeProps> {
     txid: string;
@@ -111,9 +107,12 @@ export class SpotOrderbookService {
             this.socket.emit('update-orderbook', this.marketFilter)
         });
 
-        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: ISpotOrderbookData) => {
-            this.rawOrderbookData = orderbookData.orders;
-            this.tradeHistory = orderbookData.history;
+        this.socket.on(`${obEventPrefix}::orderbook-data`, (raw: unknown) => {
+            // The one check of orderbook-data. The UI model holds display numbers, converted here.
+            const data = parseOrderbookData(raw);
+            if (!data.data) return this.toastrService.error(data.error || 'Orderbook data malformed', 'Orderbook Error');
+            this.rawOrderbookData = data.data.orders.map(toDisplayOrder) as unknown as ISpotOrder[];
+            this.tradeHistory = data.data.history.map(toDisplayTrade) as ISpotHistoryTrade[];
             const lastTrade = this.tradeHistory[0];
             if (!lastTrade) return this.currentPrice = 1;
             const { amountForSale , amountDesired } = lastTrade.props;

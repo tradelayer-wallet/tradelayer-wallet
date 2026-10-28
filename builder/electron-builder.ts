@@ -1,27 +1,31 @@
-import { App, app, BrowserWindow, globalShortcut, ipcMain, dialog } from 'electron';
+import { App, app, BrowserWindow, globalShortcut, ipcMain, dialog, WebContents } from 'electron';
 import { AutoUpdater } from './auto-updater';
+import { isAllowedAppNavigation } from './navigation-guard';
 import { FastifyServer } from '../packages/wallet-server/src/fastify-server';
 
 import * as url from 'url';
 import * as path from 'path';
+import * as crypto from 'crypto';
 
 export class ElectronApp {
     private app: App;
     private autoUpdater: AutoUpdater;
     private localServer: FastifyServer;
+    // Random per-session token shared with the local wallet server; required
+    // on every /keys and /api request and socket.io handshake (issue #45, C1).
+    private localAuthToken: string = crypto.randomBytes(32).toString('hex');
     public mainWindow: BrowserWindow | null = null;
 
     constructor(app: App) {
         this.app = app;
         this.handleOnEvents();
         this.handleAngularSignals()
-        this.disableSecurityWarnings();
         this.startChildProcess();
     }
 
     private startChildProcess() {
         const { initLoclaServer } = require('../dist/server');
-        this.localServer = initLoclaServer(this.safeExist.bind(this));
+        this.localServer = initLoclaServer(this.safeExist.bind(this), this.localAuthToken);
     }
 
     private safeExist() {
@@ -32,6 +36,10 @@ export class ElectronApp {
     }
 
     private handleAngularSignals() {
+        // The renderer fetches the per-session auth token for the local
+        // wallet server through this channel (see wallet-fe local-auth.util).
+        ipcMain.handle('get-local-auth-token', () => this.localAuthToken);
+
         ipcMain.on('angular-electron-message', (_, message) => {
             const { event, data } = message;
             switch (event) {
@@ -88,8 +96,21 @@ export class ElectronApp {
         });
     }
 
+    // The window runs with Node integration, so it must never load remote content or
+    // open windows of its own (see navigation-guard.ts). Installed before the first load.
+    private guardWindowNavigation(webContents: WebContents) {
+        const appIndex = path.join(__dirname, './fe/index.html');
+        const refuseUnlessApp = (event: Electron.Event, url: string) => {
+            if (!isAllowedAppNavigation(url, appIndex)) event.preventDefault();
+        };
+        webContents.on('will-navigate', refuseUnlessApp);
+        webContents.on('will-redirect', refuseUnlessApp);
+        webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    }
+
     private handleMainWindowEvents() {
         if (!this.mainWindow) return;
+        this.guardWindowNavigation(this.mainWindow.webContents);
         this.mainWindow.webContents.on('did-fail-load', () => {
             if (this.mainWindow) this.loadUrl(this.mainWindow);
         });
@@ -121,7 +142,6 @@ export class ElectronApp {
         this.mainWindow = new BrowserWindow(windowOptions);
         this.handleMainWindowEvents();
         this.loadUrl(this.mainWindow);
-        this.mainWindow.webContents.openDevTools();
     }
 
     private loadUrl(window: BrowserWindow) {
@@ -134,9 +154,6 @@ export class ElectronApp {
         );
     }
 
-    private disableSecurityWarnings() {
-        process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
-    }
 }
 
 new ElectronApp(app);

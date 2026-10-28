@@ -7,6 +7,7 @@ import { BalanceService } from 'src/app/@core/services/balance.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { IBuildTxConfig, TxsService } from 'src/app/@core/services/txs.service';
+import { LTC_PROPERTY_ID, satsToLtc, toWireAmount, unitsToDecimal } from 'src/app/utils/units';
 
 @Component({
   selector: 'withdraw-dialog',
@@ -48,9 +49,9 @@ export class WithdrawDialog {
     }
 
     get maxWithdrawAmount() {
-        if (this.propId === -1) {
+        if (this.propId === LTC_PROPERTY_ID) {
             const balanceObj = this.balanceService.getCoinBalancesByAddress(this.fromAddress);
-            return balanceObj.confirmed;
+            return satsToLtc(balanceObj.confirmedSats);
         } else {
             const balanceObj = this.balanceService.getTokensBalancesByAddress(this.fromAddress)
                 .find((o: any) => o.propertyid === this.propId);
@@ -73,7 +74,7 @@ export class WithdrawDialog {
     }
 
     get tokenName() {
-        return this.propId === -1
+        return this.propId === LTC_PROPERTY_ID
             ? 'LTC'
             : this.balanceService.getTokensBalancesByAddress(this.fromAddress)
                 .find((e: any) => e.propertyid === this.propId)?.name;
@@ -117,8 +118,8 @@ export class WithdrawDialog {
                 const fromKeyPair = { address: fromAddress };
                 const toKeyPair = { address: toAddress };
                 const txOptions: IBuildTxConfig = { fromKeyPair, toKeyPair };
-                if (propId !== -1) {
-                    const payloadParams = [this.propId, (amount).toString()];
+                if (propId !== LTC_PROPERTY_ID) {
+                    const payloadParams = [this.propId, unitsToDecimal(toWireAmount(amount))];
                     const payloadRes = await this.rpcService.rpc('tl_createpayload_simplesend', payloadParams);
                     if (payloadRes.error || !payloadRes.data) throw new Error(`tl_createpayload_simplesend: ${payloadRes.error}`);
                     txOptions.payload = payloadRes.data;
@@ -135,7 +136,7 @@ export class WithdrawDialog {
         try {
             this.loadingService.isLoading = true;
             if (this.fromAddress === this.toAddress) throw new Error('Both addresses are the same');
-            if (!this.amount || !this.fromAddress || !this.toAddress || !this.propId) throw new Error('Fill all required data');
+            if (!this.amount || !this.fromAddress || !this.toAddress || !Number.isInteger(this.propId)) throw new Error('Fill all required data');
             const txOptionsRes = await this.getTxOptions(this.fromAddress, this.toAddress, this.amount, this.propId);
             if (txOptionsRes.error || !txOptionsRes.data) throw new Error(txOptionsRes.error);
             const res = await this.txsService.buildSingSendTx(txOptionsRes.data);

@@ -5,7 +5,7 @@ import { networks } from './networks';
 import { ECPairFactory } from 'ecpair';
 import { IInput } from '../services/tx-builder.service';
 import * as ecc from 'tiny-secp256k1';
-import { safeNumber } from './common.util';
+import { toSats } from './common.util';
 
 const ECPair = ECPairFactory(ecc);
 const bip32 = BIP32Factory(ecc);
@@ -13,9 +13,15 @@ const { p2wpkh, p2sh, p2ms, p2wsh } = payments;
 
 export type TNetwork = 'LTC' | 'BTC'| 'LTCTEST'| 'BTCTEST';
 
+// The one place a network name becomes network parameters. An unknown name, including an inherited
+// property name such as "constructor", is refused. It is never replaced by a default network.
+const networkOf = (name: string) => {
+    if (!Object.prototype.hasOwnProperty.call(networks, name)) throw new Error('Network not found!');
+    return networks[name as TNetwork];
+};
+
 export const generateNewWallet = (networkString: TNetwork) => {
-    const network = networks[networkString];
-    if (!network) return { error: 'Network not found!'};
+    networkOf(networkString);
     const mnemonic = generateMnemonic();
     return { mnemonic };
 };
@@ -25,8 +31,7 @@ export const getKeyPair = (
         mnemonic: string,
         derivatePath?: string,
     ) => {
-    const network = networks[networkString];
-    if (!network) return { error: 'Network not found!'};
+    const network = networkOf(networkString);
     const seed = mnemonicToSeedSync(mnemonic);
     const main = bip32.fromSeed(seed, network);
     const child = main.derivePath(derivatePath);
@@ -39,8 +44,7 @@ export const getKeyPair = (
 };
 
 export const getManyKeyPair = (networkString: TNetwork, mnemonic: string, walletObjRaw: any) => {
-    const network = networks[networkString];
-    if (!network) return { error: 'Network not found!'};
+    networkOf(networkString);
 
     const allKeys = Object.keys(walletObjRaw);
     const finalObj: any = {};
@@ -66,10 +70,14 @@ export const signPsbtRawtTx = (signOptions: {
 }) => {
     try {
         const { wif, network, psbtHex } = signOptions;
-        const _network = networks[network];
+        const _network = networkOf(network);
         const keyPair = ECPair.fromWIF(wif, _network);
         const psbt = Psbt.fromHex(psbtHex);
-        psbt.signAllInputs(keyPair);
+        // The sighash type of each input comes from the PSBT, which a counterparty
+        // supplies. Only SIGHASH_ALL is ever signed: an input that asks for NONE or
+        // SINGLE (with or without ANYONECANPAY) is left unsigned, so it cannot be used
+        // to authorize a different transaction.
+        psbt.signAllInputs(keyPair, [Transaction.SIGHASH_ALL]);
         const newPsbtHex = psbt.toHex();
         try {
             psbt.finalizeAllInputs();
@@ -91,7 +99,7 @@ export const signRawTransction = (signOptions: {
 }) => {
     try {
         const { rawtx, wif, inputs, network } = signOptions;
-        const _network = networks[network];
+        const _network = networkOf(network);
         const keyPair = ECPair.fromWIF(wif, _network);
         const redeemObj = p2wpkh({ pubkey: keyPair.publicKey, network: _network });
         const redeemScript = redeemObj.output;
@@ -106,7 +114,7 @@ export const signRawTransction = (signOptions: {
         inputs.forEach((e) => {
             const hash = e.txid;
             const index = e.vout;
-            const value = safeNumber(e.amount * (10**8), 0);
+            const value = toSats(e.amount);
             const script = e.redeemScript ? exatractScript(e.redeemScript) : redeemScript;
             const witnessUtxo = { script, value };
             const inputObj: any = { hash, index, witnessUtxo };
@@ -136,7 +144,7 @@ export const signRawTransction = (signOptions: {
 export const buildPsbt = (buildPsbtOptions: { rawtx: string, inputs: IInput[], network: string }) => {
     try {
         const { rawtx, inputs, network } = buildPsbtOptions;
-        const _network = networks[network];
+        const _network = networkOf(network);
 
         const tx = Transaction.fromHex(rawtx);
         const psbt: Psbt = new Psbt({ network: _network });
@@ -153,7 +161,7 @@ export const buildPsbt = (buildPsbtOptions: { rawtx: string, inputs: IInput[], n
         inputs.forEach((input: any) => {
             const hash = input.txid;
             const index = input.vout;
-            const value = safeNumber(input.amount * (10**8), 0);
+            const value = toSats(input.amount);
             const script = getScript(input);
             const witnessUtxo = { script, value };
             const inputObj: any = { hash, index, witnessUtxo };

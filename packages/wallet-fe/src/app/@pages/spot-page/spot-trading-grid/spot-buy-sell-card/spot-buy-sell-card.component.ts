@@ -16,6 +16,7 @@ import { ISpotTradeConf, SpotOrdersService } from 'src/app/@core/services/spot-s
 import { IUTXO } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
+import { largestSettleableAmount, LTC_PROPERTY_ID, ltcToSats, satsToLtc, toWireAmount, toWireOrder, toWirePrice, unitsToNumber, valueSats } from 'src/app/utils/units';
 
 const minFeeLtcPerKb = 0.002;
 const minVOutAmount = 0.000036;
@@ -28,7 +29,6 @@ const minVOutAmount = 0.000036;
 export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
     buySellGroup: FormGroup = new FormGroup({});
-    private _isLimitSelected: boolean = true;
 
     constructor(
       private spotMarketsService: SpotMarketsService,
@@ -63,15 +63,6 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
     get currentPrice() {
       return this.spotOrderbookService.currentPrice;
-    }
-
-    get isLimitSelected() {
-      return this._isLimitSelected;
-    }
-
-    set isLimitSelected(value: boolean) {
-      this._isLimitSelected = value;
-      this.buySellGroup.controls.price.setValue(this.currentPrice);
     }
 
     get reLayerApi() {
@@ -111,34 +102,41 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
 
     getMaxAmount(isBuy: boolean) {
       if (!this.spotAddress) return 0;
-      if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
-      const _price = this.isLimitSelected 
-        ? this.buySellGroup.value['price'] 
-        : this.currentPrice;
-      const price = safeNumber(_price);
+      if (!this.buySellGroup?.controls?.['price']?.value) return 0;
+      const price = this.buySellGroup.value['price'];
 
       const propId = isBuy
         ? this.selectedMarket.second_token.propertyId
         : this.selectedMarket.first_token.propertyId;
 
-      const _available = propId === -1
-        ? safeNumber(this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed - this.getFees(isBuy))
+      const _available = propId === LTC_PROPERTY_ID
+        ? satsToLtc(this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmedSats - ltcToSats(this.getFees(isBuy)))
         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
           ?.find((t: any) => t.propertyid === propId)
           ?.balance;
       const inOrderBalance = this.getInOrderAmount(propId);
-      const available = safeNumber((_available || 0 )- inOrderBalance);
+      const available = (_available || 0) - inOrderBalance;
       if (!available || ((available / price) <= 0)) return 0;
-      const _max = isBuy ? (available / price) : available;
-      const max = safeNumber(_max);
-      return max;
+      return this.settleableAmount(isBuy ? (available / price) : available, price, isBuy);
+    }
+
+    // The largest amount Max may show: the orderbook settles a spot order only when its value is a whole
+    // number of satoshis at its price, so the amount is cut to a multiple of the settleable step. Zero when
+    // the amount or price cannot be sent at all.
+    private settleableAmount(amount: number, price: number, isBuy: boolean): number {
+      try {
+        const maxUnits = toWireAmount(amount, 'Max amount');
+        const priceUnits = toWirePrice(price, isBuy ? 'BUY' : 'SELL');
+        return unitsToNumber(largestSettleableAmount(maxUnits, priceUnits));
+      } catch {
+        return 0;
+      }
     }
 
 
     handleBuySell(isBuy: boolean) {
       const fee = this.getFees(isBuy);
-      const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.spotAddress)?.confirmed || 0) - fee)
-      if (available < 0) {
+      if (this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmedSats < ltcToSats(fee)) {
         this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
         return;
       }
@@ -148,13 +146,12 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         return;
       }
       const amount = this.buySellGroup.value.amount;
-      const _price = this.buySellGroup.value.price;
-      const price = this.isLimitSelected ? _price : this.currentPrice;
+      const price = this.buySellGroup.value.price;
 
       const market = this.selectedMarket;
       const propIdForSale = isBuy ? market.second_token.propertyId : market.first_token.propertyId;
       const propIdDesired = isBuy ? market.first_token.propertyId : market.second_token.propertyId;
-      if (!propIdForSale || !propIdDesired || (!price && this.isLimitSelected) || !amount) return;
+      if (propIdForSale === undefined || propIdDesired === undefined || !price || !amount) return;
       if (!this.spotKeyPair) return;
   
       const order: ISpotTradeConf = { 
@@ -170,10 +167,20 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
           amount: amount,
           price: price,
         },
-        isLimitOrder: this.isLimitSelected,
+        isLimitOrder: true,
         marketName: this.selectedMarket.pairString,
       };
-      this.spotOrdersService.newOrder(order);
+      try {
+        const { props } = toWireOrder(order);
+        if (valueSats(props.amount, props.price) === null) {
+          throw new Error('The trade value of this amount at this price is not a whole number of satoshis, so the orderbook would refuse it. Use Max, or change the amount.');
+        }
+        this.spotOrdersService.newOrder(order);
+      } catch (error: any) {
+        // Refused before anything is sent: the amount or price cannot be sent exactly, or would not settle.
+        this.toastrService.error(error?.message || 'Order was not sent');
+        return;
+      }
       this.buySellGroup.reset();
     }
 
@@ -216,7 +223,7 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
       //       address: this.spotKeyPair?.address,
       //       pubkey: this.spotKeyPair?.pubkey,
       //     },
-      //     isLimitOrder: this.isLimitSelected,
+      //     isLimitOrder: true,
       //     marketName: this.selectedMarket.pairString,
       //   };
 
@@ -290,8 +297,8 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     getNameBalanceInfo(token: IToken) {
-      const _balance = token.propertyId === -1
-        ? this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmed
+      const _balance = token.propertyId === LTC_PROPERTY_ID
+        ? satsToLtc(this.balanceService.getCoinBalancesByAddress(this.spotAddress).confirmedSats)
         : this.balanceService.getTokensBalancesByAddress(this.spotAddress)
           ?.find(e => e.propertyid === token.propertyId)?.balance;
       const inOrderBalance = this.getInOrderAmount(token.propertyId);
@@ -302,8 +309,8 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
     private getInOrderAmount(propertyId: number) {
       const num = this.spotOrdersService.openedOrders.map(o => {
         const { amount, price, id_for_sale } = o.props;
-        if (propertyId === -1) {
-          if (id_for_sale === -1) return safeNumber(amount * price);
+        if (propertyId === LTC_PROPERTY_ID) {
+          if (id_for_sale === LTC_PROPERTY_ID) return safeNumber(amount * price);
           return 0.001;
         } else {
           if (id_for_sale === propertyId) return safeNumber(amount * price);
@@ -332,13 +339,13 @@ export class SpotBuySellCardComponent implements OnInit, OnDestroy {
         : this.selectedMarket.first_token.propertyId;
 
       const finalInputs: number[] = [];
-      const _amount = propId !== -1
+      const _amount = propId !== LTC_PROPERTY_ID
         ? safeNumber(minVOutAmount * 2)
         : safeNumber((amount * price) + minVOutAmount);
       const _allAmounts = this.balanceService.getCoinBalancesByAddress(this.spotAddress).utxos
         .map(r => r.amount)
         .sort((a, b) => b - a);
-      const allAmounts =  propId !== -1
+      const allAmounts =  propId !== LTC_PROPERTY_ID
         ? _allAmounts
         : [minVOutAmount, ..._allAmounts]
       allAmounts.forEach(u => {

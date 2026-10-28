@@ -1,15 +1,17 @@
 import { FastifyInstance } from "fastify";
 import { generateNewWallet, getKeyPair, getManyKeyPair, TNetwork } from "../utils/crypto.util";
+import { sendError } from "../utils/common.util";
 
 export const keysRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
+    // The key functions throw on an unknown network ('Network not found!') instead of returning
+    // { error }; each route answers a throw through sendError, as it did the returned error.
     fastify.post('new-wallet', (request, reply) => {
         try {
             const { network } = request.body as { network: TNetwork };
             const result = generateNewWallet(network);
-            if (result.error) throw new Error(result.error);
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -19,10 +21,9 @@ export const keysRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
                 { network: TNetwork, mnemonic: string, derivatePath: string };
             
             const result = getKeyPair(network, mnemonic, derivatePath);
-            if (result.error) throw new Error(result.error);
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 
@@ -31,10 +32,9 @@ export const keysRoutes = (fastify: FastifyInstance, opts: any, done: any) => {
             const { network, mnemonic, walletObjRaw } = request.body as
                 { network: TNetwork, mnemonic: string, walletObjRaw: any };
             const result = getManyKeyPair(network, mnemonic, walletObjRaw);
-            if (result.error) throw new Error(result.error);
             reply.status(200).send(result);
         } catch (error) {
-            reply.status(500).send({ error: error.message || 'Undefined Error' })
+            sendError(reply, error)
         }
     });
 

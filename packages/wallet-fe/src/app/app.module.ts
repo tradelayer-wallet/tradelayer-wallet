@@ -4,7 +4,7 @@ import { BrowserModule } from '@angular/platform-browser';
 import { AppRoutingModule } from './app-routing.module';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { CommonModule } from '@angular/common';
-import { HttpClientModule } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, HttpClientModule } from '@angular/common/http';
 
 import { PagesModule } from './@pages/pages.module';
 import { SharedModule } from './@shared/shared.module';
@@ -12,6 +12,7 @@ import { ThemeModule } from './@theme/theme.module';
 import { ToastrModule } from 'ngx-toastr';
 
 import { AppComponent } from './app.component';
+import { LocalAuthInterceptor } from './@core/interceptors/local-auth.interceptor';
 
 const NG_MODULES = [
   BrowserModule,
@@ -42,5 +43,12 @@ const imports = [
 
 const declarations = [AppComponent];
 const bootstrap = [AppComponent];
-@NgModule({ declarations, imports, bootstrap })
+const providers = [
+  {
+    provide: HTTP_INTERCEPTORS,
+    useClass: LocalAuthInterceptor,
+    multi: true,
+  },
+];
+@NgModule({ declarations, imports, providers, bootstrap })
 export class AppModule { }

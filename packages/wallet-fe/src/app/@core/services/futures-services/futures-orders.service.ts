@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { LoadingService } from "../loading.service";
 import { SocketService } from "../socket.service";
 import { IFuturesOrder } from "./futures-orderbook.service";
+import { toWireOrder } from "src/app/utils/units";
 
 interface ITradeConf {
     keypair: {
@@ -10,7 +11,7 @@ interface ITradeConf {
     };
     action: "BUY" | "SELL";
     type: "FUTURES";
-    isLimitOrder: boolean;
+    isLimitOrder: true;
     marketName: string;
 }
 
@@ -59,12 +60,14 @@ export class FuturesOrdersService {
 
 
     newOrder(orderConf: IFuturesTradeConf) {
+        // Converted first: a value that cannot be sent exactly throws before the loading flag is set.
+        const order = toWireOrder(orderConf);
         this.loadingService.tradesLoading = true;
-        this.socket.emit('new-order', orderConf);
+        this.socket.emit('new-order', order);
     }
 
     addLiquidity(orders: IFuturesTradeConf[]) {
-        this.socket.emit('many-orders', orders);
+        this.socket.emit('many-orders', orders.map(toWireOrder));
     }
 
     closeOpenedOrder(uuid: string) {

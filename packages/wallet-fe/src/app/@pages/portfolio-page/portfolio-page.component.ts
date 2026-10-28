@@ -5,11 +5,13 @@ import { first } from 'rxjs/operators';
 import { AttestationService } from 'src/app/@core/services/attestation.service';
 import { AuthService, EAddress } from 'src/app/@core/services/auth.service';
 import { BalanceService } from 'src/app/@core/services/balance.service';
+import { satsToLtc } from 'src/app/utils/units';
 import { DialogService, DialogTypes } from 'src/app/@core/services/dialogs.service';
 import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { TxsService } from 'src/app/@core/services/txs.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
+import { LTC_PROPERTY_ID } from 'src/app/utils/units';
 
 @Component({
   selector: 'tl-portoflio-page',
@@ -20,6 +22,7 @@ export class PortfolioPageComponent implements OnInit {
   cryptoBalanceColumns: string[] = ['address', 'confirmed', 'unconfirmed', 'actions'];
   tokensBalanceColums: string[] = ['propertyid', 'name', 'balance', 'actions'];
   selectedAddress: string = '';
+  readonly ltcPropertyId = LTC_PROPERTY_ID;
 
   constructor(
     private balanceService: BalanceService,
@@ -36,7 +39,10 @@ export class PortfolioPageComponent implements OnInit {
 
   get coinBalance() {
     return Object.keys(this.balanceService.allBalances)
-      .map(address => ({ address, ...( this.balanceService.allBalances?.[address]?.coinBalance || {}) }));
+      .map(address => {
+        const balance = this.balanceService.getCoinBalancesByAddress(address);
+        return { address, confirmed: satsToLtc(balance.confirmedSats), unconfirmed: satsToLtc(balance.unconfirmedSats) };
+      });
   }
 
   get tokensBalances() {

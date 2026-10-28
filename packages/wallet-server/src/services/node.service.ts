@@ -1,8 +1,7 @@
-import { exec } from "child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import { coreFilePathObj, defaultDirObj } from "../conf/windows.conf";
-import { RpcClient } from 'tl-rpc';
+import { defaultDirObj } from "../conf/windows.conf";
+import { WireRpcClient } from "../utils/rpc-wire";
 import { fasitfyServer } from "..";
 
 interface IFlagsObject {
@@ -55,8 +54,10 @@ export const createConfigFile = async (options: {
         const filePath = join(directory, 'litecoin.conf');
         const fileExist = existsSync(filePath);
         if (fileExist) throw('litecoin.conf file Already exist in provided directory!');
+        if (/[\r\n]/.test(`${username}${password}`)) throw('Username and password cannot contain line breaks');
         const fileData = `rpcuser=${username}\nrpcpassword=${password}\nrpcport=${port}\ntxindex=1`;
-        writeFileSync(filePath, fileData);
+        // The file holds the RPC password: owner read/write only (POSIX; ignored on Windows).
+        writeFileSync(filePath, fileData, { mode: 0o600 });
         return { data: `litecoin.conf file was created` };
     } catch (error) {
         return { error: error || 'Creating Config File Undefined Error' };
@@ -77,106 +78,68 @@ export const startWalletNode = async (walletNodeOptions: any) => {
         const configObj: any = structureConfFile(confFile);
         if (!configObj.rpcuser || !configObj.rpcpassword) throw(`Incorrect Config File ${path}`);
 
-        // Run The core
-        const flagsString = convertFlagsObjectToString(flagsObject);
-        const filePath = `"${coreFilePathObj.LTC}"`;
-        const filePathWithFlags = `${filePath}${flagsString}`;
-        if (!filePathWithFlags) throw(`Error with Starting Node. Code 1`);
-        return await checkIsCoreStarted(filePathWithFlags, configObj, isTestnet);;
+        return await checkIsCoreStarted(configObj, isTestnet);
     } catch(error) {
         return { error: error.message || error || 'Undefined Error' };
     }
 };
 
+// A failed stop keeps the connection: the node may still be running and the wallet still
+// needs to reach it. A node that is already down (ECONNREFUSED) counts as stopped.
 export const stopWalletNode = async () => {
-        const stopRes = await fasitfyServer.rpcClient?.call('stop');
-        const checkPromise = new Promise(async checkResolve => {
-            const checkRes = await fasitfyServer.rpcClient.call('getblockchaininfo');
-            checkRes?.error?.includes("ECONNREFUSED")
-                ? checkResolve(true)
-                : await checkPromise;
-        });
-        fasitfyServer.mainSocketService.stopBlockCounting();
-        fasitfyServer.rpcClient = null;
-        fasitfyServer.rpcPort = null;
-        return { data: true };
-}
+    const client = fasitfyServer.rpcClient;
+    if (client) {
+        const stopRes = await client.call('stop');
+        if (stopRes.error && !stopRes.error.includes('ECONNREFUSED')) return { error: stopRes.error };
+    }
+    fasitfyServer.mainSocketService.stopBlockCounting();
+    fasitfyServer.rpcClient = null;
+    fasitfyServer.rpcPort = null;
+    return { data: true };
+};
 
-const convertFlagsObjectToString = (flagsObject: any) => {
-    const _toStr = (flag: string, value: string | boolean) => ` -${flag}=${value}`;
-    let str = ' -txindex=1 -printtoconsole=0';
-    Object.keys(flagsObject)
-        .forEach((flag: string) => {
-            if (flag === 'datadir' && flagsObject[flag]) return str += _toStr(flag, `"${flagsObject[flag]}"`);
-            if (flagsObject[flag]) return str += _toStr(flag, flagsObject[flag]);
-        });
-    return str || '';
-}
-
+// Splits at the first '=' only: the value is everything after it, so a password that contains '=' is read whole.
 const structureConfFile = (conf: string) => {
     const confObj = {};
     conf.split('\n').forEach((l: string) => {
-        const a = l.split('=');
-        if (l.startsWith('#') || !a[0] || !a[1]) return;
-        confObj[a[0]] = a[1].replace('\r', '');
+        const eq = l.indexOf('=');
+        if (l.startsWith('#') || eq < 1 || eq === l.length - 1) return;
+        confObj[l.slice(0, eq)] = l.slice(eq + 1).replace('\r', '');
     });
     return confObj;
 };
 
+// Litecoin Core's RPC_IN_WARMUP: the node has the RPC port open and is still loading its block index.
+const RPC_IN_WARMUP = -28;
+const CORE_START_ATTEMPTS = 300;
+const CORE_START_INTERVAL_MS = 1000;
+
+// Waits while the node is starting (no RPC port yet, or still loading). Any other answer that is
+// not a result (a wrong password, a timeout) is reported as the error, not as a started node.
 const checkIsCoreStarted = async (
-        filePathWithFlags: string,
         configObj: any,
         isTestnet: boolean,
     ) => {
-    return new Promise(async (resolve) => {
-        const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
-        const port = rpcport ? rpcport : isTestnet ? 18332 : 8332;
-        const client = new RpcClient({
-            username: rpcuser,
-            password: rpcpassword,
-            host: rpchost || 'localhost',
-            port: port,
-            timeout: 2000,
-        });
-
-        /* TODO:SK
-
-        const isActiveCheck = () => {
-            return new Promise(async (res) => {
-                const check = await client.call('getblockchaininfo');
-                if (check.data) res(2);
-                if (check.error && !check.error.includes('ECONNREFUSED')) res(check);
-                if (check.error && check.error.includes('ECONNREFUSED')) res(0);
-            });
-        };
-        
-        const firstCheck = await isActiveCheck();
-        if (firstCheck !== 0) return resolve({ error: 'The core is probably Already Running'});
-
-        exec(filePathWithFlags, (error, stdout, stderr) => {
-            fasitfyServer.mainSocketService.currentSocket
-                .emit("core-error", stderr || error?.message || error || stdout);
-            fasitfyServer.rpcClient = null;
-            fasitfyServer.rpcPort = null;
-        });
-        setTimeout(() => resolve({error: 'Core Starting TimedOut: 10 secs'}), 10000);
-        */
-        const finalCheck = () => new Promise(async checkResolve => {
-            await client.call('getblockchaininfo')
-                .then(async checkRes => {
-                    if (!checkRes?.error?.includes("ECONNREFUSED")) {
-                        fasitfyServer.rpcClient = client;
-                        fasitfyServer.rpcPort = port;
-                        fasitfyServer.mainSocketService.startBlockCounting(2000);
-                        checkResolve({ data: true });
-                    } else {
-                        const subCheck = await finalCheck();
-                        checkResolve({ data: subCheck });
-                    }
-                });
-        });
-
-        const finalRes = await finalCheck();
-        resolve({ data: finalRes });
+    const { rpcuser, rpcport, rpcpassword, rpchost } = configObj;
+    const port = rpcport ? rpcport : isTestnet ? 19332 : 9332;
+    const client = new WireRpcClient({
+        username: rpcuser,
+        password: rpcpassword,
+        host: rpchost || 'localhost',
+        port: port,
+        timeout: 2000,
     });
+
+    for (let attempt = 1; ; attempt++) {
+        const checkRes = await client.call('getblockchaininfo');
+        if (checkRes.data) {
+            fasitfyServer.rpcClient = client;
+            fasitfyServer.rpcPort = port;
+            fasitfyServer.mainSocketService.startBlockCounting(2000);
+            return { data: true };
+        }
+        const starting = checkRes.error?.includes('ECONNREFUSED') || checkRes.EECode === RPC_IN_WARMUP;
+        if (!starting || attempt >= CORE_START_ATTEMPTS) return { error: checkRes.error || 'Undefined Error' };
+        await new Promise((res) => setTimeout(res, CORE_START_INTERVAL_MS));
+    }
 };

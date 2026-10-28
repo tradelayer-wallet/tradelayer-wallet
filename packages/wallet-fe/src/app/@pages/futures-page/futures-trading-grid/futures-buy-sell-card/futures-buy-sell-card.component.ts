@@ -15,6 +15,7 @@ import { LoadingService } from 'src/app/@core/services/loading.service';
 import { RpcService } from 'src/app/@core/services/rpc.service';
 import { PasswordDialog } from 'src/app/@shared/dialogs/password/password.component';
 import { safeNumber } from 'src/app/utils/common.util';
+import { LTC_PROPERTY_ID, ltcToSats, satsToLtc } from 'src/app/utils/units';
 
 const minFeeLtcPerKb = 0.002;
 const minVOutAmount = 0.000036;
@@ -26,7 +27,6 @@ const minVOutAmount = 0.000036;
 })
 export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     private destroyed$: ReplaySubject<boolean> = new ReplaySubject(1);
-    private _isLimitSelected: boolean = true;
     public buySellGroup: FormGroup = new FormGroup({});
 
     constructor(
@@ -64,15 +64,6 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
       return this.futuresOrderbookService.currentPrice;
     }
 
-    get isLimitSelected() {
-      return this._isLimitSelected;
-    }
-
-    set isLimitSelected(value: boolean) {
-      this._isLimitSelected = value;
-      this.buySellGroup.controls.price.setValue(this.currentPrice);
-    }
-
     get reLayerApi() {
       return this.apiService.tlApi;
     }
@@ -99,11 +90,8 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
 
     getMaxAmount(isBuy: boolean) {
       if (!this.futureAddress) return 0;
-      if (!this.buySellGroup?.controls?.['price']?.value && this.isLimitSelected) return 0;
-      const _price = this.isLimitSelected 
-        ? this.buySellGroup.value['price'] 
-        : this.currentPrice;
-      const price = safeNumber(_price);
+      if (!this.buySellGroup?.controls?.['price']?.value) return 0;
+      const price = this.buySellGroup.value['price'];
 
       const propId = this.selectedMarket.collateral.propertyId;
 
@@ -111,18 +99,15 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         ?.find((t: any) => t.propertyid === propId)
         ?.balance;
       const inOrderBalance = this.getInOrderAmount(propId);
-      const available = safeNumber((_available || 0 )- inOrderBalance);
+      const available = (_available || 0) - inOrderBalance;
       if (!available || ((available / price) <= 0)) return 0;
-      const _max = isBuy ? (available / price) : available;
-      const max = safeNumber(_max);
-      return max;
+      return isBuy ? (available / price) : available;
     }
 
 
     handleBuySell(isBuy: boolean) {
       const fee = this.getFees(isBuy);
-      const available = safeNumber((this.balanceService.getCoinBalancesByAddress(this.futureAddress)?.confirmed || 0) - fee)
-      if (available < 0) {
+      if (this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmedSats < ltcToSats(fee)) {
         this.toastrService.error(`You need at least: ${fee} LTC for this trade`);
         return;
       }
@@ -132,14 +117,13 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
         return;
       }
       const amount = this.buySellGroup.value.amount;
-      const _price = this.buySellGroup.value.price;
-      const price = this.isLimitSelected ? _price : this.currentPrice;
+      const price = this.buySellGroup.value.price;
       const levarage = 1;
       const market = this.selectedMarket;
       const collateral = market.collateral.propertyId;
       const contract_id = market.contract_id;
 
-      if (!contract_id || (!price && this.isLimitSelected) || !amount) return;
+      if (contract_id === undefined || contract_id === null || !price || !amount) return;
       if (!this.futureKeyPair) return;
   
       const order: IFuturesTradeConf = { 
@@ -156,10 +140,16 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
           collateral: collateral,
           levarage: levarage,
         },
-        isLimitOrder: this.isLimitSelected,
+        isLimitOrder: true,
         marketName: this.selectedMarket.pairString,
       };
-      this.futuresOrdersService.newOrder(order);
+      try {
+        this.futuresOrdersService.newOrder(order);
+      } catch (error: any) {
+        // Refused before anything is sent: the amount or price cannot be sent exactly.
+        this.toastrService.error(error?.message || 'Order was not sent');
+        return;
+      }
       this.buySellGroup.reset();
     }
 
@@ -212,8 +202,8 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     getNameBalanceInfo(token: IToken) {
-      const _balance = token.propertyId === -1
-        ? this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmed
+      const _balance = token.propertyId === LTC_PROPERTY_ID
+        ? satsToLtc(this.balanceService.getCoinBalancesByAddress(this.futureAddress).confirmedSats)
         : this.balanceService.getTokensBalancesByAddress(this.futureAddress)
           ?.find(e => e.propertyid === token.propertyId)?.balance;
       const inOrderBalance = this.getInOrderAmount(token.propertyId);

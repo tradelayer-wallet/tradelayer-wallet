@@ -7,11 +7,7 @@ import { AuthService } from "../auth.service";
 import { FuturesMarketService } from "./futures-markets.service";
 import { ITradeInfo } from "src/app/utils/swapper";
 import { IFuturesTradeProps } from "src/app/utils/swapper/common";
-
-interface IFuturesOrderbookData {
-    orders: IFuturesOrder[],
-    history: IFuturesHistoryTrade[],
-};
+import { parseOrderbookData, toDisplayOrder, toDisplayTrade } from "src/app/utils/swapper/protocol";
 
 export interface IFuturesHistoryTrade extends ITradeInfo<IFuturesTradeProps> {
     txid: string;
@@ -112,9 +108,12 @@ export class FuturesOrderbookService {
             this.socket.emit('update-orderbook', this.marketFilter)
         });
 
-        this.socket.on(`${obEventPrefix}::orderbook-data`, (orderbookData: IFuturesOrderbookData) => {
-            this.rawOrderbookData = orderbookData.orders;
-            this.tradeHistory = orderbookData.history;
+        this.socket.on(`${obEventPrefix}::orderbook-data`, (raw: unknown) => {
+            // The one check of orderbook-data. The UI model holds display numbers, converted here.
+            const data = parseOrderbookData(raw);
+            if (!data.data) return this.toastrService.error(data.error || 'Orderbook data malformed', 'Orderbook Error');
+            this.rawOrderbookData = data.data.orders.map(toDisplayOrder) as unknown as IFuturesOrder[];
+            this.tradeHistory = data.data.history.map(toDisplayTrade) as IFuturesHistoryTrade[];
             const lastTrade = this.tradeHistory[0];
             if (!lastTrade) return this.currentPrice = 1;
             this.currentPrice = lastTrade?.props?.price || 1;

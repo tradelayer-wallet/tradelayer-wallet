@@ -15,6 +15,7 @@ export class SpotOrderHistoryComponent {
     ) {}
 
     get orderHistory() {
-      return this.spotOrdersService.orderHistory?.reverse() || [];
+      // A copy: reverse() on the service's array flipped the stored order on every read.
+      return [...(this.spotOrdersService.orderHistory || [])].reverse();
     }
 }

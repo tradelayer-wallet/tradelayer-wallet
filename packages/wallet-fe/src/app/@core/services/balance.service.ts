@@ -4,12 +4,13 @@ import { ToastrService } from "ngx-toastr";
 import { AuthService } from "./auth.service";
 import { IUTXO } from "./txs.service";
 import { ApiService } from "./api.service";
+import { ltcToSats, satsToLtc } from "src/app/utils/units";
 
 const minBlocksForBalanceConf: number = 1;
 const emptyBalanceObj = {
     coinBalance: {
-        confirmed: 0,
-        unconfirmed: 0,
+        confirmedSats: 0,
+        unconfirmedSats: 0,
         utxos: [],
     },
     tokensBalance: [],
@@ -23,8 +24,8 @@ export class BalanceService {
     private _allBalancesObj: {
         [key: string]: {
             coinBalance: {
-                confirmed: number;
-                unconfirmed: number;
+                confirmedSats: number;
+                unconfirmedSats: number;
                 utxos: IUTXO[];
             };
             tokensBalance: {
@@ -49,8 +50,8 @@ export class BalanceService {
     }
 
     get sumAvailableCoins() {
-        return Object.values(this._allBalancesObj)
-            .reduce((a, b) => a + b.coinBalance.confirmed, 0);
+        return satsToLtc(Object.values(this._allBalancesObj)
+            .reduce((a, b) => a + b.coinBalance.confirmedSats, 0));
     }
 
     get allBalances() {
@@ -100,8 +101,8 @@ export class BalanceService {
     private async updateCoinBalanceForAddressFromUnspents(address: string) {
         const coinBalanceObjRes = await this.getCoinBalanceObjForAddress(address);
         if (coinBalanceObjRes.error || !coinBalanceObjRes.data) throw new Error(coinBalanceObjRes.error || `Error with updating balances: ${address}`);
-        const { confirmed, unconfirmed, utxos } = coinBalanceObjRes.data;
-        const coinObj = { confirmed, unconfirmed, utxos };
+        const { confirmedSats, unconfirmedSats, utxos } = coinBalanceObjRes.data;
+        const coinObj = { confirmedSats, unconfirmedSats, utxos };
         if (!this._allBalancesObj[address]) this._allBalancesObj[address] = emptyBalanceObj;
         this._allBalancesObj = {
             ...this._allBalancesObj, 
@@ -124,15 +125,11 @@ export class BalanceService {
         const luRes = await this.rpcService.rpc('listunspent', [0, 999999999, [address]]);
         if (luRes.error || !luRes.data) return { error: luRes.error || 'Undefined Error' };
 
-        const _confirmed = (luRes.data as IUTXO[])
-            .filter(utxo => utxo.confirmations >= minBlocksForBalanceConf)
-            .reduce((a, b) => a + b.amount, 0);
-        const _unconfirmed = (luRes.data as IUTXO[])
-            .filter(utxo => utxo.confirmations < minBlocksForBalanceConf)
-            .reduce((a, b) => a + b.amount, 0);
-        const confirmed = parseFloat(_confirmed.toFixed(6));
-        const unconfirmed = parseFloat(_unconfirmed.toFixed(6));
-        return {data: { confirmed, unconfirmed, utxos: luRes.data } };
+        const utxos = luRes.data as IUTXO[];
+        const sumSats = (list: IUTXO[]) => list.reduce((sum, utxo) => sum + ltcToSats(utxo.amount, 'utxo amount'), 0);
+        const confirmedSats = sumSats(utxos.filter(utxo => utxo.confirmations >= minBlocksForBalanceConf));
+        const unconfirmedSats = sumSats(utxos.filter(utxo => utxo.confirmations < minBlocksForBalanceConf));
+        return {data: { confirmedSats, unconfirmedSats, utxos } };
     }
     private async getTokensBalanceArrForAddress_old(address: string) {
         if (!address) return { error: 'No address provided for updating the balance' };
