@@ -1,0 +1,12 @@
+[package]
+name = "tl-wallet-service"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+description = "Gated wallet service boundary, tx planner and channel-swap state machine extracted from the TradeLayer desktop wallet"
+license = "ISC"
+publish = false
+
+[dependencies]
+bitcoin = { version = "0.32", default-features = false, features = ["std"] }
+serde_json = "=1.0.145"
