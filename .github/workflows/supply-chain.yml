@@ -1,0 +1,33 @@
+name: Rust supply chain
+on:
+  pull_request:
+    paths: ['rust/**', '.github/workflows/supply-chain.yml']
+  schedule:
+    # Weekly: new RustSec advisories can affect unchanged lockfiles.
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install pinned cargo-audit and cargo-deny
+        run: cargo +stable install --locked cargo-audit@0.22.2 cargo-deny@0.20.2
+      - name: Advisories, licences, bans and sources for every crate
+        run: |
+          set -euo pipefail
+          status=0
+          while IFS= read -r lock; do
+            dir=$(dirname "$lock")
+            echo "::group::$dir"
+            cargo deny --manifest-path "$dir/Cargo.toml" --locked --config rust/deny.toml \
+              check advisories bans licenses sources || status=1
+            cargo audit --deny unsound --deny yanked --file "$lock" || status=1
+            echo "::endgroup::"
+          done < <(find rust -name Cargo.lock -not -path '*/target/*' | sort)
+          exit $status
