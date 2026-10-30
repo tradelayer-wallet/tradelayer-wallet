@@ -1,0 +1,57 @@
+name: Rust tl-wallet-service
+on:
+  pull_request:
+    paths: ['rust/tl-wallet-service/**', '.github/workflows/rust-tl-wallet-service.yml']
+  push:
+    branches: [master]
+    paths: ['rust/tl-wallet-service/**', '.github/workflows/rust-tl-wallet-service.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt --component clippy
+      - name: Fetch pinned crates
+        working-directory: rust/tl-wallet-service
+        run: cargo fetch --locked
+      - name: Unit and integration tests
+        working-directory: rust/tl-wallet-service
+        run: cargo test --locked --offline
+      - name: Legacy selection/fee parity vectors are current
+        working-directory: rust/tl-wallet-service
+        run: node scripts/compare-legacy.cjs | diff - scripts/legacy-vectors.json
+      - name: Clippy
+        working-directory: rust/tl-wallet-service
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Format
+        working-directory: rust/tl-wallet-service
+        run: cargo fmt --all -- --check
+  lean:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Build proofs
+        working-directory: rust/tl-wallet-service/lean
+        run: lake build
+      - name: Reject sorry/admit
+        working-directory: rust/tl-wallet-service/lean
+        run: "! grep -rnE '(^|[^A-Za-z_.])sorry([^A-Za-z_]|$)|^[[:space:]]*admit[[:space:]]*$' --include=*.lean ."
+      - name: Axiom audit
+        working-directory: rust/tl-wallet-service/lean
+        run: |
+          lake env lean AxiomCheck.lean | tee axioms.txt
+          ! grep -q sorryAx axioms.txt

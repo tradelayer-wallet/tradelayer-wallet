@@ -2,10 +2,10 @@
 //! by Litecoin; no address encoding is done here because Litecoin address versions differ, the
 //! node's `validateaddress` stays the authority for addresses).
 //!
-//! Ported: `buildPsbt` (`wallet-server/src/utils/crypto.util.ts:162`). New (repairs):
+//! Ported: `buildPsbt` (`wallet-server/src/utils/crypto.util.ts:136`). New (repairs):
 //! * `guard_sign`: signing is bound to the approved inputs, their on-chain amounts and a fee bound.
 //!   Legacy `signRawTransction` trusted the caller's `inputs[].amount` for the segwit sighash and
-//!   signed any `rawtx` with any fee (`crypto.util.ts:80-120`, `main.route.ts:96`).
+//!   signed any `rawtx` with any fee (`crypto.util.ts:86-129`, `main.route.ts:91-110`).
 //! * `check_trade_psbt`: the seller verifies the buyer's PSBT before adding a signature. Legacy
 //!   `seller.ts:onStep4` signed whatever PSBT arrived.
 

@@ -1,0 +1,5 @@
+name = "tl_wallet_service"
+defaultTargets = ["TlWalletService"]
+
+[[lean_lib]]
+name = "TlWalletService"

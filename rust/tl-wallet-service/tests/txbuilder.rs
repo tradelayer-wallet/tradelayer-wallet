@@ -181,6 +181,8 @@ fn repaired_commit_utxos_are_mandatory() {
     assert_eq!(p.inputs.len(), 2);
     assert!(p.inputs.iter().any(|u| u.txid == txid(9) && u.vout == 1));
     assert_eq!(p.fee.sat(), 120_000);
+    assert_eq!(p.seller_amount.sat(), 3_600);
+    assert_eq!(p.buyer_change.sat(), 880_000);
     assert!(p.check_conservation());
 }
 

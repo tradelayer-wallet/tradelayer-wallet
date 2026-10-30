@@ -7,18 +7,18 @@
 //! the recipient floor `min_out` (node's reference-output amount), the "Minimum amount" rejection.
 //!
 //! Repaired defects (each has a regression test in `tests/txbuilder.rs`):
-//! * payload txs charged the fee twice when `amount > min + fee` (`tx-builder.service.ts:137-139`);
-//! * negative change was silently dropped, producing an under-funded fee (`:139-145`);
+//! * payload txs charged the fee twice when `amount > min + fee` (`tx-builder.service.ts:168-172`);
+//! * negative change was silently dropped, producing an under-funded fee (`:170-180`);
 //! * fee-aware selection demanded the fee of one input more than it used (`getEnoughInputs2`
 //!   priced `length + 1`), so it always over-selected one input and paid for it;
-//! * the guard `inputsSum < fee + toAmount + change` could never fire (`:141`); conservation is now
+//! * the guard `inputsSum < fee + toAmount + change` could never fire (`:174`); conservation is now
 //!   exact and checked (`Plan::check_conservation`);
 //! * amounts below `min + fee` were silently clamped up to `min` so the fee was under-paid;
-//! * duplicate outpoints in `inputs` + `listunspent` were counted twice (`:100`, `:41`);
+//! * duplicate outpoints in `inputs` + `listunspent` were counted twice (`:102`, `:156`);
 //! * mandatory commit UTXOs were dropped once earlier inputs already covered the target
-//!   (`getEnoughInputs2` forEach, `:200-206`), yielding an instant-trade tx that cannot settle;
+//!   (`getEnoughInputs2`, `:208-214`), yielding an instant-trade tx that cannot settle;
 //! * recipient == sender collapsed two outputs into one JS object key and lost an amount
-//!   (`:124-125`); the Rust plan merges equal addresses.
+//!   (`:179-180`); the Rust plan merges equal addresses.
 
 use crate::amount::{Amount, AmountError};
 use std::collections::BTreeSet;

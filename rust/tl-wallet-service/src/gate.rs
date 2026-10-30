@@ -1,6 +1,6 @@
 //! The service gate. Legacy `fastify-server.ts` / `socket.service.ts` served every route and every
 //! RPC method to any local process or web page: no authentication, no Host/Origin checks, an
-//! arbitrary-method RPC proxy (`main.route.ts:10`) and socket.io with `cors: { origin: "*" }`
+//! arbitrary-method RPC proxy (`main.route.ts:13`) and socket.io with `cors: { origin: "*" }`
 //! (`socket.service.ts:15`). A request is admitted only if ALL of these hold:
 //!
 //! 1. the peer address is loopback,

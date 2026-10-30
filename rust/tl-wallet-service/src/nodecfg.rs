@@ -3,15 +3,15 @@
 //!
 //! Repaired defects:
 //! * `createConfigFile` interpolated `username`/`password` into `litecoin.conf` unvalidated
-//!   (`node.service.ts:56`): a value containing a newline injects further node options such as
+//!   (`node.service.ts:58`): a value containing a newline injects further node options such as
 //!   `blocknotify=<command>`. Values are now restricted to printable ASCII without whitespace,
 //!   `#` or control characters.
-//! * `structureConfFile` used `split('=')[1]`, truncating any value that contains `=` (`:127`).
+//! * `structureConfFile` used `split('=')[1]`, truncating any value that contains `=` (`:119`).
 //! * The node command line was built as one shell string with the data directory in quotes
-//!   (`:112-118`); a quote in the path escaped it. Launch arguments are now an argv vector and the
+//!   (`:110-111`, `:156`); a quote in the path escaped it. Launch arguments are now an argv vector and the
 //!   path is validated.
 //! * `set-api-url` / `ob-sockets-connect` accepted any URL (`main.route.ts:114`,
-//!   `socket.service.ts:29`), so a page could point the wallet's address lookups or order traffic
+//!   `socket.service.ts:28`), so a page could point the wallet's address lookups or order traffic
 //!   at an attacker. `validate_endpoint` requires https (or http to loopback) and an allowlisted host.
 
 use std::collections::BTreeMap;
@@ -87,7 +87,7 @@ pub fn validate_new_config(
     })
 }
 
-/// Exactly the legacy file layout (`node.service.ts:56`).
+/// Exactly the legacy file layout (`node.service.ts:58`).
 pub fn render_conf(c: &NewConfig) -> String {
     format!(
         "rpcuser={}\nrpcpassword={}\nrpcport={}\ntxindex=1",

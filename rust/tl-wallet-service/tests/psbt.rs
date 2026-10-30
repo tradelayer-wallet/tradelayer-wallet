@@ -103,7 +103,10 @@ fn build_psbt_rejects_unknown_inputs_and_script_mismatch() {
         Err(PsbtError::MissingKeyData(0))
     );
     // garbage
-    assert_eq!(build_psbt("zz", std::slice::from_ref(&u)), Err(PsbtError::BadHex));
+    assert_eq!(
+        build_psbt("zz", std::slice::from_ref(&u)),
+        Err(PsbtError::BadHex)
+    );
     assert_eq!(build_psbt("00", &[u]), Err(PsbtError::BadTx));
 }
 

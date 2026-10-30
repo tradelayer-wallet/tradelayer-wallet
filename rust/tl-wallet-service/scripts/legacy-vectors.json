@@ -1,0 +1,140 @@
+{
+  "oracle": {
+    "file": "packages/wallet-server/src/services/tx-builder.service.ts",
+    "blob": "2b11ba8ed36dce681cc11b5777fc2041efb62f21",
+    "common_util_blob": "b7abdb4a73f7cf8fcedfc9a402ed0897106b78b2",
+    "baseline_commit": "7ddba36ca06538510e6460df0ddece8a71fcb547",
+    "generated_by": "node scripts/compare-legacy.cjs --write"
+  },
+  "fee_per_input_sat": 60000,
+  "cases": [
+    {
+      "utxos_sat": [
+        50000000,
+        20000000,
+        5000000
+      ],
+      "amount_sat": 10000000,
+      "legacy_get_enough_inputs": {
+        "count": 1,
+        "fee_sat": 60000
+      },
+      "legacy_get_enough_inputs2": {
+        "count": 1,
+        "fee_sat": 60000
+      }
+    },
+    {
+      "utxos_sat": [
+        30000000,
+        30000000,
+        30000000
+      ],
+      "amount_sat": 50000000,
+      "legacy_get_enough_inputs": {
+        "count": 2,
+        "fee_sat": 120000
+      },
+      "legacy_get_enough_inputs2": {
+        "count": 2,
+        "fee_sat": 120000
+      }
+    },
+    {
+      "utxos_sat": [
+        100000000
+      ],
+      "amount_sat": 99990000,
+      "legacy_get_enough_inputs": {
+        "count": 1,
+        "fee_sat": 60000
+      },
+      "legacy_get_enough_inputs2": {
+        "count": 1,
+        "fee_sat": 60000
+      }
+    },
+    {
+      "utxos_sat": [
+        60000,
+        60000,
+        60000,
+        60000
+      ],
+      "amount_sat": 100000,
+      "legacy_get_enough_inputs": {
+        "count": 2,
+        "fee_sat": 120000
+      },
+      "legacy_get_enough_inputs2": {
+        "count": 4,
+        "fee_sat": 240000
+      }
+    },
+    {
+      "utxos_sat": [
+        1000000,
+        1000000,
+        1000000,
+        1000000,
+        1000000
+      ],
+      "amount_sat": 3000000,
+      "legacy_get_enough_inputs": {
+        "count": 3,
+        "fee_sat": 180000
+      },
+      "legacy_get_enough_inputs2": {
+        "count": 4,
+        "fee_sat": 240000
+      }
+    },
+    {
+      "utxos_sat": [
+        4000,
+        4000,
+        50000000
+      ],
+      "amount_sat": 200000,
+      "legacy_get_enough_inputs": {
+        "count": 3,
+        "fee_sat": 180000
+      },
+      "legacy_get_enough_inputs2": {
+        "count": 3,
+        "fee_sat": 180000
+      }
+    },
+    {
+      "utxos_sat": [
+        200000000,
+        100000000
+      ],
+      "amount_sat": 250000000,
+      "legacy_get_enough_inputs": {
+        "count": 2,
+        "fee_sat": 120000
+      },
+      "legacy_get_enough_inputs2": {
+        "count": 2,
+        "fee_sat": 120000
+      }
+    },
+    {
+      "utxos_sat": [
+        12345600,
+        65432100,
+        100
+      ],
+      "amount_sat": 70000000,
+      "legacy_get_enough_inputs": {
+        "count": 2,
+        "fee_sat": 120000
+      },
+      "legacy_get_enough_inputs2": {
+        "count": 2,
+        "fee_sat": 120000
+      }
+    }
+  ]
+}

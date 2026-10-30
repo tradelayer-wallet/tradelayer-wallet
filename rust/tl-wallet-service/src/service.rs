@@ -196,7 +196,10 @@ fn check_network(n: &str) -> Result<(), String> {
 }
 
 fn check_hex(s: &str, max: usize) -> bool {
-    !s.is_empty() && s.len() <= max && s.len().is_multiple_of(2) && s.bytes().all(|b| b.is_ascii_hexdigit())
+    !s.is_empty()
+        && s.len() <= max
+        && s.len().is_multiple_of(2)
+        && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
 fn check_address(a: &str) -> Result<(), String> {
