@@ -1,0 +1,5 @@
+name = "tl_desktop_core"
+defaultTargets = ["TlDesktopCore"]
+
+[[lean_lib]]
+name = "TlDesktopCore"

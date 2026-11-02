@@ -1,0 +1,54 @@
+name: Rust tl-desktop-core
+on:
+  pull_request:
+    paths: ['rust/tl-desktop-core/**', '.github/workflows/rust-tl-desktop-core.yml']
+  push:
+    branches: [master]
+    paths: ['rust/tl-desktop-core/**', '.github/workflows/rust-tl-desktop-core.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt --component clippy
+      - name: Fetch pinned crates (includes the pinned tl-wallet-core git revision)
+        working-directory: rust/tl-desktop-core
+        run: cargo fetch --locked
+      - name: Unit and integration tests
+        working-directory: rust/tl-desktop-core
+        run: cargo test --locked --offline
+      - name: Clippy
+        working-directory: rust/tl-desktop-core
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Format
+        working-directory: rust/tl-desktop-core
+        run: cargo fmt --all -- --check
+  lean:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Build proofs
+        working-directory: rust/tl-desktop-core/lean
+        run: lake build
+      - name: Reject sorry/admit
+        working-directory: rust/tl-desktop-core/lean
+        run: "! grep -rnE '(^|[^A-Za-z_.])sorry([^A-Za-z_]|$)|^[[:space:]]*admit[[:space:]]*$' --include=*.lean ."
+      - name: Axiom audit
+        working-directory: rust/tl-desktop-core/lean
+        run: |
+          lake env lean AxiomCheck.lean | tee axioms.txt
+          ! grep -q sorryAx axioms.txt
