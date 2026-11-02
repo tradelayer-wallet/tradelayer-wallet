@@ -46,6 +46,9 @@ pub struct Balance {
     pub confirmed_sats: u64,
     /// `scantxoutset` does not see the mempool, so this is always 0.
     pub unconfirmed_sats: u64,
+    /// Coinbase outputs with fewer than [`COINBASE_MATURITY`] confirmations: owned, not yet
+    /// spendable, not in `confirmed_sats` and never selected.
+    pub immature_sats: u64,
     pub utxo_count: usize,
     /// Chain tip height at scan time.
     pub height: u64,
@@ -210,11 +213,12 @@ impl<N: NodeRpc, S: VaultStore, C: Clock, E: Entropy> Wallet<N, S, C, E> {
         self.ensure_chain()?;
         let account = self.account.as_ref().ok_or(CoreError::Locked)?;
         let scan = scan_account(&mut self.node, account)?;
-        let utxos = utxos_from_scan(account, &scan)?;
+        let (utxos, immature) = utxos_from_scan(account, &scan)?;
         let total = Sats::sum(utxos.iter().map(|u| u.value))?;
         Ok(Balance {
             confirmed_sats: total.0,
             unconfirmed_sats: 0,
+            immature_sats: immature.0,
             utxo_count: utxos.len(),
             height: scan.height,
         })
@@ -243,7 +247,7 @@ impl<N: NodeRpc, S: VaultStore, C: Clock, E: Entropy> Wallet<N, S, C, E> {
 
         let account = self.account.as_ref().ok_or(CoreError::Locked)?;
         let scan = scan_account(&mut self.node, account)?;
-        let all = utxos_from_scan(account, &scan)?;
+        let (all, _immature) = utxos_from_scan(account, &scan)?;
         // Forget spends the node has caught up with, then hide what is still in flight.
         let live: BTreeSet<OutPoint> = all.iter().map(Utxo::outpoint).collect();
         self.spent.retain(|o| live.contains(o));
@@ -460,13 +464,19 @@ fn scan_account<N: NodeRpc>(node: &mut N, account: &Account) -> Result<ScanResul
     Ok(node.scan(&descriptors)?)
 }
 
+/// Confirmations a coinbase output needs before it may be spent (consensus rule shared by
+/// Bitcoin and Litecoin).
+pub const COINBASE_MATURITY: u64 = 100;
+
 /// Validate a scan result and convert it. Any foreign or malformed entry rejects the whole scan.
-fn utxos_from_scan(account: &Account, scan: &ScanResult) -> Result<Vec<Utxo>, CoreError> {
+/// Returns the spendable outputs and the total of immature coinbase outputs, which are left out.
+fn utxos_from_scan(account: &Account, scan: &ScanResult) -> Result<(Vec<Utxo>, Sats), CoreError> {
     if scan.utxos.len() > MAX_UTXOS {
         return Err(CoreError::InvalidScan("too many utxos"));
     }
     let mut seen: BTreeSet<OutPoint> = BTreeSet::new();
     let mut out = Vec::with_capacity(scan.utxos.len());
+    let mut immature = Sats(0);
     for u in &scan.utxos {
         let txid = Txid::from_str(&u.txid).map_err(|_| CoreError::InvalidScan("txid"))?;
         let bytes = Vec::<u8>::from_hex(&u.script_pubkey_hex)
@@ -491,9 +501,19 @@ fn utxos_from_scan(account: &Account, scan: &ScanResult) -> Result<Vec<Utxo>, Co
         if !seen.insert(utxo.outpoint()) {
             return Err(CoreError::InvalidScan("duplicate outpoint"));
         }
+        if u.height > scan.height {
+            return Err(CoreError::InvalidScan("utxo above tip"));
+        }
+        // Confirmations = tip - height + 1. A coinbase output is spendable from 100 on.
+        if u.coinbase && scan.height - u.height + 1 < COINBASE_MATURITY {
+            immature = immature
+                .checked_add(utxo.value)
+                .map_err(|_| CoreError::InvalidScan("amount overflow"))?;
+            continue;
+        }
         out.push(utxo);
     }
-    Ok(out)
+    Ok((out, immature))
 }
 
 impl<N: NodeRpc, S: VaultStore, C: Clock, E: Entropy> Wallet<N, S, C, E> {

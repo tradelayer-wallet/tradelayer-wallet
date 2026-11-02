@@ -887,3 +887,44 @@ fn the_desktop_origin_is_a_valid_http_origin() {
     assert!(tl_wallet_core::Origin::from_url(DESKTOP_ORIGIN).is_ok());
     assert_eq!(DESKTOP_ORIGIN, "http://tauri.localhost");
 }
+
+// ------------------------------------------------------------------ coinbase maturity
+
+#[test]
+fn immature_coinbase_is_reported_but_never_spendable() {
+    let mut h = Harness::unlocked(Network::BtcRegtest);
+    let recv = h.receive_script_hex();
+    h.node.state().height = 200;
+    // 101 confirmations: tip 200, mined at 100 -> mature. 100 confirmations at 101: mature.
+    // 99 confirmations at 102: immature.
+    let mut mature = h.utxo(recv.clone(), 5_000_000_000);
+    mature.coinbase = true;
+    mature.height = 101;
+    let mut immature = h.utxo(recv.clone(), 5_000_000_000);
+    immature.coinbase = true;
+    immature.height = 102;
+    let fresh = h.utxo(recv, 1_000);
+    h.node.state().utxos.extend([mature, immature, fresh]);
+    let b = h.balance();
+    assert_eq!(b.confirmed_sats, 5_000_001_000);
+    assert_eq!(b.immature_sats, 5_000_000_000);
+    assert_eq!(b.utxo_count, 2);
+    // Asking for more than the spendable total fails even though the immature coin would cover it.
+    let to = h.other_address();
+    assert!(h.wallet.prepare_send(&to, 6_000_000_000, Some(2)).is_err());
+    let pv = h.wallet.prepare_send(&to, 4_000_000_000, Some(2)).unwrap();
+    assert_eq!(pv.input_count, 1);
+}
+
+#[test]
+fn utxo_above_the_scan_tip_rejects_the_scan() {
+    let mut h = Harness::unlocked(Network::BtcRegtest);
+    let recv = h.receive_script_hex();
+    let mut u = h.utxo(recv, 10_000);
+    u.height = 201;
+    h.node.state().utxos.push(u);
+    assert_eq!(
+        h.wallet.balance().unwrap_err(),
+        CoreError::InvalidScan("utxo above tip")
+    );
+}

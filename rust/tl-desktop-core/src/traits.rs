@@ -15,6 +15,8 @@ pub struct ScannedUtxo {
     pub amount_sats: u64,
     /// Height of the block that confirmed the output.
     pub height: u64,
+    /// The output belongs to a coinbase transaction (`scantxoutset` `coinbase` field).
+    pub coinbase: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

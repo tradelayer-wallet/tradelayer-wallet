@@ -143,9 +143,10 @@ only; no `sorryAx`).
 
 * No password-attempt throttling beyond the scrypt cost; the shell can add a delay or lockout.
 * `FileStore` assumes one process per directory (single-instance shell); there is no lock file.
-* `scantxoutset` does not see the mempool, so `unconfirmed_sats` is always 0, change from a
-  broadcast spend is not spendable until mined, and the scan carries no coinbase flag (immature
-  coinbase outputs would be selected and rejected by the node at broadcast).
+* `scantxoutset` does not see the mempool, so `unconfirmed_sats` is always 0 and change from a
+  broadcast spend is not spendable until mined. Coinbase outputs with fewer than 100
+  confirmations (the scan's `coinbase` flag) are reported as `immature_sats` and never selected
+  (`tests/wallet.rs::immature_coinbase_is_reported_but_never_spendable`).
 * Dogecoin networks return `UnsupportedNetwork` (the scan has no previous transactions, which
   legacy p2pkh signing needs). Only the single P2WPKH account of `tl-wallet-core` exists: no
   multisig, no OP_RETURN payload sends, no TradeLayer protocol transactions.

@@ -245,6 +245,7 @@ impl Harness {
             script_pubkey_hex: script_hex,
             amount_sats: sats,
             height: 150,
+            coinbase: false,
         }
     }
 
