@@ -4,22 +4,23 @@
   "version": "0.1.0",
   "identifier": "org.tradelayer.desktop",
   "build": {
-    "frontendDist": "ui"
+    "frontendDist": "dist-ui"
   },
   "app": {
     "withGlobalTauri": true,
     "windows": [
       {
         "label": "main",
-        "title": "TradeLayer Desktop",
-        "width": 960,
-        "height": 720,
+        "title": "TradeLayer Wallet",
+        "width": 1280,
+        "height": 800,
         "resizable": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
-      "freezePrototype": true
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src ipc: http://ipc.localhost http://tlapi.localhost http://172.81.181.19:8190 http://172.81.181.19:8191 http://172.81.181.19:9190 http://172.81.181.19:9191; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'",
+      "dangerousDisableAssetCspModification": ["style-src"],
+      "freezePrototype": false
     }
   },
   "bundle": {
