@@ -739,3 +739,24 @@ fn sign_tx_reaches_the_signer_only_after_the_guard_passes() {
         "maxFee must be a decimal string"
     );
 }
+
+#[test]
+fn start_node_with_empty_path_uses_the_default_directory() {
+    // wallet-fe's sync-node dialog sends `path: ""` when "Default Directory" is ticked.
+    let mut f = fixture();
+    f.store.0.borrow_mut().files.insert(
+        "/home/u/.litecoin/litecoin.conf".into(),
+        "rpcuser=u
+rpcpassword=p
+rpcport=19332
+"
+        .into(),
+    );
+    let r = call(
+        &mut f,
+        "/api/start-wallet-node",
+        json!({"network":"LTCTEST","path":"","reindex":false,"startclean":false}),
+    );
+    assert_eq!(r.status, 200, "{}", r.body);
+    assert!(f.svc.node_connected());
+}

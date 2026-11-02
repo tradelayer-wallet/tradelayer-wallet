@@ -443,7 +443,13 @@ impl WalletService {
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
             reindex: b.get("reindex").and_then(Value::as_bool).unwrap_or(false),
-            datadir: b.get("path").and_then(Value::as_str).map(str::to_string),
+            // The UI sends `path: ""` for the default directory; legacy only added `-datadir`
+            // for a truthy value (`node.service.ts:110`).
+            datadir: b
+                .get("path")
+                .and_then(Value::as_str)
+                .filter(|p| !p.is_empty())
+                .map(str::to_string),
         };
         // Validates the launch arguments (the legacy exec of the bundled node is disabled).
         launch_args(&opts).map_err(|e| e.to_string())?;
