@@ -14,3 +14,4 @@ pub mod psbt;
 pub mod service;
 pub mod swap;
 pub mod txbuilder;
+pub mod txforms;
