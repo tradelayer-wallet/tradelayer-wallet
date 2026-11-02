@@ -1,35 +1,51 @@
 # tl-desktop
 
 The TradeLayer desktop wallet as a Tauri 2 application: a native window (WebView2 on Windows)
-over [`tl-desktop-core`](../tl-desktop-core). It replaces the Electron + Node arrangement in
-`builder/` and `packages/wallet-server/`.
+that runs the **original Angular wallet UI** (`packages/wallet-fe`, components, services and
+templates unchanged) on a Rust backend. It replaces the Electron main process (`builder/`) and
+the Node `wallet-server` (`packages/wallet-server/`).
 
-* Toolchain: Rust 1.90.0 (`rust-toolchain.toml`), Tauri 2.12.5, committed `Cargo.lock`.
+* Toolchain: Rust 1.90.0 (`rust-toolchain.toml`), Tauri 2.12.5, committed `Cargo.lock`;
+  Angular 12.1.5 built with Node 24 (`--openssl-legacy-provider`).
 * Licence: ISC (as the repository `package.json`).
 
-## What changes against the Electron wallet
+## How the original UI runs without Electron or Node
 
 | Electron wallet | tl-desktop |
 |---|---|
-| Node `wallet-server` listens on a localhost port (Fastify + socket.io, no authentication; see `rust/tl-wallet-service/README.md`) and the renderer talks HTTP to it | No listening socket. The UI calls Rust commands over Tauri IPC |
-| `rpc-call` forwards any node method, including `dumpprivkey` | The node adapter (`src/node.rs`) has exactly four calls: `getblockchaininfo`, `scantxoutset`, `estimatesmartfee`, `sendrawtransaction` |
-| Keys and signing in the Node process; signing trusts caller-supplied amounts | Keys live only on the wallet thread in Rust; a send is previewed first, and only `confirm_send` grants the one-use signing capability bound to the previewed inputs, outputs and fee |
-| Node process + Chromium + Node integration | WebView with a strict CSP (`script-src 'self'`, no inline script, no eval, `connect-src` IPC only), prototype freezing, and an empty capability list: no Tauri core or plugin command (fs, shell, http, event) is granted |
-| Network inferred from settings strings | `network` named in the config file and checked against the node's chain before every scan and broadcast |
+| Node `wallet-server` on `localhost:1986` (Fastify + socket.io, no authentication; see `rust/tl-wallet-service/README.md`) | No listening socket. The UI's `homeApiUrl` is `http://tlapi.localhost`, a Tauri custom URI scheme served in-process (`src/legacy.rs`) by `tl-wallet-service`, so only this webview can reach it. The bridge holds the session token itself. |
+| socket.io server for the main socket, `new-block`, `core-error` and the orderbook relay | `src/socketio.rs`: Engine.IO v4 long-polling + socket.io v5 on the same scheme; `new-block`/`core-error` from a 5 s `getblockchaininfo` probe through the same gate as page calls |
+| `rpc-call` forwards any node method, including `dumpprivkey` | `tl-wallet-service` gate method allowlist (`dumpprivkey` answers 403) |
+| `keys/*` routes return mnemonic, private key and WIF to the page; `sign-tx`/`sign-psbt` take a WIF from the page | Refused in the desktop build. This wallet-fe snapshot is a node-wallet UI (addresses from `getaddressesbylabel`, `getWifByAddress` returns `''`), so the UI does not use them |
+| Electron main process: `window.require('electron')` IPC for the folder picker and auto-updater | `ui-shim/electron-shim.js`, loaded before the bundles, provides the `ipcRenderer` the UI calls. `check-version` is answered with the updater's "up to date" state (no auto-updater in this build); folder picker and download are dropped (the dialog keeps its text field) |
+| Chromium with Node integration | WebView with CSP: `script-src 'self'` (no inline script, no eval); inline styles allowed (Angular injects component styles); fonts from Google Fonts as in the legacy `index.html`; `connect-src` limited to IPC, `tlapi` and the four relayer/orderbook endpoints in `environment.ENDPOINTS`. The capability list is empty: no Tauri core or plugin command (fs, shell, http, event) is granted. |
+
+`freezePrototype` is off: zone.js and crypto-js in the legacy bundle assign `Object.prototype`
+members and fail on a frozen prototype.
+
+The UI build adds only an `angular.json` configuration `tauri` and `environment.tauri.ts`
+(`homeApiUrl`, critical-CSS and font inlining off so no inline event handler is emitted).
+
+## Second mode: Rust-held keys (`tl-desktop-core`)
+
+`src/main.rs` also exposes ten IPC commands over [`tl-desktop-core`](../tl-desktop-core):
+`status`, `create_wallet`, `import_wallet`, `unlock`, `lock`, `receive_address`, `balance`,
+`prepare_send`, `confirm_send`, `cancel_send`. Keys live in an encrypted vault on the Rust wallet
+thread; a send is previewed first and only `confirm_send` grants the one-use signing capability
+bound to the previewed inputs, outputs and fee. `ui/` is the test surface for these commands; the
+Angular UI does not call them yet.
 
 ## Layout
 
-* `src/main.rs`: commands (`status`, `create_wallet`, `import_wallet`, `unlock`, `lock`,
-  `receive_address`, `balance`, `prepare_send`, `confirm_send`, `cancel_send`). The wallet is
-  owned by one thread; commands are messages to it (the RPC client blocks on its own runtime).
-  A session idle longer than `idle_lock_minutes` (default 10) is locked before the next command.
-* `src/node.rs`: `NodeRpc` over `tl-rpc-client` (`NodeCall` API). JSON coin amounts are
-  converted to satoshis exactly or rejected.
-* `src/config.rs`: config file (below).
-* `ui/`: the regtest test surface (HTML/CSS/JS, no build step, no dependencies). The existing
-  Angular wallet UI (`packages/wallet-fe`) is the production UI; moving it onto these commands is
-  the next step and is not done in this commit.
-* `capabilities/main.json`: grants nothing beyond the app's own commands.
+* `src/main.rs`: window setup, the `tlapi` scheme, the IPC commands, the wallet thread.
+* `src/legacy.rs`: request translation, CORS, the `legacy` thread owning `WalletService`, node
+  JSON-RPC client (loopback http or https, no proxy/redirects, 8 MiB cap), relayer client,
+  `litecoin.conf` store restricted to `node_data_dir`.
+* `src/socketio.rs`: the socket.io server.
+* `src/node.rs`: `NodeRpc` over `tl-rpc-client` for the Rust-held-key mode.
+* `src/config.rs`: config file.
+* `scripts/build-ui.mjs`: builds `packages/wallet-fe` (configuration `tauri`) in a scratch copy
+  with lifecycle scripts disabled and writes `dist-ui/` (the `frontendDist`), injecting the shim.
 
 ## Configuration
 
@@ -37,63 +53,91 @@ over [`tl-desktop-core`](../tl-desktop-core). It replaces the Electron + Node ar
 (`%APPDATA%\org.tradelayer.desktop\config.json` on Windows):
 
 ```json
-{ "network": "BTCREGTEST",
-  "node_url": "http://127.0.0.1:18443",
-  "rpc_cookie_file": "C:/path/to/regtest/.cookie" }
+{ "network": "LTCTEST",
+  "node_url": "http://127.0.0.1:19332",
+  "rpc_cookie_file": "C:/path/to/.cookie",
+  "node_data_dir": "C:/Users/<you>/AppData/Roaming/Litecoin",
+  "relayer_hosts": [] }
 ```
 
-`rpc_user` + `rpc_password` may replace `rpc_cookie_file`. `data_dir` (default: app data dir)
-holds one vault directory per network id. `http` is accepted only for loopback node URLs
-(`tl-rpc-client` policy); remote nodes need `https`.
+`node_data_dir` (default `%APPDATA%\Litecoin`) is the only directory the legacy UI may read
+`litecoin.conf` from or create it in. `network`, `node_url` and the RPC credentials
+(`rpc_cookie_file` or `rpc_user` + `rpc_password`) configure the Rust-held-key mode; `data_dir`
+holds its vaults, one per network id. `relayer_hosts` lists the hosts the UI may name as its
+relayer API (default none).
 
-## Commands and results (2026-11-02, Windows 11, MSVC 14.44, Rust 1.90.0)
+## Commands and results (2026-11-02/03, Windows 11, MSVC 14.44, Rust 1.90.0, Node 24.19)
 
 ```bat
+node scripts\build-ui.mjs                            :: UI_BUILD_OK (Angular build ~5 min)
 call "...\VC\Auxiliary\Build\vcvars64.bat"
 cd rust\tl-desktop
-cargo test --locked                                  :: 7 passed
+cargo test --locked                                  :: 58 passed
 cargo clippy --locked --all-targets -- -D warnings   :: clean
 cargo fmt --all -- --check                           :: clean
 cargo build --locked
-node scripts\e2e-regtest.mjs <target>\debug\tl-desktop.exe <out dir>   :: E2E_OK
+node scripts\e2e-legacy-ui.mjs <target>\debug\tl-desktop.exe <out>   :: E2E_LEGACY_OK
 ```
 
-`scripts/e2e-regtest.mjs` starts a throwaway Bitcoin Core 31.1 `-regtest` node (own temporary
-datadir, cookie auth, `-listen=0`), launches the app with WebView2 remote debugging, and drives the
-UI through the DevTools protocol. It runs these checks:
+`scripts/e2e-legacy-ui.mjs` starts a throwaway Bitcoin Core 31.1 `-regtest` node with synthetic
+credentials, writes a `litecoin.conf` for it into a temporary `node_data_dir`, launches the app
+with WebView2 remote debugging and drives the original UI:
 
-1. A fresh data dir opens on setup, with the chain shown as regtest. Create shows 12 words and
-   clears them after the backup step.
-2. The receive address is accepted by the node's `validateaddress`.
-3. After the node wallet sends 1.5 and one block is mined, the balance shows 1.50000000.
-4. Preparing a send of 0.4 at 3 sat/vB gives a preview where amount + fee + change = input.
-5. On confirm:
-   * the txid is in the node's mempool;
-   * the transaction pays 0.4 to the destination and spends the funding outpoint;
-   * the node's fee equals the previewed fee (459 sat, 141 vB);
-   * after a block, the balance equals the change.
-6. Through the IPC the page uses:
-   * unknown or garbage plan ids are refused;
-   * `plugin:event|emit` is refused as not allowed;
-   * an inline script inserted by the page does not run, and `fetch` to an external origin fails.
-7. Lock refuses `receive_address`, a wrong password is refused, the right password restores the
-   same address, and a restarted app opens locked.
+1. "Select Network" renders, and there is no "No connection with local server" banner (the
+   socket.io session is open).
+2. Start Node connects to the regtest node, and a page `rpc-call` for `getblockchaininfo` returns
+   chain `regtest`.
+3. From the page: `dumpprivkey` gets 403 from the gate; `keys/new-wallet` is refused with no
+   mnemonic; `fetch` to an arbitrary host is blocked by CSP.
+4. After 3 blocks are mined, the UI shows "Full Synchronized 8 / 8", "SYNCED" and "Block: 8"
+   through `new-block`.
+5. The page throws no uncaught exceptions.
+
+The Rust-held-key mode has its own run, `scripts/e2e-regtest.mjs`, against a build of the `ui/`
+surface with the strict CSP. Set this before `cargo build`:
+
+```bat
+set TAURI_CONFIG={"build":{"frontendDist":"ui"},"app":{"security":{"csp":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'","dangerousDisableAssetCspModification":false,"freezePrototype":true}}}
+```
+
+The run printed `E2E_OK` and covers:
+
+* create, fund, balance and preview;
+* sign and broadcast, with the node's fee equal to the previewed fee (459 sat, 141 vB);
+* negative IPC probes and CSP probes;
+* lock/unlock, and a restart that opens locked.
 
 ## Dependencies
 
-`tauri`/`tauri-build` 2 (the shell), `serde`/`serde_json` (IPC values and the config file),
-`getrandom` 0.3 (OS randomness for mnemonics, plan ids, KDF salts and nonces), `tl-desktop-core`
-(path), and `tl-wallet-core` (TL-Extension) and `tl-rpc-client` (tl-rpc), both pinned to pushed
-git revisions in `Cargo.toml`. The lockfile holds about 400 packages, almost all from Tauri.
+* `tauri`/`tauri-build` 2: the shell.
+* `serde`/`serde_json`: IPC values and the config file.
+* `getrandom` 0.3: the session token, mnemonics, plan ids, salts and nonces.
+* `reqwest` `=0.12.24` (blocking, rustls): the legacy node and relayer clients. This is the same
+  pin as `tl-rpc-client`.
+* `tl-wallet-service` and `tl-desktop-core`: path dependencies.
+* `tl-wallet-core` (TL-Extension) and `tl-rpc-client` (tl-rpc): pinned to pushed git revisions.
+
+The lockfile holds about 400 packages, almost all from Tauri.
 
 ## Gaps
 
-* The Angular UI is not wired yet (see Layout).
-* No installer, code signing or updater (`bundle.active` is false).
-* Only built and run on Windows. The CI workflow `.github/workflows/rust-tl-desktop.yml` targets
-  `windows-2022` and has not run (it triggers on pull requests).
-* Linux and macOS builds have not been attempted.
-* There is no TradeLayer token, trading or channel support yet. The core scans one receive and
-  one change address; there is no gap-limit scan.
-* No Litecoin node run: the e2e uses Bitcoin Core regtest. `LTCREGTEST` is configured but has not
-  been exercised.
+* **Orderbook relay:** `ob-sockets-connect` answers `OB_SOCKET::connect_error`, so the UI shows
+  the orderbook as disconnected. Spot and futures trading need a socket.io client in Rust that
+  relays the remote orderbook.
+* **TradeLayer RPCs** (`tl_*`) were not exercised. The regtest node is Bitcoin Core, and no
+  TradeLayer-enabled Litecoin node is available here.
+* **Remote calls:**
+  * The UI's direct relayer calls (`relayer-api.service.ts`) go to the configured plain-http
+    endpoints, as in legacy.
+  * The Rust relayer client accepts https only.
+  * A custom server typed into the UI is blocked by CSP until it is added to `tauri.conf.json`.
+* **Fonts:** Roboto and Material Icons load from Google at startup, as in legacy. Vendoring them
+  would remove that request.
+* **Not wired yet:**
+  * There is no auto-updater, installer or code signing (`bundle.active` is false).
+  * The native folder picker is not wired.
+  * The Angular UI does not use the Rust-held-key mode.
+* **Platforms and CI:**
+  * Only built and run on Windows.
+  * The CI workflow `.github/workflows/rust-tl-desktop.yml` targets `windows-2022` and has not run;
+    it triggers on pull requests.
