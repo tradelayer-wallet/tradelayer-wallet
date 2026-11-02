@@ -5,13 +5,15 @@
 //! runtime) and every command is a message to that thread. Keys never leave Rust.
 //!
 //! The `tlapi` custom URI scheme (`legacy.rs`) serves the original Angular UI's legacy HTTP API
-//! from a second dedicated thread, again without a socket.
+//! from a second dedicated thread, again without a socket. Its `/socket.io/` path (the legacy UI's
+//! main connection) is served by `socketio.rs` on a third.
 #![forbid(unsafe_code)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod config;
 mod legacy;
 mod node;
+mod socketio;
 
 use serde::Serialize;
 use std::path::{Path, PathBuf};

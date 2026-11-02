@@ -33,9 +33,15 @@
 //!   by `relayer_hosts` in the config file (empty: relayer disabled).
 //! * Config store: the filesystem, restricted to the node data directory.
 //!
-//! socket.io (`/socket.io/...`) is not relayed yet and answers 404.
+//! ## socket.io
+//!
+//! `/socket.io/...` is served by [`crate::socketio`] (Engine.IO v4 long polling). It reaches the
+//! node only through a synthetic `rpc-call` for `getblockchaininfo` on the same `legacy` thread.
+//! The orderbook relay (`ob-sockets-connect`) is not implemented and answers
+//! `OB_SOCKET::connect_error`.
 
 use crate::config::LegacySettings;
+use crate::socketio;
 use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
@@ -144,6 +150,8 @@ pub enum Translated {
     Forward(Box<HttpRequest>),
     /// Answered without reaching the service.
     Answer(Reply),
+    /// A `/socket.io/` request: served by the socket.io engine, not the service.
+    SocketIo,
 }
 
 /// Map a custom-scheme request onto the service request. `token` is the bridge's own session
@@ -160,7 +168,7 @@ pub fn translate(req: &http::Request<Vec<u8>>, token: &str) -> Translated {
     }
     let path = req.uri().path();
     if path == "/socket.io" || path.starts_with("/socket.io/") {
-        return Translated::Answer(Reply::early(404, "socket.io relay not supported", o));
+        return Translated::SocketIo;
     }
     let method = req.method().as_str().to_string();
     let (body, body_len) = if method == "OPTIONS" {
@@ -200,6 +208,7 @@ type Job = (Box<HttpRequest>, Done);
 pub struct Bridge {
     tx: mpsc::SyncSender<Job>,
     token: String,
+    sio: socketio::Handle,
 }
 
 impl Bridge {
@@ -208,6 +217,15 @@ impl Bridge {
     pub fn start(
         build: impl FnOnce() -> Result<WalletService, String> + Send + 'static,
         token: &SessionToken,
+    ) -> std::io::Result<Bridge> {
+        Bridge::start_with(build, token, socketio::Config::default())
+    }
+
+    /// [`Bridge::start`] with explicit socket.io timing.
+    pub fn start_with(
+        build: impl FnOnce() -> Result<WalletService, String> + Send + 'static,
+        token: &SessionToken,
+        sio_config: socketio::Config,
     ) -> std::io::Result<Bridge> {
         let (tx, rx) = mpsc::sync_channel::<Job>(QUEUE_DEPTH);
         std::thread::Builder::new()
@@ -223,34 +241,122 @@ impl Bridge {
                     done(reply);
                 }
             })?;
+        let probe = ServiceProbe {
+            tx: tx.clone(),
+            token: token.to_hex(),
+        };
+        let sio = socketio::start(Box::new(probe), sio_config)?;
         Ok(Bridge {
             tx,
             token: token.to_hex(),
+            sio,
         })
     }
 
-    /// Translate and queue one request; `done` receives the reply (possibly before this returns).
+    /// Translate and queue one JSON request; `done` receives the reply (possibly before this
+    /// returns). A socket.io request is answered 404 here: [`Bridge::dispatch`] serves it.
+    #[cfg(test)]
     pub fn submit(&self, req: &http::Request<Vec<u8>>, done: Done) {
         match translate(req, &self.token) {
             Translated::Answer(r) => done(r),
-            Translated::Forward(r) => match self.tx.try_send((r, done)) {
-                Ok(()) => {}
-                Err(mpsc::TrySendError::Full((_, done))) => {
-                    done(Reply::early(503, "legacy bridge busy", None))
-                }
-                Err(mpsc::TrySendError::Disconnected((_, done))) => {
-                    done(Reply::early(503, "legacy bridge stopped", None))
-                }
-            },
+            Translated::SocketIo => {
+                done(Reply::early(404, "socket.io is served by dispatch", None))
+            }
+            Translated::Forward(r) => self.forward(r, done),
+        }
+    }
+
+    /// Serve any `tlapi` request: JSON routes through the service, `/socket.io/` through the
+    /// socket.io engine. `respond` is called once, possibly long after this returns (a held poll).
+    pub fn dispatch(
+        &self,
+        req: http::Request<Vec<u8>>,
+        respond: Box<dyn FnOnce(http::Response<Vec<u8>>) + Send>,
+    ) {
+        match translate(&req, &self.token) {
+            Translated::SocketIo => self.sio.serve(
+                socketio::SioRequest::from_http(&req),
+                Box::new(move |r| respond(r.into_response())),
+            ),
+            Translated::Answer(r) => respond(r.into_response()),
+            Translated::Forward(r) => {
+                self.forward(r, Box::new(move |r| respond(r.into_response())))
+            }
         }
     }
 
     /// The `tlapi` scheme handler.
     pub fn serve(&self, req: http::Request<Vec<u8>>, responder: tauri::UriSchemeResponder) {
-        self.submit(
-            &req,
-            Box::new(move |reply| responder.respond(reply.into_response())),
+        self.dispatch(req, Box::new(move |r| responder.respond(r)));
+    }
+
+    fn forward(&self, r: Box<HttpRequest>, done: Done) {
+        match self.tx.try_send((r, done)) {
+            Ok(()) => {}
+            Err(mpsc::TrySendError::Full((_, done))) => {
+                done(Reply::early(503, "legacy bridge busy", None))
+            }
+            Err(mpsc::TrySendError::Disconnected((_, done))) => {
+                done(Reply::early(503, "legacy bridge stopped", None))
+            }
+        }
+    }
+}
+
+/// Block information for the socket.io engine: a synthetic `rpc-call` for `getblockchaininfo`
+/// queued to the `legacy` thread with the bridge's own token, so it passes the same gate and
+/// method allowlist as a call from the page.
+struct ServiceProbe {
+    tx: mpsc::SyncSender<Job>,
+    token: String,
+}
+
+impl socketio::NodeProbe for ServiceProbe {
+    fn probe(&self, done: Box<dyn FnOnce(socketio::Probe) + Send>) {
+        let body = json!({ "method": "getblockchaininfo", "params": [] });
+        let req = HttpRequest {
+            method: "POST".into(),
+            path: "/api/rpc-call".into(),
+            peer_is_loopback: true,
+            host: Some(format!("localhost:{GATE_PORT}")),
+            origin: Some(ALLOWED_ORIGIN.into()),
+            token: Some(self.token.clone()),
+            body_len: body.to_string().len(),
+            body,
+        };
+        let job: Job = (
+            Box::new(req),
+            Box::new(move |reply: Reply| done(interpret_probe(&reply))),
         );
+        if let Err(e) = self.tx.try_send(job) {
+            let (mpsc::TrySendError::Full((_, d)) | mpsc::TrySendError::Disconnected((_, d))) = e;
+            d(Reply::early(503, "legacy bridge busy", None));
+        }
+    }
+}
+
+/// The service's text for `rpc-call` before `start-wallet-node` succeeded.
+const NO_NODE: &str = "No RPC Client initialized";
+
+/// Map the reply of the synthetic `getblockchaininfo` call.
+fn interpret_probe(reply: &Reply) -> socketio::Probe {
+    if reply.status == 503 {
+        return socketio::Probe::Skip;
+    }
+    if reply.status == 200 {
+        let data = &reply.body["data"];
+        return match data["blocks"].as_u64() {
+            Some(height) => socketio::Probe::Info {
+                height,
+                headers: data["headers"].as_u64().unwrap_or(height),
+            },
+            None => socketio::Probe::Error("getblockchaininfo returned no block height".into()),
+        };
+    }
+    match reply.body["error"].as_str() {
+        Some(NO_NODE) => socketio::Probe::NotConnected,
+        Some(e) => socketio::Probe::Error(e.to_string()),
+        None => socketio::Probe::Error(format!("node call failed with HTTP {}", reply.status)),
     }
 }
 
@@ -669,14 +775,14 @@ mod tests {
     fn forwarded(t: Translated) -> HttpRequest {
         match t {
             Translated::Forward(r) => *r,
-            Translated::Answer(r) => panic!("expected forward, got {r:?}"),
+            other => panic!("expected forward, got {other:?}"),
         }
     }
 
     fn answered(t: Translated) -> Reply {
         match t {
             Translated::Answer(r) => r,
-            Translated::Forward(r) => panic!("expected answer, got {r:?}"),
+            other => panic!("expected answer, got {other:?}"),
         }
     }
 
@@ -759,16 +865,31 @@ mod tests {
     }
 
     #[test]
-    fn socket_io_and_foreign_hosts_are_answered_early() {
+    fn socket_io_is_routed_to_the_engine_and_foreign_hosts_are_answered_early() {
         for p in [
             "http://tlapi.localhost/socket.io/?EIO=4&transport=polling",
             "http://tlapi.localhost/socket.io/",
             "http://tlapi.localhost/socket.io",
         ] {
-            let a = answered(translate(&req("GET", p, Some(ALLOWED_ORIGIN), b""), TOKEN));
-            assert_eq!(a.status, 404, "{p}");
-            assert!(a.body["error"].as_str().unwrap().contains("socket.io"));
+            let t = translate(&req("GET", p, Some(ALLOWED_ORIGIN), b""), TOKEN);
+            assert!(matches!(t, Translated::SocketIo), "{p}");
         }
+        // A non-JSON socket.io POST body never reaches the JSON parser.
+        let t = translate(
+            &req(
+                "POST",
+                "http://tlapi.localhost/socket.io/?EIO=4&transport=polling&sid=x",
+                Some(ALLOWED_ORIGIN),
+                b"40",
+            ),
+            TOKEN,
+        );
+        assert!(matches!(t, Translated::SocketIo));
+        let a = answered(translate(
+            &req("GET", "http://evil.example/socket.io/", None, b""),
+            TOKEN,
+        ));
+        assert_eq!(a.status, 403);
         let a = answered(translate(
             &req("POST", "http://evil.example/api/rpc-call", None, b"{}"),
             TOKEN,
@@ -807,6 +928,7 @@ mod tests {
         let reply = match translate(&r, TOKEN) {
             Translated::Answer(a) => a,
             Translated::Forward(q) => Reply::from_service(f.svc.handle(&q), preflight),
+            Translated::SocketIo => panic!("socket.io is not a service request"),
         };
         reply.into_response()
     }
@@ -1031,6 +1153,156 @@ mod tests {
         let r = rx.recv_timeout(Duration::from_secs(5)).unwrap();
         assert_eq!(r.status, 500);
         assert_eq!(r.body["error"], "config: bad");
+    }
+
+    fn probe_reply(status: u16, body: Value) -> Reply {
+        Reply {
+            status,
+            body,
+            allow_origin: None,
+            preflight: false,
+        }
+    }
+
+    #[test]
+    fn probe_replies_map_to_node_states() {
+        use socketio::Probe;
+        let ok = probe_reply(
+            200,
+            json!({ "data": { "blocks": 12, "headers": 15, "chain": "main" } }),
+        );
+        assert_eq!(
+            interpret_probe(&ok),
+            Probe::Info {
+                height: 12,
+                headers: 15
+            }
+        );
+        let no_headers = probe_reply(200, json!({ "data": { "blocks": 3 } }));
+        assert_eq!(
+            interpret_probe(&no_headers),
+            Probe::Info {
+                height: 3,
+                headers: 3
+            }
+        );
+        let odd = probe_reply(200, json!({ "data": {} }));
+        assert!(matches!(interpret_probe(&odd), Probe::Error(_)));
+        let none = probe_reply(500, json!({ "error": "No RPC Client initialized" }));
+        assert_eq!(interpret_probe(&none), Probe::NotConnected);
+        let down = probe_reply(
+            500,
+            json!({ "error": "request failed: connection refused" }),
+        );
+        assert_eq!(
+            interpret_probe(&down),
+            Probe::Error("request failed: connection refused".into())
+        );
+        assert_eq!(
+            interpret_probe(&probe_reply(503, json!({ "error": "legacy bridge busy" }))),
+            Probe::Skip
+        );
+        assert!(matches!(
+            interpret_probe(&probe_reply(500, Value::Null)),
+            Probe::Error(_)
+        ));
+    }
+
+    fn wait<T>(rx: &mpsc::Receiver<T>) -> T {
+        rx.recv_timeout(Duration::from_secs(5)).unwrap()
+    }
+
+    fn dispatch_to(
+        b: &Bridge,
+        r: http::Request<Vec<u8>>,
+    ) -> mpsc::Receiver<http::Response<Vec<u8>>> {
+        let (tx, rx) = mpsc::channel();
+        b.dispatch(r, Box::new(move |resp| tx.send(resp).unwrap()));
+        rx
+    }
+
+    fn text_of(r: &http::Response<Vec<u8>>) -> String {
+        String::from_utf8(r.body().clone()).unwrap()
+    }
+
+    #[test]
+    fn the_bridge_serves_socket_io_and_block_events_from_the_node() {
+        let token = SessionToken::from_hex(TOKEN).unwrap();
+        let t2 = token.clone();
+        let bridge = Bridge::start_with(
+            move || {
+                let conn = MemConnector::default();
+                conn.node
+                    .script("getblockchaininfo", json!({ "blocks": 42, "headers": 50 }));
+                let store = MemStore::default();
+                store.0.borrow_mut().files.insert(
+                    "/ltc/litecoin.conf".into(),
+                    "rpcuser=u\nrpcpassword=p\nrpcport=9332\n".into(),
+                );
+                Ok(WalletService::new(
+                    gate(t2),
+                    Box::new(RefuseKeys),
+                    Box::new(RefuseSigner),
+                    Box::new(store),
+                    Box::new(conn),
+                    Box::new(MemRelayer::default()),
+                    vec![],
+                    "/ltc".into(),
+                ))
+            },
+            &token,
+            socketio::Config {
+                ping_interval_ms: 150,
+                ping_timeout_ms: 100,
+                probe_interval_ms: 20,
+            },
+        )
+        .unwrap();
+        let base = "http://tlapi.localhost/socket.io/?EIO=4&transport=polling";
+        let get = |url: &str| {
+            wait(&dispatch_to(
+                &bridge,
+                req("GET", url, Some(ALLOWED_ORIGIN), b""),
+            ))
+        };
+        let open = get(base);
+        assert_eq!(open.status(), 200);
+        assert_eq!(acao(&open), Some(ALLOWED_ORIGIN));
+        let sid = serde_json::from_str::<Value>(&text_of(&open)[1..]).unwrap()["sid"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let url = format!("{base}&sid={sid}");
+        let post = wait(&dispatch_to(
+            &bridge,
+            req("POST", &url, Some(ALLOWED_ORIGIN), b"40"),
+        ));
+        assert_eq!(text_of(&post), "ok");
+        assert!(text_of(&get(&url)).starts_with("40{"));
+        // No node started yet: the poll only pings.
+        assert_eq!(text_of(&get(&url)), "2");
+        // Start the node through the JSON API; a block then arrives as a socket event.
+        let start = wait(&dispatch_to(
+            &bridge,
+            req(
+                "POST",
+                "http://tlapi.localhost/api/start-wallet-node",
+                Some(ALLOWED_ORIGIN),
+                br#"{"network":"LTC"}"#,
+            ),
+        ));
+        assert_eq!(start.status(), 200, "{}", text_of(&start));
+        let mut seen = String::new();
+        for _ in 0..40 {
+            seen = text_of(&get(&url));
+            if seen.contains("new-block") {
+                break;
+            }
+        }
+        assert_eq!(seen, r#"42["new-block",{"height":42,"header":50}]"#);
+        // The JSON path is unaffected by the socket.io session.
+        let r = get("http://tlapi.localhost/nope");
+        assert_eq!(r.status(), 405);
     }
 
     #[test]
