@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "The bundled UI may call only the wallet's own commands; no core plugins, no fs, shell, http or remote URLs.",
+  "windows": ["main"],
+  "permissions": []
+}

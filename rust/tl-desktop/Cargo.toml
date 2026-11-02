@@ -1,0 +1,25 @@
+[package]
+name = "tl-desktop"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+description = "TradeLayer desktop wallet: Tauri 2 shell over tl-desktop-core"
+license = "ISC"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+getrandom = "0.3"
+tl-desktop-core = { path = "../tl-desktop-core" }
+tl-wallet-core = { git = "https://github.com/tradelayer-wallet/TL-Extension", rev = "0f296d6310e4e4eb4d4de08744d72eee0cb934c0" }
+tl-rpc-client = { git = "https://github.com/tradelayer-wallet/tl-rpc", rev = "398d8cb80ec466cd1aace352d18c9449343e5848" }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true

@@ -1,0 +1,35 @@
+name: Rust tl-desktop
+on:
+  pull_request:
+    paths: ['rust/tl-desktop/**', 'rust/tl-desktop-core/**', '.github/workflows/rust-tl-desktop.yml']
+  push:
+    branches: [master]
+    paths: ['rust/tl-desktop/**', 'rust/tl-desktop-core/**', '.github/workflows/rust-tl-desktop.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt --component clippy
+      - name: Fetch pinned crates
+        working-directory: rust/tl-desktop
+        run: cargo fetch --locked
+      - name: Unit tests
+        working-directory: rust/tl-desktop
+        run: cargo test --locked --offline
+      - name: Clippy
+        working-directory: rust/tl-desktop
+        run: cargo clippy --locked --offline --all-targets -- -D warnings
+      - name: Format
+        working-directory: rust/tl-desktop
+        run: cargo fmt --all -- --check
+      - name: Release build
+        working-directory: rust/tl-desktop
+        run: cargo build --locked --offline --release

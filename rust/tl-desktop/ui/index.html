@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TradeLayer Desktop</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>TradeLayer Desktop</h1>
+    <div class="chips">
+      <span id="chip-network" class="chip">network ?</span>
+      <span id="chip-node" class="chip">node ?</span>
+      <button id="btn-lock" class="ghost" hidden>Lock</button>
+    </div>
+  </header>
+
+  <main>
+    <p id="error" class="error" role="alert" hidden></p>
+
+    <section id="view-setup" hidden>
+      <h2>Set up a wallet</h2>
+      <div class="card">
+        <h3>Create a new wallet</h3>
+        <label>Password <input id="create-pass" type="password" autocomplete="new-password"></label>
+        <label>Repeat password <input id="create-pass2" type="password" autocomplete="new-password"></label>
+        <button id="btn-create">Create</button>
+      </div>
+      <div class="card">
+        <h3>Import a recovery phrase</h3>
+        <label>12-word phrase <textarea id="import-phrase" rows="3" spellcheck="false" autocomplete="off"></textarea></label>
+        <label>Password <input id="import-pass" type="password" autocomplete="new-password"></label>
+        <button id="btn-import">Import</button>
+      </div>
+    </section>
+
+    <section id="view-backup" hidden>
+      <h2>Write down your recovery phrase</h2>
+      <p>It is shown once. Anyone with these words controls the funds.</p>
+      <ol id="backup-words" class="words"></ol>
+      <button id="btn-backup-done">I have written it down</button>
+    </section>
+
+    <section id="view-unlock" hidden>
+      <h2>Unlock</h2>
+      <div class="card">
+        <label>Password <input id="unlock-pass" type="password" autocomplete="current-password"></label>
+        <button id="btn-unlock">Unlock</button>
+      </div>
+    </section>
+
+    <section id="view-wallet" hidden>
+      <div class="card">
+        <h3>Balance</h3>
+        <p class="big"><span id="bal-confirmed">-</span> <span class="unit">coins</span></p>
+        <p class="muted">UTXOs <span id="bal-utxos">-</span> at height <span id="bal-height">-</span></p>
+        <p class="muted" id="bal-immature-row" hidden>Maturing mining rewards: <span id="bal-immature">-</span></p>
+        <button id="btn-refresh" class="ghost">Refresh</button>
+      </div>
+      <div class="card">
+        <h3>Receive</h3>
+        <p class="mono" id="receive-address">-</p>
+        <button id="btn-copy" class="ghost">Copy</button>
+      </div>
+      <div class="card">
+        <h3>Send</h3>
+        <label>To address <input id="send-to" type="text" spellcheck="false" autocomplete="off"></label>
+        <label>Amount (coins, up to 8 decimals) <input id="send-amount" type="text" inputmode="decimal" autocomplete="off"></label>
+        <label>Fee rate (sat/vB, blank = node estimate) <input id="send-fee" type="text" inputmode="numeric" autocomplete="off"></label>
+        <button id="btn-prepare">Review</button>
+      </div>
+      <div id="preview" class="card confirm" hidden>
+        <h3>Confirm this payment</h3>
+        <dl>
+          <dt>To</dt><dd class="mono" id="pv-to"></dd>
+          <dt>Amount</dt><dd id="pv-amount"></dd>
+          <dt>Network fee</dt><dd id="pv-fee"></dd>
+          <dt>Fee rate</dt><dd id="pv-rate"></dd>
+          <dt>Change back to you</dt><dd id="pv-change"></dd>
+          <dt>Inputs</dt><dd id="pv-inputs"></dd>
+          <dt>Expires</dt><dd id="pv-expiry"></dd>
+        </dl>
+        <div class="row">
+          <button id="btn-confirm">Sign and broadcast</button>
+          <button id="btn-cancel" class="ghost">Cancel</button>
+        </div>
+      </div>
+      <p id="sent" class="ok" hidden>Broadcast <span class="mono" id="sent-txid"></span></p>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
