@@ -9,6 +9,7 @@ pub mod gate;
 pub mod market;
 pub mod mem;
 pub mod nodecfg;
+pub mod orderform;
 pub mod psbt;
 pub mod service;
 pub mod swap;

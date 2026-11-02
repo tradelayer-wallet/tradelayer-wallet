@@ -1,0 +1,673 @@
+{
+  "oracle": {
+    "files": {
+      "packages/wallet-fe/src/app/@pages/spot-page/spot-trading-grid/spot-buy-sell-card/spot-buy-sell-card.component.ts": "8084a278e0e587d51cae99f5effbde043db6b1c4",
+      "packages/wallet-fe/src/app/@pages/futures-page/futures-trading-grid/futures-buy-sell-card/futures-buy-sell-card.component.ts": "ad90f24e31051e353c79a2799a0a266e50de2bdc",
+      "packages/wallet-fe/src/app/utils/common.util.ts": "5581baadb1febe58125636eec9a7f5d578773e77"
+    },
+    "baseline_commit": "7ddba36ca06538510e6460df0ddece8a71fcb547",
+    "generated_by": "node scripts/compare-orderform.cjs --write"
+  },
+  "cases": [
+    {
+      "utxos": [
+        0.5,
+        0.2,
+        0.05
+      ],
+      "confirmed": 0.75,
+      "tokens": [
+        [
+          3,
+          10
+        ]
+      ],
+      "orders": [],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 0.5,
+      "amount": 0.2,
+      "id": "spot_ltc_quote_buy_fee_and_max",
+      "kind": "spot",
+      "first": 3,
+      "second": -1,
+      "price_sat": 50000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 120000,
+          "max_sat": 149760000,
+          "total": "0.1000 SECOND"
+        },
+        "sell": {
+          "fee_sat": 60000,
+          "max_sat": 1000000000,
+          "total": "0.2000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 0,
+          "-1": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        2
+      ],
+      "confirmed": 2,
+      "tokens": [
+        [
+          3,
+          10
+        ]
+      ],
+      "orders": [],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 0.25,
+      "amount": 1,
+      "id": "spot_ltc_quote_one_big_utxo",
+      "kind": "spot",
+      "first": 3,
+      "second": -1,
+      "price_sat": 25000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 120000,
+          "max_sat": 799520000,
+          "total": "0.2500 SECOND"
+        },
+        "sell": {
+          "fee_sat": 60000,
+          "max_sat": 1000000000,
+          "total": "1.0000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 0,
+          "-1": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ],
+      "confirmed": 0.06,
+      "tokens": [],
+      "orders": [],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 0.05,
+      "amount": 0.5,
+      "id": "spot_ltc_quote_many_small_utxos",
+      "kind": "spot",
+      "first": 3,
+      "second": -1,
+      "price_sat": 5000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 240000,
+          "max_sat": 115200000,
+          "total": "0.0250 SECOND"
+        },
+        "sell": {
+          "fee_sat": 60000,
+          "max_sat": 0,
+          "total": "0.5000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 0,
+          "-1": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        0.01,
+        0.002
+      ],
+      "confirmed": 0.012,
+      "tokens": [
+        [
+          3,
+          10
+        ],
+        [
+          5,
+          20
+        ]
+      ],
+      "orders": [],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 2,
+      "amount": 3,
+      "id": "spot_token_token",
+      "kind": "spot",
+      "first": 3,
+      "second": 5,
+      "price_sat": 200000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 60000,
+          "max_sat": 1000000000,
+          "total": "6.0000 SECOND"
+        },
+        "sell": {
+          "fee_sat": 60000,
+          "max_sat": 1000000000,
+          "total": "3.0000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 0,
+          "5": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        0.01
+      ],
+      "confirmed": 0.01,
+      "tokens": [
+        [
+          3,
+          10
+        ],
+        [
+          5,
+          20
+        ]
+      ],
+      "orders": [
+        {
+          "asset": 5,
+          "amount": 1,
+          "price": 2
+        }
+      ],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 2,
+      "amount": 3,
+      "id": "spot_token_token_open_buy_order",
+      "kind": "spot",
+      "first": 3,
+      "second": 5,
+      "price_sat": 200000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 60000,
+          "max_sat": 900000000,
+          "total": "6.0000 SECOND"
+        },
+        "sell": {
+          "fee_sat": 60000,
+          "max_sat": 1000000000,
+          "total": "3.0000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 0,
+          "5": 200000000
+        }
+      }
+    },
+    {
+      "utxos": [
+        0.01
+      ],
+      "confirmed": 0.01,
+      "tokens": [
+        [
+          3,
+          10
+        ],
+        [
+          5,
+          0.2
+        ]
+      ],
+      "orders": [],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 0.3,
+      "amount": 0.1,
+      "id": "spot_max_rounds_up_over_balance",
+      "kind": "spot",
+      "first": 3,
+      "second": 5,
+      "price_sat": 30000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 60000,
+          "max_sat": 66666700,
+          "total": "0.0300 SECOND"
+        },
+        "sell": {
+          "fee_sat": 60000,
+          "max_sat": 1000000000,
+          "total": "0.1000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 0,
+          "5": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        0.01
+      ],
+      "confirmed": 0.01,
+      "tokens": [
+        [
+          3,
+          10
+        ],
+        [
+          5,
+          0.9
+        ]
+      ],
+      "orders": [],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 0.3,
+      "amount": 0.1,
+      "id": "spot_max_exact_division",
+      "kind": "spot",
+      "first": 3,
+      "second": 5,
+      "price_sat": 30000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 60000,
+          "max_sat": 300000000,
+          "total": "0.0300 SECOND"
+        },
+        "sell": {
+          "fee_sat": 60000,
+          "max_sat": 1000000000,
+          "total": "0.1000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 0,
+          "5": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        0.01
+      ],
+      "confirmed": 0.01,
+      "tokens": [
+        [
+          3,
+          10
+        ],
+        [
+          5,
+          20
+        ]
+      ],
+      "orders": [
+        {
+          "asset": 3,
+          "amount": 4,
+          "price": 3,
+          "side": "SELL"
+        }
+      ],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 2,
+      "amount": 1,
+      "id": "spot_open_sell_order_reservation",
+      "kind": "spot",
+      "first": 3,
+      "second": 5,
+      "price_sat": 200000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 60000,
+          "max_sat": 1000000000,
+          "total": "2.0000 SECOND"
+        },
+        "sell": {
+          "fee_sat": 60000,
+          "max_sat": 0,
+          "total": "1.0000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 1200000000,
+          "5": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        1,
+        1,
+        1
+      ],
+      "confirmed": 3,
+      "tokens": [
+        [
+          3,
+          100
+        ]
+      ],
+      "orders": [],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 0.1,
+      "amount": 2,
+      "id": "spot_ltc_base_sell",
+      "kind": "spot",
+      "first": -1,
+      "second": 3,
+      "price_sat": 10000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 60000,
+          "max_sat": 100000000000,
+          "total": "0.2000 SECOND"
+        },
+        "sell": {
+          "fee_sat": 120000,
+          "max_sat": 299880000,
+          "total": "2.0000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 0,
+          "-1": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        1
+      ],
+      "confirmed": 1,
+      "tokens": [
+        [
+          3,
+          10
+        ]
+      ],
+      "orders": [
+        {
+          "asset": 3,
+          "amount": 1,
+          "price": 1
+        },
+        {
+          "asset": 3,
+          "amount": 1,
+          "price": 1
+        }
+      ],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 0.5,
+      "amount": 1,
+      "id": "spot_ltc_fee_reserve_per_open_order",
+      "kind": "spot",
+      "first": 3,
+      "second": -1,
+      "price_sat": 50000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 120000,
+          "max_sat": 199360000,
+          "total": "0.5000 SECOND"
+        },
+        "sell": {
+          "fee_sat": 60000,
+          "max_sat": 800000000,
+          "total": "1.0000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 200000000,
+          "-1": 200000
+        }
+      }
+    },
+    {
+      "utxos": [
+        0.01
+      ],
+      "confirmed": 0.01,
+      "tokens": [
+        [
+          3,
+          10
+        ],
+        [
+          5,
+          20
+        ]
+      ],
+      "orders": [],
+      "isLimit": false,
+      "currentPrice": 0,
+      "price": 2,
+      "amount": 3,
+      "id": "spot_market_order_no_price",
+      "kind": "spot",
+      "first": 3,
+      "second": 5,
+      "price_sat": 200000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 60000,
+          "max_sat": null,
+          "total": "6.0000 SECOND"
+        },
+        "sell": {
+          "fee_sat": 60000,
+          "max_sat": 1000000000,
+          "total": "3.0000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 0,
+          "5": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        0.01
+      ],
+      "confirmed": 0.01,
+      "tokens": [
+        [
+          3,
+          10
+        ],
+        [
+          5,
+          20
+        ]
+      ],
+      "orders": [],
+      "isLimit": false,
+      "currentPrice": 4,
+      "price": 2,
+      "amount": 3,
+      "id": "spot_market_order_with_price",
+      "kind": "spot",
+      "first": 3,
+      "second": 5,
+      "price_sat": 200000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 60000,
+          "max_sat": 500000000,
+          "total": "6.0000 SECOND"
+        },
+        "sell": {
+          "fee_sat": 60000,
+          "max_sat": 1000000000,
+          "total": "3.0000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 0,
+          "5": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        1
+      ],
+      "confirmed": 1,
+      "tokens": [
+        [
+          3,
+          10
+        ]
+      ],
+      "orders": [],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": null,
+      "amount": null,
+      "id": "spot_empty_form",
+      "kind": "spot",
+      "first": 3,
+      "second": -1,
+      "price_sat": null,
+      "legacy": {
+        "buy": {
+          "fee_sat": 0,
+          "max_sat": 0,
+          "total": "0.0000 SECOND"
+        },
+        "sell": {
+          "fee_sat": 0,
+          "max_sat": 0,
+          "total": "0.0000 FIRST"
+        },
+        "in_order_sat": {
+          "3": 0,
+          "-1": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        0.01,
+        0.002
+      ],
+      "confirmed": 0.012,
+      "tokens": [
+        [
+          5,
+          20
+        ]
+      ],
+      "orders": [],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 2,
+      "amount": 3,
+      "id": "futures_collateral_token",
+      "kind": "futures",
+      "collateral": 5,
+      "price_sat": 200000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 180000,
+          "max_sat": 1000000000
+        },
+        "sell": {
+          "fee_sat": 180000,
+          "max_sat": 2000000000
+        },
+        "in_order_sat": {
+          "5": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        0.01
+      ],
+      "confirmed": 0.01,
+      "tokens": [
+        [
+          5,
+          20
+        ]
+      ],
+      "orders": [],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 4,
+      "amount": 1,
+      "id": "futures_sell_max_ignores_price",
+      "kind": "futures",
+      "collateral": 5,
+      "price_sat": 400000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 120000,
+          "max_sat": 500000000
+        },
+        "sell": {
+          "fee_sat": 120000,
+          "max_sat": 2000000000
+        },
+        "in_order_sat": {
+          "5": 0
+        }
+      }
+    },
+    {
+      "utxos": [
+        0.01
+      ],
+      "confirmed": 0.01,
+      "tokens": [
+        [
+          5,
+          20
+        ]
+      ],
+      "orders": [
+        {
+          "asset": 5,
+          "amount": 2,
+          "price": 3
+        }
+      ],
+      "isLimit": true,
+      "currentPrice": 0,
+      "price": 2,
+      "amount": 1,
+      "id": "futures_open_order_collateral",
+      "kind": "futures",
+      "collateral": 5,
+      "price_sat": 200000000,
+      "legacy": {
+        "buy": {
+          "fee_sat": 120000,
+          "max_sat": 700000000
+        },
+        "sell": {
+          "fee_sat": 120000,
+          "max_sat": 1400000000
+        },
+        "in_order_sat": {
+          "5": 600000000
+        }
+      }
+    }
+  ]
+}
