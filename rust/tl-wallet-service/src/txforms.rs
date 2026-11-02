@@ -15,19 +15,19 @@
 //! * integer controls were `parseFloat`ed: `1.5`, `abc` (NaN -> JSON null) and negative ids reached
 //!   the node; amounts were `value.toString()` of a JS number, which prints exponents (`1e-7`) the
 //!   node rejects. Ids are strict positive integers, amounts decimals of at most 8 places, sent
-//!   without exponent (`build-tab.component.ts:93-96`);
+//!   without exponent (`tx-builder-page/build-tab/build-tab.component.ts:95-96`);
 //! * zero and negative amounts passed `Validators.required` (page build tab);
 //! * the send dialogs enabled the Build button while the recipient was still unchecked
 //!   (`isAddressValid === null`), and a missing `isvalid` field left the state `undefined`, also
 //!   enabled; the withdraw dialog's `validateAddress` body is commented out, so the recipient was
 //!   never validated at all. Building now requires a positive check (`AddressCheck::Valid`);
 //! * `validateAddress` read `error.message` when only `data` was empty, throwing a `TypeError`
-//!   (`send-ltc.tx-type.component.ts:57`); `parse_validateaddress` is total;
+//!   (`send-ltc.tx-type.component.ts:57`; the Build button test is `:39`); `parse_validateaddress` is total;
 //! * `changeKeyType` kept the previous pubkey when switching to HARDWARE/SERVER, and nothing could
-//!   enter a pubkey for those types (`new-multisig.component.ts:99-107,89-92`); pubkeys were never
-//!   checked for validity or uniqueness (`:75`);
+//!   enter a pubkey for those types (`new-multisig.component.ts:114,117-126`); pubkeys were never
+//!   checked for validity or uniqueness (`:72`);
 //! * the sign tab mapped a coinbase input (no `txid`) to `{txid: undefined}`
-//!   (`sign-tab.component.ts:71`).
+//!   (`tabs/sign/sign-tab.component.ts:129`).
 //!
 //! Preserved: withdraw minimum 0.001, withdraw maximum = confirmed LTC (a plain send takes the fee
 //! out of the amount, see `txbuilder::FeePayer::Recipient`), property id 0 is not a valid id,

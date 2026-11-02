@@ -5,6 +5,7 @@
 
 pub mod amount;
 pub mod bridge;
+pub mod clientstate;
 pub mod gate;
 pub mod market;
 pub mod mem;
