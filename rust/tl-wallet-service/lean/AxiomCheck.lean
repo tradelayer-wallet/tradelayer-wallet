@@ -43,3 +43,28 @@ import TlWalletService
 #print axioms TlWalletService.TxBuilder.planInstant_conserves
 #print axioms TlWalletService.TxBuilder.finishInstant_buyer_min
 #print axioms TlWalletService.TxBuilder.planInstant_keeps_commit_utxos
+
+-- order form
+#print axioms TlWalletService.OrderForm.cost_ge
+#print axioms TlWalletService.OrderForm.cost_mono
+#print axioms TlWalletService.OrderForm.maxBuy_affordable
+#print axioms TlWalletService.OrderForm.maxBuy_maximal
+#print axioms TlWalletService.OrderForm.sell_commits_amount
+#print axioms TlWalletService.OrderForm.accepts_within_available
+#print axioms TlWalletService.OrderForm.acceptsLtc_within_available
+#print axioms TlWalletService.OrderForm.accepts_positive
+#print axioms TlWalletService.OrderForm.max_buy_accepted
+#print axioms TlWalletService.OrderForm.max_buy_plus_one_refused
+#print axioms TlWalletService.OrderForm.countInputs_mono
+#print axioms TlWalletService.OrderForm.feeLtc_bound
+#print axioms TlWalletService.OrderForm.fitsLtc_downward
+
+-- transaction forms
+#print axioms TlWalletService.Forms.reqUp_inv
+#print axioms TlWalletService.Forms.reqDown_inv
+#print axioms TlWalletService.Forms.allUp_inv
+#print axioms TlWalletService.Forms.allDown_inv
+#print axioms TlWalletService.Forms.edited_blocks_build
+#print axioms TlWalletService.Forms.only_valid_builds
+#print axioms TlWalletService.Forms.withdraw_needs_validated_recipient
+#print axioms TlWalletService.Forms.withdraw_within_bounds
