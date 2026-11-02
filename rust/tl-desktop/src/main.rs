@@ -3,10 +3,14 @@
 //! There is no local HTTP server and no Node process. The bundled UI calls the commands below
 //! over Tauri IPC; the wallet lives on one dedicated thread (the node client blocks on its own
 //! runtime) and every command is a message to that thread. Keys never leave Rust.
+//!
+//! The `tlapi` custom URI scheme (`legacy.rs`) serves the original Angular UI's legacy HTTP API
+//! from a second dedicated thread, again without a socket.
 #![forbid(unsafe_code)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod config;
+mod legacy;
 mod node;
 
 use serde::Serialize;
@@ -275,12 +279,21 @@ async fn cancel_send(h: tauri::State<'_, WalletHandle>, plan_id: String) -> Resu
 
 fn main() {
     tauri::Builder::default()
+        .register_asynchronous_uri_scheme_protocol("tlapi", |ctx, request, responder| {
+            match ctx.app_handle().try_state::<legacy::Bridge>() {
+                Some(bridge) => bridge.serve(request, responder),
+                None => responder.respond(legacy::unavailable()),
+            }
+        })
         .setup(|app| {
             let config_path = match std::env::var_os("TL_DESKTOP_CONFIG") {
                 Some(p) => PathBuf::from(p),
                 None => app.path().app_config_dir()?.join("config.json"),
             };
             let data_dir = app.path().app_data_dir()?;
+            let node_dir =
+                legacy::default_node_dir(&app.path().data_dir()?, &app.path().home_dir()?);
+            app.manage(legacy::start(config::load_legacy(&config_path), node_dir)?);
             app.manage(start_wallet_thread(config_path, data_dir)?);
             Ok(())
         })

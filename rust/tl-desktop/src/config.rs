@@ -8,6 +8,9 @@
 //! ```
 //! Location: `$TL_DESKTOP_CONFIG`, else `<app config dir>/config.json`. The vault lives in
 //! `<data_dir or app data dir>/<network id>/`.
+//!
+//! Optional fields for the legacy-API bridge (see `LegacySettings`): `node_data_dir` (absolute),
+//! `relayer_hosts` (bare hostnames; default none).
 
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -30,6 +33,11 @@ struct RawConfig {
     data_dir: Option<PathBuf>,
     #[serde(default)]
     idle_lock_minutes: Option<u64>,
+    /// Read by the legacy bridge (`load_legacy`); validated here too so one bad file fails early.
+    #[serde(default)]
+    node_data_dir: Option<PathBuf>,
+    #[serde(default)]
+    relayer_hosts: Option<Vec<String>>,
 }
 
 pub struct DesktopConfig {
@@ -61,6 +69,74 @@ fn read_bounded(path: &Path) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
 }
 
+/// Settings for the legacy-API bridge (`legacy.rs`), read from the same file.
+///
+/// * `node_data_dir`: the only directory the legacy UI may read `litecoin.conf` from or create it
+///   in (default: the platform Litecoin data dir). Must be absolute.
+/// * `relayer_hosts`: hostnames the UI may name as its relayer API (default empty: relayer off).
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct LegacySettings {
+    pub node_data_dir: Option<PathBuf>,
+    pub relayer_hosts: Vec<String>,
+}
+
+/// Lenient view of the file: the legacy bridge needs neither `node_url` nor RPC credentials, so a
+/// file written for the wallet window (or none at all) never blocks it.
+#[derive(Deserialize)]
+struct LegacyRaw {
+    #[serde(default)]
+    node_data_dir: Option<PathBuf>,
+    #[serde(default)]
+    relayer_hosts: Option<Vec<String>>,
+}
+
+const MAX_RELAYER_HOSTS: usize = 16;
+
+fn valid_host(h: &str) -> bool {
+    !h.is_empty()
+        && h.len() <= 253
+        && !h.starts_with(['.', '-'])
+        && !h.ends_with(['.', '-'])
+        && !h.contains("..")
+        && h.bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'-')
+}
+
+fn validate_legacy(
+    node_data_dir: Option<PathBuf>,
+    relayer_hosts: Option<Vec<String>>,
+) -> Result<LegacySettings, String> {
+    if let Some(d) = &node_data_dir {
+        if !d.is_absolute() {
+            return Err("config: node_data_dir must be an absolute path".into());
+        }
+    }
+    let hosts = relayer_hosts.unwrap_or_default();
+    if hosts.len() > MAX_RELAYER_HOSTS {
+        return Err("config: too many relayer_hosts".into());
+    }
+    let hosts: Vec<String> = hosts.iter().map(|h| h.to_ascii_lowercase()).collect();
+    if let Some(bad) = hosts.iter().find(|h| !valid_host(h)) {
+        return Err(format!(
+            "config: relayer_hosts entry {bad:?} is not a bare hostname"
+        ));
+    }
+    Ok(LegacySettings {
+        node_data_dir,
+        relayer_hosts: hosts,
+    })
+}
+
+/// Legacy-bridge settings from the config file. A missing file means the defaults.
+pub fn load_legacy(path: &Path) -> Result<LegacySettings, String> {
+    if !path.exists() {
+        return Ok(LegacySettings::default());
+    }
+    let text = read_bounded(path)?;
+    let raw: LegacyRaw = serde_json::from_str(&text).map_err(|e| format!("config: {e}"))?;
+    validate_legacy(raw.node_data_dir, raw.relayer_hosts)
+}
+
 /// Parse a config file. `default_data_dir` is used when the file names no `data_dir`.
 pub fn load(path: &Path, default_data_dir: &Path) -> Result<DesktopConfig, String> {
     let text = read_bounded(path)?;
@@ -86,6 +162,7 @@ pub fn parse(text: &str, default_data_dir: &Path) -> Result<DesktopConfig, Strin
             )
         }
     };
+    validate_legacy(raw.node_data_dir, raw.relayer_hosts)?;
     let idle_minutes = raw.idle_lock_minutes.unwrap_or(10);
     if !(1..=24 * 60).contains(&idle_minutes) {
         return Err("config: idle_lock_minutes must be 1..=1440".into());
@@ -118,6 +195,77 @@ mod tests {
         assert_eq!(c.vault_dir, Path::new("/data").join("BTCREGTEST"));
         assert_eq!(c.idle_lock_ms, 600_000);
         assert!(!format!("{c:?}").contains("\"p\""));
+    }
+
+    #[test]
+    fn legacy_fields_parse_and_are_validated() {
+        let base = r#"{"network":"BTCREGTEST","node_url":"x","rpc_user":"u","rpc_password":"p""#;
+        let d = Path::new("/data");
+        let abs = if cfg!(windows) { "C:/ltc" } else { "/ltc" };
+        assert!(parse(
+            &format!(r#"{base},"node_data_dir":"{abs}","relayer_hosts":["Relayer.Example"]}}"#),
+            d
+        )
+        .is_ok());
+        assert!(parse(&format!(r#"{base},"node_data_dir":"relative"}}"#), d).is_err());
+        assert!(parse(
+            &format!(r#"{base},"relayer_hosts":["https://r.example"]}}"#),
+            d
+        )
+        .is_err());
+
+        let s = validate_legacy(
+            Some(PathBuf::from(abs)),
+            Some(vec!["Relayer.Example".into()]),
+        )
+        .unwrap();
+        assert_eq!(s.relayer_hosts, vec!["relayer.example".to_string()]);
+        assert_eq!(
+            validate_legacy(None, None).unwrap(),
+            LegacySettings::default()
+        );
+        for bad in [
+            "",
+            "a b",
+            "r.example:443",
+            "r.example/x",
+            ".r",
+            "r..e",
+            "-r",
+            "a_b",
+            "r.example.",
+        ] {
+            assert!(
+                validate_legacy(None, Some(vec![bad.into()])).is_err(),
+                "{bad:?}"
+            );
+        }
+        assert!(validate_legacy(None, Some(vec!["a.example".into(); 17])).is_err());
+    }
+
+    #[test]
+    fn legacy_settings_load_independently_of_the_wallet_fields() {
+        let dir = std::env::temp_dir().join(format!("tl-cfg-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("config.json");
+        assert_eq!(
+            load_legacy(&dir.join("absent.json")).unwrap(),
+            LegacySettings::default()
+        );
+        std::fs::write(
+            &f,
+            r#"{"relayer_hosts":["r.example"],"network":"BTCREGTEST","anything":1}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            load_legacy(&f).unwrap().relayer_hosts,
+            vec!["r.example".to_string()]
+        );
+        std::fs::write(&f, r#"{"relayer_hosts":"r.example"}"#).unwrap();
+        assert!(load_legacy(&f).is_err());
+        std::fs::write(&f, "not json").unwrap();
+        assert!(load_legacy(&f).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

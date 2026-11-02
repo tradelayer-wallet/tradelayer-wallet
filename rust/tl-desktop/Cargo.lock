@@ -3881,6 +3881,7 @@ name = "tl-desktop"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.3.4",
+ "reqwest 0.12.24",
  "serde",
  "serde_json",
  "tauri",
@@ -3888,6 +3889,7 @@ dependencies = [
  "tl-desktop-core",
  "tl-rpc-client",
  "tl-wallet-core",
+ "tl-wallet-service",
 ]
 
 [[package]]
@@ -3927,6 +3929,14 @@ dependencies = [
  "sha2",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "tl-wallet-service"
+version = "0.1.0"
+dependencies = [
+ "bitcoin",
+ "serde_json",
 ]
 
 [[package]]

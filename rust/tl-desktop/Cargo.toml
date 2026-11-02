@@ -16,6 +16,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 getrandom = "0.3"
 tl-desktop-core = { path = "../tl-desktop-core" }
+tl-wallet-service = { path = "../tl-wallet-service" }
+reqwest = { version = "=0.12.24", default-features = false, features = ["blocking", "rustls-tls"] }
 tl-wallet-core = { git = "https://github.com/tradelayer-wallet/TL-Extension", rev = "0f296d6310e4e4eb4d4de08744d72eee0cb934c0" }
 tl-rpc-client = { git = "https://github.com/tradelayer-wallet/tl-rpc", rev = "398d8cb80ec466cd1aace352d18c9449343e5848" }
 
