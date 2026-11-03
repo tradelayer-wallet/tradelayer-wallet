@@ -14,7 +14,8 @@ the Node `wallet-server` (`packages/wallet-server/`).
 | Electron wallet | tl-desktop |
 |---|---|
 | Node `wallet-server` on `localhost:1986` (Fastify + socket.io, no authentication; see `rust/tl-wallet-service/README.md`) | No listening socket. The UI's `homeApiUrl` is `http://tlapi.localhost`, a Tauri custom URI scheme served in-process (`src/legacy.rs`) by `tl-wallet-service`, so only this webview can reach it. The bridge holds the session token itself. |
-| socket.io server for the main socket, `new-block`, `core-error` and the orderbook relay | `src/socketio.rs`: Engine.IO v4 long-polling + socket.io v5 on the same scheme; `new-block`/`core-error` from a 5 s `getblockchaininfo` probe through the same gate as page calls |
+| socket.io server for the main socket, `new-block`, `core-error` | `src/socketio.rs`: Engine.IO v4 long-polling + socket.io v5 on the same scheme; `new-block`/`core-error` from a 5 s `getblockchaininfo` probe through the same gate as page calls |
+| `ob-sockets.service.ts`: a socket.io client to whatever orderbook URL the page names, relaying `OB_SOCKET::*` events, the order events and `<socketId>::swap` | `src/obrelay.rs`: the same relay, with an Engine.IO v4 polling client in Rust. Server→UI: `connect`/`disconnect`/`connect_error` and `order:error`, `order:saved`, `placed-orders`, `orderbook-data`, `update-orders-request`, `new-channel` as `OB_SOCKET::<name>`; UI→server: `update-orderbook`, `new-order`, `close-order`, `many-orders`; `<own socket id>::swap` out and `<counterparty>::swap` in after `new-channel`. Only origins in `orderbook_urls` are contacted (legacy connected to any URL); event names outside these lists are dropped; payloads are bounded |
 | `rpc-call` forwards any node method, including `dumpprivkey` | `tl-wallet-service` gate method allowlist (`dumpprivkey` answers 403) |
 | `keys/*` routes return mnemonic, private key and WIF to the page; `sign-tx`/`sign-psbt` take a WIF from the page | Refused in the desktop build. This wallet-fe snapshot is a node-wallet UI (addresses from `getaddressesbylabel`, `getWifByAddress` returns `''`), so the UI does not use them |
 | Electron main process: `window.require('electron')` IPC for the folder picker and auto-updater | `ui-shim/electron-shim.js`, loaded before the bundles, provides the `ipcRenderer` the UI calls. `check-version` is answered with the updater's "up to date" state (no auto-updater in this build); folder picker and download are dropped (the dialog keeps its text field) |
@@ -42,6 +43,8 @@ Angular UI does not call them yet.
   JSON-RPC client (loopback http or https, no proxy/redirects, 8 MiB cap), relayer client,
   `litecoin.conf` store restricted to `node_data_dir`.
 * `src/socketio.rs`: the socket.io server.
+* `src/obrelay.rs`: the orderbook relay (allowlist, packet codec, relay mapping, polling client
+  on its own threads).
 * `src/node.rs`: `NodeRpc` over `tl-rpc-client` for the Rust-held-key mode.
 * `src/config.rs`: config file.
 * `scripts/build-ui.mjs`: builds `packages/wallet-fe` (configuration `tauri`) in a scratch copy
@@ -57,14 +60,17 @@ Angular UI does not call them yet.
   "node_url": "http://127.0.0.1:19332",
   "rpc_cookie_file": "C:/path/to/.cookie",
   "node_data_dir": "C:/Users/<you>/AppData/Roaming/Litecoin",
-  "relayer_hosts": [] }
+  "relayer_hosts": [],
+  "orderbook_urls": ["http://172.81.181.19:8190"] }
 ```
 
 `node_data_dir` (default `%APPDATA%\Litecoin`) is the only directory the legacy UI may read
 `litecoin.conf` from or create it in. `network`, `node_url` and the RPC credentials
 (`rpc_cookie_file` or `rpc_user` + `rpc_password`) configure the Rust-held-key mode; `data_dir`
 holds its vaults, one per network id. `relayer_hosts` lists the hosts the UI may name as its
-relayer API (default none).
+relayer API (default none). `orderbook_urls` lists the exact orderbook origins the relay may
+connect to (at most 16; default the two orderbook URLs of `environment.ENDPOINTS`,
+`http://172.81.181.19:9190` and `:8190`; `[]` turns the relay off).
 
 ## Commands and results (2026-11-02/03, Windows 11, MSVC 14.44, Rust 1.90.0, Node 24.19)
 
@@ -72,7 +78,7 @@ relayer API (default none).
 node scripts\build-ui.mjs                            :: UI_BUILD_OK (Angular build ~5 min)
 call "...\VC\Auxiliary\Build\vcvars64.bat"
 cd rust\tl-desktop
-cargo test --locked                                  :: 58 passed
+cargo test --locked                                  :: 80 passed, 1 ignored
 cargo clippy --locked --all-targets -- -D warnings   :: clean
 cargo fmt --all -- --check                           :: clean
 cargo build --locked
@@ -92,6 +98,26 @@ with WebView2 remote debugging and drives the original UI:
 4. After 3 blocks are mined, the UI shows "Full Synchronized 8 / 8", "SYNCED" and "Block: 8"
    through `new-block`.
 5. The page throws no uncaught exceptions.
+
+`scripts/e2e-orderbook-relay.mjs <exe> <orderbook url>` exercises the relay against a running
+legacy `tl-orderbook-server`, from the page origin over the same `tlapi` socket.io endpoint the
+Angular `SocketService` uses. It printed `E2E_RELAY_OK`, covering:
+
+* a URL outside `orderbook_urls` gets `OB_SOCKET::connect_error` without being contacted;
+* `ob-sockets-connect` gets `OB_SOCKET::connect`;
+* `update-orderbook` gets `OB_SOCKET::orderbook-data`;
+* `new-order` gets `OB_SOCKET::order:saved`, and `OB_SOCKET::placed-orders` lists the order;
+* the orderbook holds the order, and `close-order` removes it;
+* `ob-sockets-disconnect` gets `OB_SOCKET::disconnect`.
+
+The orderbook server at tl-orderbook-server master `909332c` does not run as committed: the
+compiled `src/*.js` has a syntax error, and the TypeScript loads production LetsEncrypt
+certificates and has type errors. The test peer was the TypeScript transpiled with
+`tsc --noEmitOnError false` in a scratch copy, with two scratch-only changes: no TLS (plain HTTP
+on 127.0.0.1) and `import * as fs`.
+
+The ignored unit test `obrelay::tests::real_orderbook_server_round_trip` (`TL_OB_URL=<origin>`)
+passed against the same peer.
 
 The Rust-held-key mode has its own run, `scripts/e2e-regtest.mjs`, against a build of the `ui/`
 surface with the strict CSP. Set this before `cargo build`:
@@ -121,9 +147,12 @@ The lockfile holds about 400 packages, almost all from Tauri.
 
 ## Gaps
 
-* **Orderbook relay:** `ob-sockets-connect` answers `OB_SOCKET::connect_error`, so the UI shows
-  the orderbook as disconnected. Spot and futures trading need a socket.io client in Rust that
-  relays the remote orderbook.
+* **Trading screens disabled upstream:** in this wallet-fe snapshot the Spot and Futures routes
+  (`app-routing.module.ts`) and the Servers window (`windows.service.ts`) are commented out. No
+  screen opens an orderbook connection until those come back; the relay serves them when they do.
+  The relay was tested at the socket.io level, not through those screens.
+* **Untested against the hosted orderbook:** the relay has not been run against the hosted
+  orderbook servers or through a real two-party swap.
 * **TradeLayer RPCs** (`tl_*`) were not exercised. The regtest node is Bitcoin Core, and no
   TradeLayer-enabled Litecoin node is available here.
 * **Remote calls:**
