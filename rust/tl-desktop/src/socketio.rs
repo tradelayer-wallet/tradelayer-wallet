@@ -26,18 +26,22 @@
 //!
 //! ## Events
 //!
-//! * client `ob-sockets-connect`: the legacy server connected to the remote orderbook and relayed
-//!   its events as `OB_SOCKET::*`. This build does not relay yet and answers
-//!   `OB_SOCKET::connect_error`; `ob-sockets-disconnect` answers `OB_SOCKET::disconnect`.
+//! * client `ob-sockets-connect` (url), `ob-sockets-disconnect` and the orderbook events the UI emits
+//!   (`update-orderbook`, `new-order`, `close-order`, `many-orders`, `<socket id>::swap`): the
+//!   orderbook relay of [`crate::obrelay`]. The engine checks the URL against the allowlist and
+//!   queues [`ObCmd`]s; the thread hands them to the relay [`Manager`] and feeds its [`ObEvent`]s
+//!   back as `OB_SOCKET::*` events on the session that asked. A session that closes stops its
+//!   client.
 //! * server `new-block` `{height, header}` and `core-error`: while a socket is connected the
 //!   engine asks the [`NodeProbe`] for `getblockchaininfo` every `probe_interval_ms`. `new-block`
 //!   is emitted when the height increases; `core-error` once when a node that had answered stops
 //!   answering.
 
 use crate::legacy::ALLOWED_ORIGIN;
+use crate::obrelay::{self, Manager, ObCmd, ObEvent, ObPolicy};
 use serde_json::Value;
 use std::collections::VecDeque;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 use tauri::http;
 
@@ -47,9 +51,9 @@ pub const MAX_PAYLOAD: usize = 1_000_000;
 pub const MAX_QUEUE: usize = 256;
 const QUEUE_DEPTH: usize = 128;
 const IDLE_WAIT_MS: u64 = 60_000;
+/// Relay commands queued per engine call; further `Send`s are dropped.
+const MAX_OB_OUT: usize = 256;
 const SEP: char = '\x1e';
-
-pub const OB_UNAVAILABLE: &str = "orderbook relay is not available in the desktop build yet";
 
 /// Timing, in milliseconds. [`Config::default`] is the legacy server's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -201,8 +205,8 @@ enum Packet {
     ConnectOther(String),
     /// socket.io DISCONNECT (`41`).
     Disconnect,
-    /// socket.io EVENT (`42["name", ...]`).
-    Event(String),
+    /// socket.io EVENT (`42["name", payload, ...]`); only the first argument is kept.
+    Event(String, Option<Value>),
     /// Anything else, including malformed packets.
     Ignored,
 }
@@ -243,12 +247,8 @@ fn parse_packet(p: &str) -> Packet {
 
 /// `[<ack id digits>]["name", ...args]`; the name is the first element.
 fn event_name(tail: &str) -> Packet {
-    let json = tail.trim_start_matches(|c: char| c.is_ascii_digit());
-    match serde_json::from_str::<Value>(json) {
-        Ok(Value::Array(a)) => match a.first() {
-            Some(Value::String(s)) => Packet::Event(s.clone()),
-            _ => Packet::Ignored,
-        },
+    match obrelay::parse_server_packet(&format!("42{tail}")) {
+        obrelay::ServerPacket::Event(name, payload) => Packet::Event(name, payload),
         _ => Packet::Ignored,
     }
 }
@@ -329,6 +329,13 @@ pub struct TickOut {
 pub struct Engine {
     cfg: Config,
     sessions: Vec<Session>,
+    policy: ObPolicy,
+    /// Generation of the orderbook client the engine last asked for, if it is still wanted.
+    ob_live: Option<u64>,
+    ob_gen: u64,
+    /// Session that asked for the client; its events go there.
+    ob_owner: Option<String>,
+    ob_out: Vec<ObCmd>,
 }
 
 fn new_id(bytes: usize) -> Option<String> {
@@ -338,10 +345,20 @@ fn new_id(bytes: usize) -> Option<String> {
 }
 
 impl Engine {
+    #[cfg(test)]
     pub fn new(cfg: Config) -> Engine {
+        Engine::with_policy(cfg, ObPolicy::default())
+    }
+
+    pub fn with_policy(cfg: Config, policy: ObPolicy) -> Engine {
         Engine {
             cfg,
             sessions: Vec::new(),
+            policy,
+            ob_live: None,
+            ob_gen: 0,
+            ob_owner: None,
+            ob_out: Vec::new(),
         }
     }
 
@@ -485,22 +502,14 @@ impl Engine {
                             .push(format!(r#"44{ns},{{"message":"Invalid namespace"}}"#));
                     }
                 }
-                Packet::Disconnect => self.sessions[i].ns_connected = false,
-                Packet::Event(name) => {
-                    let s = &mut self.sessions[i];
-                    if s.ns_connected {
-                        match name.as_str() {
-                            "ob-sockets-connect" => s.push(event_packet(
-                                "OB_SOCKET::connect_error",
-                                Some(OB_UNAVAILABLE),
-                            )),
-                            "ob-sockets-disconnect" => {
-                                s.push(event_packet("OB_SOCKET::disconnect", None))
-                            }
-                            _ => {}
-                        }
+                Packet::Disconnect => {
+                    self.sessions[i].ns_connected = false;
+                    let sid = self.sessions[i].sid.clone();
+                    if self.ob_owner.as_deref() == Some(sid.as_str()) {
+                        self.ob_stop();
                     }
                 }
+                Packet::Event(name, payload) => self.on_event(i, &name, payload),
             }
         }
         let sid = self.sessions[i].sid.clone();
@@ -545,9 +554,120 @@ impl Engine {
     /// Remove session `i`; a held poll is answered with the Engine.IO close packet.
     fn close(&mut self, i: usize) {
         let s = self.sessions.remove(i);
+        if self.ob_owner.as_deref() == Some(s.sid.as_str()) {
+            self.ob_stop();
+        }
         if let Some(p) = s.pending {
             (p.done)(SioResponse::text("1", None));
         }
+    }
+
+    // ---- orderbook relay
+
+    /// Commands for the relay [`Manager`], in order.
+    pub fn take_ob(&mut self) -> Vec<ObCmd> {
+        std::mem::take(&mut self.ob_out)
+    }
+
+    fn push_ob(&mut self, cmd: ObCmd) {
+        if matches!(cmd, ObCmd::Send { .. }) && self.ob_out.len() >= MAX_OB_OUT {
+            return;
+        }
+        self.ob_out.push(cmd);
+    }
+
+    /// Forget the client and tell the relay to close it.
+    fn ob_stop(&mut self) {
+        if self.ob_live.take().is_some() {
+            self.push_ob(ObCmd::Stop);
+        }
+        self.ob_owner = None;
+    }
+
+    fn on_event(&mut self, i: usize, name: &str, payload: Option<Value>) {
+        if !self.sessions[i].ns_connected {
+            return;
+        }
+        let sid = self.sessions[i].sid.clone();
+        let owns = self.ob_owner.as_deref() == Some(sid.as_str());
+        match name {
+            "ob-sockets-connect" => self.ob_connect(i, &sid, payload),
+            "ob-sockets-disconnect" => {
+                if owns {
+                    self.ob_stop();
+                    self.sessions[i].push(obrelay::encode_event("OB_SOCKET::disconnect", None));
+                }
+            }
+            n if owns && obrelay::outbound_name_ok(n) => {
+                if obrelay::ui_payload_ok(payload.as_ref()) {
+                    self.push_ob(ObCmd::Send {
+                        name: n.to_string(),
+                        payload,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// `ob-sockets-connect`: a new request replaces the current client. A URL outside the
+    /// allowlist is refused here, before any network I/O.
+    fn ob_connect(&mut self, i: usize, sid: &str, payload: Option<Value>) {
+        self.ob_stop();
+        let refused = |reason: &str| {
+            obrelay::encode_event(
+                "OB_SOCKET::connect_error",
+                Some(&Value::String(reason.to_string())),
+            )
+        };
+        let Some(Value::String(url)) = payload else {
+            self.sessions[i].push(refused("orderbook URL is missing"));
+            return;
+        };
+        match self.policy.check(&url) {
+            Err(reason) => self.sessions[i].push(refused(&reason)),
+            Ok(url) => {
+                self.ob_gen += 1;
+                self.ob_live = Some(self.ob_gen);
+                self.ob_owner = Some(sid.to_string());
+                self.push_ob(ObCmd::Connect {
+                    gen: self.ob_gen,
+                    url,
+                });
+            }
+        }
+    }
+
+    /// An event from the relay client of generation `gen`; stale generations are dropped.
+    pub fn ob_event(&mut self, gen: u64, ev: ObEvent) {
+        if self.ob_live != Some(gen) {
+            return;
+        }
+        let Some(owner) = self.ob_owner.clone() else {
+            return;
+        };
+        let Some(i) = self.find(&owner) else {
+            self.ob_stop();
+            return;
+        };
+        let (packet, ended) = match ev {
+            ObEvent::Connected => (obrelay::encode_event("OB_SOCKET::connect", None), false),
+            ObEvent::ConnectError(reason) => (
+                obrelay::encode_event("OB_SOCKET::connect_error", Some(&Value::String(reason))),
+                true,
+            ),
+            ObEvent::Disconnected => (obrelay::encode_event("OB_SOCKET::disconnect", None), true),
+            ObEvent::Relay { name, payload } => {
+                (obrelay::encode_event(&name, payload.as_ref()), false)
+            }
+        };
+        if ended {
+            self.ob_stop();
+        }
+        if packet.len() <= MAX_PAYLOAD {
+            self.sessions[i].push(packet);
+        }
+        self.settle(&owner);
     }
 
     /// Fire due poll timeouts, expire silent sessions and report which sessions need a probe.
@@ -635,6 +755,7 @@ fn with_origin(done: Respond, origin: Option<&str>) -> Respond {
 enum Cmd {
     Http(SioRequest, Respond),
     Probe(String, Probe),
+    Ob(u64, ObEvent),
     Stop,
 }
 
@@ -667,17 +788,31 @@ fn elapsed_ms(start: Instant) -> u64 {
 }
 
 /// Start the `socketio` thread.
-pub fn start(source: Box<dyn NodeProbe>, cfg: Config) -> std::io::Result<Handle> {
+pub fn start(source: Box<dyn NodeProbe>, cfg: Config, policy: ObPolicy) -> std::io::Result<Handle> {
     let (tx, rx) = mpsc::sync_channel::<Cmd>(QUEUE_DEPTH);
     let probe_tx = tx.clone();
+    let ob_tx = tx.clone();
     std::thread::Builder::new()
         .name("socketio".into())
         .spawn(move || {
             let start = Instant::now();
-            let mut engine = Engine::new(cfg);
+            let mut engine = Engine::with_policy(cfg, policy);
+            let mut relay = Manager::new(Arc::new(move |gen, ev| {
+                ob_tx.send(Cmd::Ob(gen, ev)).is_ok()
+            }));
             loop {
                 let now = elapsed_ms(start);
                 let out = engine.tick(now);
+                // Relay commands queued by the last step; a client that cannot start reports at once.
+                let mut cmds = engine.take_ob();
+                while !cmds.is_empty() {
+                    for cmd in cmds {
+                        if let Some((gen, ev)) = relay.apply(cmd) {
+                            engine.ob_event(gen, ev);
+                        }
+                    }
+                    cmds = engine.take_ob();
+                }
                 for sid in out.probes {
                     let tx = probe_tx.clone();
                     source.probe(Box::new(move |p| {
@@ -691,6 +826,7 @@ pub fn start(source: Box<dyn NodeProbe>, cfg: Config) -> std::io::Result<Handle>
                 match rx.recv_timeout(Duration::from_millis(wait)) {
                     Ok(Cmd::Http(req, done)) => engine.handle(elapsed_ms(start), req, done),
                     Ok(Cmd::Probe(sid, p)) => engine.probe_result(&sid, p),
+                    Ok(Cmd::Ob(gen, ev)) => engine.ob_event(gen, ev),
                     Ok(Cmd::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     Err(mpsc::RecvTimeoutError::Timeout) => {}
                 }
@@ -852,46 +988,269 @@ mod tests {
         assert_ne!(v["sid"], sid.as_str());
     }
 
-    #[test]
-    fn packets_in_one_post_are_split_on_the_record_separator() {
-        let mut e = Engine::new(Config::default());
+    const OB: &str = "http://172.81.181.19:9190";
+
+    /// An engine with a connected namespace, plus its sid.
+    fn connected_engine() -> (Engine, String) {
+        let mut e = Engine::new(short());
         let sid = open(&mut e, 0);
-        call(&mut e, 0, "POST", &q(&sid), "40").unwrap();
-        call(&mut e, 0, "GET", &q(&sid), "").unwrap();
-        let body = format!("3{SEP}42[\"ob-sockets-disconnect\"]{SEP}42[\"ob-sockets-connect\",\"wss://ob.example\"]");
-        assert_eq!(call(&mut e, 1, "POST", &q(&sid), &body).unwrap().body, "ok");
-        let out = call(&mut e, 1, "GET", &q(&sid), "").unwrap().body;
-        let parts: Vec<&str> = out.split(SEP).collect();
-        assert_eq!(parts[0], r#"42["OB_SOCKET::disconnect"]"#);
-        assert_eq!(
-            parts[1],
-            format!(r#"42["OB_SOCKET::connect_error","{OB_UNAVAILABLE}"]"#)
-        );
-        assert_eq!(parts.len(), 2);
+        connect(&mut e, 0, &sid);
+        (e, sid)
+    }
+
+    fn emit(e: &mut Engine, now: u64, sid: &str, packet: &str) {
+        assert_eq!(call(e, now, "POST", &q(sid), packet).unwrap().body, "ok");
+    }
+
+    /// Packets queued for the session right now (a poll that would be held yields none).
+    fn queued(e: &mut Engine, now: u64, sid: &str) -> Vec<String> {
+        let (held, done) = slot();
+        e.handle(now, request("GET", &q(sid), ""), done);
+        match taken(&held) {
+            Some(r) => r.body.split(SEP).map(str::to_string).collect(),
+            None => {
+                // Release the held poll with its ping so the next call can poll again.
+                e.tick(now + 1_000);
+                vec![]
+            }
+        }
     }
 
     #[test]
-    fn ob_sockets_connect_produces_the_connect_error_event() {
-        let mut e = Engine::new(Config::default());
-        let sid = open(&mut e, 0);
-        connect(&mut e, 0, &sid);
-        // A held poll is released by the event.
+    fn packets_in_one_post_are_split_on_the_record_separator() {
+        let (mut e, sid) = connected_engine();
+        let body = format!(
+            "3{SEP}42[\"ob-sockets-connect\",\"wss://ob.example\"]{SEP}42[\"ob-sockets-connect\",\"{OB}\"]"
+        );
+        emit(&mut e, 1, &sid, &body);
+        // The first request was refused, the second asked for a client.
+        let out = queued(&mut e, 1, &sid);
+        assert_eq!(
+            out,
+            vec![
+                r#"42["OB_SOCKET::connect_error","orderbook URL must be http or https"]"#
+                    .to_string()
+            ]
+        );
+        let cmds = e.take_ob();
+        assert!(matches!(cmds.as_slice(), [ObCmd::Connect { gen: 1, .. }]));
+    }
+
+    #[test]
+    fn ob_sockets_connect_refuses_urls_outside_the_allowlist_without_a_command() {
+        let (mut e, sid) = connected_engine();
+        let cases = [
+            (
+                "http://127.0.0.1:9190",
+                "orderbook URL is not in orderbook_urls",
+            ),
+            (
+                "http://172.81.181.19:9191",
+                "orderbook URL is not in orderbook_urls",
+            ),
+            (
+                "http://172.81.181.19:9190/ns",
+                "orderbook URL must be an origin without a path",
+            ),
+            ("not a url", "orderbook URL is malformed"),
+        ];
+        for (n, (url, reason)) in cases.iter().enumerate() {
+            let packet =
+                obrelay::encode_event("ob-sockets-connect", Some(&Value::String((*url).into())));
+            let now = 1 + n as u64;
+            emit(&mut e, now, &sid, &packet);
+            assert_eq!(
+                queued(&mut e, now, &sid),
+                vec![format!(r#"42["OB_SOCKET::connect_error","{reason}"]"#)],
+                "{url}"
+            );
+        }
+        // A missing or non-string URL is refused too.
+        emit(&mut e, 9, &sid, r#"42["ob-sockets-connect"]"#);
+        emit(&mut e, 9, &sid, r#"42["ob-sockets-connect",{"a":1}]"#);
+        assert_eq!(queued(&mut e, 9, &sid).len(), 2);
+        assert!(e.take_ob().is_empty());
+    }
+
+    #[test]
+    fn allowed_connect_queues_one_command_and_the_client_events_reach_the_session() {
+        let (mut e, sid) = connected_engine();
+        emit(
+            &mut e,
+            1,
+            &sid,
+            &format!(r#"42["ob-sockets-connect","{OB}"]"#),
+        );
+        let cmds = e.take_ob();
+        let [ObCmd::Connect { gen, url }] = cmds.as_slice() else {
+            panic!("{cmds:?}")
+        };
+        assert_eq!((*gen, url.as_str()), (1, "http://172.81.181.19:9190/"));
+        // A held poll is released by a relayed event.
         let (held, done) = slot();
-        e.handle(1, request("GET", &q(&sid), ""), done);
-        assert!(taken(&held).is_none());
-        call(
+        e.handle(2, request("GET", &q(&sid), ""), done);
+        e.ob_event(1, ObEvent::Connected);
+        assert_eq!(taken(&held).unwrap().body, r#"42["OB_SOCKET::connect"]"#);
+        e.ob_event(
+            1,
+            ObEvent::Relay {
+                name: "OB_SOCKET::orderbook-data".into(),
+                payload: Some(serde_json::json!({"orders": []})),
+            },
+        );
+        assert_eq!(
+            queued(&mut e, 3, &sid),
+            vec![r#"42["OB_SOCKET::orderbook-data",{"orders":[]}]"#.to_string()]
+        );
+        // Stale generations are dropped.
+        e.ob_event(7, ObEvent::Disconnected);
+        assert!(queued(&mut e, 4, &sid).is_empty());
+        // A terminal event reaches the UI and stops the client.
+        e.ob_event(1, ObEvent::Disconnected);
+        assert_eq!(
+            queued(&mut e, 5, &sid),
+            vec![r#"42["OB_SOCKET::disconnect"]"#.to_string()]
+        );
+        assert!(matches!(e.take_ob().as_slice(), [ObCmd::Stop]));
+        e.ob_event(1, ObEvent::Connected);
+        assert!(queued(&mut e, 6, &sid).is_empty());
+    }
+
+    #[test]
+    fn ui_events_are_filtered_and_forwarded_only_while_a_client_exists() {
+        let (mut e, sid) = connected_engine();
+        emit(&mut e, 1, &sid, r#"42["new-order",{"a":1}]"#);
+        assert!(e.take_ob().is_empty());
+        emit(
+            &mut e,
+            1,
+            &sid,
+            &format!(r#"42["ob-sockets-connect","{OB}"]"#),
+        );
+        e.take_ob();
+        for p in [
+            r#"42["new-order",{"a":1}]"#,
+            r#"42["update-orderbook"]"#,
+            r#"42["close-order","u"]"#,
+            r#"42["many-orders",[1,2]]"#,
+            r#"42["abc-1::swap",{"s":1}]"#,
+            r#"42["evil",1]"#,
+            r#"42["OB_SOCKET::connect"]"#,
+            r#"42["a b::swap",1]"#,
+        ] {
+            emit(&mut e, 2, &sid, p);
+        }
+        let sent: Vec<String> = e
+            .take_ob()
+            .into_iter()
+            .map(|c| match c {
+                ObCmd::Send { name, .. } => name,
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            sent,
+            [
+                "new-order",
+                "update-orderbook",
+                "close-order",
+                "many-orders",
+                "abc-1::swap"
+            ]
+        );
+        // Oversized payloads are dropped.
+        let big = obrelay::encode_event(
+            "new-order",
+            Some(&Value::String("a".repeat(obrelay::MAX_UI_PAYLOAD))),
+        );
+        emit(&mut e, 3, &sid, &big);
+        assert!(e.take_ob().is_empty());
+        // A flood is bounded.
+        let one = r#"42["new-order",1]"#;
+        let flood = vec![one; MAX_OB_OUT + 50].join(&SEP.to_string());
+        emit(&mut e, 4, &sid, &flood);
+        assert!(e.take_ob().len() <= MAX_OB_OUT);
+    }
+
+    #[test]
+    fn ob_sockets_disconnect_stops_the_client_and_answers_disconnect() {
+        let (mut e, sid) = connected_engine();
+        // No client: nothing to disconnect.
+        emit(&mut e, 1, &sid, r#"42["ob-sockets-disconnect"]"#);
+        assert!(queued(&mut e, 1, &sid).is_empty());
+        assert!(e.take_ob().is_empty());
+        emit(
             &mut e,
             2,
-            "POST",
-            &q(&sid),
-            r#"42["ob-sockets-connect","https://ob.example"]"#,
-        )
-        .unwrap();
-        let r = taken(&held).unwrap();
-        assert_eq!(
-            r.body,
-            "42[\"OB_SOCKET::connect_error\",\"orderbook relay is not available in the desktop build yet\"]"
+            &sid,
+            &format!(r#"42["ob-sockets-connect","{OB}"]"#),
         );
+        e.take_ob();
+        emit(&mut e, 3, &sid, r#"42["ob-sockets-disconnect"]"#);
+        assert_eq!(
+            queued(&mut e, 3, &sid),
+            vec![r#"42["OB_SOCKET::disconnect"]"#.to_string()]
+        );
+        assert!(matches!(e.take_ob().as_slice(), [ObCmd::Stop]));
+        // The client is gone: later events are not forwarded.
+        emit(&mut e, 4, &sid, r#"42["new-order",1]"#);
+        assert!(e.take_ob().is_empty());
+    }
+
+    #[test]
+    fn a_new_connect_replaces_the_client_and_session_close_stops_it() {
+        let (mut e, sid) = connected_engine();
+        let url = format!(r#"42["ob-sockets-connect","{OB}"]"#);
+        emit(&mut e, 1, &sid, &url);
+        emit(&mut e, 1, &sid, &url);
+        let cmds = e.take_ob();
+        assert!(
+            matches!(
+                cmds.as_slice(),
+                [
+                    ObCmd::Connect { gen: 1, .. },
+                    ObCmd::Stop,
+                    ObCmd::Connect { gen: 2, .. }
+                ]
+            ),
+            "{cmds:?}"
+        );
+        // The UI's Engine.IO close ends the session and its client.
+        emit(&mut e, 2, &sid, "1");
+        assert_eq!(e.session_count(), 0);
+        assert!(matches!(e.take_ob().as_slice(), [ObCmd::Stop]));
+        e.ob_event(2, ObEvent::Connected);
+        assert_eq!(e.session_count(), 0);
+
+        // So do the namespace DISCONNECT and an expired session.
+        let (mut e, sid) = connected_engine();
+        emit(&mut e, 1, &sid, &url);
+        e.take_ob();
+        emit(&mut e, 2, &sid, "41");
+        assert!(matches!(e.take_ob().as_slice(), [ObCmd::Stop]));
+        let (mut e, sid) = connected_engine();
+        emit(&mut e, 1, &sid, &url);
+        e.take_ob();
+        e.tick(10_000);
+        assert_eq!(e.session_count(), 0);
+        assert!(matches!(e.take_ob().as_slice(), [ObCmd::Stop]));
+    }
+
+    #[test]
+    fn only_the_session_that_asked_may_drive_the_client() {
+        let (mut e, a) = connected_engine();
+        emit(
+            &mut e,
+            1,
+            &a,
+            &format!(r#"42["ob-sockets-connect","{OB}"]"#),
+        );
+        e.take_ob();
+        // A second session that has not connected its namespace cannot send events.
+        let b = open(&mut e, 2);
+        emit(&mut e, 2, &b, r#"42["new-order",1]"#);
+        emit(&mut e, 2, &b, r#"42["ob-sockets-disconnect"]"#);
+        assert!(e.take_ob().is_empty());
     }
 
     #[test]
@@ -968,11 +1327,11 @@ mod tests {
         assert_eq!(parse_packet("41"), Packet::Disconnect);
         assert_eq!(
             parse_packet("42[\"ob-sockets-disconnect\"]"),
-            Packet::Event("ob-sockets-disconnect".into())
+            Packet::Event("ob-sockets-disconnect".into(), None)
         );
         assert_eq!(
             parse_packet("4217[\"a\",{\"b\":1}]"),
-            Packet::Event("a".into())
+            Packet::Event("a".into(), Some(serde_json::json!({"b": 1})))
         );
     }
 
@@ -1080,7 +1439,7 @@ mod tests {
 
         // Flooding events overflows the queue and closes the session instead of growing it.
         connect(&mut e, 0, &sid);
-        let one = r#"42["ob-sockets-disconnect"]"#;
+        let one = r#"42["ob-sockets-connect","http://x.example"]"#;
         let flood = vec![one; MAX_QUEUE + 5].join(&SEP.to_string());
         assert_eq!(
             call(&mut e, 1, "POST", &q(&sid), &flood).unwrap().body,
@@ -1313,7 +1672,7 @@ mod tests {
             height: 9,
             headers: 10,
         }]));
-        let h = start(Box::new(FakeNode(script)), short()).unwrap();
+        let h = start(Box::new(FakeNode(script)), short(), ObPolicy::default()).unwrap();
         let open = serve(&h, "GET", Q, "").recv_timeout(WAIT).unwrap();
         let v: Value = serde_json::from_str(&open.body[1..]).unwrap();
         let sid = v["sid"].as_str().unwrap().to_string();

@@ -6,13 +6,15 @@
 //!
 //! The `tlapi` custom URI scheme (`legacy.rs`) serves the original Angular UI's legacy HTTP API
 //! from a second dedicated thread, again without a socket. Its `/socket.io/` path (the legacy UI's
-//! main connection) is served by `socketio.rs` on a third.
+//! main connection) is served by `socketio.rs` on a third; the orderbook relay (`obrelay.rs`) runs
+//! its socket.io client threads for that module.
 #![forbid(unsafe_code)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod config;
 mod legacy;
 mod node;
+mod obrelay;
 mod socketio;
 
 use serde::Serialize;

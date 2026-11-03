@@ -10,8 +10,11 @@
 //! `<data_dir or app data dir>/<network id>/`.
 //!
 //! Optional fields for the legacy-API bridge (see `LegacySettings`): `node_data_dir` (absolute),
-//! `relayer_hosts` (bare hostnames; default none).
+//! `relayer_hosts` (bare hostnames; default none),
+//! `orderbook_urls` (exact `http://host:port` or `https://host` origins the UI may connect its
+//! orderbook socket to; default the two servers of `endpoints.conf.ts`, `[]` disables the relay).
 
+use crate::obrelay::{normalize_origin, DEFAULT_ORDERBOOK_URLS, MAX_ORDERBOOK_URLS};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use tl_wallet_core::Network;
@@ -38,6 +41,8 @@ struct RawConfig {
     node_data_dir: Option<PathBuf>,
     #[serde(default)]
     relayer_hosts: Option<Vec<String>>,
+    #[serde(default)]
+    orderbook_urls: Option<Vec<String>>,
 }
 
 pub struct DesktopConfig {
@@ -74,10 +79,26 @@ fn read_bounded(path: &Path) -> Result<String, String> {
 /// * `node_data_dir`: the only directory the legacy UI may read `litecoin.conf` from or create it
 ///   in (default: the platform Litecoin data dir). Must be absolute.
 /// * `relayer_hosts`: hostnames the UI may name as its relayer API (default empty: relayer off).
-#[derive(Debug, Default, PartialEq, Eq)]
+/// * `orderbook_urls`: exact origins the UI may connect its orderbook socket to, normalized
+///   (default: the two orderbook servers of the legacy `endpoints.conf.ts`; empty: relay off).
+#[derive(Debug, PartialEq, Eq)]
 pub struct LegacySettings {
     pub node_data_dir: Option<PathBuf>,
     pub relayer_hosts: Vec<String>,
+    pub orderbook_urls: Vec<String>,
+}
+
+impl Default for LegacySettings {
+    fn default() -> LegacySettings {
+        LegacySettings {
+            node_data_dir: None,
+            relayer_hosts: Vec::new(),
+            orderbook_urls: DEFAULT_ORDERBOOK_URLS
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+        }
+    }
 }
 
 /// Lenient view of the file: the legacy bridge needs neither `node_url` nor RPC credentials, so a
@@ -88,6 +109,8 @@ struct LegacyRaw {
     node_data_dir: Option<PathBuf>,
     #[serde(default)]
     relayer_hosts: Option<Vec<String>>,
+    #[serde(default)]
+    orderbook_urls: Option<Vec<String>>,
 }
 
 const MAX_RELAYER_HOSTS: usize = 16;
@@ -105,6 +128,7 @@ fn valid_host(h: &str) -> bool {
 fn validate_legacy(
     node_data_dir: Option<PathBuf>,
     relayer_hosts: Option<Vec<String>>,
+    orderbook_urls: Option<Vec<String>>,
 ) -> Result<LegacySettings, String> {
     if let Some(d) = &node_data_dir {
         if !d.is_absolute() {
@@ -121,9 +145,27 @@ fn validate_legacy(
             "config: relayer_hosts entry {bad:?} is not a bare hostname"
         ));
     }
+    let orderbook_urls = match orderbook_urls {
+        None => LegacySettings::default().orderbook_urls,
+        Some(urls) => {
+            if urls.len() > MAX_ORDERBOOK_URLS {
+                return Err("config: too many orderbook_urls".into());
+            }
+            let mut out: Vec<String> = Vec::new();
+            for u in &urls {
+                let o = normalize_origin(u)
+                    .map_err(|e| format!("config: orderbook_urls entry {u:?}: {e}"))?;
+                if !out.contains(&o) {
+                    out.push(o);
+                }
+            }
+            out
+        }
+    };
     Ok(LegacySettings {
         node_data_dir,
         relayer_hosts: hosts,
+        orderbook_urls,
     })
 }
 
@@ -134,7 +176,7 @@ pub fn load_legacy(path: &Path) -> Result<LegacySettings, String> {
     }
     let text = read_bounded(path)?;
     let raw: LegacyRaw = serde_json::from_str(&text).map_err(|e| format!("config: {e}"))?;
-    validate_legacy(raw.node_data_dir, raw.relayer_hosts)
+    validate_legacy(raw.node_data_dir, raw.relayer_hosts, raw.orderbook_urls)
 }
 
 /// Parse a config file. `default_data_dir` is used when the file names no `data_dir`.
@@ -162,7 +204,7 @@ pub fn parse(text: &str, default_data_dir: &Path) -> Result<DesktopConfig, Strin
             )
         }
     };
-    validate_legacy(raw.node_data_dir, raw.relayer_hosts)?;
+    validate_legacy(raw.node_data_dir, raw.relayer_hosts, raw.orderbook_urls)?;
     let idle_minutes = raw.idle_lock_minutes.unwrap_or(10);
     if !(1..=24 * 60).contains(&idle_minutes) {
         return Err("config: idle_lock_minutes must be 1..=1440".into());
@@ -217,11 +259,12 @@ mod tests {
         let s = validate_legacy(
             Some(PathBuf::from(abs)),
             Some(vec!["Relayer.Example".into()]),
+            None,
         )
         .unwrap();
         assert_eq!(s.relayer_hosts, vec!["relayer.example".to_string()]);
         assert_eq!(
-            validate_legacy(None, None).unwrap(),
+            validate_legacy(None, None, None).unwrap(),
             LegacySettings::default()
         );
         for bad in [
@@ -236,11 +279,70 @@ mod tests {
             "r.example.",
         ] {
             assert!(
-                validate_legacy(None, Some(vec![bad.into()])).is_err(),
+                validate_legacy(None, Some(vec![bad.into()]), None).is_err(),
                 "{bad:?}"
             );
         }
-        assert!(validate_legacy(None, Some(vec!["a.example".into(); 17])).is_err());
+        assert!(validate_legacy(None, Some(vec!["a.example".into(); 17]), None).is_err());
+    }
+
+    #[test]
+    fn orderbook_urls_default_normalize_and_reject_bad_entries() {
+        let defaults = validate_legacy(None, None, None).unwrap().orderbook_urls;
+        assert_eq!(
+            defaults,
+            vec![
+                "http://172.81.181.19:9190".to_string(),
+                "http://172.81.181.19:8190".to_string()
+            ]
+        );
+        let s = validate_legacy(
+            None,
+            None,
+            Some(vec![
+                "HTTPS://Ob.Example:443/".into(),
+                "https://ob.example".into(),
+                "http://127.0.0.1:18190".into(),
+            ]),
+        )
+        .unwrap();
+        assert_eq!(
+            s.orderbook_urls,
+            vec![
+                "https://ob.example".to_string(),
+                "http://127.0.0.1:18190".to_string()
+            ]
+        );
+        assert!(validate_legacy(None, None, Some(vec![]))
+            .unwrap()
+            .orderbook_urls
+            .is_empty());
+        for bad in [
+            "",
+            "ob.example",
+            "ws://ob.example",
+            "http://ob.example/ns",
+            "http://u:p@ob.example",
+            "http://ob.example/?q=1",
+        ] {
+            assert!(
+                validate_legacy(None, None, Some(vec![bad.into()])).is_err(),
+                "{bad:?}"
+            );
+        }
+        assert!(validate_legacy(None, None, Some(vec!["http://a.example".into(); 17])).is_err());
+        let d = Path::new("/data");
+        let base = r#"{"network":"BTCREGTEST","node_url":"x","rpc_user":"u","rpc_password":"p""#;
+        assert!(parse(
+            &format!(r#"{base},"orderbook_urls":["http://ob.example:1"]}}"#),
+            d
+        )
+        .is_ok());
+        assert!(parse(
+            &format!(r#"{base},"orderbook_urls":["ftp://ob.example"]}}"#),
+            d
+        )
+        .is_err());
     }
 
     #[test]

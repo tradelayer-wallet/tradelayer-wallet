@@ -37,10 +37,12 @@
 //!
 //! `/socket.io/...` is served by [`crate::socketio`] (Engine.IO v4 long polling). It reaches the
 //! node only through a synthetic `rpc-call` for `getblockchaininfo` on the same `legacy` thread.
-//! The orderbook relay (`ob-sockets-connect`) is not implemented and answers
-//! `OB_SOCKET::connect_error`.
+//! The orderbook relay (`ob-sockets-connect`) is [`crate::obrelay`]: a socket.io client over
+//! long polling to the origins in `orderbook_urls` (default: the two servers of
+//! `endpoints.conf.ts`).
 
 use crate::config::LegacySettings;
+use crate::obrelay::ObPolicy;
 use crate::socketio;
 use serde_json::{json, Value};
 use std::io::{Read, Write};
@@ -214,6 +216,7 @@ pub struct Bridge {
 impl Bridge {
     /// Start the `legacy` thread. `build` runs on that thread and constructs the service there,
     /// so the service need not be `Send`.
+    #[cfg(test)]
     pub fn start(
         build: impl FnOnce() -> Result<WalletService, String> + Send + 'static,
         token: &SessionToken,
@@ -222,10 +225,21 @@ impl Bridge {
     }
 
     /// [`Bridge::start`] with explicit socket.io timing.
+    #[cfg(test)]
     pub fn start_with(
         build: impl FnOnce() -> Result<WalletService, String> + Send + 'static,
         token: &SessionToken,
         sio_config: socketio::Config,
+    ) -> std::io::Result<Bridge> {
+        Bridge::start_full(build, token, sio_config, ObPolicy::default())
+    }
+
+    /// [`Bridge::start_with`] with an explicit orderbook allowlist.
+    pub fn start_full(
+        build: impl FnOnce() -> Result<WalletService, String> + Send + 'static,
+        token: &SessionToken,
+        sio_config: socketio::Config,
+        policy: ObPolicy,
     ) -> std::io::Result<Bridge> {
         let (tx, rx) = mpsc::sync_channel::<Job>(QUEUE_DEPTH);
         std::thread::Builder::new()
@@ -245,7 +259,7 @@ impl Bridge {
             tx: tx.clone(),
             token: token.to_hex(),
         };
-        let sio = socketio::start(Box::new(probe), sio_config)?;
+        let sio = socketio::start(Box::new(probe), sio_config, policy)?;
         Ok(Bridge {
             tx,
             token: token.to_hex(),
@@ -372,9 +386,16 @@ pub fn start(
     let token = SessionToken::from_bytes(&bytes)
         .map_err(|e| std::io::Error::other(format!("session token: {e:?}")))?;
     let gate_token = token.clone();
-    Bridge::start(
+    // An unreadable config file leaves the orderbook allowlist empty rather than the defaults.
+    let policy = match &settings {
+        Ok(s) => ObPolicy::new(s.orderbook_urls.clone()),
+        Err(_) => ObPolicy::none(),
+    };
+    Bridge::start_full(
         move || build_service(settings, default_node_dir, gate_token),
         &token,
+        socketio::Config::default(),
+        policy,
     )
 }
 
@@ -478,12 +499,21 @@ fn checked_url(url: &str, https_only: bool) -> Result<reqwest::Url, String> {
 /// No environment proxy, no redirects (credentials stay at the chosen origin), 10 s connect,
 /// 60 s total. `localhost` is pinned to 127.0.0.1 whatever the resolver says.
 fn http_client(url: &reqwest::Url) -> Result<reqwest::blocking::Client, String> {
+    http_client_with(url, CONNECT_TIMEOUT, TOTAL_TIMEOUT)
+}
+
+/// [`http_client`] with explicit connect and per-request timeouts.
+pub(crate) fn http_client_with(
+    url: &reqwest::Url,
+    connect: Duration,
+    total: Duration,
+) -> Result<reqwest::blocking::Client, String> {
     let mut b = reqwest::blocking::Client::builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .pool_max_idle_per_host(0)
-        .connect_timeout(CONNECT_TIMEOUT)
-        .timeout(TOTAL_TIMEOUT);
+        .connect_timeout(connect)
+        .timeout(total);
     if url.host_str() == Some("localhost") {
         let port = url.port_or_known_default().ok_or("URL has no port")?;
         b = b.resolve(
@@ -495,7 +525,7 @@ fn http_client(url: &reqwest::Url) -> Result<reqwest::blocking::Client, String> 
 }
 
 /// Read at most `max` bytes; one more byte than that is an error.
-fn read_bounded(r: impl Read, max: usize) -> Result<Vec<u8>, String> {
+pub(crate) fn read_bounded(r: impl Read, max: usize) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
     r.take(max as u64 + 1)
         .read_to_end(&mut out)
