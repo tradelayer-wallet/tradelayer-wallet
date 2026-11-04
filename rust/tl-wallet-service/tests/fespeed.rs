@@ -572,7 +572,6 @@ fn widened_allowlist_serves_the_ui_methods_and_still_refuses_signing() {
     }
     let before = f.node.total_calls();
     for m in [
-        "signrawtransactionwithwallet",
         "signrawtransactionwithkey",
         "walletprocesspsbt",
         "dumpwallet",
@@ -1073,4 +1072,146 @@ fn explorer_bitvm_algo_address_and_rpc_routes_answer_503() {
         post(&mut f, "/keys/new-wallet", json!({"network": "LTC"})).status,
         200
     );
+}
+
+// ---------------- signrawtransactionwithwallet behind the sign guard ----------------
+
+fn spend_hex(output_sat: u64, inputs: u8) -> String {
+    use bitcoin::absolute::LockTime;
+    use bitcoin::transaction::Version;
+    use bitcoin::{OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Txid, Witness};
+    let t = Transaction {
+        version: Version::TWO,
+        lock_time: LockTime::ZERO,
+        input: (1..=inputs)
+            .map(|n| TxIn {
+                previous_output: OutPoint {
+                    txid: Txid::from_byte_array_for_test([n; 32]),
+                    vout: 0,
+                },
+                script_sig: ScriptBuf::new(),
+                sequence: Sequence::MAX,
+                witness: Witness::new(),
+            })
+            .collect(),
+        output: vec![TxOut {
+            value: bitcoin::Amount::from_sat(output_sat),
+            script_pubkey: ScriptBuf::from_bytes([&[0x00, 0x14][..], &[7u8; 20][..]].concat()),
+        }],
+    };
+    tl_wallet_service::psbt::tx_to_hex(&t)
+}
+
+trait TxidTestExt {
+    fn from_byte_array_for_test(b: [u8; 32]) -> Self;
+}
+
+impl TxidTestExt for bitcoin::Txid {
+    fn from_byte_array_for_test(b: [u8; 32]) -> Self {
+        use bitcoin::hashes::Hash;
+        bitcoin::Txid::from_byte_array(b)
+    }
+}
+
+#[test]
+fn rpc_call_signs_with_the_node_wallet_only_after_the_guard() {
+    let mut f = fixture();
+    start_node(&mut f);
+    f.node.script("gettxout", json!({"value": 0.01}));
+    f.node.script(
+        "signrawtransactionwithwallet",
+        json!({"hex": "0200signed", "complete": true}),
+    );
+    // a spend with a normal fee: signed, answered in the node's own shape
+    let raw = spend_hex(940_000, 1);
+    let r = post(
+        &mut f,
+        "/api/rpc-call",
+        json!({"method": "signrawtransactionwithwallet", "params": [raw], "walletLabel": "tl-wallet"}),
+    );
+    assert_eq!(
+        r.body,
+        json!({"data": {"hex": "0200signed", "complete": true}}),
+        "{:?}",
+        r.body
+    );
+    assert_eq!(f.node.calls_of("signrawtransactionwithwallet"), 1);
+    assert_eq!(f.node.calls_of("gettxout"), 1);
+    // the wallet label routed the signing call
+    assert_eq!(
+        f.node.0.borrow().wallet_calls.last().unwrap().1,
+        "signrawtransactionwithwallet"
+    );
+    assert_eq!(
+        f.node.0.borrow().wallet_calls.last().unwrap().0,
+        "tl-wallet"
+    );
+
+    // fee above the ceiling: refused, the node never asked to sign
+    let r = post(
+        &mut f,
+        "/api/rpc-call",
+        json!({"method": "signrawtransactionwithwallet", "params": [spend_hex(900_000, 1)]}),
+    );
+    assert_eq!(r.status, 500);
+    assert!(
+        r.body["error"].as_str().unwrap().contains("sign guard"),
+        "{:?}",
+        r.body
+    );
+    // outputs above the chain amount
+    let r = post(
+        &mut f,
+        "/api/rpc-call",
+        json!({"method": "signrawtransactionwithwallet", "params": [spend_hex(2_000_000, 1)]}),
+    );
+    assert_eq!(r.status, 500);
+    assert_eq!(f.node.calls_of("signrawtransactionwithwallet"), 1);
+    // an input that is not an unspent output
+    f.node.script("gettxout", Value::Null);
+    let r = post(
+        &mut f,
+        "/api/rpc-call",
+        json!({"method": "signrawtransactionwithwallet", "params": [spend_hex(1, 1)]}),
+    );
+    assert_eq!(r.status, 500);
+    assert!(r.body["error"]
+        .as_str()
+        .unwrap()
+        .contains("not an unspent output"));
+    assert_eq!(f.node.calls_of("signrawtransactionwithwallet"), 1);
+}
+
+#[test]
+fn rpc_call_signing_takes_only_the_raw_transaction() {
+    let mut f = fixture();
+    start_node(&mut f);
+    f.node.script("gettxout", json!({"value": 0.01}));
+    f.node.script(
+        "signrawtransactionwithwallet",
+        json!({"hex": "00", "complete": true}),
+    );
+    let raw = spend_hex(940_000, 1);
+    for params in [
+        json!([]),
+        json!([raw.clone(), [{"txid": "00", "vout": 0}]]),
+        json!([raw.clone(), [], "NONE"]),
+        json!([5]),
+    ] {
+        let r = post(
+            &mut f,
+            "/api/rpc-call",
+            json!({"method": "signrawtransactionwithwallet", "params": params}),
+        );
+        assert_eq!(r.status, 403, "{params}");
+    }
+    // junk hex stops at the guard; no node call at all
+    let r = post(
+        &mut f,
+        "/api/rpc-call",
+        json!({"method": "signrawtransactionwithwallet", "params": ["zz"]}),
+    );
+    assert_eq!(r.status, 500);
+    assert_eq!(f.node.calls_of("signrawtransactionwithwallet"), 0);
+    assert_eq!(f.node.calls_of("gettxout"), 0);
 }

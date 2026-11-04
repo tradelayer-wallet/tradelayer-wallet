@@ -127,8 +127,9 @@ const EXACT_METHODS: &[&str] = &[
     "rescanblockchain",
     "abortrescan",
     // FE-speed's `rpcService.rpc(...)` call sites that the list above lacked. Left out on
-    // purpose: dumpprivkey (exports a key) and signrawtransactionwithwallet (signs); both belong
-    // to the guarded signing routes.
+    // purpose: dumpprivkey (exports a key) and signrawtransactionwithwallet (signs). `rpc-call`
+    // answers both itself before the node is reached: dumpprivkey with a `tln1:` handle,
+    // signrawtransactionwithwallet through the sign guard (`service::fespeed`).
     "getrawtransaction",
     "getrawmempool",
     "gettransaction",

@@ -1366,7 +1366,7 @@ mod tests {
         assert!(f.svc.node_connected());
         let after_start = f.node.total_calls();
 
-        for m in ["stop", "signrawtransactionwithwallet", "DUMPPRIVKEY"] {
+        for m in ["stop", "signrawtransactionwithkey", "DUMPPRIVKEY"] {
             let r = run(
                 &mut f,
                 req(

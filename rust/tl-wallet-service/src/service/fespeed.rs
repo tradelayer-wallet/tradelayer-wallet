@@ -25,11 +25,14 @@ use super::{
     fail, ok, req_str, HttpRequest, ListenerReply, RpcBackend, WalletService, MAX_BODY_BYTES,
     NODE_HANDLE_PREFIX,
 };
+use crate::amount::Amount;
 use crate::jsval::{encode_uri_component, js_string, nullish, to_number, truthy};
 use crate::multisig::compute_multisig;
 use crate::nodecfg::{is_testnet, launch_args, parse_conf, rpc_endpoint, LaunchOptions};
+use crate::psbt::{decode_tx, guard_sign, UtxoView};
 use crate::service::RpcOutcome;
 use crate::tlpayload::build_payload;
+use crate::txbuilder::{fee_for_inputs, Utxo};
 use serde_json::{json, Map, Value};
 use std::time::Duration;
 
@@ -939,6 +942,12 @@ impl WalletService {
         if method == "dumpprivkey" {
             return dumpprivkey_handle(&params);
         }
+        // The swapper signs its commit and trade transactions with the node wallet through
+        // `rpc-call`; the call runs behind the same guard as `sign-tx` (inputs bound to the
+        // chain, fee bound) instead of reaching the node directly.
+        if method == "signrawtransactionwithwallet" {
+            return self.sign_with_wallet(b, &params);
+        }
         if let Err(d) = self.gate.check_rpc(method, params.len()) {
             return Ok(fail(d.status(), format!("rpc method denied: {d:?}")));
         }
@@ -965,15 +974,60 @@ impl WalletService {
             Some(w) => node.call_wallet(w, method, &params),
             None => node.call_detailed(method, &params),
         };
-        // Legacy answered 200 for every node outcome; only a missing client was a 500.
-        Ok(match outcome {
-            RpcOutcome::Ok(v) => ok(v),
-            RpcOutcome::RpcError { code, message } => (
-                200,
-                json!({ "error": message, "statusCode": 500, "IECode": 2, "EECode": code }),
-            ),
-            RpcOutcome::Failed(e) => (200, json!({ "error": e })),
-        })
+        Ok(outcome_reply(outcome))
+    }
+
+    /// `rpc-call` of `signrawtransactionwithwallet [rawtx]`. The inputs come from the chain
+    /// (`gettxout`, mempool included), not from the page, and go through `guard_sign` with the
+    /// default fee ceiling before the node wallet signs. The page cannot pass `prevtxs` or a
+    /// sighash type: only the one-parameter form FE-speed uses is served.
+    fn sign_with_wallet(&mut self, b: &Value, params: &[Value]) -> Result<(u16, Value), String> {
+        let rawtx = match params {
+            [Value::String(r)] => r.as_str(),
+            _ => return Ok(fail(403, "rpc method denied: only [rawtx] is accepted")),
+        };
+        let tx = decode_tx(rawtx).map_err(|e| format!("sign guard: {e}"))?;
+        let wallet = wallet_name(b)?;
+        match self.ensure_node() {
+            NodeState::Ready => {}
+            NodeState::Starting(m) => return Ok((200, json!({ "error": m, "starting": true }))),
+            NodeState::Missing => return Err("No RPC Client initialized".into()),
+        }
+        let node = self.node.as_mut().ok_or("No RPC Client initialized")?;
+        let mut inputs = Vec::with_capacity(tx.input.len());
+        for txin in &tx.input {
+            let (txid, vout) = (
+                txin.previous_output.txid.to_string(),
+                txin.previous_output.vout,
+            );
+            let out = node
+                .call("gettxout", &[json!(txid), json!(vout), json!(true)])
+                .map_err(|e| format!("sign guard: {e}"))?;
+            let amount = out
+                .get("value")
+                .and_then(Value::as_f64)
+                .and_then(|v| Amount::from_coin_f64(v).ok())
+                .ok_or_else(|| {
+                    format!("sign guard: input {txid}:{vout} is not an unspent output")
+                })?;
+            inputs.push(Utxo {
+                txid,
+                vout,
+                amount,
+                confirmations: 0,
+                script_pub_key: String::new(),
+                redeem_script: None,
+                pubkey: None,
+            });
+        }
+        let max_fee = fee_for_inputs(inputs.len()).map_err(|e| e.to_string())?;
+        guard_sign(rawtx, &inputs, &mut ChainView(&inputs), max_fee)
+            .map_err(|e| format!("sign guard: {e}"))?;
+        let outcome = match &wallet {
+            Some(w) => node.call_wallet(w, "signrawtransactionwithwallet", params),
+            None => node.call_detailed("signrawtransactionwithwallet", params),
+        };
+        Ok(outcome_reply(outcome))
     }
 
     /// `tl_*` through `rpc-call` in listener mode (`proxyWalletMethod`).
@@ -1073,6 +1127,30 @@ impl WalletService {
         }
         self.node = None;
         Ok(ok(json!(true)))
+    }
+}
+
+/// The amounts `gettxout` reported for the inputs of a transaction.
+struct ChainView<'a>(&'a [Utxo]);
+
+impl UtxoView for ChainView<'_> {
+    fn amount_of(&mut self, txid: &str, vout: u32) -> Option<Amount> {
+        self.0
+            .iter()
+            .find(|u| u.vout == vout && u.txid.eq_ignore_ascii_case(txid))
+            .map(|u| u.amount)
+    }
+}
+
+/// Legacy answered 200 for every node outcome; only a missing client was a 500.
+fn outcome_reply(outcome: RpcOutcome) -> (u16, Value) {
+    match outcome {
+        RpcOutcome::Ok(v) => ok(v),
+        RpcOutcome::RpcError { code, message } => (
+            200,
+            json!({ "error": message, "statusCode": 500, "IECode": 2, "EECode": code }),
+        ),
+        RpcOutcome::Failed(e) => (200, json!({ "error": e })),
     }
 }
 
