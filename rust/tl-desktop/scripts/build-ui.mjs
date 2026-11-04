@@ -2,6 +2,7 @@
 //
 // Usage: node scripts/build-ui.mjs [work dir]
 //        node scripts/build-ui.mjs --ref <git-ref> --name <overlay name> [work dir]
+//        node scripts/build-ui.mjs --ref <git-ref> --name <overlay name> --skin <skin name> [work dir]
 //
 // The second form builds the wallet UI of another git ref (for example origin/FE-speed) into
 // dist-ui-<name>/: packages/wallet-fe and the root package.json/package-lock.json are exported with
@@ -9,6 +10,11 @@
 // angular.json "tauri" configuration; rewrites.json: exact string replacements with expected match
 // counts, a differing count fails the build; "bases": SHA-256 of the files the overlay files were derived
 // from, checked before they are replaced) and ui-shim/<name>-shim.js is injected.
+// --skin <skin name> applies a second overlay layer, ui-overlay/<skin name>/, after the base layer (same
+// overlay.json/rewrites.json format; overlay.json "angular.extraStyles" appends global stylesheets to the
+// "tauri" configuration, "bitcorn" bundles BitcornWisdom's chart from a pinned commit, see
+// bitcorn-bundle.mjs) and writes dist-ui-<skin name>/ so the base build stays untouched. Options
+// --bitcorn-dir <clone> and --bitcorn-allow-other (build from the clone's HEAD instead of the pinned commit).
 // The repository checkout is never modified except for dist-ui: sources are mirrored into the work
 // dir (default %TEMP%/tl-desktop-ui-build, keeping the monorepo layout that info-line.component
 // needs for the root package.json), dependencies are installed there with lifecycle scripts
@@ -19,19 +25,20 @@ import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, write
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { bundleBitcorn } from "./bitcorn-bundle.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const crate = resolve(here, "..");
 const repo = resolve(crate, "..", "..");
 const args = parseArgs(process.argv.slice(2));
-const work = resolve(args.work || join(tmpdir(), args.ref ? `tl-desktop-ui-build-${args.name}` : "tl-desktop-ui-build"));
+const work = resolve(args.work || join(tmpdir(), args.ref ? `tl-desktop-ui-build-${args.skin || args.name}` : "tl-desktop-ui-build"));
 const fe = join(work, "packages", "wallet-fe");
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const run = (cmd, args, cwd, env = {}) =>
   execFileSync(cmd, args, { cwd, stdio: "inherit", shell: process.platform === "win32", env: { ...process.env, ...env } });
 
 mkdirSync(fe, { recursive: true });
-const overlay = args.ref ? exportRef(args.ref, args.name) : null;
+const overlay = args.ref ? exportRef(args.ref, args.name, args.skin) : null;
 if (!overlay) {
   cpSync(join(repo, "package.json"), join(work, "package.json"));
   for (const f of ["angular.json", "package.json", "package-lock.json", "tsconfig.json", "tsconfig.app.json"]) {
@@ -63,10 +70,13 @@ run(npm, ["install", "--no-save", "--ignore-scripts", "--no-audit", "--no-fund",
 run(process.execPath, [join(fe, "node_modules", "@angular", "cli", "bin", "ng"), "build", "--configuration", "tauri", "--output-path", "out-tauri"], fe,
   { NODE_OPTIONS: "--openssl-legacy-provider" });
 
-const dist = join(crate, overlay ? `dist-ui-${args.name}` : "dist-ui");
+const dist = join(crate, overlay ? `dist-ui-${args.skin || args.name}` : "dist-ui");
 rmSync(dist, { recursive: true, force: true });
 cpSync(join(fe, "out-tauri"), dist, { recursive: true });
 injectShim(dist, overlay ? `${args.name}-shim.js` : "electron-shim.js");
+if (overlay?.skin?.cfg.bitcorn) {
+  bundleBitcorn({ cfg: overlay.skin.cfg.bitcorn, overlayDir: overlay.skin.dir, dist, git: findGit(), dirOverride: args.bitcornDir, allowOther: args.bitcornAllowOther });
+}
 console.log(`UI_BUILD_OK ${dist}`);
 
 // wallet-fe expects Electron's window.require('electron') (master) or window.tradelayerElectron
@@ -83,16 +93,21 @@ export function injectShim(dir, file = "electron-shim.js") {
 }
 
 function parseArgs(argv) {
-  const out = { ref: null, name: null, work: null };
+  const out = { ref: null, name: null, skin: null, work: null, bitcornDir: null, bitcornAllowOther: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--ref") out.ref = argv[++i];
     else if (argv[i] === "--name") out.name = argv[++i];
+    else if (argv[i] === "--skin") out.skin = argv[++i];
+    else if (argv[i] === "--bitcorn-dir") out.bitcornDir = argv[++i];
+    else if (argv[i] === "--bitcorn-allow-other") out.bitcornAllowOther = true;
     else if (argv[i].startsWith("--")) throw new Error(`unknown option ${argv[i]}`);
     else out.work = argv[i];
   }
   if (out.ref && !out.name) throw new Error("--ref needs --name <overlay name>");
   if (out.name && !out.ref) throw new Error("--name needs --ref <git-ref>");
   if (out.name && !/^[a-z0-9-]+$/.test(out.name)) throw new Error("--name must match [a-z0-9-]+");
+  if (out.skin && !out.ref) throw new Error("--skin needs --ref and --name");
+  if (out.skin && !/^[a-z0-9-]+$/.test(out.skin)) throw new Error("--skin must match [a-z0-9-]+");
   return out;
 }
 
@@ -110,7 +125,7 @@ function findGit() {
 }
 
 // Export <ref> into the work dir, then apply ui-overlay/<name>. Returns { hoist, rootLock }.
-function exportRef(ref, name) {
+function exportRef(ref, name, skin) {
   const dir = join(crate, "ui-overlay", name);
   const overlayCfg = JSON.parse(readFileSync(join(dir, "overlay.json"), "utf8"));
   const rewrites = JSON.parse(readFileSync(join(dir, "rewrites.json"), "utf8")).rewrites;
@@ -140,6 +155,30 @@ function exportRef(ref, name) {
     console.log(`overlay ${from} -> ${to}`);
   }
   patchAngularJson(overlayCfg.angular);
+  applyRewrites(rewrites);
+  // The skin layer: files, base checks and rewrites like the base layer, applied after it.
+  let skinLayer = null;
+  if (skin) {
+    const skinDir = join(crate, "ui-overlay", skin);
+    const skinCfg = JSON.parse(readFileSync(join(skinDir, "overlay.json"), "utf8"));
+    const skinRewrites = existsSync(join(skinDir, "rewrites.json")) ? JSON.parse(readFileSync(join(skinDir, "rewrites.json"), "utf8")).rewrites : [];
+    for (const [to, sha] of Object.entries(skinCfg.bases || {})) {
+      const actual = createHash("sha256").update(readFileSync(join(fe, to), "utf8").replace(/\r\n/g, "\n")).digest("hex");
+      if (actual !== sha) throw new Error(`skin base ${to}: the file has SHA-256 ${actual}, the skin was derived from ${sha}; rebase ui-overlay/${skin}`);
+    }
+    for (const [from, to] of Object.entries(skinCfg.files || {})) {
+      mkdirSync(dirname(join(fe, to)), { recursive: true });
+      cpSync(join(skinDir, from), join(fe, to));
+      console.log(`skin ${from} -> ${to}`);
+    }
+    extendAngularJson(skinCfg.angular || {});
+    applyRewrites(skinRewrites);
+    skinLayer = { dir: skinDir, cfg: skinCfg };
+  }
+  return { hoist: [...(overlayCfg.hoist || []), ...(skinLayer?.cfg.hoist || [])], rootLock, skin: skinLayer };
+}
+
+function applyRewrites(rewrites) {
   for (const r of rewrites) {
     const file = join(fe, r.file);
     const text = readFileSync(file, "utf8");
@@ -148,7 +187,19 @@ function exportRef(ref, name) {
     writeFileSync(file, text.split(r.from).join(r.to));
     console.log(`rewrite ${r.file} x${count}: ${r.reason}`);
   }
-  return { hoist: overlayCfg.hoist || [], rootLock };
+}
+
+// A skin layer may append global stylesheets to the "tauri" configuration (src/ paths, after the
+// base styles).
+function extendAngularJson(cfg) {
+  if (!cfg.extraStyles?.length) return;
+  const p = join(fe, "angular.json");
+  const json = JSON.parse(readFileSync(p, "utf8"));
+  const build = json.projects["wallet-fe"].architect.build;
+  const tauri = build.configurations.tauri;
+  tauri.styles = [...(tauri.styles || build.options.styles), ...cfg.extraStyles];
+  writeFileSync(p, JSON.stringify(json, null, 2));
+  console.log(`angular.json: tauri styles += ${cfg.extraStyles.join(", ")}`);
 }
 
 // Adds the "tauri" build configuration: the "production" configuration with the environment file
