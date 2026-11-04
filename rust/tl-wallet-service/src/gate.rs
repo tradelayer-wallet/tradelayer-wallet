@@ -119,6 +119,7 @@ const EXACT_METHODS: &[&str] = &[
     "signrawtransaction",
     "getblockchaininfo",
     "getaddressesbylabel",
+    "getaddressinfo",
     "getnewaddress",
     "createwallet",
     "loadwallet",

@@ -140,6 +140,25 @@ fn preflight_needs_origin_but_no_token() {
 }
 
 #[test]
+fn node_wallet_signing_is_reachable_only_through_the_guarded_routes() {
+    let g = gate();
+    // read-only: the UI needs the pubkey of node-wallet addresses
+    assert_eq!(g.check_rpc("getaddressinfo", 1), Ok(()));
+    // signing and key export never go through the page-facing RPC proxy
+    for bad in [
+        "signrawtransactionwithwallet",
+        "signrawtransactionwithkey",
+        "walletprocesspsbt",
+        "finalizepsbt",
+        "dumpprivkey",
+        "getaddressinfo ",
+        "GetAddressInfo",
+    ] {
+        assert_eq!(g.check_rpc(bad, 0), Err(Deny::MethodNotAllowed), "{bad:?}");
+    }
+}
+
+#[test]
 fn repaired_rpc_proxy_forwards_only_allowlisted_methods() {
     let g = gate();
     for ok in [
