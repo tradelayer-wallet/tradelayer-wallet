@@ -941,7 +941,8 @@ impl WalletService {
         let wallet = wallet_name(b)?.filter(|_| WALLET_METHODS.contains(&method));
         match self.ensure_node() {
             NodeState::Ready => {}
-            NodeState::Starting(m) => return Ok((200, json!({ "error": m }))),
+            // `starting` lets the bridge tell a node that is still loading from one that went away
+            NodeState::Starting(m) => return Ok((200, json!({ "error": m, "starting": true }))),
             NodeState::Missing => return Err("No RPC Client initialized".into()),
         }
         let node = self.node.as_mut().ok_or("No RPC Client initialized")?;

@@ -111,6 +111,31 @@ change, **open** question.
 | Dust threshold for change outputs | **open** | `tx-builder.service.ts` | change is emitted when > 0, as legacy |
 | OP_RETURN payload tail is the buyer's `tl_getinfo` block + 100 | **open** | `buyer.ts:68` | `check_trade_psbt` can only check a payload prefix |
 
+## FE-speed routes (`src/service/fespeed.rs`)
+
+The routes `origin/FE-speed`'s UI calls beyond the 2024 table. The TradeLayer listener is the
+`ListenerBackend` trait (the desktop build implements it over loopback HTTP); the service never
+sleeps, spawns or opens sockets.
+
+| Route | Behaviour |
+|---|---|
+| `GET/POST /tlraw/<endpoint>` | listener passthrough: verb and endpoint on an allowlist (`TLRAW_POST`, `TLRAW_GET`), status and JSON body verbatim, 502 `{error}` when the listener cannot be reached |
+| `POST /tl/<route>` (13 routes, `TL_ROUTES`) | FE-speed's `tradelayer.route.ts`: same listener endpoint, same request reshaping, same `res.data || fallback` replies, errors `500 "Error: <message>"` |
+| `POST /api/rpc-call` | `walletName`/`walletLabel` routes the 28 wallet methods to `/wallet/<name>`; node outcomes stay `200`; a node that is still starting is `200 {error, starting}`; `tl_*` goes to the node unless `set_tl_rpc_via_listener(true)` (seven local encoders, any other `tl_*` through the listener) |
+| `POST /api/start-wallet-node` | probes `getblockchaininfo`: `{data:true, attached:true}`, or `{data:true, attached:false, starting:true, message}` while the node loads (kept as a pending client, retried by `poll_pending_node` and by `rpc-call`); failures are `200 {error}`; `allowRescan` recorded |
+| `POST /api/compute-multisig` | sorted m-of-n P2WSH (`multisig.rs`) |
+| `POST /api/init-tradelayer` | `{success:true, result:true}` when the listener answers, else 500 `did not become reachable` |
+| `GET /api/tradelayer/sync-status` | `TradeLayerSyncStatus` from the node and the listener (`tl_getSyncStatus`, heights, `tl_initmain` when uninitialised) |
+| `GET /api/tradelayer/collator-status`, `POST .../set-collator-config` | inactive, in FE-speed's shape; configured URLs are echoed, never contacted |
+| `/explorer/*`, `/address/*`, `/rpc/*`, BitVM, algo | `503 {"error":"not available in the desktop build"}` (the UI reaches `/address` and `/rpc` on the relayer URL it chose, never on `homeApiUrl`) |
+
+`tlpayload.rs` encodes `tl_createpayload_{attestation,commit_tochannel,withdrawal_fromchannel,simplesend,instant_trade,instant_ltc_trade,contract_instant_trade}`
+with JavaScript number and string semantics (`jsval.rs`). `tests/fespeed_kat.json` holds 23 payload inputs and 6
+multisig inputs with the outputs of FE-speed's own TypeScript (`rpc-proxy.service.ts`,
+`tx-builder.service.ts` @ `3f4a67c`, extracted unchanged, transpiled with TypeScript 4.7.2, run under Node 24.19.0 with
+bitcoinjs-lib 6.0.1). Amounts of 2^55 base units (3.6e8 coins) or more are refused: V8 drops digits there and the port
+does not reproduce that.
+
 ## Commands
 
 ```sh
@@ -129,7 +154,8 @@ CI: `.github/workflows/rust-tl-wallet-service.yml` (not run until the branch is 
 
 * `bitcoin 0.32` (`default-features = false, features = ["std"]`; resolves to secp256k1 0.29 and
   `bitcoin_hashes`): transaction/PSBT consensus encoding and SHA-256. Cryptography is not
-  reimplemented. Litecoin shares the consensus serialization; no address encoding is used.
+  reimplemented. Litecoin shares the consensus serialization; the only address encoding is the
+  bech32 P2WSH address of `compute-multisig` (`ltc`/`tltc`/`bc`/`tb`), through `bitcoin::bech32`.
 * `serde_json =1.0.145`: request bodies and RPC params/results (a general JSON parser is out of
   scope per the charter). Everything else is `std`.
 

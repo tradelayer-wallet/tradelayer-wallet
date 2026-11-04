@@ -615,7 +615,10 @@ fn rpc_call_while_the_node_loads_answers_200_with_the_error_then_attaches() {
     );
     assert_eq!(
         (r.status, r.body),
-        (200, json!({"error": "Loading block index..."}))
+        (
+            200,
+            json!({"error": "Loading block index...", "starting": true})
+        )
     );
     // the node finishes loading: the next call attaches and answers
     f.node.0.borrow_mut().rpc_errors.clear();
