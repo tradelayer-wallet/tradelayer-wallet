@@ -27,7 +27,7 @@ use serde_json::{json, Value};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use tl_wallet_service::nodecfg::RpcEndpoint;
-use tl_wallet_service::service::{CallResult, NodeConnector, RpcBackend, SignBackend};
+use tl_wallet_service::service::{CallResult, NodeConnector, RpcBackend, RpcOutcome, SignBackend};
 use tl_wallet_service::txbuilder::Utxo;
 
 pub const WIF_REFUSED: &str = "WIF signing is disabled in the desktop build; the node wallet signs";
@@ -66,6 +66,13 @@ impl RpcBackend for SharedRpc {
             .try_borrow_mut()
             .map_err(|_| "node client busy".to_string())?
             .call(method, params)
+    }
+
+    fn call_detailed(&mut self, method: &str, params: &[Value]) -> RpcOutcome {
+        match self.0.try_borrow_mut() {
+            Ok(mut client) => client.call_detailed(method, params),
+            Err(_) => RpcOutcome::Failed("node client busy".into()),
+        }
     }
 }
 

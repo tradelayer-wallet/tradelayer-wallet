@@ -26,8 +26,27 @@ const NETWORKS: [&str; 4] = ["LTC", "LTCTEST", "BTC", "BTCTEST"];
 
 pub type CallResult = Result<Value, String>;
 
+/// A node call's result with the JSON-RPC error code kept. Legacy `rpc-call` (tl-rpc
+/// `rpc-client.ts:57-72`) answered HTTP 200 with `{error, statusCode, IECode: 2, EECode: code}`
+/// for node errors, and wallet-fe branches on `EECode` (`-18` wallet not loaded, `-11`).
+#[derive(Clone, Debug, PartialEq)]
+pub enum RpcOutcome {
+    Ok(Value),
+    RpcError { code: i64, message: String },
+    Failed(String),
+}
+
 pub trait RpcBackend {
     fn call(&mut self, method: &str, params: &[Value]) -> CallResult;
+
+    /// Like [`RpcBackend::call`] but keeps the node's error code. Backends that cannot see the
+    /// code report [`RpcOutcome::Failed`].
+    fn call_detailed(&mut self, method: &str, params: &[Value]) -> RpcOutcome {
+        match self.call(method, params) {
+            Ok(v) => RpcOutcome::Ok(v),
+            Err(e) => RpcOutcome::Failed(e),
+        }
+    }
 }
 
 /// Remote relayer API (`axios.post(url + '/rpc/' + method, { params })`).
@@ -395,7 +414,15 @@ impl WalletService {
             return Ok(fail(d.status(), format!("rpc method denied: {d:?}")));
         }
         let node = self.node.as_mut().ok_or("No RPC Client initialized")?;
-        Ok(ok(node.call(method, &params)?))
+        // Legacy answered 200 for every node outcome; only a missing client was a 500.
+        Ok(match node.call_detailed(method, &params) {
+            RpcOutcome::Ok(v) => ok(v),
+            RpcOutcome::RpcError { code, message } => (
+                200,
+                json!({ "error": message, "statusCode": 500, "IECode": 2, "EECode": code }),
+            ),
+            RpcOutcome::Failed(e) => (200, json!({ "error": e })),
+        })
     }
 
     fn smart_rpc(&mut self, method: &str, params: &[Value], api: bool) -> CallResult {

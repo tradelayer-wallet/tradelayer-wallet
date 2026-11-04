@@ -57,7 +57,7 @@ use tl_wallet_service::gate::{Gate, GateConfig, MethodAllowlist, SessionToken};
 use tl_wallet_service::nodecfg::RpcEndpoint;
 use tl_wallet_service::service::{
     CallResult, ConfStore, HttpRequest, HttpResponse, KeyBackend, NodeConnector, RelayerBackend,
-    RpcBackend, WalletService, MAX_BODY_BYTES,
+    RpcBackend, RpcOutcome, WalletService, MAX_BODY_BYTES,
 };
 
 /// The page origin under WebView2 on Windows.
@@ -608,7 +608,53 @@ fn interpret_rpc(status: u16, body: &[u8]) -> CallResult {
     }
 }
 
+/// [`interpret_rpc`] keeping the node's JSON-RPC error code.
+fn interpret_rpc_detailed(status: u16, body: &[u8]) -> RpcOutcome {
+    let parsed: Option<Value> = serde_json::from_slice(body).ok();
+    if let Some(e) = parsed.as_ref().and_then(|v| v.get("error")) {
+        if !e.is_null() {
+            return match e.get("code").and_then(Value::as_i64) {
+                Some(code) => RpcOutcome::RpcError {
+                    code,
+                    message: error_message(e),
+                },
+                None => RpcOutcome::Failed(error_message(e)),
+            };
+        }
+    }
+    match interpret_rpc(status, body) {
+        Ok(v) => RpcOutcome::Ok(v),
+        Err(e) => RpcOutcome::Failed(e),
+    }
+}
+
+impl RpcClient {
+    fn post_call(&mut self, method: &str, params: &[Value]) -> Result<(u16, Vec<u8>), String> {
+        self.next_id += 1;
+        let body = json!({
+            "jsonrpc": "1.0",
+            "id": self.next_id,
+            "method": method,
+            "params": params,
+        });
+        let (status, bytes) = post_json(
+            &self.client,
+            self.url.clone(),
+            Some((&self.user, &self.password)),
+            &body,
+        )?;
+        Ok((status, bytes.to_vec()))
+    }
+}
+
 impl RpcBackend for RpcClient {
+    fn call_detailed(&mut self, method: &str, params: &[Value]) -> RpcOutcome {
+        match self.post_call(method, params) {
+            Ok((status, bytes)) => interpret_rpc_detailed(status, &bytes),
+            Err(e) => RpcOutcome::Failed(e),
+        }
+    }
+
     fn call(&mut self, method: &str, params: &[Value]) -> CallResult {
         self.next_id += 1;
         let body = json!({
@@ -1637,5 +1683,28 @@ mod tests {
         );
         assert!(interpret_relayer(200, br#"{"x":1}"#).is_err());
         assert!(interpret_relayer(502, b"<html>").is_err());
+    }
+
+    #[test]
+    fn rpc_errors_keep_the_node_code_for_rpc_call() {
+        let body = br#"{"result":null,"error":{"code":-18,"message":"Requested wallet does not exist or is not loaded"},"id":1}"#;
+        assert_eq!(
+            interpret_rpc_detailed(500, body),
+            RpcOutcome::RpcError {
+                code: -18,
+                message: "Requested wallet does not exist or is not loaded".into()
+            }
+        );
+        assert_eq!(
+            interpret_rpc_detailed(
+                200,
+                br#"{"result":{"chain":"regtest"},"error":null,"id":2}"#
+            ),
+            RpcOutcome::Ok(json!({"chain": "regtest"}))
+        );
+        assert!(matches!(
+            interpret_rpc_detailed(502, b"bad gateway"),
+            RpcOutcome::Failed(_)
+        ));
     }
 }

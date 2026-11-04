@@ -760,3 +760,34 @@ rpcport=19332
     assert_eq!(r.status, 200, "{}", r.body);
     assert!(f.svc.node_connected());
 }
+
+#[test]
+fn rpc_call_keeps_the_node_error_code_like_legacy() {
+    // wallet-fe creates and loads the `tl-wallet` wallet when getaddressesbylabel answers -18
+    // (auth.service.ts); legacy rpc-call returned HTTP 200 with the code as `EECode`.
+    let mut f = fixture();
+    start_node(&mut f);
+    f.node.script_error(
+        "getaddressesbylabel",
+        -18,
+        "Requested wallet does not exist or is not loaded",
+    );
+    let r = call(
+        &mut f,
+        "/api/rpc-call",
+        json!({"method":"getaddressesbylabel","params":["tl-wallet"]}),
+    );
+    assert_eq!(r.status, 200);
+    assert_eq!(r.body["EECode"], json!(-18));
+    assert_eq!(r.body["IECode"], json!(2));
+    assert!(r.body["error"].as_str().unwrap().contains("not loaded"));
+    assert!(r.body.get("data").is_none());
+    // A node that cannot be reached also answers 200 with only `error`, as legacy did.
+    let r = call(
+        &mut f,
+        "/api/rpc-call",
+        json!({"method":"getnewaddress","params":["tl-wallet"]}),
+    );
+    assert_eq!(r.status, 200);
+    assert!(r.body["error"].as_str().unwrap().contains("not scripted"));
+}

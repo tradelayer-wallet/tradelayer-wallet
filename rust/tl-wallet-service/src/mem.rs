@@ -4,7 +4,8 @@
 use crate::amount::Amount;
 use crate::nodecfg::RpcEndpoint;
 use crate::service::{
-    CallResult, ConfStore, KeyBackend, NodeConnector, RelayerBackend, RpcBackend, SignBackend,
+    CallResult, ConfStore, KeyBackend, NodeConnector, RelayerBackend, RpcBackend, RpcOutcome,
+    SignBackend,
 };
 use crate::txbuilder::Utxo;
 use serde_json::{json, Value};
@@ -18,6 +19,8 @@ pub struct RpcState {
     pub responses: BTreeMap<String, Value>,
     /// Every call made, in order.
     pub calls: Vec<(String, Vec<Value>)>,
+    /// Scripted node error (code, message) per method; takes precedence over `responses`.
+    pub rpc_errors: BTreeMap<String, (i64, String)>,
 }
 
 #[derive(Clone, Default, Debug)]
@@ -26,6 +29,13 @@ pub struct MemRpc(pub Rc<RefCell<RpcState>>);
 impl MemRpc {
     pub fn script(&self, method: &str, v: Value) {
         self.0.borrow_mut().responses.insert(method.into(), v);
+    }
+
+    pub fn script_error(&self, method: &str, code: i64, message: &str) {
+        self.0
+            .borrow_mut()
+            .rpc_errors
+            .insert(method.into(), (code, message.into()));
     }
 
     pub fn calls_of(&self, method: &str) -> usize {
@@ -46,10 +56,30 @@ impl RpcBackend for MemRpc {
     fn call(&mut self, method: &str, params: &[Value]) -> CallResult {
         let mut s = self.0.borrow_mut();
         s.calls.push((method.to_string(), params.to_vec()));
+        if let Some((_, message)) = s.rpc_errors.get(method) {
+            return Err(message.clone());
+        }
         s.responses
             .get(method)
             .cloned()
             .ok_or_else(|| format!("{method}: not scripted"))
+    }
+
+    fn call_detailed(&mut self, method: &str, params: &[Value]) -> RpcOutcome {
+        let scripted = self.0.borrow().rpc_errors.get(method).cloned();
+        match scripted {
+            Some((code, message)) => {
+                self.0
+                    .borrow_mut()
+                    .calls
+                    .push((method.to_string(), params.to_vec()));
+                RpcOutcome::RpcError { code, message }
+            }
+            None => match self.call(method, params) {
+                Ok(v) => RpcOutcome::Ok(v),
+                Err(e) => RpcOutcome::Failed(e),
+            },
+        }
     }
 }
 
