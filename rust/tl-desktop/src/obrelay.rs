@@ -22,6 +22,19 @@
 //!   `cp = d.isBuyer ? d.tradeInfo.seller.socketId : d.tradeInfo.buyer.socketId`; the server's
 //!   `<cp>::swap` events reach the UI unprefixed. A later `new-channel` replaces the registration.
 //!
+//! ## Reconnect (the legacy server's socket.io client did this by default; ours is explicit)
+//!
+//! * The first attempt that fails ends the client with `connect_error`, as before. Once the
+//!   namespace has connected, the client never gives up: after a loss (server restart, network
+//!   blip, a poll that times out, the server's own `disconnect`) it reconnects with a capped
+//!   exponential backoff and jitter ([`Backoff`], [`Reconnect`]), and reports `Connected` again.
+//! * `Disconnected` is reported once per loss, not per attempt.
+//! * UI events are forwarded only while connected and the queue is cleared on every connect:
+//!   nothing is resent after a reconnect and the queue is bounded while the server is away.
+//! * Every connection starts with a fresh [`Relay`] mapping (socket id, counterparty).
+//! * [`ObCmd::Resume`] (the machine woke from sleep) replaces the client at once, because a
+//!   request on the old TCP connection may take a full poll timeout to fail.
+//!
 //! ## Repaired defects (the legacy server did none of these)
 //!
 //! * It connected to **any** URL the page named. Here the URL's origin must equal an entry of the
@@ -41,8 +54,9 @@
 
 use crate::legacy::{http_client_with, read_bounded};
 use serde_json::Value;
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{mpsc, Arc, Mutex, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 /// The orderbook servers `endpoints.conf.ts` ships (LTC, LTCTEST).
@@ -57,6 +71,7 @@ pub const MAX_UI_PAYLOAD: usize = 64 * 1024;
 pub const MAX_POLL_BYTES: usize = 1 << 20;
 /// Most packets one poll response may carry.
 pub const MAX_PACKETS_PER_POLL: usize = 128;
+/// Packets queued for the server per client.
 const OUT_DEPTH: usize = 64;
 /// Clients that may exist at once, counting stopped ones still blocked in a poll.
 pub const MAX_LIVE_CLIENTS: usize = 3;
@@ -362,13 +377,19 @@ pub enum ObCmd {
     },
     /// Close the client.
     Stop,
+    /// The machine was suspended: the client's connection cannot be trusted. Restart it now
+    /// instead of waiting for a request timeout.
+    Resume,
 }
 
 /// What a client reports back, tagged with its generation.
 #[derive(Debug, PartialEq)]
 pub enum ObEvent {
+    /// The namespace is connected (the first time, and again after every reconnect).
     Connected,
+    /// The first connection attempt failed; the client has ended.
     ConnectError(String),
+    /// The connection was lost, reported once per loss; the client keeps reconnecting.
     Disconnected,
     /// An event already mapped for the UI (`OB_SOCKET::*` or `<cp>::swap`).
     Relay {
@@ -380,27 +401,168 @@ pub enum ObEvent {
 /// Delivers a client's event to the engine; `false` means the engine is gone.
 pub type Sink = Arc<dyn Fn(u64, ObEvent) -> bool + Send + Sync>;
 
+// ------------------------------------------------------------------ reconnect backoff
+
+/// Bounds of the reconnect backoff, in milliseconds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Reconnect {
+    pub base_ms: u64,
+    pub cap_ms: u64,
+}
+
+impl Default for Reconnect {
+    fn default() -> Reconnect {
+        Reconnect {
+            base_ms: 500,
+            cap_ms: 10_000,
+        }
+    }
+}
+
+/// Capped exponential backoff with jitter: attempt `n` waits between half of and the whole of
+/// `min(cap, base * 2^n)`. The jitter is an argument (`0.0..=1.0`) so the schedule is testable.
+#[derive(Debug)]
+pub struct Backoff {
+    cfg: Reconnect,
+    attempt: u32,
+}
+
+impl Backoff {
+    pub fn new(cfg: Reconnect) -> Backoff {
+        Backoff { cfg, attempt: 0 }
+    }
+
+    /// A connection worked: the next failure starts from the base delay again.
+    pub fn reset(&mut self) {
+        self.attempt = 0;
+    }
+
+    pub fn next_delay_ms(&mut self, jitter: f64) -> u64 {
+        let exp = self
+            .cfg
+            .base_ms
+            .saturating_mul(1u64 << self.attempt.min(30))
+            .min(self.cfg.cap_ms);
+        self.attempt = self.attempt.saturating_add(1);
+        let half = exp / 2;
+        let j = if jitter.is_nan() {
+            1.0
+        } else {
+            jitter.clamp(0.0, 1.0)
+        };
+        half + ((exp - half) as f64 * j) as u64
+    }
+}
+
+fn random_unit() -> f64 {
+    let mut b = [0u8; 8];
+    match getrandom::fill(&mut b) {
+        Ok(()) => (u64::from_le_bytes(b) >> 11) as f64 / (1u64 << 53) as f64,
+        Err(_) => 1.0,
+    }
+}
+
+// ------------------------------------------------------------------ shared client state
+
+/// Packets for the server, bounded; dropped while the client is not connected so that nothing
+/// stale is sent after a reconnect.
+struct Outbox {
+    q: Mutex<VecDeque<Out>>,
+    cv: Condvar,
+}
+
 enum Out {
     Event {
         name: String,
         payload: Option<Value>,
     },
     Pong,
-    Close,
+}
+
+impl Outbox {
+    fn new() -> Outbox {
+        Outbox {
+            q: Mutex::new(VecDeque::new()),
+            cv: Condvar::new(),
+        }
+    }
+
+    /// Queue `out`; a full queue drops it (the client is not keeping up).
+    fn push(&self, out: Out) {
+        let mut q = self.q.lock().unwrap_or_else(PoisonError::into_inner);
+        if q.len() < OUT_DEPTH {
+            q.push_back(out);
+            self.cv.notify_one();
+        }
+    }
+
+    fn clear(&self) {
+        self.q
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clear();
+    }
+
+    fn wake(&self) {
+        self.cv.notify_all();
+    }
+
+    fn pop(&self, wait: Duration) -> Option<Out> {
+        let mut q = self.q.lock().unwrap_or_else(PoisonError::into_inner);
+        if q.is_empty() {
+            q = self
+                .cv
+                .wait_timeout(q, wait)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
+        }
+        q.pop_front()
+    }
+
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.q.lock().unwrap_or_else(PoisonError::into_inner).len()
+    }
 }
 
 struct Shared {
     gen: u64,
     sink: Sink,
     relay: Mutex<Relay>,
+    outbox: Outbox,
+    reconnect: Reconnect,
     /// The engine stopped this client; it reports nothing further.
     stopped: AtomicBool,
-    connected: AtomicBool,
-    /// A terminal event was reported (or the engine is gone).
+    /// Stopped without a goodbye: the connection is presumed dead.
+    quiet: AtomicBool,
+    /// The namespace is connected right now.
+    up: AtomicBool,
+    /// The namespace has been connected at least once.
+    ever_up: AtomicBool,
+    /// The client is over: its first attempt failed, or the engine is gone.
     finished: AtomicBool,
 }
 
 impl Shared {
+    fn new(gen: u64, sink: Sink, reconnect: Reconnect) -> Shared {
+        Shared {
+            gen,
+            sink,
+            relay: Mutex::new(Relay::default()),
+            outbox: Outbox::new(),
+            reconnect,
+            stopped: AtomicBool::new(false),
+            quiet: AtomicBool::new(false),
+            up: AtomicBool::new(false),
+            ever_up: AtomicBool::new(false),
+            finished: AtomicBool::new(false),
+        }
+    }
+
+    fn done(&self) -> bool {
+        self.stopped.load(Ordering::SeqCst) || self.finished.load(Ordering::SeqCst)
+    }
+
     fn deliver(&self, ev: ObEvent) -> bool {
         if self.stopped.load(Ordering::SeqCst) {
             return false;
@@ -413,18 +575,24 @@ impl Shared {
         }
     }
 
-    /// Report the end of the connection once: `disconnect` if it had connected, else
-    /// `connect_error` with the reason.
-    fn end(&self, reason: &str) {
-        if self.stopped.load(Ordering::SeqCst) || self.finished.swap(true, Ordering::SeqCst) {
-            return;
+    /// The connection is gone: report `Disconnected` once per loss (a no-op when it was not up).
+    fn lost(&self) {
+        if self.up.swap(false, Ordering::SeqCst) {
+            self.deliver(ObEvent::Disconnected);
         }
-        let ev = if self.connected.load(Ordering::SeqCst) {
-            ObEvent::Disconnected
-        } else {
-            ObEvent::ConnectError(reason.to_string())
-        };
-        let _ = (self.sink)(self.gen, ev);
+    }
+
+    /// The first attempt failed for good.
+    fn failed_initially(&self, reason: String) {
+        if !self.finished.swap(true, Ordering::SeqCst) {
+            let _ = self.deliver(ObEvent::ConnectError(reason));
+        }
+    }
+
+    fn stop(&self, quiet: bool) {
+        self.quiet.store(quiet, Ordering::SeqCst);
+        self.stopped.store(true, Ordering::SeqCst);
+        self.outbox.wake();
     }
 }
 
@@ -438,20 +606,22 @@ impl Drop for LiveGuard {
 
 struct Running {
     shared: Arc<Shared>,
-    tx: mpsc::SyncSender<Out>,
+    url: reqwest::Url,
 }
 
 /// Owns the current client. Lives on the `socketio` thread.
 pub struct Manager {
     sink: Sink,
+    reconnect: Reconnect,
     live: Arc<AtomicUsize>,
     current: Option<Running>,
 }
 
 impl Manager {
-    pub fn new(sink: Sink) -> Manager {
+    pub fn new(sink: Sink, reconnect: Reconnect) -> Manager {
         Manager {
             sink,
+            reconnect,
             live: Arc::new(AtomicUsize::new(0)),
             current: None,
         }
@@ -468,8 +638,11 @@ impl Manager {
             }
             ObCmd::Send { name, payload } => {
                 if let Some(r) = &self.current {
-                    // A full queue drops the event: the client is not keeping up.
-                    let _ = r.tx.try_send(Out::Event { name, payload });
+                    // Only a connected client forwards: an event for a connection that is gone
+                    // would be stale by the time the next one is up.
+                    if r.shared.up.load(Ordering::SeqCst) {
+                        r.shared.outbox.push(Out::Event { name, payload });
+                    }
                 }
                 None
             }
@@ -483,42 +656,58 @@ impl Manager {
                         ),
                     ));
                 }
-                let (tx, rx) = mpsc::sync_channel::<Out>(OUT_DEPTH);
-                let shared = Arc::new(Shared {
-                    gen,
-                    sink: self.sink.clone(),
-                    relay: Mutex::new(Relay::default()),
-                    stopped: AtomicBool::new(false),
-                    connected: AtomicBool::new(false),
-                    finished: AtomicBool::new(false),
-                });
-                self.live.fetch_add(1, Ordering::SeqCst);
-                let guard = LiveGuard(self.live.clone());
-                let (s2, pong) = (shared.clone(), tx.clone());
-                let spawned = std::thread::Builder::new()
-                    .name("obrelay".into())
-                    .spawn(move || {
-                        let _guard = guard;
-                        client_main(&s2, &url, rx, pong);
-                    });
-                match spawned {
-                    Ok(_) => {
-                        self.current = Some(Running { shared, tx });
-                        None
-                    }
-                    Err(_) => Some((
-                        gen,
-                        ObEvent::ConnectError("could not start the orderbook client".into()),
-                    )),
-                }
+                let shared = Arc::new(Shared::new(gen, self.sink.clone(), self.reconnect));
+                self.start_client(shared, url)
             }
+            ObCmd::Resume => {
+                let Some(r) = &self.current else { return None };
+                // The old client may sit in a request that will only time out; it is stopped
+                // without a goodbye and a new one takes over. If too many are still closing,
+                // the old one stays and finds out by itself.
+                if self.live.load(Ordering::SeqCst) >= MAX_LIVE_CLIENTS {
+                    return None;
+                }
+                let (gen, url) = (r.shared.gen, r.url.clone());
+                let shared = Arc::new(Shared::new(gen, self.sink.clone(), self.reconnect));
+                shared
+                    .up
+                    .store(r.shared.up.load(Ordering::SeqCst), Ordering::SeqCst);
+                shared
+                    .ever_up
+                    .store(r.shared.ever_up.load(Ordering::SeqCst), Ordering::SeqCst);
+                r.shared.stop(true);
+                self.current = None;
+                self.start_client(shared, url)
+            }
+        }
+    }
+
+    fn start_client(&mut self, shared: Arc<Shared>, url: reqwest::Url) -> Option<(u64, ObEvent)> {
+        let gen = shared.gen;
+        self.live.fetch_add(1, Ordering::SeqCst);
+        let guard = LiveGuard(self.live.clone());
+        let (s2, u2) = (shared.clone(), url.clone());
+        let spawned = std::thread::Builder::new()
+            .name("obrelay".into())
+            .spawn(move || {
+                let _guard = guard;
+                supervisor(&s2, &u2);
+            });
+        match spawned {
+            Ok(_) => {
+                self.current = Some(Running { shared, url });
+                None
+            }
+            Err(_) => Some((
+                gen,
+                ObEvent::ConnectError("could not start the orderbook client".into()),
+            )),
         }
     }
 
     fn stop(&mut self) {
         if let Some(r) = self.current.take() {
-            r.shared.stopped.store(true, Ordering::SeqCst);
-            let _ = r.tx.try_send(Out::Close);
+            r.shared.stop(false);
         }
     }
 }
@@ -593,81 +782,155 @@ impl Transport {
     }
 }
 
-fn client_main(
-    shared: &Arc<Shared>,
-    url: &reqwest::Url,
-    rx: mpsc::Receiver<Out>,
-    pong: mpsc::SyncSender<Out>,
-) {
-    let tr = match http_client_with(url, CONNECT_TIMEOUT, REQUEST_TIMEOUT).and_then(|client| {
-        url.join("socket.io/")
-            .map(|base| Transport { client, base })
-            .map_err(|_| "orderbook URL cannot carry a socket.io path".to_string())
-    }) {
-        Ok(t) => Arc::new(t),
-        Err(e) => return shared.end(&e),
-    };
-    let open = match tr.get(None, REQUEST_TIMEOUT).and_then(|b| parse_open(&b)) {
-        Ok(o) => o,
-        Err(e) => return shared.end(&e),
-    };
-    if shared.stopped.load(Ordering::SeqCst) {
-        let _ = tr.post(&open.sid, "1");
-        return;
+/// How one connection ended.
+struct Ended {
+    reason: String,
+    /// The namespace had been connected on this connection.
+    was_up: bool,
+}
+
+/// Sleep `ms`, in slices, until the client is stopped or finished.
+fn sleep_unless_done(shared: &Shared, ms: u64) {
+    let end = Instant::now() + Duration::from_millis(ms);
+    while !shared.done() {
+        let left = end.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return;
+        }
+        std::thread::sleep(left.min(Duration::from_millis(50)));
     }
-    if let Err(e) = tr.post(&open.sid, "40") {
-        return shared.end(&e);
+}
+
+/// The client's life: connect, relay, and after a loss reconnect with backoff until stopped.
+/// The first attempt that fails ends it with `ConnectError` (the UI asked for a server that is
+/// not there); once connected it never gives up. `Disconnected` is reported once per loss.
+fn supervisor(shared: &Arc<Shared>, url: &reqwest::Url) {
+    // A restarted client (resume) that was connected tells the UI about the loss first.
+    shared.lost();
+    let mut backoff = Backoff::new(shared.reconnect);
+    loop {
+        if shared.done() {
+            return;
+        }
+        let ended = match connect_and_relay(shared, url) {
+            Ok(()) => return,
+            Err(e) => e,
+        };
+        shared.lost();
+        if shared.done() {
+            return;
+        }
+        if !shared.ever_up.load(Ordering::SeqCst) {
+            return shared.failed_initially(ended.reason);
+        }
+        if ended.was_up {
+            backoff.reset();
+        }
+        sleep_unless_done(shared, backoff.next_delay_ms(random_unit()));
     }
-    let (tw, sw, sid) = (tr.clone(), shared.clone(), open.sid.clone());
+}
+
+/// One connection. `Ok` when the client was stopped (or the engine is gone), `Err` when the
+/// connection ended.
+fn connect_and_relay(shared: &Arc<Shared>, url: &reqwest::Url) -> Result<(), Ended> {
+    let fail = |reason: String| Ended {
+        reason,
+        was_up: false,
+    };
+    let tr = http_client_with(url, CONNECT_TIMEOUT, REQUEST_TIMEOUT)
+        .and_then(|client| {
+            url.join("socket.io/")
+                .map(|base| Transport { client, base })
+                .map_err(|_| "orderbook URL cannot carry a socket.io path".to_string())
+        })
+        .map(Arc::new)
+        .map_err(fail)?;
+    let open = tr
+        .get(None, REQUEST_TIMEOUT)
+        .and_then(|b| parse_open(&b))
+        .map_err(fail)?;
+    if shared.done() {
+        if !shared.quiet.load(Ordering::SeqCst) {
+            let _ = tr.post(&open.sid, "1");
+        }
+        return Ok(());
+    }
+    *shared.relay.lock().unwrap_or_else(PoisonError::into_inner) = Relay::default();
+    shared.outbox.clear();
+    tr.post(&open.sid, "40").map_err(fail)?;
+    let alive = Arc::new(AtomicBool::new(true));
+    let (tw, sw, aw, sid) = (tr.clone(), shared.clone(), alive.clone(), open.sid.clone());
     if std::thread::Builder::new()
         .name("obrelay-send".into())
-        .spawn(move || writer(&tw, &sw, &sid, rx))
+        .spawn(move || writer(&tw, &sw, &aw, &sid))
         .is_err()
     {
-        return shared.end("could not start the orderbook client");
+        return Err(fail("could not start the orderbook client".into()));
     }
+    let out = poll_loop(shared, &tr, &open, &alive);
+    alive.store(false, Ordering::SeqCst);
+    shared.outbox.wake();
+    out
+}
+
+fn poll_loop(
+    shared: &Arc<Shared>,
+    tr: &Transport,
+    open: &Open,
+    alive: &AtomicBool,
+) -> Result<(), Ended> {
     let started = Instant::now();
+    let mut was_up = false;
     let poll_timeout = open.ping_interval + open.ping_timeout;
+    let end = |was_up: bool, reason: &str| Ended {
+        reason: reason.to_string(),
+        was_up,
+    };
     loop {
-        if shared.stopped.load(Ordering::SeqCst) || shared.finished.load(Ordering::SeqCst) {
-            return;
+        if shared.done() {
+            return Ok(());
         }
-        let body = match tr.get(Some(&open.sid), poll_timeout) {
-            Ok(b) => b,
-            Err(e) => return shared.end(&e),
-        };
-        if shared.stopped.load(Ordering::SeqCst) {
-            return;
+        if !alive.load(Ordering::SeqCst) {
+            return Err(end(was_up, "orderbook request failed"));
         }
-        if !shared.connected.load(Ordering::SeqCst) && started.elapsed() > CONNECT_TIMEOUT {
-            return shared.end("orderbook did not accept the connection in time");
+        let body = tr
+            .get(Some(&open.sid), poll_timeout)
+            .map_err(|e| end(was_up, &e))?;
+        if shared.done() {
+            return Ok(());
+        }
+        if !was_up && started.elapsed() > CONNECT_TIMEOUT {
+            return Err(end(
+                was_up,
+                "orderbook did not accept the connection in time",
+            ));
         }
         for (n, raw) in body.split(SEP).enumerate() {
             if n >= MAX_PACKETS_PER_POLL {
-                return shared.end("orderbook sent too many packets at once");
+                return Err(end(was_up, "orderbook sent too many packets at once"));
             }
             match parse_server_packet(raw) {
-                ServerPacket::Ping => {
-                    let _ = pong.try_send(Out::Pong);
-                }
+                ServerPacket::Ping => shared.outbox.push(Out::Pong),
                 ServerPacket::Noop | ServerPacket::Ignored => {}
-                ServerPacket::Close => return shared.end("orderbook closed the session"),
-                ServerPacket::Disconnect => return shared.end("orderbook disconnected"),
-                ServerPacket::ConnectError(r) => return shared.end(&r),
+                ServerPacket::Close => return Err(end(was_up, "orderbook closed the session")),
+                ServerPacket::Disconnect => return Err(end(was_up, "orderbook disconnected")),
+                ServerPacket::ConnectError(r) => return Err(end(was_up, &r)),
                 ServerPacket::Connected(id) => {
-                    if !shared.connected.swap(true, Ordering::SeqCst) {
+                    if !shared.up.swap(true, Ordering::SeqCst) {
+                        was_up = true;
+                        shared.ever_up.store(true, Ordering::SeqCst);
                         shared
                             .relay
                             .lock()
                             .unwrap_or_else(PoisonError::into_inner)
                             .set_sid(&id);
                         if !shared.deliver(ObEvent::Connected) {
-                            return;
+                            return Ok(());
                         }
                     }
                 }
                 ServerPacket::Event(name, payload) => {
-                    if !shared.connected.load(Ordering::SeqCst) {
+                    if !shared.up.load(Ordering::SeqCst) {
                         continue;
                     }
                     let mapped = shared
@@ -676,10 +939,8 @@ fn client_main(
                         .unwrap_or_else(PoisonError::into_inner)
                         .map_server_event(&name, payload);
                     if let Some((name, payload)) = mapped {
-                        if !shared.deliver(ObEvent::Relay { name, payload })
-                            && shared.stopped.load(Ordering::SeqCst)
-                        {
-                            return;
+                        if !shared.deliver(ObEvent::Relay { name, payload }) && shared.done() {
+                            return Ok(());
                         }
                     }
                 }
@@ -688,33 +949,37 @@ fn client_main(
     }
 }
 
-fn writer(tr: &Transport, shared: &Shared, sid: &str, rx: mpsc::Receiver<Out>) {
-    loop {
-        match rx.recv() {
-            Ok(Out::Pong) => {
-                if let Err(e) = tr.post(sid, "3") {
-                    return shared.end(&e);
-                }
-            }
-            Ok(Out::Event { name, payload }) => {
-                if !shared.connected.load(Ordering::SeqCst) {
+fn writer(tr: &Transport, shared: &Shared, alive: &AtomicBool, sid: &str) {
+    while alive.load(Ordering::SeqCst) && !shared.done() {
+        let Some(out) = shared.outbox.pop(Duration::from_millis(100)) else {
+            continue;
+        };
+        let packet = match out {
+            Out::Pong => Some("3".to_string()),
+            Out::Event { name, payload } => {
+                if !shared.up.load(Ordering::SeqCst) {
                     continue;
                 }
-                let packet = shared
+                shared
                     .relay
                     .lock()
                     .unwrap_or_else(PoisonError::into_inner)
-                    .map_ui_event(&name, payload.as_ref());
-                if let Some(p) = packet {
-                    if let Err(e) = tr.post(sid, &p) {
-                        return shared.end(&e);
-                    }
-                }
+                    .map_ui_event(&name, payload.as_ref())
             }
-            Ok(Out::Close) | Err(_) => break,
+        };
+        if let Some(p) = packet {
+            if tr.post(sid, &p).is_err() {
+                // The poll side finds out when its request returns; the UI hears now.
+                alive.store(false, Ordering::SeqCst);
+                shared.lost();
+                return;
+            }
         }
     }
-    if !shared.finished.load(Ordering::SeqCst) {
+    if shared.stopped.load(Ordering::SeqCst)
+        && !shared.quiet.load(Ordering::SeqCst)
+        && alive.load(Ordering::SeqCst)
+    {
         // Socket.io DISCONNECT, then the Engine.IO close.
         let _ = tr.post(sid, &format!("41{SEP}1"));
     }
@@ -728,10 +993,9 @@ mod tests {
     use crate::legacy::ALLOWED_ORIGIN;
     use crate::socketio::{self, Handle, NodeProbe, Probe, SioRequest};
     use serde_json::json;
-    use std::collections::VecDeque;
     use std::io::{Read, Write};
     use std::net::{SocketAddr, TcpListener, TcpStream};
-    use std::sync::Condvar;
+    use std::sync::mpsc;
 
     // ---- pure pieces
 
@@ -1011,6 +1275,10 @@ mod tests {
         received: Vec<String>,
         connections: usize,
         closed: bool,
+        /// The server is down: connections are dropped without an answer.
+        down: bool,
+        /// Engine.IO sessions opened so far; only the latest sid (`EioSid<epoch>`) is valid.
+        epoch: u32,
     }
 
     struct Mock {
@@ -1082,18 +1350,32 @@ mod tests {
                     let Ok(mut stream) = conn else { continue };
                     let st = st2.clone();
                     let open = open_t.clone();
-                    st.0.lock().unwrap().connections += 1;
+                    {
+                        let mut g = st.0.lock().unwrap();
+                        g.connections += 1;
+                        if g.down {
+                            continue;
+                        }
+                    }
                     std::thread::spawn(move || {
                         let Some((method, target, body)) = read_request(&mut stream) else {
                             return;
                         };
                         assert!(target.starts_with("/socket.io/?"), "{target}");
                         assert!(target.contains("EIO=4") && target.contains("transport=polling"));
-                        let has_sid = target.contains("sid=EioSid1");
                         let (lock, cv) = &*st;
-                        match (method.as_str(), has_sid) {
-                            ("GET", false) => http_reply(&mut stream, "200 OK", &open),
-                            ("POST", true) => {
+                        let any_sid = target.contains("&sid=");
+                        let has_sid =
+                            target.ends_with(&format!("sid=EioSid{}", lock.lock().unwrap().epoch));
+                        match (method.as_str(), any_sid, has_sid) {
+                            ("GET", false, _) => {
+                                let mut s = lock.lock().unwrap();
+                                s.epoch += 1;
+                                let body = open.replace("EioSid1", &format!("EioSid{}", s.epoch));
+                                drop(s);
+                                http_reply(&mut stream, "200 OK", &body)
+                            }
+                            ("POST", true, true) => {
                                 let mut s = lock.lock().unwrap();
                                 for p in body.split(SEP) {
                                     if p == "40" {
@@ -1105,15 +1387,23 @@ mod tests {
                                 drop(s);
                                 http_reply(&mut stream, "200 OK", "ok");
                             }
-                            ("GET", true) => {
+                            ("GET", true, true) => {
                                 let mut s = lock.lock().unwrap();
-                                let deadline = Instant::now() + Duration::from_secs(3);
-                                while s.outbound.is_empty() && !s.closed {
+                                let mine = s.epoch;
+                                let deadline = Instant::now() + Duration::from_millis(250);
+                                while s.outbound.is_empty()
+                                    && !s.closed
+                                    && !s.down
+                                    && s.epoch == mine
+                                {
                                     let left = deadline.saturating_duration_since(Instant::now());
                                     if left.is_zero() {
                                         break;
                                     }
                                     s = cv.wait_timeout(s, left).unwrap().0;
+                                }
+                                if s.down || s.epoch != mine {
+                                    return;
                                 }
                                 let out: Vec<String> = s.outbound.drain(..).collect();
                                 let closed = s.closed;
@@ -1161,6 +1451,16 @@ mod tests {
             self.st.0.lock().unwrap().connections
         }
 
+        /// Take the server down (connections are dropped, held polls abandoned) or bring it back
+        /// with no session state, like a restart.
+        fn set_down(&self, down: bool) {
+            let mut s = self.st.0.lock().unwrap();
+            s.down = down;
+            s.outbound.clear();
+            drop(s);
+            self.st.1.notify_all();
+        }
+
         fn wait_received(&self, what: &str, pred: impl Fn(&str) -> bool) -> String {
             let end = Instant::now() + Duration::from_secs(10);
             loop {
@@ -1195,6 +1495,16 @@ mod tests {
         }
     }
 
+    /// Short grace window and backoff so reconnects show within a test's time.
+    fn quick() -> socketio::Liveness {
+        socketio::Liveness {
+            ob_grace_ms: 600,
+            resume_gap_ms: 60_000,
+            ob_backoff_base_ms: 20,
+            ob_backoff_cap_ms: 80,
+        }
+    }
+
     const Q: &str = "EIO=4&transport=polling";
     const WAIT: Duration = Duration::from_secs(10);
 
@@ -1222,18 +1532,30 @@ mod tests {
         }
 
         fn connect(policy: ObPolicy) -> Ui {
-            let h = socketio::start(Box::new(FakeNode), fast(), policy).unwrap();
-            let open = Ui::call(&h, "GET", Q, "");
-            let v: Value = serde_json::from_str(&open.body[1..]).unwrap();
-            let sid = v["sid"].as_str().unwrap().to_string();
+            let h = socketio::start_with(Box::new(FakeNode), fast(), policy, quick()).unwrap();
             let mut ui = Ui {
                 h,
-                sid,
+                sid: String::new(),
                 seen: Vec::new(),
             };
-            assert_eq!(ui.post("40"), "ok");
-            ui.wait_for("40{");
+            ui.new_session();
             ui
+        }
+
+        /// Open a session and connect its namespace (a reconnect of the page's socket.io client).
+        fn new_session(&mut self) {
+            let open = Ui::call(&self.h, "GET", Q, "");
+            let v: Value = serde_json::from_str(&open.body[1..]).unwrap();
+            self.sid = v["sid"].as_str().unwrap().to_string();
+            assert_eq!(self.post("40"), "ok");
+            self.wait_for("40{");
+        }
+
+        /// How many packets containing `needle` were seen so far (consumes them).
+        fn drain_count(&mut self, needle: &str) -> usize {
+            let n = self.seen.iter().filter(|p| p.contains(needle)).count();
+            self.seen.retain(|p| !p.contains(needle));
+            n
         }
 
         fn post(&self, body: &str) -> String {
@@ -1419,14 +1741,238 @@ mod tests {
     }
 
     #[test]
-    fn end_to_end_closing_the_ui_session_stops_the_client() {
+    fn end_to_end_an_unclaimed_client_is_stopped_after_the_grace_window() {
         let m = Mock::start();
         let mut ui = Ui::connect(policy_for(&m));
         ui.emit(&connect_packet(&m.url()));
         ui.wait_for("OB_SOCKET::connect");
-        // The UI's Engine.IO close packet ends its session.
+        // The UI's Engine.IO close ends its session; nobody comes back within the grace window.
         ui.emit("1");
+        let closed = Instant::now();
         m.wait_received("socket.io disconnect", |p| p == "41");
+        assert!(
+            closed.elapsed() >= Duration::from_millis(500),
+            "stopped too early"
+        );
+    }
+
+    #[test]
+    fn end_to_end_a_reconnecting_ui_keeps_the_relay_and_its_data() {
+        let m = Mock::start();
+        let mut ui = Ui::connect(policy_for(&m));
+        ui.emit(&connect_packet(&m.url()));
+        ui.wait_for("OB_SOCKET::connect");
+        ui.emit("1");
+        // The page's socket.io client reconnects: new session, same relay, state re-announced.
+        ui.new_session();
+        ui.wait_for("OB_SOCKET::connect");
+        // Longer than the grace window: the client was handed over, not stopped.
+        std::thread::sleep(Duration::from_millis(800));
+        assert!(
+            !m.received().iter().any(|p| p == "41"),
+            "{:?}",
+            m.received()
+        );
+        assert_eq!(m.received().iter().filter(|p| *p == "40").count(), 1);
+        m.send(r#"42["order:saved","after-handover"]"#);
+        ui.wait_for("after-handover");
+        ui.emit(r#"42["close-order","u9"]"#);
+        m.wait_received("forward after handover", |p| p.contains("u9"));
+    }
+
+    #[test]
+    fn end_to_end_server_restart_reports_one_disconnect_and_reconnects_by_itself() {
+        let m = Mock::start();
+        let mut ui = Ui::connect(policy_for(&m));
+        ui.emit(&connect_packet(&m.url()));
+        ui.wait_for("OB_SOCKET::connect");
+        m.wait_received("namespace connect", |p| p == "40");
+        let before = m.connections();
+
+        m.set_down(true);
+        assert_eq!(
+            ui.wait_for("OB_SOCKET::disconnect"),
+            r#"42["OB_SOCKET::disconnect"]"#
+        );
+        // While the server is away the client keeps trying (a handful of attempts under the
+        // 20..80 ms backoff) and reports nothing more.
+        std::thread::sleep(Duration::from_millis(700));
+        assert!(
+            m.connections() >= before + 3,
+            "{} attempts",
+            m.connections() - before
+        );
+        // Events the UI sends meanwhile are dropped, not queued for later.
+        ui.emit(r#"42["new-order",{"stale":true}]"#);
+        ui.assert_absent("OB_SOCKET::disconnect", 100);
+        assert_eq!(ui.drain_count("OB_SOCKET::disconnect"), 0);
+
+        m.set_down(false);
+        ui.wait_for("OB_SOCKET::connect");
+        m.wait_received("second namespace connect", |p| p == "40");
+        // Server -> UI works again, and nothing stale was resent.
+        m.send(r#"42["order:saved","after-restart"]"#);
+        ui.wait_for("after-restart");
+        ui.emit(r#"42["close-order","fresh"]"#);
+        m.wait_received("fresh event", |p| p.contains("fresh"));
+        assert!(m.received().iter().all(|p| !p.contains("stale")));
+        assert_eq!(ui.drain_count("OB_SOCKET::disconnect"), 0);
+    }
+
+    #[test]
+    fn end_to_end_a_server_that_says_disconnect_is_reconnected_too() {
+        let m = Mock::start();
+        let mut ui = Ui::connect(policy_for(&m));
+        ui.emit(&connect_packet(&m.url()));
+        ui.wait_for("OB_SOCKET::connect");
+        m.send("41");
+        ui.wait_for("OB_SOCKET::disconnect");
+        ui.wait_for("OB_SOCKET::connect");
+        assert_eq!(ui.drain_count("OB_SOCKET::disconnect"), 0);
+    }
+
+    fn collecting_sink() -> (Sink, mpsc::Receiver<ObEvent>) {
+        let (tx, rx) = mpsc::channel();
+        let tx = Mutex::new(tx);
+        (
+            Arc::new(move |_gen, ev| tx.lock().unwrap().send(ev).is_ok()),
+            rx,
+        )
+    }
+
+    fn next_event(rx: &mpsc::Receiver<ObEvent>) -> ObEvent {
+        rx.recv_timeout(Duration::from_secs(10)).expect("an event")
+    }
+
+    #[test]
+    fn manager_resume_replaces_the_client_and_reports_the_loss_once() {
+        let m = Mock::start();
+        let (sink, rx) = collecting_sink();
+        let mut mgr = Manager::new(
+            sink,
+            Reconnect {
+                base_ms: 20,
+                cap_ms: 80,
+            },
+        );
+        let url = reqwest::Url::parse(&m.url()).unwrap();
+        assert!(mgr.apply(ObCmd::Connect { gen: 4, url }).is_none());
+        assert_eq!(next_event(&rx), ObEvent::Connected);
+        // The machine woke up: the old connection is presumed dead, a new client takes over.
+        assert!(mgr.apply(ObCmd::Resume).is_none());
+        assert_eq!(next_event(&rx), ObEvent::Disconnected);
+        assert_eq!(next_event(&rx), ObEvent::Connected);
+        assert_eq!(m.received().iter().filter(|p| *p == "40").count(), 2);
+        // The old client leaves without a goodbye (its connection was presumed dead).
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(
+            !m.received().iter().any(|p| p == "41"),
+            "{:?}",
+            m.received()
+        );
+        assert!(rx.try_recv().is_err(), "no further events");
+        // A resume with no client is a no-op.
+        mgr.apply(ObCmd::Stop);
+        assert!(mgr.apply(ObCmd::Resume).is_none());
+    }
+
+    #[test]
+    fn manager_drops_events_while_the_client_is_not_connected() {
+        let m = Mock::start();
+        let (sink, rx) = collecting_sink();
+        let mut mgr = Manager::new(
+            sink,
+            Reconnect {
+                base_ms: 20,
+                cap_ms: 80,
+            },
+        );
+        let url = reqwest::Url::parse(&m.url()).unwrap();
+        mgr.apply(ObCmd::Connect { gen: 1, url });
+        assert_eq!(next_event(&rx), ObEvent::Connected);
+        m.set_down(true);
+        assert_eq!(next_event(&rx), ObEvent::Disconnected);
+        for n in 0..500 {
+            mgr.apply(ObCmd::Send {
+                name: "new-order".into(),
+                payload: Some(json!({ "n": n })),
+            });
+        }
+        m.set_down(false);
+        assert_eq!(next_event(&rx), ObEvent::Connected);
+        mgr.apply(ObCmd::Send {
+            name: "close-order".into(),
+            payload: Some(json!("now")),
+        });
+        m.wait_received("event after reconnect", |p| p.contains("close-order"));
+        assert!(m.received().iter().all(|p| !p.contains("new-order")));
+    }
+
+    #[test]
+    fn a_failed_first_attempt_is_final_and_a_later_loss_is_not() {
+        let dead = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = reqwest::Url::parse(&format!("http://{}", dead.local_addr().unwrap())).unwrap();
+        drop(dead);
+        let (sink, rx) = collecting_sink();
+        let mut mgr = Manager::new(sink, Reconnect::default());
+        mgr.apply(ObCmd::Connect { gen: 1, url });
+        match next_event(&rx) {
+            ObEvent::ConnectError(r) => assert!(r.contains("orderbook request failed"), "{r}"),
+            other => panic!("{other:?}"),
+        }
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(rx.try_recv().is_err(), "the client ended");
+    }
+
+    #[test]
+    fn backoff_doubles_to_the_cap_and_jitter_stays_inside_the_window() {
+        let cfg = Reconnect {
+            base_ms: 500,
+            cap_ms: 10_000,
+        };
+        let mut b = Backoff::new(cfg);
+        let full: Vec<u64> = (0..8).map(|_| b.next_delay_ms(1.0)).collect();
+        assert_eq!(
+            full,
+            [500, 1_000, 2_000, 4_000, 8_000, 10_000, 10_000, 10_000]
+        );
+        let mut b = Backoff::new(cfg);
+        let low: Vec<u64> = (0..7).map(|_| b.next_delay_ms(0.0)).collect();
+        assert_eq!(low, [250, 500, 1_000, 2_000, 4_000, 5_000, 5_000]);
+        // Any jitter lands between half and the whole of the step; junk jitter is clamped.
+        let mut b = Backoff::new(cfg);
+        let mids: Vec<u64> = (0..4).map(|_| b.next_delay_ms(0.5)).collect();
+        assert_eq!(mids, [375, 750, 1_500, 3_000]);
+        let mut b = Backoff::new(cfg);
+        assert_eq!(b.next_delay_ms(f64::NAN), 500);
+        assert_eq!(b.next_delay_ms(-3.0), 500);
+        assert_eq!(b.next_delay_ms(9.0), 2_000);
+        // A connection that worked starts the schedule over.
+        b.reset();
+        assert_eq!(b.next_delay_ms(1.0), 500);
+        // Many failures never overflow.
+        let mut b = Backoff::new(cfg);
+        for _ in 0..10_000 {
+            assert!(b.next_delay_ms(1.0) <= 10_000);
+        }
+        for _ in 0..1000 {
+            let j = random_unit();
+            assert!((0.0..1.0).contains(&j), "{j}");
+        }
+    }
+
+    #[test]
+    fn the_outbox_is_bounded_and_clearable() {
+        let o = Outbox::new();
+        for _ in 0..OUT_DEPTH + 40 {
+            o.push(Out::Pong);
+        }
+        assert_eq!(o.len(), OUT_DEPTH);
+        o.clear();
+        assert_eq!(o.len(), 0);
+        assert!(o.pop(Duration::from_millis(5)).is_none());
+        o.push(Out::Pong);
+        assert!(matches!(o.pop(Duration::from_millis(5)), Some(Out::Pong)));
     }
 
     #[test]

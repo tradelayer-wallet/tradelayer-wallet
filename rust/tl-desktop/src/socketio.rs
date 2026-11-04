@@ -32,6 +32,15 @@
 //!   queues [`ObCmd`]s; the thread hands them to the relay [`Manager`] and feeds its [`ObEvent`]s
 //!   back as `OB_SOCKET::*` events on the session that asked. A session that closes stops its
 //!   client.
+//! * Liveness ([`Liveness`]): a UI that reconnects (new session) takes over the orderbook relay of
+//!   the session it replaces, also when that session ended by timeout or close, as long as it
+//!   arrives within `ob_grace_ms`; it is told the relay's state (`OB_SOCKET::connect` when up,
+//!   `OB_SOCKET::disconnect` when the relay lost the server meanwhile). A relay nobody claims
+//!   within the grace window is stopped. [`Engine::observe_clock`] compares the monotonic clock
+//!   with the wall clock on every loop turn; a gap of `resume_gap_ms` or more (system sleep,
+//!   a frozen process) closes every session at once, so the UI reconnects immediately instead of
+//!   waiting out its timeouts, and restarts the relay client. A block probe that never answers is
+//!   abandoned after [`PROBE_STUCK_MS`].
 //! * server `new-block` `{height, header}` and `core-error`: while a socket is connected the
 //!   engine asks the [`NodeProbe`] for `getblockchaininfo` every `probe_interval_ms`. `new-block`
 //!   is emitted when the height increases; `core-error` once when a node that had answered stops
@@ -50,7 +59,11 @@ pub const MAX_SESSIONS: usize = 4;
 pub const MAX_PAYLOAD: usize = 1_000_000;
 pub const MAX_QUEUE: usize = 256;
 const QUEUE_DEPTH: usize = 128;
-const IDLE_WAIT_MS: u64 = 60_000;
+/// Longest the thread sleeps without looking at the clocks, so a resume from sleep is noticed
+/// within this time even with no session.
+const IDLE_WAIT_MS: u64 = 5_000;
+/// A block probe in flight longer than this is considered lost and the next one may start.
+pub const PROBE_STUCK_MS: u64 = 30_000;
 /// Relay commands queued per engine call; further `Send`s are dropped.
 const MAX_OB_OUT: usize = 256;
 const SEP: char = '\x1e';
@@ -69,6 +82,29 @@ impl Default for Config {
             ping_interval_ms: 25_000,
             ping_timeout_ms: 20_000,
             probe_interval_ms: 5_000,
+        }
+    }
+}
+
+/// Liveness timing, in milliseconds. Kept apart from [`Config`] (the protocol timing).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Liveness {
+    /// How long a relay client survives without a UI session before it is stopped.
+    pub ob_grace_ms: u64,
+    /// Gap between the monotonic and the wall clock (or a stalled loop) that counts as a resume.
+    pub resume_gap_ms: u64,
+    /// First delay and cap of the relay client's reconnect backoff.
+    pub ob_backoff_base_ms: u64,
+    pub ob_backoff_cap_ms: u64,
+}
+
+impl Default for Liveness {
+    fn default() -> Liveness {
+        Liveness {
+            ob_grace_ms: 60_000,
+            resume_gap_ms: 10_000,
+            ob_backoff_base_ms: 500,
+            ob_backoff_cap_ms: 10_000,
         }
     }
 }
@@ -285,6 +321,7 @@ struct Session {
     /// The queue overflowed; the session is closed at the end of the operation.
     dead: bool,
     probe_inflight: bool,
+    probe_sent_ms: u64,
     next_probe_ms: u64,
     last_block: u64,
     node_up: bool,
@@ -326,16 +363,35 @@ pub struct TickOut {
     pub next_wake_ms: Option<u64>,
 }
 
+/// What the engine knows of the relay client's connection to the orderbook server.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ObPhase {
+    /// Never connected yet.
+    Connecting,
+    Up,
+    /// Was connected and lost the server; the client is retrying.
+    Down,
+}
+
 pub struct Engine {
     cfg: Config,
+    live: Liveness,
     sessions: Vec<Session>,
     policy: ObPolicy,
     /// Generation of the orderbook client the engine last asked for, if it is still wanted.
     ob_live: Option<u64>,
     ob_gen: u64,
+    ob_phase: ObPhase,
     /// Session that asked for the client; its events go there.
     ob_owner: Option<String>,
+    /// The owner's session ended without an explicit stop: the client lives until this time (ms)
+    /// unless a new session claims it.
+    ob_orphan_until: Option<u64>,
     ob_out: Vec<ObCmd>,
+    /// Latest engine time seen, for deadlines set outside an entry point that has one.
+    now: u64,
+    /// `(monotonic ms, wall ms)` at the previous [`Engine::observe_clock`].
+    clock: Option<(u64, u64)>,
 }
 
 fn new_id(bytes: usize) -> Option<String> {
@@ -347,18 +403,23 @@ fn new_id(bytes: usize) -> Option<String> {
 impl Engine {
     #[cfg(test)]
     pub fn new(cfg: Config) -> Engine {
-        Engine::with_policy(cfg, ObPolicy::default())
+        Engine::with_liveness(cfg, ObPolicy::default(), Liveness::default())
     }
 
-    pub fn with_policy(cfg: Config, policy: ObPolicy) -> Engine {
+    pub fn with_liveness(cfg: Config, policy: ObPolicy, live: Liveness) -> Engine {
         Engine {
             cfg,
+            live,
             sessions: Vec::new(),
             policy,
             ob_live: None,
             ob_gen: 0,
+            ob_phase: ObPhase::Connecting,
             ob_owner: None,
+            ob_orphan_until: None,
             ob_out: Vec::new(),
+            now: 0,
+            clock: None,
         }
     }
 
@@ -377,6 +438,7 @@ impl Engine {
 
     /// Answer one request. `done` is called now, or later for a held long poll.
     pub fn handle(&mut self, now: u64, req: SioRequest, done: Respond) {
+        self.now = self.now.max(now);
         let origin = match req.origin.as_deref() {
             None => None,
             Some(o) if o == ALLOWED_ORIGIN => Some(o),
@@ -423,6 +485,7 @@ impl Engine {
             ns_connected: false,
             dead: false,
             probe_inflight: false,
+            probe_sent_ms: now,
             next_probe_ms: now,
             last_block: 0,
             node_up: false,
@@ -531,6 +594,7 @@ impl Engine {
                     self.close(j);
                 }
             }
+            self.ob_attach(&sid);
         }
         self.settle(&sid);
     }
@@ -551,14 +615,45 @@ impl Engine {
         }
     }
 
-    /// Remove session `i`; a held poll is answered with the Engine.IO close packet.
+    /// Remove session `i`; a held poll is answered with the Engine.IO close packet. The relay
+    /// client of a closed owner is kept for [`Liveness::ob_grace_ms`] so that the UI's next
+    /// session can take it over.
     fn close(&mut self, i: usize) {
         let s = self.sessions.remove(i);
         if self.ob_owner.as_deref() == Some(s.sid.as_str()) {
-            self.ob_stop();
+            self.ob_detach();
         }
         if let Some(p) = s.pending {
             (p.done)(SioResponse::text("1", None));
+        }
+    }
+
+    /// Compare the monotonic clock with the wall clock; call once per loop turn. When the wall
+    /// clock ran ahead by `resume_gap_ms` or more (the monotonic clock does not count system
+    /// sleep), or the turn itself took that long (a frozen process, a monotonic clock that does
+    /// count sleep), the machine was suspended: every session is closed so the UI reconnects now,
+    /// and the relay client restarts. Returns whether a resume was detected.
+    pub fn observe_clock(&mut self, mono_ms: u64, wall_ms: u64) -> bool {
+        self.now = self.now.max(mono_ms);
+        let Some((m0, w0)) = self.clock.replace((mono_ms, wall_ms)) else {
+            return false;
+        };
+        let dm = mono_ms.saturating_sub(m0);
+        let dw = wall_ms.saturating_sub(w0);
+        let gap = dw.saturating_sub(dm).max(dm);
+        if gap < self.live.resume_gap_ms {
+            return false;
+        }
+        self.resume();
+        true
+    }
+
+    fn resume(&mut self) {
+        while !self.sessions.is_empty() {
+            self.close(self.sessions.len() - 1);
+        }
+        if self.ob_live.is_some() {
+            self.push_ob(ObCmd::Resume);
         }
     }
 
@@ -582,6 +677,34 @@ impl Engine {
             self.push_ob(ObCmd::Stop);
         }
         self.ob_owner = None;
+        self.ob_orphan_until = None;
+    }
+
+    /// The owner's session is gone but nobody asked to stop: keep the client for the grace window.
+    fn ob_detach(&mut self) {
+        self.ob_owner = None;
+        if self.ob_live.is_some() {
+            self.ob_orphan_until = Some(self.now.saturating_add(self.live.ob_grace_ms));
+        }
+    }
+
+    /// A UI session connected its namespace: it takes over an unclaimed relay client and learns
+    /// the state the UI would have seen had it stayed.
+    fn ob_attach(&mut self, sid: &str) {
+        if self.ob_live.is_none() || self.ob_owner.is_some() || self.ob_orphan_until.is_none() {
+            return;
+        }
+        let Some(i) = self.find(sid) else { return };
+        self.ob_owner = Some(sid.to_string());
+        self.ob_orphan_until = None;
+        let packet = match self.ob_phase {
+            ObPhase::Up => Some(obrelay::encode_event("OB_SOCKET::connect", None)),
+            ObPhase::Down => Some(obrelay::encode_event("OB_SOCKET::disconnect", None)),
+            ObPhase::Connecting => None,
+        };
+        if let Some(p) = packet {
+            self.sessions[i].push(p);
+        }
     }
 
     fn on_event(&mut self, i: usize, name: &str, payload: Option<Value>) {
@@ -629,6 +752,7 @@ impl Engine {
             Ok(url) => {
                 self.ob_gen += 1;
                 self.ob_live = Some(self.ob_gen);
+                self.ob_phase = ObPhase::Connecting;
                 self.ob_owner = Some(sid.to_string());
                 self.push_ob(ObCmd::Connect {
                     gen: self.ob_gen,
@@ -639,39 +763,47 @@ impl Engine {
     }
 
     /// An event from the relay client of generation `gen`; stale generations are dropped.
+    /// `Disconnected` is not final: the client keeps reconnecting and reports `Connected` again.
+    /// `ConnectError` (the first attempt failed) ends the client.
     pub fn ob_event(&mut self, gen: u64, ev: ObEvent) {
         if self.ob_live != Some(gen) {
             return;
         }
-        let Some(owner) = self.ob_owner.clone() else {
-            return;
-        };
-        let Some(i) = self.find(&owner) else {
+        match &ev {
+            ObEvent::Connected => self.ob_phase = ObPhase::Up,
+            ObEvent::Disconnected => self.ob_phase = ObPhase::Down,
+            ObEvent::ConnectError(_) | ObEvent::Relay { .. } => {}
+        }
+        let ended = matches!(ev, ObEvent::ConnectError(_));
+        let owner = self.ob_owner.clone();
+        let target = owner.as_deref().and_then(|o| self.find(o));
+        if owner.is_some() && target.is_none() {
             self.ob_stop();
             return;
-        };
-        let (packet, ended) = match ev {
-            ObEvent::Connected => (obrelay::encode_event("OB_SOCKET::connect", None), false),
-            ObEvent::ConnectError(reason) => (
-                obrelay::encode_event("OB_SOCKET::connect_error", Some(&Value::String(reason))),
-                true,
-            ),
-            ObEvent::Disconnected => (obrelay::encode_event("OB_SOCKET::disconnect", None), true),
-            ObEvent::Relay { name, payload } => {
-                (obrelay::encode_event(&name, payload.as_ref()), false)
+        }
+        let packet = match ev {
+            ObEvent::Connected => obrelay::encode_event("OB_SOCKET::connect", None),
+            ObEvent::ConnectError(reason) => {
+                obrelay::encode_event("OB_SOCKET::connect_error", Some(&Value::String(reason)))
             }
+            ObEvent::Disconnected => obrelay::encode_event("OB_SOCKET::disconnect", None),
+            ObEvent::Relay { name, payload } => obrelay::encode_event(&name, payload.as_ref()),
         };
         if ended {
             self.ob_stop();
         }
-        if packet.len() <= MAX_PAYLOAD {
-            self.sessions[i].push(packet);
+        // Without an owner (orphaned) only the state is tracked; data would be stale.
+        if let (Some(i), Some(owner)) = (target, owner) {
+            if packet.len() <= MAX_PAYLOAD {
+                self.sessions[i].push(packet);
+            }
+            self.settle(&owner);
         }
-        self.settle(&owner);
     }
 
     /// Fire due poll timeouts, expire silent sessions and report which sessions need a probe.
     pub fn tick(&mut self, now: u64) -> TickOut {
+        self.now = self.now.max(now);
         let expiry = self.expiry_ms();
         let interval = self.cfg.probe_interval_ms;
         let mut out = TickOut::default();
@@ -688,8 +820,12 @@ impl Engine {
                 self.close(i);
                 continue;
             }
+            if s.probe_inflight && now.saturating_sub(s.probe_sent_ms) > PROBE_STUCK_MS {
+                s.probe_inflight = false;
+            }
             if s.ns_connected && !s.probe_inflight && s.next_probe_ms <= now {
                 s.probe_inflight = true;
+                s.probe_sent_ms = now;
                 s.next_probe_ms = now + interval;
                 out.probes.push(s.sid.clone());
             }
@@ -700,8 +836,18 @@ impl Engine {
             if s.ns_connected && !s.probe_inflight {
                 wake = wake.min(s.next_probe_ms);
             }
+            if s.probe_inflight {
+                wake = wake.min(s.probe_sent_ms + PROBE_STUCK_MS + 1);
+            }
             out.next_wake_ms = Some(out.next_wake_ms.map_or(wake, |w| w.min(wake)));
             i += 1;
+        }
+        if let Some(until) = self.ob_orphan_until {
+            if until <= now {
+                self.ob_stop();
+            } else {
+                out.next_wake_ms = Some(out.next_wake_ms.map_or(until, |w| w.min(until)));
+            }
         }
         out
     }
@@ -787,8 +933,25 @@ fn elapsed_ms(start: Instant) -> u64 {
     u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
-/// Start the `socketio` thread.
+fn wall_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
+        .unwrap_or(0)
+}
+
+/// Start the `socketio` thread with the default [`Liveness`].
 pub fn start(source: Box<dyn NodeProbe>, cfg: Config, policy: ObPolicy) -> std::io::Result<Handle> {
+    start_with(source, cfg, policy, Liveness::default())
+}
+
+/// Start the `socketio` thread.
+pub fn start_with(
+    source: Box<dyn NodeProbe>,
+    cfg: Config,
+    policy: ObPolicy,
+    live: Liveness,
+) -> std::io::Result<Handle> {
     let (tx, rx) = mpsc::sync_channel::<Cmd>(QUEUE_DEPTH);
     let probe_tx = tx.clone();
     let ob_tx = tx.clone();
@@ -796,12 +959,17 @@ pub fn start(source: Box<dyn NodeProbe>, cfg: Config, policy: ObPolicy) -> std::
         .name("socketio".into())
         .spawn(move || {
             let start = Instant::now();
-            let mut engine = Engine::with_policy(cfg, policy);
-            let mut relay = Manager::new(Arc::new(move |gen, ev| {
-                ob_tx.send(Cmd::Ob(gen, ev)).is_ok()
-            }));
+            let mut engine = Engine::with_liveness(cfg, policy, live);
+            let mut relay = Manager::new(
+                Arc::new(move |gen, ev| ob_tx.send(Cmd::Ob(gen, ev)).is_ok()),
+                obrelay::Reconnect {
+                    base_ms: live.ob_backoff_base_ms,
+                    cap_ms: live.ob_backoff_cap_ms,
+                },
+            );
             loop {
                 let now = elapsed_ms(start);
+                engine.observe_clock(now, wall_ms());
                 let out = engine.tick(now);
                 // Relay commands queued by the last step; a client that cannot start reports at once.
                 let mut cmds = engine.take_ob();
@@ -1105,15 +1273,28 @@ mod tests {
         // Stale generations are dropped.
         e.ob_event(7, ObEvent::Disconnected);
         assert!(queued(&mut e, 4, &sid).is_empty());
-        // A terminal event reaches the UI and stops the client.
+        // A lost connection reaches the UI; the client keeps retrying, so nothing is stopped and
+        // its next `Connected` reaches the UI again.
         e.ob_event(1, ObEvent::Disconnected);
         assert_eq!(
             queued(&mut e, 5, &sid),
             vec![r#"42["OB_SOCKET::disconnect"]"#.to_string()]
         );
+        assert!(e.take_ob().is_empty());
+        e.ob_event(1, ObEvent::Connected);
+        assert_eq!(
+            queued(&mut e, 6, &sid),
+            vec![r#"42["OB_SOCKET::connect"]"#.to_string()]
+        );
+        // A failed first attempt ends the client.
+        e.ob_event(1, ObEvent::ConnectError("no".into()));
+        assert_eq!(
+            queued(&mut e, 7, &sid),
+            vec![r#"42["OB_SOCKET::connect_error","no"]"#.to_string()]
+        );
         assert!(matches!(e.take_ob().as_slice(), [ObCmd::Stop]));
         e.ob_event(1, ObEvent::Connected);
-        assert!(queued(&mut e, 6, &sid).is_empty());
+        assert!(queued(&mut e, 8, &sid).is_empty());
     }
 
     #[test]
@@ -1198,7 +1379,7 @@ mod tests {
     }
 
     #[test]
-    fn a_new_connect_replaces_the_client_and_session_close_stops_it() {
+    fn a_new_connect_replaces_the_client_and_session_end_stops_it_after_the_grace_window() {
         let (mut e, sid) = connected_engine();
         let url = format!(r#"42["ob-sockets-connect","{OB}"]"#);
         emit(&mut e, 1, &sid, &url);
@@ -1215,12 +1396,16 @@ mod tests {
             ),
             "{cmds:?}"
         );
-        // The UI's Engine.IO close ends the session and its client.
+        // The UI's Engine.IO close ends the session; its client waits out the grace window.
         emit(&mut e, 2, &sid, "1");
         assert_eq!(e.session_count(), 0);
-        assert!(matches!(e.take_ob().as_slice(), [ObCmd::Stop]));
+        assert!(e.take_ob().is_empty());
         e.ob_event(2, ObEvent::Connected);
         assert_eq!(e.session_count(), 0);
+        e.tick(2 + Liveness::default().ob_grace_ms - 1);
+        assert!(e.take_ob().is_empty());
+        e.tick(2 + Liveness::default().ob_grace_ms);
+        assert!(matches!(e.take_ob().as_slice(), [ObCmd::Stop]));
 
         // So do the namespace DISCONNECT and an expired session.
         let (mut e, sid) = connected_engine();
@@ -1233,6 +1418,8 @@ mod tests {
         e.take_ob();
         e.tick(10_000);
         assert_eq!(e.session_count(), 0);
+        assert!(e.take_ob().is_empty());
+        e.tick(10_000 + Liveness::default().ob_grace_ms);
         assert!(matches!(e.take_ob().as_slice(), [ObCmd::Stop]));
     }
 
@@ -1458,6 +1645,7 @@ mod tests {
             ns_connected: true,
             dead: false,
             probe_inflight: false,
+            probe_sent_ms: 0,
             next_probe_ms: 0,
             last_block: 0,
             node_up: false,
@@ -1524,6 +1712,289 @@ mod tests {
         assert_eq!(call(&mut e, 3, "POST", &q(&sid), "1").unwrap().body, "ok");
         assert_eq!(e.session_count(), 0);
         assert_eq!(taken(&held).unwrap().body, "1");
+    }
+
+    // ---- liveness: relay hand-over, clock jumps, stuck probes
+
+    const GRACE: u64 = 60_000;
+
+    /// A connected engine whose client asked for the orderbook and reported `Connected`.
+    fn engine_with_relay(now: u64) -> (Engine, String) {
+        let (mut e, sid) = connected_engine();
+        emit(
+            &mut e,
+            now,
+            &sid,
+            &format!(r#"42["ob-sockets-connect","{OB}"]"#),
+        );
+        assert!(matches!(
+            e.take_ob().as_slice(),
+            [ObCmd::Connect { gen: 1, .. }]
+        ));
+        e.ob_event(1, ObEvent::Connected);
+        assert_eq!(
+            queued(&mut e, now, &sid),
+            vec![r#"42["OB_SOCKET::connect"]"#.to_string()]
+        );
+        (e, sid)
+    }
+
+    /// Open a second session and connect its namespace; returns its sid and first packets.
+    fn reconnect_session(e: &mut Engine, now: u64) -> (String, Vec<String>) {
+        let sid = open(e, now);
+        emit(e, now, &sid, "40");
+        (sid.clone(), queued(e, now, &sid))
+    }
+
+    #[test]
+    fn a_reconnecting_ui_takes_over_the_relay_within_the_grace_window() {
+        let (mut e, old) = engine_with_relay(1);
+        // The old session ends by silence (the UI slept): no Stop, the client stays.
+        e.tick(1_000);
+        assert_eq!(e.session_count(), 0, "{old}");
+        assert!(e.take_ob().is_empty());
+        let (new, packets) = reconnect_session(&mut e, 1_000 + GRACE - 1);
+        assert_eq!(packets.len(), 2, "{packets:?}");
+        assert!(packets[0].starts_with("40{"));
+        assert_eq!(packets[1], r#"42["OB_SOCKET::connect"]"#);
+        // No new client was requested, and the new session owns the old one.
+        assert!(e.take_ob().is_empty());
+        emit(&mut e, 2_000, &new, r#"42["new-order",{"a":1}]"#);
+        assert!(matches!(
+            e.take_ob().as_slice(),
+            [ObCmd::Send { name, .. }] if name == "new-order"
+        ));
+        e.ob_event(
+            1,
+            ObEvent::Relay {
+                name: "OB_SOCKET::order:saved".into(),
+                payload: None,
+            },
+        );
+        assert_eq!(
+            queued(&mut e, 2_001, &new),
+            vec![r#"42["OB_SOCKET::order:saved"]"#.to_string()]
+        );
+        // It is no longer an orphan: the grace deadline does not stop it.
+        e.tick(1_000 + 2 * GRACE);
+        assert!(e.take_ob().is_empty());
+    }
+
+    #[test]
+    fn a_live_session_is_replaced_by_the_new_one_with_the_relay() {
+        let (mut e, _old) = engine_with_relay(1);
+        let (new, packets) = reconnect_session(&mut e, 2);
+        assert_eq!(e.session_count(), 1);
+        assert_eq!(packets.last().unwrap(), r#"42["OB_SOCKET::connect"]"#);
+        assert!(e.take_ob().is_empty());
+        emit(&mut e, 3, &new, r#"42["close-order","u1"]"#);
+        assert_eq!(e.take_ob().len(), 1);
+    }
+
+    #[test]
+    fn an_unclaimed_relay_is_stopped_after_the_grace_window() {
+        let (mut e, _old) = engine_with_relay(1);
+        e.tick(1_000);
+        assert!(e.take_ob().is_empty());
+        let out = e.tick(2_000);
+        assert_eq!(out.next_wake_ms, Some(1_000 + GRACE));
+        e.tick(1_000 + GRACE);
+        assert!(matches!(e.take_ob().as_slice(), [ObCmd::Stop]));
+        // A session arriving too late gets nothing and owns no client.
+        let (new, packets) = reconnect_session(&mut e, 1_000 + GRACE + 1);
+        assert_eq!(packets.len(), 1, "{packets:?}");
+        emit(&mut e, 1_000 + GRACE + 2, &new, r#"42["new-order",1]"#);
+        assert!(e.take_ob().is_empty());
+    }
+
+    #[test]
+    fn a_relay_that_lost_the_server_while_orphaned_is_reported_down_then_up() {
+        let (mut e, _old) = engine_with_relay(1);
+        e.tick(1_000);
+        // The relay's own events while nobody listens only update its state.
+        e.ob_event(1, ObEvent::Disconnected);
+        e.ob_event(
+            1,
+            ObEvent::Relay {
+                name: "OB_SOCKET::orderbook-data".into(),
+                payload: None,
+            },
+        );
+        let (new, packets) = reconnect_session(&mut e, 2_000);
+        assert_eq!(
+            packets[1..],
+            [r#"42["OB_SOCKET::disconnect"]"#.to_string()],
+            "stale data is not replayed"
+        );
+        e.ob_event(1, ObEvent::Connected);
+        assert_eq!(
+            queued(&mut e, 2_001, &new),
+            vec![r#"42["OB_SOCKET::connect"]"#.to_string()]
+        );
+    }
+
+    #[test]
+    fn a_relay_still_connecting_is_handed_over_silently() {
+        let (mut e, sid) = connected_engine();
+        emit(
+            &mut e,
+            1,
+            &sid,
+            &format!(r#"42["ob-sockets-connect","{OB}"]"#),
+        );
+        e.take_ob();
+        let (_new, packets) = reconnect_session(&mut e, 2);
+        assert_eq!(packets.len(), 1, "{packets:?}");
+        assert!(e.take_ob().is_empty());
+    }
+
+    #[test]
+    fn deliberate_disconnects_are_not_handed_over() {
+        // `ob-sockets-disconnect` and the namespace DISCONNECT stop the client at once.
+        for packet in [r#"42["ob-sockets-disconnect"]"#, "41"] {
+            let (mut e, sid) = engine_with_relay(1);
+            emit(&mut e, 2, &sid, packet);
+            assert!(matches!(e.take_ob().as_slice(), [ObCmd::Stop]), "{packet}");
+            e.tick(3);
+            let (_new, packets) = reconnect_session(&mut e, 4);
+            assert!(
+                packets.iter().all(|p| !p.contains("OB_SOCKET")),
+                "{packet}: {packets:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_new_connect_request_replaces_the_handed_over_relay() {
+        let (mut e, _old) = engine_with_relay(1);
+        e.tick(1_000);
+        let sid = open(&mut e, 1_500);
+        connect(&mut e, 1_500, &sid);
+        emit(
+            &mut e,
+            1_600,
+            &sid,
+            &format!(r#"42["ob-sockets-connect","{OB}"]"#),
+        );
+        let cmds = e.take_ob();
+        assert!(
+            matches!(
+                cmds.as_slice(),
+                [ObCmd::Stop, ObCmd::Connect { gen: 2, .. }]
+            ),
+            "{cmds:?}"
+        );
+    }
+
+    fn live_gap(gap: u64) -> Liveness {
+        Liveness {
+            resume_gap_ms: gap,
+            ..Liveness::default()
+        }
+    }
+
+    #[test]
+    fn a_wall_clock_jump_closes_every_session_and_restarts_the_relay() {
+        let mut e = Engine::with_liveness(short(), ObPolicy::default(), live_gap(10_000));
+        let sid = open(&mut e, 0);
+        connect(&mut e, 0, &sid);
+        let (held, done) = slot();
+        e.handle(1, request("GET", &q(&sid), ""), done);
+        assert!(taken(&held).is_none());
+        // Normal turns, including a small wall-clock correction, change nothing.
+        let wall = 1_700_000_000_000;
+        assert!(!e.observe_clock(1_000, wall + 1_000));
+        assert!(!e.observe_clock(2_000, wall + 2_000));
+        assert!(!e.observe_clock(3_000, wall + 8_000));
+        // The wall clock stepping backwards is not a resume either.
+        assert!(!e.observe_clock(4_000, wall + 1_000));
+        assert_eq!(e.session_count(), 1);
+        // The machine slept for ten minutes: the monotonic clock advanced 1 s, the wall 601 s.
+        assert!(e.observe_clock(5_000, wall + 602_000));
+        assert_eq!(e.session_count(), 0);
+        assert_eq!(taken(&held).unwrap().body, "1");
+        // The old sid is unknown: the client reconnects at once.
+        assert_eq!(
+            call(&mut e, 5_001, "GET", &q(&sid), "").unwrap().status,
+            400
+        );
+    }
+
+    #[test]
+    fn a_stalled_loop_counts_as_a_resume_even_when_both_clocks_advance() {
+        let mut e = Engine::with_liveness(short(), ObPolicy::default(), live_gap(10_000));
+        let sid = open(&mut e, 0);
+        connect(&mut e, 0, &sid);
+        let wall = 1_700_000_000_000;
+        assert!(!e.observe_clock(0, wall));
+        // A monotonic clock that counts sleep: both clocks jumped 5 minutes.
+        assert!(e.observe_clock(300_000, wall + 300_000));
+        assert_eq!(e.session_count(), 0);
+        // The first observation after start never counts.
+        let mut fresh = Engine::new(short());
+        assert!(!fresh.observe_clock(10_000_000, 1));
+    }
+
+    #[test]
+    fn a_resume_keeps_the_relay_for_the_reconnecting_ui() {
+        let (mut e, _old) = engine_with_relay(1);
+        let wall = 1_700_000_000_000;
+        e.observe_clock(1_000, wall);
+        assert!(e.observe_clock(2_000, wall + 3_600_000));
+        let cmds = e.take_ob();
+        assert!(matches!(cmds.as_slice(), [ObCmd::Resume]), "{cmds:?}");
+        // The restarted client reports the loss and the recovery while the UI reconnects.
+        e.ob_event(1, ObEvent::Disconnected);
+        e.ob_event(1, ObEvent::Connected);
+        let (_new, packets) = reconnect_session(&mut e, 2_100);
+        assert_eq!(packets.last().unwrap(), r#"42["OB_SOCKET::connect"]"#);
+        assert!(e.take_ob().is_empty());
+    }
+
+    #[test]
+    fn a_resume_without_a_relay_asks_for_nothing() {
+        let (mut e, _sid) = connected_engine();
+        let wall = 1_700_000_000_000;
+        e.observe_clock(0, wall);
+        assert!(e.observe_clock(1_000, wall + 3_600_000));
+        assert!(e.take_ob().is_empty());
+    }
+
+    #[test]
+    fn a_probe_that_never_answers_is_abandoned() {
+        let cfg = Config {
+            probe_interval_ms: 1_000,
+            ..Config::default()
+        };
+        let mut e = Engine::new(cfg);
+        let sid = open(&mut e, 0);
+        connect(&mut e, 0, &sid);
+        assert_eq!(e.tick(0).probes, vec![sid.clone()]);
+        // The probe is in flight: no second one, until it is declared lost.
+        assert!(e.tick(PROBE_STUCK_MS).probes.is_empty());
+        assert_eq!(e.tick(PROBE_STUCK_MS + 1).probes, vec![sid.clone()]);
+        // A late answer for the abandoned probe is harmless.
+        e.probe_result(
+            &sid,
+            Probe::Info {
+                height: 5,
+                headers: 5,
+            },
+        );
+    }
+
+    #[test]
+    fn engine_collections_stay_bounded_across_many_reconnects() {
+        let (mut e, _sid) = engine_with_relay(1);
+        for n in 0..200u64 {
+            let t = 10 + n;
+            let (sid, _) = reconnect_session(&mut e, t);
+            if n % 2 == 0 {
+                emit(&mut e, t, &sid, "1");
+            }
+            assert!(e.session_count() <= MAX_SESSIONS);
+            assert!(e.take_ob().len() <= MAX_OB_OUT);
+        }
     }
 
     // ---- block events
