@@ -93,6 +93,11 @@ fn launch_args_match_legacy_order_and_have_no_shell() {
     }
     assert_eq!(is_testnet("LTCTEST"), Ok(true));
     assert_eq!(is_testnet("LTC"), Ok(false));
+    for n in ["LTCLIVE", "BTC", "BTCLIVE"] {
+        assert_eq!(is_testnet(n), Ok(false), "{n}");
+    }
+    assert_eq!(is_testnet("BTCTEST"), Ok(true));
+    assert_eq!(is_testnet("DOGE"), Err(CfgError::BadNetwork));
     assert_eq!(is_testnet("XTEST"), Err(CfgError::BadNetwork));
 }
 

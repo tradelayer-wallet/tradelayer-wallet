@@ -553,7 +553,7 @@ fn rpc_call_keeps_the_node_error_code_for_wallet_calls_too() {
 }
 
 #[test]
-fn widened_allowlist_serves_the_ui_methods_and_still_refuses_keys_and_signing() {
+fn widened_allowlist_serves_the_ui_methods_and_still_refuses_signing() {
     let mut f = fixture();
     start_node(&mut f);
     for m in [
@@ -572,7 +572,6 @@ fn widened_allowlist_serves_the_ui_methods_and_still_refuses_keys_and_signing() 
     }
     let before = f.node.total_calls();
     for m in [
-        "dumpprivkey",
         "signrawtransactionwithwallet",
         "signrawtransactionwithkey",
         "walletprocesspsbt",

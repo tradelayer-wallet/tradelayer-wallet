@@ -184,11 +184,12 @@ pub fn launch_args(o: &LaunchOptions) -> Result<Vec<String>, CfgError> {
     Ok(args)
 }
 
-/// `network.endsWith('TEST')` with the network restricted to the two the wallet supports.
+/// `network.endsWith('TEST')` for the labels FE-speed's `parseDefaultChain` knows: `LTC`/`BTC`
+/// (also `LTCLIVE`/`BTCLIVE`) are mainnet, `LTCTEST`/`BTCTEST` testnet.
 pub fn is_testnet(network: &str) -> Result<bool, CfgError> {
     match network {
-        "LTC" => Ok(false),
-        "LTCTEST" => Ok(true),
+        "LTC" | "LTCLIVE" | "BTC" | "BTCLIVE" => Ok(false),
+        "LTCTEST" | "BTCTEST" => Ok(true),
         _ => Err(CfgError::BadNetwork),
     }
 }

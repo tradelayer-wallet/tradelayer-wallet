@@ -145,7 +145,10 @@ fn repaired_rpc_proxy_blocks_unlisted_methods_and_still_serves_listed_ones() {
         "/api/rpc-call",
         json!({"method":"dumpprivkey","params":["addr"]}),
     );
-    assert_eq!(r.status, 403);
+    // FE-speed asks for a WIF to post to the sign routes: it gets a node-wallet handle, and the
+    // node is never asked for the key
+    assert_eq!(r.status, 200);
+    assert_eq!(r.body, json!({"data": "tln1:addr"}));
     assert_eq!(f.node.calls_of("dumpprivkey"), 0);
     let r = call(
         &mut f,
@@ -156,6 +159,23 @@ fn repaired_rpc_proxy_blocks_unlisted_methods_and_still_serves_listed_ones() {
     assert_eq!(r.body, json!({"data": {"blocks": 5}}));
     // the start-wallet-node probe and this call
     assert_eq!(f.node.calls_of("getblockchaininfo"), 2);
+    // the handle route takes exactly one well-formed address
+    for params in [
+        json!([]),
+        json!(["a", "b"]),
+        json!([5]),
+        json!([""]),
+        json!(["a\"b"]),
+        json!(["x".repeat(101)]),
+    ] {
+        let r = call(
+            &mut f,
+            "/api/rpc-call",
+            json!({"method":"dumpprivkey","params":params}),
+        );
+        assert_eq!(r.status, 500, "{params}");
+    }
+    assert_eq!(f.node.calls_of("dumpprivkey"), 0);
     // oversize params, wrong shapes
     let many: Vec<Value> = (0..MAX_RPC_PARAMS + 1).map(|i| json!(i)).collect();
     assert_eq!(
@@ -377,8 +397,17 @@ fn start_node_error_paths() {
     let mut f = fixture();
     let r = call(&mut f, "/api/start-wallet-node", json!({"network":"LTC"}));
     assert!(r.body["error"].as_str().unwrap().contains("doesn't exist"));
-    let r = call(&mut f, "/api/start-wallet-node", json!({"network":"BTC"}));
+    let r = call(&mut f, "/api/start-wallet-node", json!({"network":"XYZ"}));
     assert_eq!(r.status, 500);
+    // FE-speed accepts the Bitcoin labels too
+    for n in ["BTC", "BTCTEST", "LTCLIVE", "BTCLIVE"] {
+        let r = call(&mut f, "/api/start-wallet-node", json!({"network": n}));
+        assert!(
+            r.body["error"].as_str().unwrap().contains("doesn't exist"),
+            "{n}: {:?}",
+            r.body
+        );
+    }
     let r = call(
         &mut f,
         "/api/start-wallet-node",
@@ -795,4 +824,106 @@ fn rpc_call_keeps_the_node_error_code_like_legacy() {
     );
     assert_eq!(r.status, 200);
     assert!(r.body["error"].as_str().unwrap().contains("not scripted"));
+}
+
+// ---------------- key handles: logout, privkeys, node handles ----------------
+
+fn fixture_with_keys(keys: Box<dyn KeyBackend>) -> Fx {
+    let mut f = fixture();
+    let gate = Gate::new(GateConfig {
+        port: 1986,
+        token: SessionToken::from_hex(TOKEN).unwrap(),
+        allowed_origins: vec!["file://".into()],
+        methods: MethodAllowlist::wallet_default(),
+    });
+    f.svc = WalletService::new(
+        gate,
+        keys,
+        Box::new(f.signer.clone()),
+        Box::new(f.store.clone()),
+        Box::new(f.connector.clone()),
+        Box::new(MemRelayer::default()),
+        vec!["relayer.example".into()],
+        "/home/u/.litecoin".into(),
+    );
+    f
+}
+
+#[test]
+fn logout_routes_and_stop_wallet_node_clear_the_key_backend() {
+    let n = std::rc::Rc::new(std::cell::Cell::new(0));
+    let mut f = fixture_with_keys(Box::new(CountingKeys(n.clone())));
+    for p in ["/api/logout", "/keys/logout"] {
+        let r = call(&mut f, p, json!({}));
+        assert_eq!((r.status, r.body), (200, json!({"data": true})), "{p}");
+    }
+    assert_eq!(n.get(), 2);
+    // the routes sit behind the gate like every other
+    let mut r = HttpRequest::post("/api/logout", TOKEN, json!({}));
+    r.host = Some("localhost:1986".into());
+    r.token = None;
+    assert_eq!(f.svc.handle(&r).status, 401);
+    assert_eq!(n.get(), 2);
+    start_node(&mut f);
+    f.node.script("stop", json!("stopping"));
+    assert_eq!(call(&mut f, "/api/stop-wallet-node", json!({})).status, 200);
+    assert_eq!(n.get(), 3);
+}
+
+#[test]
+fn signrawtransaction_takes_no_private_keys_from_the_page() {
+    let mut f = fixture();
+    start_node(&mut f);
+    f.node
+        .script("signrawtransaction", json!({"hex": "00", "complete": true}));
+    for params in [
+        json!(["00", [], ["L1key"]]),
+        json!(["00", [], "L1key"]),
+        json!(["00", [], [5]]),
+    ] {
+        let r = call(
+            &mut f,
+            "/api/rpc-call",
+            json!({"method":"signrawtransaction","params":params}),
+        );
+        assert_eq!(r.status, 403, "{params}");
+    }
+    assert_eq!(f.node.calls_of("signrawtransaction"), 0);
+    // the empty placeholders FE-speed sends, and a call without keys, still go through
+    for params in [
+        json!(["00"]),
+        json!(["00", [], [""]]),
+        json!(["00", [], null]),
+    ] {
+        let r = call(
+            &mut f,
+            "/api/rpc-call",
+            json!({"method":"signrawtransaction","params":params}),
+        );
+        assert_eq!(r.status, 200, "{params}");
+    }
+    assert_eq!(f.node.calls_of("signrawtransaction"), 3);
+}
+
+#[test]
+fn sign_routes_hand_handles_to_the_backend_only_after_the_guards() {
+    let mut f = fixture();
+    start_node(&mut f);
+    // a guard failure never reaches the signer, whatever the handle
+    for wif in ["tlk1:0123456789abcdef0123456789abcdef", "tln1:addr", ""] {
+        let r = call(
+            &mut f,
+            "/api/sign-tx",
+            json!({"rawtx":"zz","wif":wif,"network":"LTCTEST","inputs":[]}),
+        );
+        assert_eq!(r.status, 500);
+        let r = call(
+            &mut f,
+            "/api/sign-psbt",
+            json!({"psbtHex":"00","wif":wif,"network":"LTCTEST"}),
+        );
+        assert_eq!(r.status, 500);
+    }
+    assert!(f.signer.0.borrow().signed_tx.is_empty());
+    assert!(f.signer.0.borrow().signed_psbt.is_empty());
 }

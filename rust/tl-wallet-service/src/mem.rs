@@ -122,6 +122,24 @@ impl KeyBackend for MemKeys {
     }
 }
 
+/// Key backend that counts `clear` calls (logout, stop-wallet-node).
+#[derive(Clone, Default, Debug)]
+pub struct CountingKeys(pub Rc<std::cell::Cell<usize>>);
+
+impl KeyBackend for CountingKeys {
+    fn new_mnemonic(&mut self, n: &str) -> Result<String, String> {
+        MemKeys.new_mnemonic(n)
+    }
+
+    fn key_pair(&mut self, n: &str, m: &str, path: &str) -> CallResult {
+        MemKeys.key_pair(n, m, path)
+    }
+
+    fn clear(&mut self) {
+        self.0.set(self.0.get() + 1);
+    }
+}
+
 #[derive(Clone, Default, Debug)]
 pub struct SignLog {
     pub signed_tx: Vec<String>,

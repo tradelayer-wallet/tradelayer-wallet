@@ -23,6 +23,7 @@
 
 use super::{
     fail, ok, req_str, HttpRequest, ListenerReply, RpcBackend, WalletService, MAX_BODY_BYTES,
+    NODE_HANDLE_PREFIX,
 };
 use crate::jsval::{encode_uri_component, js_string, nullish, to_number, truthy};
 use crate::multisig::compute_multisig;
@@ -932,8 +933,22 @@ impl WalletService {
             Some(Value::Array(a)) => a.clone(),
             Some(_) => return Err("params must be an array".into()),
         };
+        // FE-speed fetches a WIF with `dumpprivkey` and posts it back to the sign routes. The
+        // desktop build answers with a node-wallet handle and never forwards the call: the key
+        // stays in the node, and `sign-tx` / `sign-psbt` have the node sign for that address.
+        if method == "dumpprivkey" {
+            return dumpprivkey_handle(&params);
+        }
         if let Err(d) = self.gate.check_rpc(method, params.len()) {
             return Ok(fail(d.status(), format!("rpc method denied: {d:?}")));
+        }
+        // The legacy `signrawtransaction` takes private keys as its third parameter. The page
+        // never supplies keys to the node: only the empty placeholders FE-speed sends pass.
+        if method == "signrawtransaction" && has_key_params(&params) {
+            return Ok(fail(
+                403,
+                "rpc method denied: private keys are not accepted",
+            ));
         }
         if self.tl_rpc_via_listener && method.starts_with("tl_") {
             return Ok(self.tl_rpc(method, b));
@@ -1052,11 +1067,38 @@ impl WalletService {
 
     pub(super) fn stop_wallet_node(&mut self) -> Result<(u16, Value), String> {
         self.pending = None;
+        self.keys.clear();
         if let Some(node) = self.node.as_mut() {
             node.call("stop", &[])?;
         }
         self.node = None;
         Ok(ok(json!(true)))
+    }
+}
+
+/// `["<address>"]` -> `"tln1:<address>"`.
+fn dumpprivkey_handle(params: &[Value]) -> Result<(u16, Value), String> {
+    let address = match params {
+        [Value::String(a)] => a,
+        _ => return Err("dumpprivkey needs one address".into()),
+    };
+    if address.is_empty()
+        || address.len() > 100
+        || !address.bytes().all(|b| b.is_ascii_alphanumeric())
+    {
+        return Err("address malformed".into());
+    }
+    Ok(ok(Value::String(format!("{NODE_HANDLE_PREFIX}{address}"))))
+}
+
+/// True when the third `signrawtransaction` parameter (the key list) holds a key.
+fn has_key_params(params: &[Value]) -> bool {
+    match params.get(2) {
+        None | Some(Value::Null) => false,
+        Some(Value::Array(keys)) => keys
+            .iter()
+            .any(|k| !matches!(k, Value::String(s) if s.is_empty())),
+        Some(_) => true,
     }
 }
 

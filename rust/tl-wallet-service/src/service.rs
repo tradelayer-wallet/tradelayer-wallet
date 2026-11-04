@@ -93,9 +93,18 @@ pub trait RelayerBackend {
 
 pub trait KeyBackend {
     fn new_mnemonic(&mut self, network: &str) -> Result<String, String>;
-    /// `{ address, privkey, pubkey, wif }`
+    /// `{ address, privkey, pubkey, wif }`. A backend that keeps keys out of the page returns
+    /// an empty `privkey` and an opaque handle as `wif` (see `SignBackend`).
     fn key_pair(&mut self, network: &str, mnemonic: &str, path: &str) -> CallResult;
+    /// Forget every key the backend holds for the page (`/api/logout`, `/keys/logout`,
+    /// `stop-wallet-node`). Backends without session keys keep the default.
+    fn clear(&mut self) {}
 }
+
+/// Prefix of the opaque handle the node-wallet answer to `dumpprivkey` carries: the page gets
+/// `tln1:<address>` where FE-speed expected a WIF, and the sign routes have the node wallet
+/// sign for that address. No key leaves the node.
+pub const NODE_HANDLE_PREFIX: &str = "tln1:";
 
 pub trait SignBackend {
     fn sign_tx(&mut self, network: &str, rawtx: &str, wif: &str, inputs: &[Utxo]) -> CallResult;
@@ -399,6 +408,10 @@ impl WalletService {
             "/keys/new-wallet" => self.new_wallet(b),
             "/keys/get-address" => self.get_address(b),
             "/keys/get-address-file" => self.get_address_file(b),
+            "/api/logout" | "/keys/logout" => {
+                self.keys.clear();
+                Ok(ok(json!(true)))
+            }
             "/api/rpc-call" => self.rpc_call(b),
             "/api/start-wallet-node" => self.start_wallet_node(b),
             "/api/stop-wallet-node" => self.stop_wallet_node(),
