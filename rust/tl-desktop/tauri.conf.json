@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "org.tradelayer.desktop",
   "build": {
-    "frontendDist": "dist-ui"
+    "frontendDist": "dist-ui-fe-speed-skin"
   },
   "app": {
     "withGlobalTauri": true,
@@ -19,13 +19,18 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src ipc: http://ipc.localhost http://tlapi.localhost http://172.81.181.19:8190 http://172.81.181.19:8191 http://172.81.181.19:9190 http://172.81.181.19:9191; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'",
-      "dangerousDisableAssetCspModification": ["style-src"],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src ipc: http://ipc.localhost http://tlapi.localhost http://172.81.181.19:3001 http://172.81.181.19:8191 http://172.81.181.19:9191 https://api.kraken.com wss://ws.kraken.com https://api.exchange.coinbase.com wss://ws-feed.exchange.coinbase.com https://data-api.binance.vision https://api.binance.com wss://data-stream.binance.vision https://fapi.binance.com wss://fstream.binance.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'",
+      "dangerousDisableAssetCspModification": [
+        "style-src"
+      ],
       "freezePrototype": false
     }
   },
   "bundle": {
     "active": false,
-    "icon": ["icons/icon.ico", "icons/icon.png"]
+    "icon": [
+      "icons/icon.ico",
+      "icons/icon.png"
+    ]
   }
 }

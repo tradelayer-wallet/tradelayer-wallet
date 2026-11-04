@@ -16,11 +16,22 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+          # all branches: the UI is built from origin/FE-speed (scripts/build-ui.mjs --ref)
+          fetch-depth: 0
+      - name: Check out BitcornWisdom at the pinned chart commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: patrickdugan/BitcornWisdom
+          ref: 2cbef833fc11b5b66f72257728365e5f794a32e1
+          path: _bitcornwisdom
+          persist-credentials: false
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt --component clippy
-      - name: Build the Angular UI into dist-ui (runner Node, lifecycle scripts disabled)
+      - name: Build the FE-speed UI with the skin layer into dist-ui-fe-speed-skin (lifecycle scripts disabled)
         working-directory: rust/tl-desktop
-        run: node scripts/build-ui.mjs "${{ runner.temp }}/ui-build"
+        env:
+          BITCORN_WISDOM_DIR: ${{ github.workspace }}/_bitcornwisdom
+        run: node scripts/build-ui.mjs --ref origin/FE-speed --name fe-speed --skin fe-speed-skin "${{ runner.temp }}/ui-build"
       - name: Fetch pinned crates
         working-directory: rust/tl-desktop
         run: cargo fetch --locked

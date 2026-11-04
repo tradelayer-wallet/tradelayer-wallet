@@ -9,6 +9,43 @@ the Node `wallet-server` (`packages/wallet-server/`).
   Angular 12.1.5 built with Node 24 (`--openssl-legacy-provider`).
 * Licence: ISC (as the repository `package.json`).
 
+## Default build: the FE-speed wallet with the chrome skin
+
+The app ships the UI of branch **`FE-speed`**, the current desktop wallet (v0.0.16: Spot and
+Futures Trading, Algo Trading, BitVM, WebRTC and Servers windows). It is built from that git ref
+with the `fe-speed` overlay and the `fe-speed-skin` layer, and `tauri.conf.json` points
+`frontendDist` at the result:
+
+```bat
+set BITCORN_WISDOM_DIR=<clone of patrickdugan/BitcornWisdom at 2cbef833>
+node scriptsuild-ui.mjs --ref origin/FE-speed --name fe-speed --skin fe-speed-skin
+```
+
+* **`ui-overlay/fe-speed`**: FE-speed's build plumbing.
+  * The `tauri` Angular configuration.
+  * Count-checked rewrites: `http://localhost:3000/` → `tlapi` `/tlraw/`, and `tl-api` →
+    `homeApiUrl` `/tl/`.
+  * Main-socket reconnect with watchdog.
+  * `ui-shim/fe-speed-shim.js`, which provides `window.tradelayerElectron`.
+* **`ui-overlay/fe-speed-skin`**: the facelift and the charts.
+  * The facelift keeps FE-speed's palette (`#130f23` / `#1c1932` / `#2c304a` surfaces, `#45a8fb` /
+    `#306bf3` accents) and adds chrome gradients on the header, tabs, buttons, card frames and
+    status bar.
+  * Spot and futures charts are BitcornWisdom (pinned 2cbef833, bundled under `bitcorn/`). It
+    reads public candle feeds from Kraken, Coinbase and Binance (spot and USD-M perpetuals);
+    `ui-overlay/fe-speed-skin/csp.json` lists every host with a reason.
+* **CSP**: `frame-ancestors 'self'`, so the app can frame its own chart page; the exchange feed
+  hosts are in `connect-src`.
+* **Backend**: FE-speed's `wallet-server` routes are served by Rust.
+  * `/tlraw/*` and `/tl/*` go to the TradeLayer listener at `tl_listener_url`.
+  * Key and signing routes return opaque handles (`tlk1:` held in Rust, `tln1:` = node wallet).
+    No WIF or private key reaches the page.
+* **Orderbook**: reached through the raw-WebSocket relay (`orderbook_urls`, default
+  `ws://172.81.181.19:3001`).
+
+The master-branch UI below is still buildable with `node scriptsuild-ui.mjs` and a `TAURI_CONFIG`
+override of `frontendDist` to `dist-ui`. Its e2e scripts target the legacy socket.io orderbook.
+
 ## How the original UI runs without Electron or Node
 
 | Electron wallet | tl-desktop |
