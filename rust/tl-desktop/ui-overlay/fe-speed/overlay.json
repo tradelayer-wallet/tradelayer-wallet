@@ -1,0 +1,9 @@
+{
+  "files": {
+    "environment.tauri.ts": "src/environments/environment.tauri.ts"
+  },
+  "angular": {
+    "environmentFile": "src/environments/environment.tauri.ts"
+  },
+  "hoist": ["axios", "bignumber.js", "bitcoinjs-lib"]
+}

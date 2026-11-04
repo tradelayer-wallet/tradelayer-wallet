@@ -1,0 +1,60 @@
+{
+  "rewrites": [
+    {
+      "file": "src/app/@core/apis/tl-api.service.ts",
+      "from": "'http://localhost:1986' + '/tl/'",
+      "to": "environment.homeApiUrl + '/tl/'",
+      "count": 1,
+      "reason": "hard-coded wallet-server URL ignores environment; use homeApiUrl (http://tlapi.localhost in this build)"
+    },
+    {
+      "file": "src/app/@core/services/futures-services/futures-channels.service.ts",
+      "from": "http://localhost:3000/",
+      "to": "http://tlapi.localhost/tlraw/",
+      "count": 1,
+      "reason": "the Electron build reaches the TradeLayer listener on localhost:3000 directly; the desktop build has no such socket, so the call goes to the in-process tlapi /tlraw/ passthrough"
+    },
+    {
+      "file": "src/app/@core/services/futures-services/futures-markets.service.ts",
+      "from": "http://localhost:3000/",
+      "to": "http://tlapi.localhost/tlraw/",
+      "count": 1,
+      "reason": "the Electron build reaches the TradeLayer listener on localhost:3000 directly; the desktop build has no such socket, so the call goes to the in-process tlapi /tlraw/ passthrough"
+    },
+    {
+      "file": "src/app/@core/services/futures-services/futures-trade-history.service.ts",
+      "from": "http://localhost:3000/",
+      "to": "http://tlapi.localhost/tlraw/",
+      "count": 1,
+      "reason": "the Electron build reaches the TradeLayer listener on localhost:3000 directly; the desktop build has no such socket, so the call goes to the in-process tlapi /tlraw/ passthrough"
+    },
+    {
+      "file": "src/app/@core/services/spot-services/spot-channels.service.ts",
+      "from": "http://localhost:3000/",
+      "to": "http://tlapi.localhost/tlraw/",
+      "count": 1,
+      "reason": "the Electron build reaches the TradeLayer listener on localhost:3000 directly; the desktop build has no such socket, so the call goes to the in-process tlapi /tlraw/ passthrough"
+    },
+    {
+      "file": "src/app/@core/services/spot-services/spot-trade-history.service.ts",
+      "from": "http://localhost:3000/",
+      "to": "http://tlapi.localhost/tlraw/",
+      "count": 1,
+      "reason": "the Electron build reaches the TradeLayer listener on localhost:3000 directly; the desktop build has no such socket, so the call goes to the in-process tlapi /tlraw/ passthrough"
+    },
+    {
+      "file": "src/app/@core/services/txs.service.ts",
+      "from": "http://localhost:3000/",
+      "to": "http://tlapi.localhost/tlraw/",
+      "count": 3,
+      "reason": "the Electron build reaches the TradeLayer listener on localhost:3000 directly; the desktop build has no such socket, so the call goes to the in-process tlapi /tlraw/ passthrough"
+    },
+    {
+      "file": "src/app/@shared/dialogs/synth/synth-mint-redeem-dialog.component.ts",
+      "from": "http://localhost:3000/",
+      "to": "http://tlapi.localhost/tlraw/",
+      "count": 1,
+      "reason": "the Electron build reaches the TradeLayer listener on localhost:3000 directly; the desktop build has no such socket, so the call goes to the in-process tlapi /tlraw/ passthrough"
+    }
+  ]
+}
