@@ -92,11 +92,8 @@ export class SellSwapper extends Swap {
             const commitTxRes = await this.txsService.buildTx(commitTxConfig);
             if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
             const { inputs, rawtx } = commitTxRes.data;
-            const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
-            if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
-
             // sign Commit Tx
-            const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
+            const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif: '' });
             if (cimmitTxSignRes.error || !cimmitTxSignRes.data) throw new Error(`Sign Commit TX: ${cimmitTxSignRes.error}`);
             const { isValid, signedHex } = cimmitTxSignRes.data;
             if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
@@ -130,9 +127,7 @@ export class SellSwapper extends Swap {
         try {
             if (cpId !== this.cpInfo.socketId) throw new Error(`Error with p2p connection`);
             if (!psbtHex) throw new Error(`PsbtHex for syncing not provided`);
-            const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
-            if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
-            const signRes = await this.txsService.signPsbt({ wif, psbtHex });
+            const signRes = await this.txsService.signPsbt({ wif: '', psbtHex });
             if (signRes.error || !signRes.data?.psbtHex) throw new Error(`Sign Tx: ${signRes.error}`);
             const swapEvent = new SwapEvent(`SELLER:STEP5`, this.myInfo.socketId, signRes.data.psbtHex);
             this.socket.emit(`${this.myInfo.socketId}::swap`, swapEvent);

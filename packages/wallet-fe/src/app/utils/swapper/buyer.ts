@@ -98,11 +98,8 @@ export class BuySwapper extends Swap {
                     const commitTxRes = await this.txsService.buildTx(commitTxConfig);
                     if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
                     const { inputs, rawtx } = commitTxRes.data;
-                    const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
-                    if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
-                    
                     // sign Commit Tx
-                    const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
+                    const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif: '' });
                     if (cimmitTxSignRes.error || !cimmitTxSignRes.data) throw new Error(`Sign Commit TX: ${cimmitTxSignRes.error}`);
                     const { isValid, signedHex } = cimmitTxSignRes.data;
                     if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
@@ -154,11 +151,8 @@ export class BuySwapper extends Swap {
                 const commitTxRes = await this.txsService.buildTx(commitTxConfig);
                 if (commitTxRes.error || !commitTxRes.data) throw new Error(`Build Commit TX: ${commitTxRes.error}`);
                 const { inputs, rawtx } = commitTxRes.data;
-                const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
-                if (!wif) throw new Error(`WIF not found: ${this.myInfo.keypair.address}`);
-                
                 // sign Commit Tx
-                const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif });
+                const cimmitTxSignRes = await this.txsService.signTx({ rawtx, inputs, wif: '' });
                 if (cimmitTxSignRes.error || !cimmitTxSignRes.data) throw new Error(`Sign Commit TX: ${cimmitTxSignRes.error}`);
                 const { isValid, signedHex } = cimmitTxSignRes.data;
                 if (!isValid || !signedHex) throw new Error(`Sign Commit TX (2): ${cimmitTxSignRes.error}`);
@@ -206,9 +200,7 @@ export class BuySwapper extends Swap {
     private async onStep5(cpId: string, psbtHex: string) {
         if (cpId !== this.cpInfo.socketId) return this.terminateTrade('Step 5: Error with p2p connection: code 4');
         if (!psbtHex) return this.terminateTrade('Step 5: PsbtHex Not Provided');
-        const wif = this.txsService.getWifByAddress(this.myInfo.keypair.address);
-        if (!wif) return this.terminateTrade(`Step 5: getWifByAddress: WIF not found: ${this.myInfo.keypair.address}`);
-        const signRes = await this.txsService.signPsbt({ wif, psbtHex });
+        const signRes = await this.txsService.signPsbt({ wif: '', psbtHex });
         if (signRes.error || !signRes.data) return this.terminateTrade(`Step 5: signPsbt: ${signRes.error}`);
         if (!signRes.data.isFinished || !signRes.data.finalHex) return this.terminateTrade(`Step 5: Transaction not Full Synced`);
         const finalTxIdRes = await this.txsService.sendTx(signRes.data.finalHex);

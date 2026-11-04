@@ -79,10 +79,6 @@ export class TxsService {
         return this.apiService.mainApi;
     }
 
-    getWifByAddress(address: string) {
-        return '';
-    }
-
     async buildLTCITTx(
         buildTxConfig: IBuildLTCITTxConfig,
     ): Promise<{ data?: { rawtx: string; inputs: IUTXO[], psbtHex?: string }, error?: string }>
@@ -164,8 +160,7 @@ export class TxsService {
             if (!inputs || !rawtx) throw new Error('buildSingSendTx: Undefined Error with building Transaction');
             const keyPair = this.authService.listOfallAddresses.find(e => e.address === buildTxConfig.fromKeyPair.address);
             if (!keyPair) throw new Error(`Error with finding Keys of address: ${buildTxConfig.fromKeyPair.address}`);
-            const wif = keyPair.wif;
-            const signRes = await this.signTx({ inputs, rawtx, wif });
+            const signRes = await this.signTx({ inputs, rawtx, wif: keyPair.wif });
             if (signRes.error || !signRes.data) throw new Error(signRes.error);
             const { isValid, signedHex } = signRes.data;
             if (!isValid || !signedHex) throw new Error("buildSingSendTx: Undefined Error with signing Transaction");
