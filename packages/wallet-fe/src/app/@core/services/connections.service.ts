@@ -33,6 +33,10 @@ export class ConnectionService {
 
     onInit() {
         window.onoffline = () => this.isOnline = false;
-        window.ononline = () => this.isOnline = true;
+        window.ononline = () => {
+            this.isOnline = true;
+            // The network is back: bring the main socket back without waiting for its backoff.
+            this.socketService.reconnectNow(true);
+        };
     }
 }
