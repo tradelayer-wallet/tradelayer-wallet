@@ -14,6 +14,7 @@
 mod config;
 mod legacy;
 mod node;
+mod nodewallet;
 mod obrelay;
 mod socketio;
 

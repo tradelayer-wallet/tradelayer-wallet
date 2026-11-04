@@ -25,8 +25,10 @@
 //!
 //! ## Backends
 //!
-//! * Keys and signing: refused. The legacy key routes return `privkey` and `wif` to the page;
-//!   the desktop build keeps key material out of the UI (keys live in the node wallet).
+//! * Keys: refused. The legacy key routes return `privkey` and `wif` to the page; the desktop
+//!   build keeps key material out of the UI (keys live in the node wallet).
+//! * Signing: the node wallet signs ([`crate::nodewallet`]), behind the service's guards, and only
+//!   for `wif: ""`; a page-supplied WIF is refused.
 //! * Node: generic JSON-RPC 1.0 over blocking `reqwest`, to the endpoint the UI names through
 //!   `start-wallet-node` (loopback `http`, or `https`).
 //! * Relayer: `POST <base>/rpc/<method>` with `{"params": [...]}`, `https` only, hosts allowlisted
@@ -42,6 +44,7 @@
 //! `endpoints.conf.ts`).
 
 use crate::config::LegacySettings;
+use crate::nodewallet::{NodeSlot, NodeWalletSigner, SharedConnector};
 use crate::obrelay::ObPolicy;
 use crate::socketio;
 use serde_json::{json, Value};
@@ -54,9 +57,8 @@ use tl_wallet_service::gate::{Gate, GateConfig, MethodAllowlist, SessionToken};
 use tl_wallet_service::nodecfg::RpcEndpoint;
 use tl_wallet_service::service::{
     CallResult, ConfStore, HttpRequest, HttpResponse, KeyBackend, NodeConnector, RelayerBackend,
-    RpcBackend, SignBackend, WalletService, MAX_BODY_BYTES,
+    RpcBackend, WalletService, MAX_BODY_BYTES,
 };
-use tl_wallet_service::txbuilder::Utxo;
 
 /// The page origin under WebView2 on Windows.
 pub const ALLOWED_ORIGIN: &str = "http://tauri.localhost";
@@ -425,12 +427,13 @@ fn build_service(
 ) -> Result<WalletService, String> {
     let settings = settings.map_err(|e| format!("config: {e}"))?;
     let dir = settings.node_data_dir.unwrap_or(default_node_dir);
+    let slot = NodeSlot::default();
     Ok(WalletService::new(
         gate(token),
         Box::new(RefuseKeys),
-        Box::new(RefuseSigner),
+        Box::new(NodeWalletSigner::new(slot.clone())),
         Box::new(FsConfStore::new(dir.clone())),
-        Box::new(HttpConnector),
+        Box::new(SharedConnector::new(HttpConnector, slot)),
         Box::new(HttpRelayer::new()?),
         settings.relayer_hosts,
         dir.to_string_lossy().into_owned(),
@@ -439,8 +442,9 @@ fn build_service(
 
 // ------------------------------------------------------------------ keys and signing
 
-/// The legacy key routes return `privkey` and `wif` to the page, and the sign routes take a `wif`
-/// from it. In the desktop build the page is never trusted with key material: both backends refuse.
+/// The legacy key routes return `privkey` and `wif` to the page. In the desktop build the page is
+/// never trusted with key material: this backend refuses. Signing is the node wallet's
+/// ([`crate::nodewallet::NodeWalletSigner`], `wif: ""` only).
 struct RefuseKeys;
 
 impl KeyBackend for RefuseKeys {
@@ -449,18 +453,6 @@ impl KeyBackend for RefuseKeys {
     }
 
     fn key_pair(&mut self, _network: &str, _mnemonic: &str, _path: &str) -> CallResult {
-        Err(KEYS_REFUSED.into())
-    }
-}
-
-struct RefuseSigner;
-
-impl SignBackend for RefuseSigner {
-    fn sign_tx(&mut self, _n: &str, _rawtx: &str, _wif: &str, _inputs: &[Utxo]) -> CallResult {
-        Err(KEYS_REFUSED.into())
-    }
-
-    fn sign_psbt(&mut self, _n: &str, _wif: &str, _psbt_hex: &str) -> CallResult {
         Err(KEYS_REFUSED.into())
     }
 }
@@ -791,6 +783,7 @@ mod tests {
     use std::io::Cursor;
     use std::net::{TcpListener, TcpStream};
     use tl_wallet_service::mem::{MemConnector, MemRelayer, MemRpc, MemStore};
+    use tl_wallet_service::service::SignBackend;
 
     const TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
@@ -943,7 +936,7 @@ mod tests {
         let svc = WalletService::new(
             gate(token),
             Box::new(RefuseKeys),
-            Box::new(RefuseSigner),
+            Box::new(NodeWalletSigner::new(NodeSlot::default())),
             Box::new(store.clone()),
             Box::new(conn),
             Box::new(MemRelayer::default()),
@@ -1086,8 +1079,9 @@ mod tests {
             .unwrap()
             .contains("keys live in the node wallet"));
 
-        assert!(RefuseSigner.sign_tx("LTC", "00", "w", &[]).is_err());
-        assert!(RefuseSigner.sign_psbt("LTC", "w", "00").is_err());
+        let mut signer = NodeWalletSigner::new(NodeSlot::default());
+        assert!(signer.sign_tx("LTC", "00", "w", &[]).is_err());
+        assert!(signer.sign_psbt("LTC", "w", "00").is_err());
     }
 
     #[test]
@@ -1149,7 +1143,7 @@ mod tests {
                 Ok(WalletService::new(
                     gate(t2),
                     Box::new(RefuseKeys),
-                    Box::new(RefuseSigner),
+                    Box::new(NodeWalletSigner::new(NodeSlot::default())),
                     Box::new(MemStore::default()),
                     Box::new(MemConnector::default()),
                     Box::new(MemRelayer::default()),
@@ -1272,7 +1266,7 @@ mod tests {
                 Ok(WalletService::new(
                     gate(t2),
                     Box::new(RefuseKeys),
-                    Box::new(RefuseSigner),
+                    Box::new(NodeWalletSigner::new(NodeSlot::default())),
                     Box::new(store),
                     Box::new(conn),
                     Box::new(MemRelayer::default()),
