@@ -5,5 +5,7 @@ import { ENDPOINTS } from "./endpoints.conf";
 export const environment = {
     production: true,
     homeApiUrl: "http://tlapi.localhost",
+    // TradeLayer node HTTP API (localhost:3000 in the Electron build), served by Rust as rpc-calls.
+    tlApiUrl: "http://tlapi.localhost/tl",
     ENDPOINTS,
 };

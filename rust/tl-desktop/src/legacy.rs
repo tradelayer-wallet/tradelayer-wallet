@@ -203,6 +203,38 @@ pub fn translate(req: &http::Request<Vec<u8>>, token: &str) -> Translated {
     }))
 }
 
+/// One request on the legacy thread. `POST /tl/<method>` with `{params}` is the TradeLayer node
+/// HTTP API that wallet-fe's `NewTradeLayerApiService` called at `http://localhost:3000` (it
+/// returns the bare result). It is served as an `rpc-call` of `<method>`, so the gate and the
+/// method allowlist apply exactly as for `/api/rpc-call`; a node error becomes HTTP 500.
+pub fn handle_request(s: &mut WalletService, req: &HttpRequest) -> Reply {
+    let preflight = req.method == "OPTIONS";
+    let Some(method) = req.path.strip_prefix("/tl/") else {
+        return Reply::from_service(s.handle(req), preflight);
+    };
+    let mut q = req.clone();
+    q.path = "/api/rpc-call".into();
+    if preflight {
+        return Reply::from_service(s.handle(&q), true);
+    }
+    // Legacy callers pass either an array or a single value (`tl_getallbalancesforaddress`).
+    let params = match req.body.get("params") {
+        None | Some(Value::Null) => json!([]),
+        Some(Value::Array(a)) => Value::Array(a.clone()),
+        Some(other) => json!([other]),
+    };
+    q.body = json!({ "method": method, "params": params });
+    q.body_len = q.body.to_string().len();
+    let mut reply = Reply::from_service(s.handle(&q), false);
+    if reply.status == 200 {
+        match reply.body.get("data").cloned() {
+            Some(data) => reply.body = data,
+            None => reply.status = 500,
+        }
+    }
+    reply
+}
+
 // ------------------------------------------------------------------ the legacy thread
 
 type Done = Box<dyn FnOnce(Reply) + Send>;
@@ -249,9 +281,8 @@ impl Bridge {
             .spawn(move || {
                 let mut service = build();
                 for (req, done) in rx {
-                    let preflight = req.method == "OPTIONS";
                     let reply = match service.as_mut() {
-                        Ok(s) => Reply::from_service(s.handle(&req), preflight),
+                        Ok(s) => handle_request(s, &req),
                         Err(e) => Reply::early(500, e, req.origin.as_deref()),
                     };
                     done(reply);
@@ -993,10 +1024,9 @@ mod tests {
     }
 
     fn run(f: &mut Fixture, r: http::Request<Vec<u8>>) -> http::Response<Vec<u8>> {
-        let preflight = r.method() == "OPTIONS";
         let reply = match translate(&r, TOKEN) {
             Translated::Answer(a) => a,
-            Translated::Forward(q) => Reply::from_service(f.svc.handle(&q), preflight),
+            Translated::Forward(q) => handle_request(&mut f.svc, &q),
             Translated::SocketIo => panic!("socket.io is not a service request"),
         };
         reply.into_response()
@@ -1706,5 +1736,78 @@ mod tests {
             interpret_rpc_detailed(502, b"bad gateway"),
             RpcOutcome::Failed(_)
         ));
+    }
+
+    #[test]
+    fn tl_api_route_answers_the_bare_result_through_the_gate() {
+        let mut f = fixture();
+        f.store.0.borrow_mut().files.insert(
+            "/ltc/litecoin.conf".into(),
+            "rpcuser=u
+rpcpassword=p
+rpcport=9332
+"
+            .into(),
+        );
+        let started = run(
+            &mut f,
+            req(
+                "POST",
+                "http://tlapi.localhost/api/start-wallet-node",
+                Some(ALLOWED_ORIGIN),
+                br#"{"network":"LTCTEST"}"#,
+            ),
+        );
+        assert_eq!(started.status(), 200);
+        let rows = json!([{"propertyId": "5", "amount": 3, "available": 3, "reserved": "0"}]);
+        f.node.script("tl_getallbalancesforaddress", rows.clone());
+        f.node.script("dumpprivkey", json!("L1leak"));
+        // balance.service passes the address as a bare string, not an array.
+        let r = run(
+            &mut f,
+            req(
+                "POST",
+                "http://tlapi.localhost/tl/tl_getallbalancesforaddress",
+                Some(ALLOWED_ORIGIN),
+                br#"{"params":"bcrt1qexample"}"#,
+            ),
+        );
+        assert_eq!(r.status(), 200);
+        assert_eq!(json_of(&r), rows);
+        assert_eq!(acao(&r), Some(ALLOWED_ORIGIN));
+        let calls = f.node.0.borrow().calls.clone();
+        assert_eq!(
+            calls.last().unwrap(),
+            &(
+                "tl_getallbalancesforaddress".to_string(),
+                vec![json!("bcrt1qexample")]
+            )
+        );
+        // Same allowlist as rpc-call.
+        let denied = run(
+            &mut f,
+            req(
+                "POST",
+                "http://tlapi.localhost/tl/dumpprivkey",
+                Some(ALLOWED_ORIGIN),
+                br#"{"params":["a"]}"#,
+            ),
+        );
+        assert_eq!(denied.status(), 403);
+        assert_eq!(f.node.calls_of("dumpprivkey"), 0);
+        // A node error is an HTTP error for the TL API client.
+        f.node
+            .script_error("tl_getproperty", -8, "Property not found");
+        let err = run(
+            &mut f,
+            req(
+                "POST",
+                "http://tlapi.localhost/tl/tl_getproperty",
+                Some(ALLOWED_ORIGIN),
+                br#"{"params":[99]}"#,
+            ),
+        );
+        assert_eq!(err.status(), 500);
+        assert_eq!(json_of(&err)["EECode"], json!(-8));
     }
 }
