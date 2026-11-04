@@ -1,0 +1,405 @@
+{
+  "payloads": [
+    {
+      "method": "tl_createpayload_attestation",
+      "body": {
+        "method": "tl_createpayload_attestation",
+        "params": [
+          0,
+          1,
+          "tltc1qtargetaddr",
+          "meta"
+        ]
+      },
+      "expect": "tl9,0,1,tltc1qtargetaddr,meta"
+    },
+    {
+      "method": "tl_createpayload_attestation",
+      "body": {
+        "method": "tl_createpayload_attestation",
+        "params": [
+          1,
+          36,
+          "ltc1qxyz",
+          ""
+        ]
+      },
+      "expect": "tl9,1,10,ltc1qxyz,"
+    },
+    {
+      "method": "tl_createpayload_attestation",
+      "body": {
+        "revoke": 1,
+        "id": 255,
+        "targetAddress": "tltc1qabc",
+        "metaData": "kyc"
+      },
+      "expect": "tl9,1,73,tltc1qabc,kyc"
+    },
+    {
+      "method": "tl_createpayload_attestation",
+      "body": {
+        "method": "tl_createpayload_attestation",
+        "params": []
+      },
+      "expect": "tl9,0,0,,"
+    },
+    {
+      "method": "tl_createpayload_commit_tochannel",
+      "body": {
+        "params": [
+          {
+            "channelAddress": "tltc1qchannel",
+            "propertyId": 5,
+            "amount": "1.5"
+          }
+        ]
+      },
+      "expect": "tl45,2hb0qo,tltc1qchannel,0,,0"
+    },
+    {
+      "method": "tl_createpayload_commit_tochannel",
+      "body": {
+        "params": [
+          {
+            "channelAddress": "tltc1qchannel",
+            "propertyId": 31,
+            "amount": 1e-8,
+            "payEnabled": true,
+            "clearLists": [
+              1,
+              2,
+              40
+            ],
+            "isColoredOutput": true,
+            "commitClearlistId": 7
+          }
+        ]
+      },
+      "expect": "tl4v,1,tltc1qchannel,1,[1,2,14],1,7"
+    },
+    {
+      "method": "tl_createpayload_commit_tochannel",
+      "body": {
+        "params": [
+          {
+            "channelAddress": "tltc1qaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "propertyId": 2,
+            "amount": 10,
+            "ref": 3,
+            "clearLists": 9
+          }
+        ]
+      },
+      "expect": "tl42,gjdgxs,ref:3,0,9,0"
+    },
+    {
+      "method": "tl_createpayload_commit_tochannel",
+      "body": {
+        "propertyId": 4,
+        "amount": 2,
+        "channelAddress": "mchan"
+      },
+      "expect": "tl44,3b2ozk,mchan,0,,0"
+    },
+    {
+      "method": "tl_createpayload_withdrawal_fromchannel",
+      "body": {
+        "params": [
+          {
+            "propertyId": 3,
+            "amount": "12.34567891",
+            "channelAddress": "tltc1qchan",
+            "isColoredOutput": true
+          }
+        ]
+      },
+      "expect": "tll3,kf12oj,tltc1qchan,1"
+    },
+    {
+      "method": "tl_createpayload_withdrawal_fromchannel",
+      "body": {
+        "params": [
+          {
+            "propertyid": 8,
+            "amount": 1,
+            "address": "tltc1qaddr"
+          }
+        ]
+      },
+      "expect": "tll8,1njchs,tltc1qaddr,0"
+    },
+    {
+      "method": "tl_createpayload_simplesend",
+      "body": {
+        "params": [
+          {
+            "address": "tltc1qdest",
+            "propertyId": 6,
+            "amount": "100"
+          }
+        ]
+      },
+      "expect": "tl20;tltc1qdest;6;4ldqpds"
+    },
+    {
+      "method": "tl_createpayload_simplesend",
+      "body": {
+        "params": [
+          {
+            "toAddress": "tltc1qdest2",
+            "propertyid": 2,
+            "amount": 0.5
+          }
+        ]
+      },
+      "expect": "tl20;tltc1qdest2;2;tro8w"
+    },
+    {
+      "method": "tl_createpayload_simplesend",
+      "body": {
+        "params": [
+          {
+            "sendAll": true,
+            "address": "tltc1qsweep"
+          }
+        ]
+      },
+      "expect": "tl21;tltc1qsweep"
+    },
+    {
+      "method": "tl_createpayload_simplesend",
+      "body": {
+        "method": "tl_createpayload_simplesend",
+        "params": [
+          3,
+          "5"
+        ]
+      },
+      "expect": "tl20;;0;0"
+    },
+    {
+      "method": "tl_createpayload_instant_trade",
+      "body": {
+        "params": [
+          {
+            "propertyId": 5,
+            "amount": "2.5",
+            "columnA": "1",
+            "satsExpected": "0.0125",
+            "tokenOutput": "tltc1qout",
+            "payToAddress": "tltc1qpay",
+            "isColoredOutput": true
+          }
+        ]
+      },
+      "expect": "tl35,44ud8g,1,qsi8,tltc1qout,tltc1qpay,1"
+    },
+    {
+      "method": "tl_createpayload_instant_ltc_trade",
+      "body": {
+        "params": [
+          {
+            "propertyIdOffered": 7,
+            "amountOffered": 3,
+            "column": "0",
+            "amountDesired": 1.23456789,
+            "output": "o1",
+            "toAddress": "tltc1qto"
+          }
+        ]
+      },
+      "expect": "tl37,4ym1hc,0,21i3v9,o1,tltc1qto,0"
+    },
+    {
+      "method": "tl_createpayload_instant_trade",
+      "body": {
+        "params": [
+          {
+            "propertyIdForSale": 9,
+            "amountForSale": "0.1",
+            "expectedSats": 2
+          }
+        ]
+      },
+      "expect": "tl39,5yc1s,,3b2ozk,,,0"
+    },
+    {
+      "method": "tl_createpayload_contract_instant_trade",
+      "body": {
+        "params": [
+          {
+            "contractId": 3,
+            "price": "125.5",
+            "amount": 10,
+            "sell": true,
+            "insurance": 1,
+            "reduce": "1",
+            "post": false,
+            "stop": 0
+          }
+        ]
+      },
+      "expect": "tli3,5rjy1z4,a,1,1,1,0,0"
+    },
+    {
+      "method": "tl_createpayload_contract_instant_trade",
+      "body": {
+        "params": [
+          {
+            "contractId": 36,
+            "price": 1e-8,
+            "amount": 1.9
+          }
+        ]
+      },
+      "expect": "tli10,1,1,0,0,0,0,0"
+    },
+    {
+      "method": "TL_CreatePayload_SimpleSend",
+      "body": {
+        "params": [
+          {
+            "address": "tltc1qdest",
+            "propertyId": 6,
+            "amount": "1"
+          }
+        ]
+      },
+      "expect": "tl20;tltc1qdest;6;1njchs"
+    },
+    {
+      "method": "tl_createpayload_simplesend",
+      "body": {
+        "params": [
+          {
+            "address": "tltc1qdest",
+            "propertyId": "abc",
+            "amount": "x"
+          }
+        ]
+      },
+      "expect": "tl20;tltc1qdest;0;0"
+    },
+    {
+      "method": "tl_createpayload_sendactivation",
+      "body": {
+        "params": [
+          1,
+          2,
+          3
+        ]
+      },
+      "expect": null
+    },
+    {
+      "method": "tl_getproperty",
+      "body": {
+        "params": [
+          1
+        ]
+      },
+      "expect": null
+    }
+  ],
+  "multisig": [
+    {
+      "m": 2,
+      "pubKeys": [
+        "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "03f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+      ],
+      "network": "LTC",
+      "expect": {
+        "m": 2,
+        "pubKeys": [
+          "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "03f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+        ],
+        "redeemScript": "52210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817982102c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee52103f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f953ae",
+        "scriptPubKey": "002080ac654ef5fdd4b68080e3463fe042f4e76ae30ec1039b2aa36f2a20e25f4a8e",
+        "address": "ltc1qszkx2nh4lh2tdqyqudrrlczz7nnk4ccwcypek24rdu4zpcjlf28qd8vr75"
+      }
+    },
+    {
+      "m": 2,
+      "pubKeys": [
+        "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "03f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+      ],
+      "network": "LTCTEST",
+      "expect": {
+        "m": 2,
+        "pubKeys": [
+          "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "03f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+        ],
+        "redeemScript": "522102c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee52103f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f952ae",
+        "scriptPubKey": "0020d544813bf6e04c63d900700f2a355f1f582119be2374d558376f2e510b2324e7",
+        "address": "tltc1q64zgzwlkupxx8kgqwq8j5d2lravzzxd7yd6d2kphduh9zzerynns7xfcpe"
+      }
+    },
+    {
+      "m": 1,
+      "pubKeys": [
+        "03f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
+        "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+      ],
+      "network": "BTC",
+      "expect": {
+        "m": 1,
+        "pubKeys": [
+          "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "03f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+        ],
+        "redeemScript": "512102c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee52103f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f952ae",
+        "scriptPubKey": "002073b564b7d133aeb4471386862597c5d2c5d0a6467d584ce84904484936e82bfa",
+        "address": "bc1qww6kfd73xwhtg3cns6rzt9796tzapfjx04vye6zfq3yyjdhg90aqh39zqk"
+      }
+    },
+    {
+      "m": 2,
+      "pubKeys": [
+        "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "03f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+      ],
+      "network": "BTCTEST",
+      "expect": {
+        "m": 2,
+        "pubKeys": [
+          "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+          "03f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+        ],
+        "redeemScript": "52210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817982102c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee52103f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f953ae",
+        "scriptPubKey": "002080ac654ef5fdd4b68080e3463fe042f4e76ae30ec1039b2aa36f2a20e25f4a8e",
+        "address": "tb1qszkx2nh4lh2tdqyqudrrlczz7nnk4ccwcypek24rdu4zpcjlf28qet5u77"
+      }
+    },
+    {
+      "m": 3,
+      "pubKeys": [
+        "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "03f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+      ],
+      "network": "LTC",
+      "expect": {
+        "error": "Invalid pubKeys"
+      }
+    },
+    {
+      "m": 2,
+      "pubKeys": [
+        "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+        "03f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9"
+      ],
+      "network": "DOGE",
+      "expect": {
+        "error": "Unknown network: DOGE"
+      }
+    }
+  ]
+}

@@ -4,8 +4,8 @@
 use crate::amount::Amount;
 use crate::nodecfg::RpcEndpoint;
 use crate::service::{
-    CallResult, ConfStore, KeyBackend, NodeConnector, RelayerBackend, RpcBackend, RpcOutcome,
-    SignBackend,
+    CallResult, ConfStore, KeyBackend, ListenerBackend, ListenerReply, NodeConnector,
+    RelayerBackend, RpcBackend, RpcOutcome, SignBackend,
 };
 use crate::txbuilder::Utxo;
 use serde_json::{json, Value};
@@ -21,6 +21,8 @@ pub struct RpcState {
     pub calls: Vec<(String, Vec<Value>)>,
     /// Scripted node error (code, message) per method; takes precedence over `responses`.
     pub rpc_errors: BTreeMap<String, (i64, String)>,
+    /// Every wallet-scoped call: (wallet, method, params).
+    pub wallet_calls: Vec<(String, String, Vec<Value>)>,
 }
 
 #[derive(Clone, Default, Debug)]
@@ -63,6 +65,15 @@ impl RpcBackend for MemRpc {
             .get(method)
             .cloned()
             .ok_or_else(|| format!("{method}: not scripted"))
+    }
+
+    fn call_wallet(&mut self, wallet: &str, method: &str, params: &[Value]) -> RpcOutcome {
+        self.0.borrow_mut().wallet_calls.push((
+            wallet.to_string(),
+            method.to_string(),
+            params.to_vec(),
+        ));
+        self.call_detailed(method, params)
     }
 
     fn call_detailed(&mut self, method: &str, params: &[Value]) -> RpcOutcome {
@@ -180,4 +191,83 @@ impl NodeConnector for MemConnector {
 /// Convenience for tests: coin amount from a decimal string.
 pub fn coin(s: &str) -> Amount {
     Amount::parse_coin(s).unwrap_or(Amount::ZERO)
+}
+
+/// One request the in-memory listener saw.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ListenerCall {
+    pub method: String,
+    pub endpoint: String,
+    pub query: String,
+    pub body: Option<Value>,
+    pub timeout: std::time::Duration,
+}
+
+#[derive(Default, Debug)]
+pub struct ListenerState {
+    /// Scripted answer per `"<METHOD> <endpoint>"`; a missing entry is a refused connection.
+    pub responses: BTreeMap<String, Result<ListenerReply, String>>,
+    pub calls: Vec<ListenerCall>,
+}
+
+/// In-memory TradeLayer listener.
+#[derive(Clone, Default, Debug)]
+pub struct MemListener(pub Rc<RefCell<ListenerState>>);
+
+impl MemListener {
+    pub fn script(&self, method: &str, endpoint: &str, status: u16, body: Value) {
+        self.0.borrow_mut().responses.insert(
+            format!("{method} {endpoint}"),
+            Ok(ListenerReply { status, body }),
+        );
+    }
+
+    pub fn script_error(&self, method: &str, endpoint: &str, message: &str) {
+        self.0
+            .borrow_mut()
+            .responses
+            .insert(format!("{method} {endpoint}"), Err(message.into()));
+    }
+
+    pub fn calls_of(&self, endpoint: &str) -> Vec<ListenerCall> {
+        self.0
+            .borrow()
+            .calls
+            .iter()
+            .filter(|c| c.endpoint == endpoint)
+            .cloned()
+            .collect()
+    }
+
+    pub fn total_calls(&self) -> usize {
+        self.0.borrow().calls.len()
+    }
+}
+
+impl ListenerBackend for MemListener {
+    fn request(
+        &mut self,
+        method: &str,
+        endpoint: &str,
+        query: &str,
+        body: Option<&Value>,
+        timeout: std::time::Duration,
+    ) -> Result<ListenerReply, String> {
+        let mut s = self.0.borrow_mut();
+        s.calls.push(ListenerCall {
+            method: method.into(),
+            endpoint: endpoint.into(),
+            query: query.into(),
+            body: body.cloned(),
+            timeout,
+        });
+        match s.responses.get(&format!("{method} {endpoint}")) {
+            Some(r) => r.clone(),
+            None => Err("connect ECONNREFUSED 127.0.0.1:3000".into()),
+        }
+    }
+
+    fn origin(&self) -> String {
+        "http://127.0.0.1:3000".into()
+    }
 }

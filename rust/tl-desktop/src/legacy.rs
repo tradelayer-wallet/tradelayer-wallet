@@ -200,6 +200,7 @@ pub fn translate(req: &http::Request<Vec<u8>>, token: &str) -> Translated {
         token: Some(token.to_string()),
         body_len,
         body,
+        query: req.uri().query().unwrap_or("").to_string(),
     }))
 }
 
@@ -370,6 +371,7 @@ impl socketio::NodeProbe for ServiceProbe {
             token: Some(self.token.clone()),
             body_len: body.to_string().len(),
             body,
+            query: String::new(),
         };
         let job: Job = (
             Box::new(req),
@@ -1010,6 +1012,8 @@ mod tests {
         let conn = MemConnector::default();
         let store = MemStore::default();
         let node = conn.node.clone();
+        // start-wallet-node probes the node once before it reports the connection attached
+        node.script("getblockchaininfo", json!({"blocks": 1, "headers": 1}));
         let svc = WalletService::new(
             gate(token),
             Box::new(RefuseKeys),
@@ -1180,8 +1184,14 @@ mod tests {
         );
         assert_eq!(started.status(), 200);
         assert!(f.svc.node_connected());
+        let after_start = f.node.total_calls();
 
-        for m in ["dumpprivkey", "stop", "walletpassphrase", "DUMPPRIVKEY"] {
+        for m in [
+            "dumpprivkey",
+            "stop",
+            "signrawtransactionwithwallet",
+            "DUMPPRIVKEY",
+        ] {
             let r = run(
                 &mut f,
                 req(
@@ -1194,7 +1204,7 @@ mod tests {
             assert_eq!(r.status(), 403, "{m}");
             assert!(!String::from_utf8_lossy(r.body()).contains("L1leak"));
         }
-        assert_eq!(f.node.total_calls(), 0);
+        assert_eq!(f.node.total_calls(), after_start);
 
         let ok = run(
             &mut f,
@@ -1207,7 +1217,7 @@ mod tests {
         );
         assert_eq!(ok.status(), 200);
         assert_eq!(json_of(&ok)["data"]["chain"], "main");
-        assert_eq!(f.node.total_calls(), 1);
+        assert_eq!(f.node.total_calls(), after_start + 1);
     }
 
     #[test]

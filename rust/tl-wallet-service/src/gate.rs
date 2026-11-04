@@ -126,6 +126,19 @@ const EXACT_METHODS: &[&str] = &[
     "importpubkey",
     "rescanblockchain",
     "abortrescan",
+    // FE-speed's `rpcService.rpc(...)` call sites that the list above lacked. Left out on
+    // purpose: dumpprivkey (exports a key) and signrawtransactionwithwallet (signs); both belong
+    // to the guarded signing routes.
+    "getrawtransaction",
+    "getrawmempool",
+    "gettransaction",
+    "getwalletinfo",
+    "listwallets",
+    "listlabels",
+    "finalizepsbt",
+    "walletpassphrase",
+    "encryptwallet",
+    "tl_loadwallet",
     "tl_getinfo",
     "tl_getproperty",
     "tl_getfullposition",

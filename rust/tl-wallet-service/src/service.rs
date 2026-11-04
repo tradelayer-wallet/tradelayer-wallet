@@ -9,8 +9,7 @@
 use crate::amount::Amount;
 use crate::gate::{Deny, Gate, RequestMeta};
 use crate::nodecfg::{
-    is_testnet, launch_args, parse_conf, render_conf, rpc_endpoint, validate_endpoint,
-    validate_new_config, validate_path, LaunchOptions, RpcEndpoint,
+    render_conf, validate_endpoint, validate_new_config, validate_path, RpcEndpoint,
 };
 use crate::psbt::{build_psbt, guard_psbt, guard_sign, psbt_input_count, UtxoView};
 use crate::txbuilder::{
@@ -18,6 +17,10 @@ use crate::txbuilder::{
     PaymentRequest, Utxo, MAX_INPUTS,
 };
 use serde_json::{json, Map, Value};
+use std::time::Duration;
+
+mod fespeed;
+pub use fespeed::{is_tl_route, is_transient, TLRAW_GET, TLRAW_POST, TL_ROUTES, UNAVAILABLE};
 
 pub const MAX_BODY_BYTES: usize = 1 << 20;
 /// Absolute ceiling for a caller-approved `maxFee` (1 coin).
@@ -47,6 +50,40 @@ pub trait RpcBackend {
             Err(e) => RpcOutcome::Failed(e),
         }
     }
+
+    /// Like [`RpcBackend::call_detailed`] on the node's `/wallet/<name>` endpoint (FE-speed
+    /// routes a wallet label to its own wallet). A backend without wallet endpoints refuses
+    /// rather than answer from the wrong wallet.
+    fn call_wallet(&mut self, wallet: &str, method: &str, params: &[Value]) -> RpcOutcome {
+        let _ = (wallet, method, params);
+        RpcOutcome::Failed("wallet-scoped RPC is not supported by this node backend".into())
+    }
+}
+
+/// One answer of the TradeLayer listener: any HTTP status, with its body as JSON (text that is
+/// not JSON becomes a JSON string).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ListenerReply {
+    pub status: u16,
+    pub body: Value,
+}
+
+/// The TradeLayer listener (FE-speed's Node process on `:3000`; here the TradeLayer-Rust
+/// engine). `method` is `GET` or `POST`, `endpoint` a listener method name without a
+/// leading slash, `query` the percent-encoded query string without `?`. `Err` is a transport
+/// failure worded like axios's (`connect ECONNREFUSED ...`, `timeout of ...ms exceeded`).
+pub trait ListenerBackend {
+    fn request(
+        &mut self,
+        method: &str,
+        endpoint: &str,
+        query: &str,
+        body: Option<&Value>,
+        timeout: Duration,
+    ) -> Result<ListenerReply, String>;
+
+    /// The listener's origin, for status reports.
+    fn origin(&self) -> String;
 }
 
 /// Remote relayer API (`axios.post(url + '/rpc/' + method, { params })`).
@@ -87,6 +124,8 @@ pub struct HttpRequest {
     pub token: Option<String>,
     pub body_len: usize,
     pub body: Value,
+    /// Percent-encoded query string without `?`; only `/tlraw/` forwards it.
+    pub query: String,
 }
 
 impl HttpRequest {
@@ -100,6 +139,7 @@ impl HttpRequest {
             token: Some(token.into()),
             body_len: body.to_string().len(),
             body,
+            query: String::new(),
         }
     }
 }
@@ -131,6 +171,16 @@ pub struct WalletService {
     default_dir: String,
     node: Option<Box<dyn RpcBackend>>,
     relayer_url: Option<String>,
+    listener: Option<Box<dyn ListenerBackend>>,
+    tl_rpc_via_listener: bool,
+    tl_main_init: bool,
+    last_sync: Option<Value>,
+    collator_urls: Vec<String>,
+    /// A client whose node was still loading at `start-wallet-node`.
+    pending: Option<Box<dyn RpcBackend>>,
+    pending_polls: u32,
+    rescan_opt_in: bool,
+    network_label: Option<String>,
 }
 
 struct RpcView<'a>(&'a mut dyn RpcBackend);
@@ -287,6 +337,15 @@ impl WalletService {
             default_dir,
             node: None,
             relayer_url: None,
+            listener: None,
+            tl_rpc_via_listener: false,
+            tl_main_init: false,
+            last_sync: None,
+            collator_urls: Vec::new(),
+            pending: None,
+            pending_polls: 0,
+            rescan_opt_in: false,
+            network_label: None,
         }
     }
 
@@ -319,7 +378,9 @@ impl WalletService {
         if let Err(d) = self.gate.check(&meta) {
             return denied(d);
         }
-        let (status, body) = if req.method != "POST" {
+        let (status, body) = if let Some(r) = self.fespeed_dispatch(req) {
+            r
+        } else if req.method != "POST" {
             fail(405, "method not allowed")
         } else if req.body_len > MAX_BODY_BYTES {
             fail(413, "body too large")
@@ -402,28 +463,7 @@ impl WalletService {
     }
 
     // ---- rpc ----
-
-    fn rpc_call(&mut self, b: &Value) -> Result<(u16, Value), String> {
-        let method = req_str(b, "method")?;
-        let params: Vec<Value> = match b.get("params") {
-            None | Some(Value::Null) => vec![],
-            Some(Value::Array(a)) => a.clone(),
-            Some(_) => return Err("params must be an array".into()),
-        };
-        if let Err(d) = self.gate.check_rpc(method, params.len()) {
-            return Ok(fail(d.status(), format!("rpc method denied: {d:?}")));
-        }
-        let node = self.node.as_mut().ok_or("No RPC Client initialized")?;
-        // Legacy answered 200 for every node outcome; only a missing client was a 500.
-        Ok(match node.call_detailed(method, &params) {
-            RpcOutcome::Ok(v) => ok(v),
-            RpcOutcome::RpcError { code, message } => (
-                200,
-                json!({ "error": message, "statusCode": 500, "IECode": 2, "EECode": code }),
-            ),
-            RpcOutcome::Failed(e) => (200, json!({ "error": e })),
-        })
-    }
+    // `rpc_call`, `start_wallet_node` and `stop_wallet_node` live in `fespeed.rs`.
 
     fn smart_rpc(&mut self, method: &str, params: &[Value], api: bool) -> CallResult {
         if let (Some(node), false) = (self.node.as_mut(), api) {
@@ -458,46 +498,6 @@ impl WalletService {
             }
             _ => Ok(self.default_dir.clone()),
         }
-    }
-
-    fn start_wallet_node(&mut self, b: &Value) -> Result<(u16, Value), String> {
-        let testnet = is_testnet(req_str(b, "network")?).map_err(|e| e.to_string())?;
-        let dir = self.resolve_dir(b.get("path").and_then(Value::as_str))?;
-        let opts = LaunchOptions {
-            testnet,
-            startclean: b
-                .get("startclean")
-                .and_then(Value::as_bool)
-                .unwrap_or(false),
-            reindex: b.get("reindex").and_then(Value::as_bool).unwrap_or(false),
-            // The UI sends `path: ""` for the default directory; legacy only added `-datadir`
-            // for a truthy value (`node.service.ts:110`).
-            datadir: b
-                .get("path")
-                .and_then(Value::as_str)
-                .filter(|p| !p.is_empty())
-                .map(str::to_string),
-        };
-        // Validates the launch arguments (the legacy exec of the bundled node is disabled).
-        launch_args(&opts).map_err(|e| e.to_string())?;
-        let conf_path = format!("{}/litecoin.conf", dir.trim_end_matches(['/', '\\']));
-        let text = self
-            .store
-            .read(&conf_path)
-            .ok_or_else(|| format!("Config file (litecoin.conf) doesn't exist in: {dir}"))?;
-        let ep = rpc_endpoint(&parse_conf(&text), testnet)
-            .map_err(|_| format!("Incorrect Config File {dir}"))?;
-        let client = self.connector.connect(&ep, testnet)?;
-        self.node = Some(client);
-        Ok(ok(json!({ "data": true })))
-    }
-
-    fn stop_wallet_node(&mut self) -> Result<(u16, Value), String> {
-        if let Some(node) = self.node.as_mut() {
-            node.call("stop", &[])?;
-        }
-        self.node = None;
-        Ok(ok(json!(true)))
     }
 
     fn new_config(&mut self, b: &Value) -> Result<(u16, Value), String> {

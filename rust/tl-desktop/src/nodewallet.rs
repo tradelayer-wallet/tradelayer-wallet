@@ -74,6 +74,13 @@ impl RpcBackend for SharedRpc {
             Err(_) => RpcOutcome::Failed("node client busy".into()),
         }
     }
+
+    fn call_wallet(&mut self, wallet: &str, method: &str, params: &[Value]) -> RpcOutcome {
+        match self.0.try_borrow_mut() {
+            Ok(mut client) => client.call_wallet(wallet, method, params),
+            Err(_) => RpcOutcome::Failed("node client busy".into()),
+        }
+    }
 }
 
 /// Wraps a [`NodeConnector`]: the client it builds is shared with the signer through `slot`.
@@ -534,6 +541,8 @@ mod tests {
     fn fixture() -> Fx {
         let conn = MemConnector::default();
         let node = conn.node.clone();
+        // start-wallet-node probes the node once before it reports the connection attached
+        node.script("getblockchaininfo", json!({"blocks": 1, "headers": 1}));
         let store = MemStore::default();
         store.0.borrow_mut().files.insert(
             "/ltc/litecoin.conf".into(),
@@ -623,7 +632,8 @@ mod tests {
             r.body,
             json!({"data": {"isValid": true, "signedHex": "0200signed", "isFinished": true}})
         );
-        // guard (gettxout) ran before the signer, on the same node the service connected to
+        // the attach probe, then the guard (gettxout) before the signer, on the same node the
+        // service connected to
         let order: Vec<String> = f
             .node
             .0
@@ -632,7 +642,10 @@ mod tests {
             .iter()
             .map(|c| c.0.clone())
             .collect();
-        assert_eq!(order, ["gettxout", "signrawtransactionwithwallet"]);
+        assert_eq!(
+            order,
+            ["getblockchaininfo", "gettxout", "signrawtransactionwithwallet"]
+        );
     }
 
     #[test]
@@ -707,7 +720,7 @@ mod tests {
             r.body,
             json!({"data": {"psbtHex": "70736274ff0100", "isValid": true, "isFinished": true, "finalHex": "0200final"}})
         );
-        let first_psbt = f.node.0.borrow().calls[1].1[0].clone();
+        let first_psbt = f.node.0.borrow().calls[2].1[0].clone();
         assert_eq!(first_psbt, json!(b64_encode(&hex_to_bytes(&ok).unwrap())));
         // fee above the bound: guard refuses, no further node wallet call
         let before = f.node.total_calls();

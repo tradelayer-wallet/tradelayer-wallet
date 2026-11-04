@@ -30,6 +30,10 @@ fn fixture() -> Fx {
     store.0.borrow_mut().dirs.insert("/home/u/.litecoin".into());
     let signer = MemSigner::default();
     let connector = MemConnector::default();
+    // start-wallet-node probes the node once before it reports the connection attached
+    connector
+        .node
+        .script("getblockchaininfo", json!({"blocks": 1, "headers": 1}));
     let svc = WalletService::new(
         gate,
         Box::new(MemKeys),
@@ -150,7 +154,8 @@ fn repaired_rpc_proxy_blocks_unlisted_methods_and_still_serves_listed_ones() {
     );
     assert_eq!(r.status, 200);
     assert_eq!(r.body, json!({"data": {"blocks": 5}}));
-    assert_eq!(f.node.calls_of("getblockchaininfo"), 1);
+    // the start-wallet-node probe and this call
+    assert_eq!(f.node.calls_of("getblockchaininfo"), 2);
     // oversize params, wrong shapes
     let many: Vec<Value> = (0..MAX_RPC_PARAMS + 1).map(|i| json!(i)).collect();
     assert_eq!(

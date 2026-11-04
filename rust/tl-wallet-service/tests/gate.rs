@@ -149,7 +149,6 @@ fn node_wallet_signing_is_reachable_only_through_the_guarded_routes() {
         "signrawtransactionwithwallet",
         "signrawtransactionwithkey",
         "walletprocesspsbt",
-        "finalizepsbt",
         "dumpprivkey",
         "getaddressinfo ",
         "GetAddressInfo",
@@ -168,6 +167,17 @@ fn repaired_rpc_proxy_forwards_only_allowlisted_methods() {
         "tl_getinfo",
         "tl_createpayload_simplesend",
         "tl_createpayload_instant_trade",
+        // FE-speed's UI call sites (porting map 1.7)
+        "getrawtransaction",
+        "getrawmempool",
+        "gettransaction",
+        "getwalletinfo",
+        "listwallets",
+        "listlabels",
+        "finalizepsbt",
+        "walletpassphrase",
+        "encryptwallet",
+        "tl_loadwallet",
     ] {
         assert_eq!(g.check_rpc(ok, 1), Ok(()), "{ok}");
     }
@@ -175,7 +185,6 @@ fn repaired_rpc_proxy_forwards_only_allowlisted_methods() {
         "dumpprivkey",
         "dumpwallet",
         "importprivkey",
-        "walletpassphrase",
         "sendtoaddress",
         "stop",
         "setgenerate",
