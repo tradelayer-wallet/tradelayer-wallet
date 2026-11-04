@@ -43,6 +43,8 @@
 //! long polling to the origins in `orderbook_urls` (default: the two servers of
 //! `endpoints.conf.ts`).
 
+pub mod fespeed;
+
 use crate::config::LegacySettings;
 use crate::nodewallet::{NodeSlot, NodeWalletSigner, SharedConnector};
 use crate::obrelay::ObPolicy;
@@ -54,10 +56,11 @@ use std::sync::mpsc;
 use std::time::Duration;
 use tauri::http;
 use tl_wallet_service::gate::{Gate, GateConfig, MethodAllowlist, SessionToken};
+use tl_wallet_service::jsval::encode_uri_component;
 use tl_wallet_service::nodecfg::RpcEndpoint;
 use tl_wallet_service::service::{
-    CallResult, ConfStore, HttpRequest, HttpResponse, KeyBackend, NodeConnector, RelayerBackend,
-    RpcBackend, RpcOutcome, WalletService, MAX_BODY_BYTES,
+    is_tl_route, CallResult, ConfStore, HttpRequest, HttpResponse, KeyBackend, NodeConnector,
+    RelayerBackend, RpcBackend, RpcOutcome, WalletService, MAX_BODY_BYTES,
 };
 
 /// The page origin under WebView2 on Windows.
@@ -66,6 +69,8 @@ const BRIDGE_HOST: &str = "tlapi.localhost";
 /// The gate's Host check is loopback name plus this port; the bridge presents it as a constant.
 const GATE_PORT: u16 = 1;
 const QUEUE_DEPTH: usize = 64;
+/// How often the `legacy` thread retries a node that was still starting.
+const PENDING_NODE_POLL: Duration = Duration::from_secs(1);
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const TOTAL_TIMEOUT: Duration = Duration::from_secs(60);
@@ -128,7 +133,7 @@ impl Reply {
             b = b.header("Access-Control-Allow-Origin", o.as_str());
             if self.preflight {
                 b = b
-                    .header("Access-Control-Allow-Methods", "POST, OPTIONS")
+                    .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
                     .header("Access-Control-Allow-Headers", "content-type");
             }
         }
@@ -159,7 +164,8 @@ pub enum Translated {
 }
 
 /// Map a custom-scheme request onto the service request. `token` is the bridge's own session
-/// token. The query string never reaches the service; an empty body is JSON `null`.
+/// token. The query string travels as `query` and only the `/tlraw/` passthrough reads it; an
+/// empty body is JSON `null`.
 pub fn translate(req: &http::Request<Vec<u8>>, token: &str) -> Translated {
     let origin_header = req.headers().get("origin").map(|v| v.to_str().ok());
     // A non-UTF-8 Origin cannot equal the allowlisted one: present it as an unmatchable value.
@@ -204,13 +210,19 @@ pub fn translate(req: &http::Request<Vec<u8>>, token: &str) -> Translated {
     }))
 }
 
-/// One request on the legacy thread. `POST /tl/<method>` with `{params}` is the TradeLayer node
-/// HTTP API that wallet-fe's `NewTradeLayerApiService` called at `http://localhost:3000` (it
-/// returns the bare result). It is served as an `rpc-call` of `<method>`, so the gate and the
-/// method allowlist apply exactly as for `/api/rpc-call`; a node error becomes HTTP 500.
+/// One request on the legacy thread.
+///
+/// `/tl/<name>` for one of FE-speed's own routes (`getChannel`, `listProperties`, ...: exact,
+/// case-sensitive names, [`is_tl_route`]) is served by the service, which asks the TradeLayer
+/// listener. Any other `POST /tl/<method>` with `{params}` is the TradeLayer node HTTP API that
+/// the 2024 wallet-fe's `NewTradeLayerApiService` called at `http://localhost:3000` (it returns
+/// the bare result). That one is served as an `rpc-call` of `<method>`, so the gate and the
+/// method allowlist apply exactly as for `/api/rpc-call`; a node error becomes HTTP 500. The two
+/// sets of names cannot meet: node methods are lower-case `tl_*` and FE-speed's routes are
+/// neither (the gate refuses upper-case method names).
 pub fn handle_request(s: &mut WalletService, req: &HttpRequest) -> Reply {
     let preflight = req.method == "OPTIONS";
-    let Some(method) = req.path.strip_prefix("/tl/") else {
+    let Some(method) = req.path.strip_prefix("/tl/").filter(|m| !is_tl_route(m)) else {
         return Reply::from_service(s.handle(req), preflight);
     };
     let mut q = req.clone();
@@ -226,6 +238,7 @@ pub fn handle_request(s: &mut WalletService, req: &HttpRequest) -> Reply {
     };
     q.body = json!({ "method": method, "params": params });
     q.body_len = q.body.to_string().len();
+    q.query = String::new();
     let mut reply = Reply::from_service(s.handle(&q), false);
     if reply.status == 200 {
         match reply.body.get("data").cloned() {
@@ -281,12 +294,23 @@ impl Bridge {
             .name("legacy".into())
             .spawn(move || {
                 let mut service = build();
-                for (req, done) in rx {
-                    let reply = match service.as_mut() {
-                        Ok(s) => handle_request(s, &req),
-                        Err(e) => Reply::early(500, e, req.origin.as_deref()),
-                    };
-                    done(reply);
+                loop {
+                    match rx.recv_timeout(PENDING_NODE_POLL) {
+                        Ok((req, done)) => {
+                            let reply = match service.as_mut() {
+                                Ok(s) => handle_request(s, &req),
+                                Err(e) => Reply::early(500, e, req.origin.as_deref()),
+                            };
+                            done(reply);
+                        }
+                        // a node that was still loading at start-wallet-node keeps being tried
+                        Err(mpsc::RecvTimeoutError::Timeout) => {
+                            if let Ok(s) = service.as_mut() {
+                                s.poll_pending_node();
+                            }
+                        }
+                        Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                    }
                 }
             })?;
         let probe = ServiceProbe {
@@ -393,6 +417,11 @@ fn interpret_probe(reply: &Reply) -> socketio::Probe {
         return socketio::Probe::Skip;
     }
     if reply.status == 200 {
+        // A node that is still loading (`start-wallet-node` answered `starting`) is not a node
+        // that went away: wait, do not report core-error.
+        if reply.body["starting"] == json!(true) {
+            return socketio::Probe::Skip;
+        }
         let data = &reply.body["data"];
         return match data["blocks"].as_u64() {
             Some(height) => socketio::Probe::Info {
@@ -461,7 +490,7 @@ fn build_service(
     let settings = settings.map_err(|e| format!("config: {e}"))?;
     let dir = settings.node_data_dir.unwrap_or(default_node_dir);
     let slot = NodeSlot::default();
-    Ok(WalletService::new(
+    let mut service = WalletService::new(
         gate(token),
         Box::new(RefuseKeys),
         Box::new(NodeWalletSigner::new(slot.clone())),
@@ -470,7 +499,12 @@ fn build_service(
         Box::new(HttpRelayer::new()?),
         settings.relayer_hosts,
         dir.to_string_lossy().into_owned(),
-    ))
+    );
+    service.set_listener(Box::new(fespeed::ListenerClient::new(
+        &settings.tl_listener_url,
+    )?));
+    service.set_tl_rpc_via_listener(settings.tl_rpc_via_listener);
+    Ok(service)
 }
 
 // ------------------------------------------------------------------ keys and signing
@@ -574,9 +608,18 @@ fn post_json(
     if let Some((u, p)) = auth {
         rb = rb.basic_auth(u, Some(p));
     }
-    let resp = rb
-        .send()
-        .map_err(|e| format!("request failed: {}", e.without_url()))?;
+    let resp = rb.send().map_err(|e| {
+        // The cause does not survive `Display`; keep the words the UI and the service use to
+        // tell a node that is not up yet from one that answered with an error.
+        let kind = if e.is_timeout() {
+            "ETIMEDOUT timed out: "
+        } else if e.is_connect() {
+            "ECONNREFUSED connection refused: "
+        } else {
+            ""
+        };
+        format!("request failed: {kind}{}", e.without_url())
+    })?;
     if resp
         .content_length()
         .is_some_and(|n| n > MAX_RESPONSE_BYTES as u64)
@@ -663,6 +706,15 @@ fn interpret_rpc_detailed(status: u16, body: &[u8]) -> RpcOutcome {
 
 impl RpcClient {
     fn post_call(&mut self, method: &str, params: &[Value]) -> Result<(u16, Vec<u8>), String> {
+        self.post_call_to(self.url.clone(), method, params)
+    }
+
+    fn post_call_to(
+        &mut self,
+        url: reqwest::Url,
+        method: &str,
+        params: &[Value],
+    ) -> Result<(u16, Vec<u8>), String> {
         self.next_id += 1;
         let body = json!({
             "jsonrpc": "1.0",
@@ -670,17 +722,28 @@ impl RpcClient {
             "method": method,
             "params": params,
         });
-        let (status, bytes) = post_json(
-            &self.client,
-            self.url.clone(),
-            Some((&self.user, &self.password)),
-            &body,
-        )?;
+        let (status, bytes) =
+            post_json(&self.client, url, Some((&self.user, &self.password)), &body)?;
         Ok((status, bytes.to_vec()))
     }
 }
 
 impl RpcBackend for RpcClient {
+    /// The node's `/wallet/<name>` endpoint, as FE-speed's `callRpcFromDatadir` posts to it.
+    fn call_wallet(&mut self, wallet: &str, method: &str, params: &[Value]) -> RpcOutcome {
+        let url = match self
+            .url
+            .join(&format!("wallet/{}", encode_uri_component(wallet)))
+        {
+            Ok(u) => u,
+            Err(e) => return RpcOutcome::Failed(format!("wallet URL: {e}")),
+        };
+        match self.post_call_to(url, method, params) {
+            Ok((status, bytes)) => interpret_rpc_detailed(status, &bytes),
+            Err(e) => RpcOutcome::Failed(e),
+        }
+    }
+
     fn call_detailed(&mut self, method: &str, params: &[Value]) -> RpcOutcome {
         match self.post_call(method, params) {
             Ok((status, bytes)) => interpret_rpc_detailed(status, &bytes),
@@ -862,6 +925,7 @@ mod tests {
     use std::io::Cursor;
     use std::net::{TcpListener, TcpStream};
     use tl_wallet_service::mem::{MemConnector, MemRelayer, MemRpc, MemStore};
+    use tl_wallet_service::nodecfg::RpcEndpoint;
     use tl_wallet_service::service::SignBackend;
 
     const TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -1097,7 +1161,7 @@ mod tests {
         assert_eq!(acao(&pre), Some(ALLOWED_ORIGIN));
         assert_eq!(
             pre.headers()["access-control-allow-methods"],
-            "POST, OPTIONS"
+            "GET, POST, OPTIONS"
         );
         assert_eq!(
             pre.headers()["access-control-allow-headers"],
@@ -1819,5 +1883,333 @@ rpcport=9332
         );
         assert_eq!(err.status(), 500);
         assert_eq!(json_of(&err)["EECode"], json!(-8));
+    }
+
+    // ---- FE-speed routes through the bridge
+
+    fn with_listener(f: &mut Fixture, port: u16) {
+        f.svc.set_listener(Box::new(
+            fespeed::ListenerClient::new(&format!("http://127.0.0.1:{port}")).unwrap(),
+        ));
+    }
+
+    fn closed_port() -> u16 {
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        l.local_addr().unwrap().port()
+    }
+
+    #[test]
+    fn translation_hands_the_query_to_the_service() {
+        let r = forwarded(translate(
+            &req(
+                "GET",
+                "http://tlapi.localhost/tlraw/tl_getInitMargin?contractId=3&price=1.5#frag",
+                Some(ALLOWED_ORIGIN),
+                b"",
+            ),
+            TOKEN,
+        ));
+        assert_eq!(r.method, "GET");
+        assert_eq!(r.path, "/tlraw/tl_getInitMargin");
+        assert_eq!(r.query, "contractId=3&price=1.5");
+        assert_eq!(r.body, Value::Null);
+    }
+
+    #[test]
+    fn tlraw_get_reaches_the_listener_with_its_query_and_the_page_gets_cors() {
+        let (port, h) = mock_server(http_response(
+            "200 OK",
+            br#"{"contractId":3,"notional":"1"}"#,
+        ));
+        let mut f = fixture();
+        with_listener(&mut f, port);
+        let r = run(
+            &mut f,
+            req(
+                "GET",
+                "http://tlapi.localhost/tlraw/tl_getContractInfo?contractId=3",
+                Some(ALLOWED_ORIGIN),
+                b"",
+            ),
+        );
+        assert_eq!(r.status(), 200);
+        assert_eq!(json_of(&r)["contractId"], 3);
+        assert_eq!(acao(&r), Some(ALLOWED_ORIGIN));
+        let raw = String::from_utf8(h.join().unwrap()).unwrap();
+        assert!(
+            raw.starts_with("GET /tl_getContractInfo?contractId=3 HTTP/1.1"),
+            "{raw}"
+        );
+        assert_eq!(f.node.total_calls(), 0);
+    }
+
+    #[test]
+    fn tlraw_post_and_fe_speed_tl_routes_reach_the_listener_not_the_node() {
+        let (port, h) = mock_server(http_response("200 OK", br#"{"column":"A"}"#));
+        let mut f = fixture();
+        with_listener(&mut f, port);
+        let body = br#"{"channelAddress":"c","buyerAddress":"b","cpAddress":"p"}"#;
+        let r = run(
+            &mut f,
+            req(
+                "POST",
+                "http://tlapi.localhost/tlraw/tl_getChannelColumn",
+                Some(ALLOWED_ORIGIN),
+                body,
+            ),
+        );
+        assert_eq!(
+            (r.status().as_u16(), json_of(&r)),
+            (200, json!({"column":"A"}))
+        );
+        let raw = String::from_utf8(h.join().unwrap()).unwrap();
+        assert!(
+            raw.starts_with("POST /tl_getChannelColumn HTTP/1.1"),
+            "{raw}"
+        );
+        let sent: Value = serde_json::from_str(raw.split("\r\n\r\n").nth(1).unwrap_or("")).unwrap();
+        assert_eq!(
+            sent,
+            serde_json::from_slice::<Value>(body).unwrap(),
+            "{raw}"
+        );
+
+        // /tl/getChannel with the body the UI sends
+        let (port, h) = mock_server(http_response("200 OK", br#"{"channel":"ch1"}"#));
+        with_listener(&mut f, port);
+        let r = run(
+            &mut f,
+            req(
+                "POST",
+                "http://tlapi.localhost/tl/getChannel",
+                Some(ALLOWED_ORIGIN),
+                br#"{"params":["tltc1qabc"]}"#,
+            ),
+        );
+        assert_eq!(json_of(&r), json!({"channel":"ch1"}));
+        let raw = String::from_utf8(h.join().unwrap()).unwrap();
+        assert!(raw.starts_with("POST /tl_getChannel HTTP/1.1"), "{raw}");
+        assert!(raw.ends_with(r#"{"params":"tltc1qabc"}"#), "{raw}");
+        assert_eq!(f.node.total_calls(), 0);
+
+        // a node method name under /tl/ is still the 2024 rpc-call mapping: it does not touch
+        // the listener (nothing is listening any more)
+        let mut f2 = fixture();
+        with_listener(&mut f2, closed_port());
+        f2.store.0.borrow_mut().files.insert(
+            "/ltc/litecoin.conf".into(),
+            "rpcuser=u\nrpcpassword=p\nrpcport=9332\n".into(),
+        );
+        run(
+            &mut f2,
+            req(
+                "POST",
+                "http://tlapi.localhost/api/start-wallet-node",
+                Some(ALLOWED_ORIGIN),
+                br#"{"network":"LTC"}"#,
+            ),
+        );
+        f2.node.script("tl_getproperty", json!({"id": 1}));
+        let r = run(
+            &mut f2,
+            req(
+                "POST",
+                "http://tlapi.localhost/tl/tl_getproperty",
+                Some(ALLOWED_ORIGIN),
+                br#"{"params":[1]}"#,
+            ),
+        );
+        assert_eq!((r.status().as_u16(), json_of(&r)), (200, json!({"id": 1})));
+    }
+
+    #[test]
+    fn listener_down_is_reported_in_the_shapes_the_ui_handles() {
+        let mut f = fixture();
+        let port = closed_port();
+        with_listener(&mut f, port);
+        let want = format!("connect ECONNREFUSED 127.0.0.1:{port}");
+        let r = run(
+            &mut f,
+            req(
+                "POST",
+                "http://tlapi.localhost/tlraw/tl_getSyncStatus",
+                Some(ALLOWED_ORIGIN),
+                b"{}",
+            ),
+        );
+        assert_eq!(r.status(), 502);
+        assert_eq!(json_of(&r), json!({ "error": want }));
+        let r = run(
+            &mut f,
+            req(
+                "POST",
+                "http://tlapi.localhost/tl/getChannel",
+                Some(ALLOWED_ORIGIN),
+                br#"{"params":["a"]}"#,
+            ),
+        );
+        assert_eq!(r.status(), 500);
+        assert_eq!(json_of(&r), json!(format!("Error: {want}")));
+        let r = run(
+            &mut f,
+            req(
+                "POST",
+                "http://tlapi.localhost/api/init-tradelayer",
+                Some(ALLOWED_ORIGIN),
+                b"{}",
+            ),
+        );
+        assert_eq!(r.status(), 500);
+        assert!(json_of(&r)["error"]
+            .as_str()
+            .unwrap()
+            .contains("did not become reachable"));
+        let r = run(
+            &mut f,
+            req(
+                "GET",
+                "http://tlapi.localhost/api/tradelayer/sync-status",
+                Some(ALLOWED_ORIGIN),
+                b"",
+            ),
+        );
+        assert_eq!(r.status(), 200);
+        let d = json_of(&r)["data"].clone();
+        assert_eq!(d["listenerReachable"], json!(false));
+        assert_eq!(d["phase"], json!("starting"));
+    }
+
+    #[test]
+    fn unavailable_routes_answer_503_through_the_bridge() {
+        let mut f = fixture();
+        for (m, u) in [
+            ("GET", "http://tlapi.localhost/explorer/api/overview"),
+            ("POST", "http://tlapi.localhost/api/algo/run"),
+            ("POST", "http://tlapi.localhost/address/sync-watchonly"),
+        ] {
+            let r = run(&mut f, req(m, u, Some(ALLOWED_ORIGIN), b"{}"));
+            assert_eq!(r.status(), 503, "{u}");
+            assert_eq!(
+                json_of(&r),
+                json!({"error": "not available in the desktop build"})
+            );
+        }
+    }
+
+    #[test]
+    fn a_starting_node_is_not_a_dead_node_for_the_block_probe() {
+        use socketio::Probe;
+        let starting = probe_reply(
+            200,
+            json!({ "error": "Loading block index...", "starting": true }),
+        );
+        assert_eq!(interpret_probe(&starting), Probe::Skip);
+        // a node that went away still counts as an error
+        let gone = probe_reply(200, json!({ "error": "request failed: ECONNREFUSED" }));
+        assert!(matches!(interpret_probe(&gone), Probe::Error(_)));
+    }
+
+    #[test]
+    fn rpc_client_posts_wallet_calls_to_the_wallet_endpoint() {
+        let (port, h) = mock_server(http_response(
+            "200 OK",
+            br#"{"result":["tl-wallet"],"error":null,"id":1}"#,
+        ));
+        let mut c = RpcClient::new(&format!("http://127.0.0.1:{port}/"), "u", "p").unwrap();
+        let out = c.call_wallet("w 1/x", "listlabels", &[]);
+        assert_eq!(out, RpcOutcome::Ok(json!(["tl-wallet"])));
+        let raw = String::from_utf8(h.join().unwrap()).unwrap();
+        assert!(
+            raw.starts_with("POST /wallet/w%201%2Fx HTTP/1.1"),
+            "{}",
+            raw.lines().next().unwrap_or("")
+        );
+    }
+
+    #[test]
+    fn connection_failures_carry_the_words_the_service_treats_as_transient() {
+        let mut c =
+            RpcClient::new(&format!("http://127.0.0.1:{}/", closed_port()), "u", "p").unwrap();
+        let e = c.call("getblockchaininfo", &[]).unwrap_err();
+        assert!(e.contains("connection refused"), "{e}");
+        assert!(tl_wallet_service::service::is_transient(&e));
+    }
+
+    #[test]
+    fn the_legacy_thread_keeps_attaching_a_node_that_was_still_loading() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        struct Flip(Arc<AtomicBool>, Arc<AtomicUsize>);
+        impl RpcBackend for Flip {
+            fn call(&mut self, _m: &str, _p: &[Value]) -> CallResult {
+                self.1.fetch_add(1, Ordering::SeqCst);
+                if self.0.load(Ordering::SeqCst) {
+                    Ok(json!({"blocks": 7, "headers": 7}))
+                } else {
+                    Err("Loading block index...".into())
+                }
+            }
+        }
+        struct FlipConnector(Arc<AtomicBool>, Arc<AtomicUsize>);
+        impl NodeConnector for FlipConnector {
+            fn connect(
+                &mut self,
+                _ep: &RpcEndpoint,
+                _testnet: bool,
+            ) -> Result<Box<dyn RpcBackend>, String> {
+                Ok(Box::new(Flip(self.0.clone(), self.1.clone())))
+            }
+        }
+
+        let ready = Arc::new(AtomicBool::new(false));
+        let probes = Arc::new(AtomicUsize::new(0));
+        let token = SessionToken::from_hex(TOKEN).unwrap();
+        let t2 = token.clone();
+        let (r2, p2) = (ready.clone(), probes.clone());
+        let bridge = Bridge::start(
+            move || {
+                let store = MemStore::default();
+                store.0.borrow_mut().files.insert(
+                    "/ltc/litecoin.conf".into(),
+                    "rpcuser=u\nrpcpassword=p\nrpcport=9332\n".into(),
+                );
+                Ok(WalletService::new(
+                    gate(t2),
+                    Box::new(RefuseKeys),
+                    Box::new(NodeWalletSigner::new(NodeSlot::default())),
+                    Box::new(store),
+                    Box::new(FlipConnector(r2, p2)),
+                    Box::new(MemRelayer::default()),
+                    vec![],
+                    "/ltc".into(),
+                ))
+            },
+            &token,
+        )
+        .unwrap();
+        let ask = |path: &str, body: &[u8]| {
+            let (tx, rx) = mpsc::channel();
+            bridge.submit(
+                &req(
+                    "POST",
+                    &format!("http://tlapi.localhost{path}"),
+                    Some(ALLOWED_ORIGIN),
+                    body,
+                ),
+                Box::new(move |r| tx.send(r).unwrap()),
+            );
+            rx.recv_timeout(Duration::from_secs(5)).unwrap()
+        };
+        let r = ask("/api/start-wallet-node", br#"{"network":"LTC"}"#);
+        assert_eq!(r.status, 200);
+        assert_eq!(r.body["starting"], json!(true));
+        assert_eq!(probes.load(Ordering::SeqCst), 1);
+        // no request arrives, the node finishes loading, the thread attaches it on its own
+        ready.store(true, Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(2600));
+        assert!(probes.load(Ordering::SeqCst) >= 2);
+        let r = ask("/api/rpc-call", br#"{"method":"getblockchaininfo"}"#);
+        assert_eq!(r.body, json!({"data": {"blocks": 7, "headers": 7}}));
     }
 }

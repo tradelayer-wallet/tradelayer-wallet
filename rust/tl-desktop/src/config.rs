@@ -12,8 +12,13 @@
 //! Optional fields for the legacy-API bridge (see `LegacySettings`): `node_data_dir` (absolute),
 //! `relayer_hosts` (bare hostnames; default none),
 //! `orderbook_urls` (exact `http://host:port` or `https://host` origins the UI may connect its
-//! orderbook socket to; default the two servers of `endpoints.conf.ts`, `[]` disables the relay).
+//! orderbook socket to; default the two servers of `endpoints.conf.ts`, `[]` disables the relay),
+//! `tl_listener_url` (the TradeLayer listener the FE-speed UI's `/tl/*` and `/tlraw/*` routes
+//! reach: an `http`/`https` loopback origin, default `http://127.0.0.1:3000`) and
+//! `tl_rpc_via_listener` (`true` makes `rpc-call` answer `tl_*` methods the way FE-speed's
+//! wallet-server does; default `false`, which sends them to the node as the 2024 UI expects).
 
+use crate::legacy::fespeed::{normalize_listener_url, DEFAULT_LISTENER_URL};
 use crate::obrelay::{normalize_origin, DEFAULT_ORDERBOOK_URLS, MAX_ORDERBOOK_URLS};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -43,6 +48,10 @@ struct RawConfig {
     relayer_hosts: Option<Vec<String>>,
     #[serde(default)]
     orderbook_urls: Option<Vec<String>>,
+    #[serde(default)]
+    tl_listener_url: Option<String>,
+    #[serde(default)]
+    tl_rpc_via_listener: Option<bool>,
 }
 
 pub struct DesktopConfig {
@@ -81,11 +90,16 @@ fn read_bounded(path: &Path) -> Result<String, String> {
 /// * `relayer_hosts`: hostnames the UI may name as its relayer API (default empty: relayer off).
 /// * `orderbook_urls`: exact origins the UI may connect its orderbook socket to, normalized
 ///   (default: the two orderbook servers of the legacy `endpoints.conf.ts`; empty: relay off).
+/// * `tl_listener_url`: origin of the TradeLayer listener, normalised (default
+///   `http://127.0.0.1:3000`).
+/// * `tl_rpc_via_listener`: `rpc-call` of `tl_*` as FE-speed's wallet-server answers it.
 #[derive(Debug, PartialEq, Eq)]
 pub struct LegacySettings {
     pub node_data_dir: Option<PathBuf>,
     pub relayer_hosts: Vec<String>,
     pub orderbook_urls: Vec<String>,
+    pub tl_listener_url: String,
+    pub tl_rpc_via_listener: bool,
 }
 
 impl Default for LegacySettings {
@@ -97,6 +111,8 @@ impl Default for LegacySettings {
                 .iter()
                 .map(|s| s.to_string())
                 .collect(),
+            tl_listener_url: DEFAULT_LISTENER_URL.to_string(),
+            tl_rpc_via_listener: false,
         }
     }
 }
@@ -111,6 +127,10 @@ struct LegacyRaw {
     relayer_hosts: Option<Vec<String>>,
     #[serde(default)]
     orderbook_urls: Option<Vec<String>>,
+    #[serde(default)]
+    tl_listener_url: Option<String>,
+    #[serde(default)]
+    tl_rpc_via_listener: Option<bool>,
 }
 
 const MAX_RELAYER_HOSTS: usize = 16;
@@ -125,10 +145,21 @@ fn valid_host(h: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'-')
 }
 
+#[cfg(test)]
 fn validate_legacy(
     node_data_dir: Option<PathBuf>,
     relayer_hosts: Option<Vec<String>>,
     orderbook_urls: Option<Vec<String>>,
+) -> Result<LegacySettings, String> {
+    validate_legacy_full(node_data_dir, relayer_hosts, orderbook_urls, None, None)
+}
+
+fn validate_legacy_full(
+    node_data_dir: Option<PathBuf>,
+    relayer_hosts: Option<Vec<String>>,
+    orderbook_urls: Option<Vec<String>>,
+    tl_listener_url: Option<String>,
+    tl_rpc_via_listener: Option<bool>,
 ) -> Result<LegacySettings, String> {
     if let Some(d) = &node_data_dir {
         if !d.is_absolute() {
@@ -162,10 +193,18 @@ fn validate_legacy(
             out
         }
     };
+    let tl_listener_url = match tl_listener_url {
+        None => DEFAULT_LISTENER_URL.to_string(),
+        Some(u) => {
+            normalize_listener_url(&u).map_err(|e| format!("config: tl_listener_url {u:?}: {e}"))?
+        }
+    };
     Ok(LegacySettings {
         node_data_dir,
         relayer_hosts: hosts,
         orderbook_urls,
+        tl_listener_url,
+        tl_rpc_via_listener: tl_rpc_via_listener.unwrap_or(false),
     })
 }
 
@@ -176,7 +215,13 @@ pub fn load_legacy(path: &Path) -> Result<LegacySettings, String> {
     }
     let text = read_bounded(path)?;
     let raw: LegacyRaw = serde_json::from_str(&text).map_err(|e| format!("config: {e}"))?;
-    validate_legacy(raw.node_data_dir, raw.relayer_hosts, raw.orderbook_urls)
+    validate_legacy_full(
+        raw.node_data_dir,
+        raw.relayer_hosts,
+        raw.orderbook_urls,
+        raw.tl_listener_url,
+        raw.tl_rpc_via_listener,
+    )
 }
 
 /// Parse a config file. `default_data_dir` is used when the file names no `data_dir`.
@@ -204,7 +249,13 @@ pub fn parse(text: &str, default_data_dir: &Path) -> Result<DesktopConfig, Strin
             )
         }
     };
-    validate_legacy(raw.node_data_dir, raw.relayer_hosts, raw.orderbook_urls)?;
+    validate_legacy_full(
+        raw.node_data_dir,
+        raw.relayer_hosts,
+        raw.orderbook_urls,
+        raw.tl_listener_url,
+        raw.tl_rpc_via_listener,
+    )?;
     let idle_minutes = raw.idle_lock_minutes.unwrap_or(10);
     if !(1..=24 * 60).contains(&idle_minutes) {
         return Err("config: idle_lock_minutes must be 1..=1440".into());
@@ -341,6 +392,49 @@ mod tests {
         assert!(parse(
             &format!(r#"{base},"orderbook_urls":["ftp://ob.example"]}}"#),
             d
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn tl_listener_settings_default_normalize_and_reject_non_loopback_origins() {
+        let d = validate_legacy(None, None, None).unwrap();
+        assert_eq!(d.tl_listener_url, "http://127.0.0.1:3000");
+        assert!(!d.tl_rpc_via_listener);
+        let s = validate_legacy_full(
+            None,
+            None,
+            None,
+            Some("HTTP://LocalHost:3001/".into()),
+            Some(true),
+        )
+        .unwrap();
+        assert_eq!(s.tl_listener_url, "http://localhost:3001");
+        assert!(s.tl_rpc_via_listener);
+        for bad in [
+            "",
+            "http://example.com:3000",
+            "ws://127.0.0.1:3000",
+            "http://127.0.0.1:3000/tl",
+            "http://u:p@127.0.0.1:3000",
+        ] {
+            assert!(
+                validate_legacy_full(None, None, None, Some(bad.into()), None).is_err(),
+                "{bad:?}"
+            );
+        }
+        let base = r#"{"network":"BTCREGTEST","node_url":"x","rpc_user":"u","rpc_password":"p""#;
+        let p = Path::new("/data");
+        assert!(parse(
+            &format!(
+                r#"{base},"tl_listener_url":"http://127.0.0.1:4000","tl_rpc_via_listener":true}}"#
+            ),
+            p
+        )
+        .is_ok());
+        assert!(parse(
+            &format!(r#"{base},"tl_listener_url":"http://example.com"}}"#),
+            p
         )
         .is_err());
     }

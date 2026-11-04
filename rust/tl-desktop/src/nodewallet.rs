@@ -644,7 +644,11 @@ mod tests {
             .collect();
         assert_eq!(
             order,
-            ["getblockchaininfo", "gettxout", "signrawtransactionwithwallet"]
+            [
+                "getblockchaininfo",
+                "gettxout",
+                "signrawtransactionwithwallet"
+            ]
         );
     }
 

@@ -75,7 +75,11 @@ Angular UI does not call them yet.
 holds its vaults, one per network id. `relayer_hosts` lists the hosts the UI may name as its
 relayer API (default none). `orderbook_urls` lists the exact orderbook origins the relay may
 connect to (at most 16; default the two orderbook URLs of `environment.ENDPOINTS`,
-`http://172.81.181.19:9190` and `:8190`; `[]` turns the relay off).
+`http://172.81.181.19:9190` and `:8190`; `[]` turns the relay off). `tl_listener_url` (default `http://127.0.0.1:3000`; an `http` or
+`https` loopback origin, nothing else) is the TradeLayer listener behind the FE-speed UI's `/tl/*` and
+`/tlraw/*` routes and the `tradelayer/sync-status` report. `tl_rpc_via_listener` (default `false`) makes
+`rpc-call` of `tl_*` methods answer as FE-speed's wallet-server does (seven local payload encoders, the rest
+through the listener); leave it off for the 2024 UI, which sends them to the node.
 
 ## Commands and results (2026-11-02/03, Windows 11, MSVC 14.44, Rust 1.90.0, Node 24.19)
 
