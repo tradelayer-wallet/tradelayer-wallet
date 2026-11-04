@@ -94,9 +94,10 @@ try {
   const rpcOk = await waitFor(`fetch("http://tlapi.localhost/api/rpc-call", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({method: "getblockchaininfo", params: []})}).then(r => r.json()).then(j => j.data && j.data.chain === "regtest")`, 20000);
   check("page rpc-call getblockchaininfo reaches the regtest node", rpcOk);
   const denied = await ev(`fetch("http://tlapi.localhost/api/rpc-call", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({method: "dumpprivkey", params: ["x"]})}).then(async r => r.status + " " + JSON.stringify(await r.json()))`);
-  check("page rpc-call dumpprivkey refused", !denied.startsWith("200"), denied);
-  const keys = await ev(`fetch("http://tlapi.localhost/keys/new-wallet", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({network: "LTCTEST"})}).then(async r => r.status + " " + JSON.stringify(await r.json()))`);
-  check("key routes refused (no mnemonic reaches the page)", !keys.includes("mnemonic\":\"") && !keys.startsWith("200"), keys);
+  check("page rpc-call dumpprivkey answers a node-wallet handle, not a key", /^200 .*"tln1:x"/.test(denied), denied);
+  const mn = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+  const keys = await ev(`fetch("http://tlapi.localhost/keys/get-address", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({network: "LTCTEST", mnemonic: ${JSON.stringify(mn)}, derivatePath: "m/49/60/1/0/0"})}).then(async r => r.status + " " + JSON.stringify(await r.json()))`);
+  check("key route answers a handle and an empty privkey (no key reaches the page)", /"privkey":""/.test(keys) && /"wif":"tlk1:[0-9a-f]{32}"/.test(keys) && !keys.includes("cNff91"), keys);
   const foreign = await ev(`fetch("https://example.com").then(() => "allowed", () => "blocked")`);
   check("CSP blocks arbitrary outbound hosts", foreign === "blocked", foreign);
 
