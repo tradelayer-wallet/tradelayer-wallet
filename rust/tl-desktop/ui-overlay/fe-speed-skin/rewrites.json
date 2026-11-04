@@ -1,0 +1,18 @@
+{
+  "rewrites": [
+    {
+      "file": "src/app/@pages/pages.module.ts",
+      "from": "import { SpotChartCardComponent } from",
+      "to": "import { BitcornChartComponent } from './bitcorn-chart/bitcorn-chart.component';\nimport { SpotChartCardComponent } from",
+      "count": 1,
+      "reason": "import the BitcornWisdom chart component that the two chart cards embed"
+    },
+    {
+      "file": "src/app/@pages/pages.module.ts",
+      "from": "    SpotChartCardComponent,",
+      "to": "    SpotChartCardComponent,\n    BitcornChartComponent,",
+      "count": 1,
+      "reason": "declare tl-bitcorn-chart in the module that declares both chart cards"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "comment": "Hosts the skin build needs in the Tauri CSP on top of the base CSP (tauri.conf.json is not edited; scripts/skin-csp.mjs merges this file into a TAURI_CONFIG override). Every host is contacted only by the bundled BitcornWisdom chart (bitcorn/src/*.js) with read-only public market-data requests.",
+  "connect-src": [
+    { "source": "https://api.kraken.com", "reason": "Kraken OHLC REST history for the *-USD-SPOT charts" },
+    { "source": "wss://ws.kraken.com", "reason": "Kraken WebSocket v2 ohlc channel (live candles, primary USD spot venue)" },
+    { "source": "https://api.exchange.coinbase.com", "reason": "Coinbase Exchange candles REST history (USD spot failover venue)" },
+    { "source": "wss://ws-feed.exchange.coinbase.com", "reason": "Coinbase Exchange WebSocket matches/heartbeat feed (USD spot failover venue)" },
+    { "source": "https://data-api.binance.vision", "reason": "Binance Spot klines REST for the LTC/BTC-USDT spot instruments (market-data-only host)" },
+    { "source": "https://api.binance.com", "reason": "Binance Spot klines REST, second host tried by BitcornWisdom after data-api.binance.vision" },
+    { "source": "wss://data-stream.binance.vision", "reason": "Binance Spot kline WebSocket stream" },
+    { "source": "https://fapi.binance.com", "reason": "Binance USD-M futures klines REST for the BTC/LTC-USDT perpetuals (futures contracts)" },
+    { "source": "wss://fstream.binance.com", "reason": "Binance USD-M futures kline WebSocket stream" }
+  ],
+  "frame-src": [],
+  "img-src": [],
+  "replace": [
+    { "from": "frame-ancestors 'none'", "to": "frame-ancestors 'self'", "reason": "the chart is a same-origin iframe (/bitcorn/embed.html) inside the app window; 'none' would stop the webview from framing its own document", "verified": "with the unchanged policy the webview logs \"Framing 'http://tauri.localhost/' violates ... frame-ancestors 'none'\" and the chart never completes its handshake (check-fe-speed-skin.mjs, 2026-11-05)" }
+  ]
+}

@@ -1,0 +1,7 @@
+<div class="bw-note" *ngIf="plan.state === 'chart' && note" role="note">{{ note }}</div>
+<div #host class="bw-host" [class.bw-hidden]="plan.state !== 'chart'"></div>
+<div class="bw-empty" *ngIf="plan.state === 'none'">
+  <div class="bw-empty-title">No external market</div>
+  <div class="bw-empty-text">{{ plan.note }}</div>
+</div>
+<div class="bw-error" *ngIf="loadError" role="alert">{{ loadError }}</div>

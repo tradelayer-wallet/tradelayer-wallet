@@ -1,0 +1,80 @@
+{
+  "files": {
+    "bitcorn-instrument.ts": "src/app/@pages/bitcorn-chart/bitcorn-instrument.ts",
+    "bitcorn-chart.component.ts": "src/app/@pages/bitcorn-chart/bitcorn-chart.component.ts",
+    "bitcorn-chart.component.html": "src/app/@pages/bitcorn-chart/bitcorn-chart.component.html",
+    "bitcorn-chart.component.scss": "src/app/@pages/bitcorn-chart/bitcorn-chart.component.scss",
+    "spot-chart-card.component.ts": "src/app/@pages/spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.ts",
+    "spot-chart-card.component.html": "src/app/@pages/spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.html",
+    "spot-chart-card.component.scss": "src/app/@pages/spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.scss",
+    "futures-chart-card.component.ts": "src/app/@pages/futures-page/futures-trading-grid/futures-chart-card/futures-chart-card.component.ts",
+    "styles-skin.scss": "src/styles-skin.scss"
+  },
+  "bases": {
+    "src/app/@pages/spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.ts": "f03506a59179854c85005fa4be0e24d403bc45c931e39287da1a622258ec571b",
+    "src/app/@pages/spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.html": "c9ebfed45373578ba21543fde0fd7a4d3e642af1dd2f9b945373bc233dddc326",
+    "src/app/@pages/spot-page/spot-trading-grid/spot-chart-card/spot-chart-card.component.scss": "5ba76b33fa5719574fa44ff3558bedc08a30f90f63da08d1a7ff15b34e3c90e9",
+    "src/app/@pages/futures-page/futures-trading-grid/futures-chart-card/futures-chart-card.component.ts": "86a79a535e5009f5dcb89a76f6525443e51481517482a3a130c20642c3048823"
+  },
+  "angular": {
+    "extraStyles": ["src/styles-skin.scss"]
+  },
+  "bitcorn": {
+    "commit": "2cbef833fc11b5b66f72257728365e5f794a32e1",
+    "dest": "bitcorn",
+    "defaultDirs": ["C:/Users/patri/OneDrive/Documents/GitHub/BitcornWisdom"],
+    "roots": ["embed.html", "embed.css", "favicon.svg", "src/embed.js", "src/embed-sdk.js"],
+    "extra": ["LICENSE", "THIRD_PARTY_NOTICES.md"],
+    "patches": [
+      {
+        "file": "src/feed-policy.js",
+        "from": "  'BTC-USDT-PERP': Object.freeze({",
+        "toFile": "bitcorn/ltc-instruments.js",
+        "count": 1,
+        "reason": "LTC instruments (LTC-USD-SPOT on Kraken/Coinbase, LTC-USDT-SPOT and LTC-USDT-PERP on Binance): upstream's allowlist has BTC and ETH only, and TradeLayer is a Litecoin protocol. The feed adapters take any joined BASEQUOTE symbol, so only the allowlist entries are added"
+      },
+      {
+        "file": "src/feed-policy.js",
+        "from": "export const EMBED_THEMES = Object.freeze(['noir', 'synth', 'verdigris']);",
+        "to": "export const EMBED_THEMES = Object.freeze(['noir', 'synth', 'verdigris', 'chrome']);",
+        "count": 1,
+        "reason": "accept the chrome theme the wallet skin mounts the chart with"
+      },
+      {
+        "file": "src/workspace.js",
+        "from": "  verdigris: {\n    bg: '#071614',",
+        "toFile": "bitcorn/chrome-palette.js",
+        "count": 1,
+        "reason": "chrome canvas palette (FE-speed panel blues, silver axis text, FE-speed green/red candles) for CandleChart"
+      },
+      {
+        "file": "embed.css",
+        "from": "*{box-sizing:border-box}",
+        "toFile": "bitcorn/chrome-embed.css",
+        "count": 1,
+        "reason": "chrome theme for the embed chrome (brushed-steel bars, chrome price pill); the instrument picker is hidden because the wallet drives the market"
+      },
+      {
+        "file": "embed.html",
+        "from": "      <option value=\"BTC-USDT-SPOT\">BTC/USDT Spot</option>",
+        "to": "      <option value=\"LTC-USD-SPOT\">LTC/USD Spot</option>\n      <option value=\"LTC-USDT-SPOT\">LTC/USDT Spot</option>\n      <option value=\"LTC-USDT-PERP\">LTC/USDT Perpetual</option>\n      <option value=\"BTC-USDT-SPOT\">BTC/USDT Spot</option>",
+        "count": 1,
+        "reason": "list the LTC instruments in the instrument select (kept in step with the allowlist)"
+      },
+      {
+        "file": "embed.html",
+        "from": "connect-src 'self' https: wss: http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*;",
+        "to": "connect-src 'self' https://api.kraken.com wss://ws.kraken.com https://api.exchange.coinbase.com wss://ws-feed.exchange.coinbase.com https://data-api.binance.vision https://api.binance.com wss://data-stream.binance.vision https://fapi.binance.com wss://fstream.binance.com;",
+        "count": 1,
+        "reason": "the embed's own CSP names the nine exchange hosts instead of every https:/wss: origin and loopback (no relays in the wallet)"
+      },
+      {
+        "file": "embed.html",
+        "from": "<a href=\"./index.html\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"embed-open\" aria-label=\"Open full BitcornWisdom trading desk\">Full desk ↗</a>",
+        "to": "",
+        "count": 1,
+        "reason": "the full desk (index.html) is not bundled"
+      }
+    ]
+  }
+}

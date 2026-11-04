@@ -1,0 +1,339 @@
+// Chrome skin for the FE-speed wallet UI (ui-overlay/fe-speed-skin). A global stylesheet appended to
+// the "tauri" build's styles. It keeps FE-speed's own palette (the :root variables of
+// src/app/@theme/style.scss are NOT redefined: --background #130f23, --violet2 #1C1932, --darkBlue
+// #2C304A, --darkBlue2 #1B1E34, --lightBlue #45A8FB, --blue #306BF3, --mossGreen #149971,
+// --greenSuccess #36C970, --redError #EF5252) and layers sleekness on top: blue-steel chrome
+// gradients and sheen on the header, nav tab indicator, primary buttons, card borders and the
+// status bar, tighter radii and crisper type. Surfaces keep their current hue and lightness.
+// No external fonts: Roboto and Material Icons are what index.html loads.
+//
+// Contrast: scripts/check-skin-contrast.mjs reads the --sk-* hex values below and fails when a
+// text/background pair drops under WCAG AA (4.5:1 body text, 3:1 large text).
+
+:root {
+    // FE-speed's palette as hex, for the contrast check (same values as its :root variables)
+    --sk-bg: #130f23;
+    --sk-violet: #1c1932;
+    --sk-panel: #1b1e34;
+    --sk-panel-hi: #2c304a;
+    --sk-blue: #306bf3;
+    --sk-light-blue: #45a8fb;
+    --sk-text: #f6f7fb;
+    --sk-text-dim: #9aa2c0;
+    --sk-green: #36c970;
+    --sk-red: #ef5252;
+
+    // chrome: blue-tinted steel so it sits on FE-speed's blues and violets
+    --sk-steel-edge: #5a6286;
+    --sk-ink-on-steel: #0b1230;
+    --sk-ink-on-trade: #070a14;
+    --sk-chrome: linear-gradient(180deg, #f2f5fc 0%, #c9d1e6 36%, #8993b2 52%, #aeb8d2 74%, #dde3f1 100%);
+    --sk-chrome-hover: linear-gradient(180deg, #ffffff 0%, #d9e0f0 36%, #9ca6c4 52%, #bfc8de 74%, #eaeef8 100%);
+    --sk-chrome-pill: linear-gradient(180deg, #e6ebf6 0%, #aab4cf 100%);
+    --sk-sheen: linear-gradient(90deg, #306bf3 0%, #8fd0ff 30%, #f2f5fc 50%, #8fd0ff 70%, #306bf3 100%);
+    // brushed steel over the panel colour: lighter at the top edge, back to #1B1E34 below
+    --sk-bar: linear-gradient(180deg, #3a4066 0%, #272b49 46%, #181b30 54%, #1b1e34 100%);
+    --sk-bar-light: linear-gradient(180deg, #f6f7fb 0%, #e4e7f2 100%);
+    --sk-card-edge: linear-gradient(145deg, rgba(200, 209, 232, 0.62) 0%, rgba(70, 77, 112, 0.45) 38%, rgba(150, 160, 195, 0.52) 62%, rgba(60, 66, 100, 0.5) 100%);
+    --sk-buy: linear-gradient(180deg, #4fdc8b 0%, #36c970 52%, #2aae5f 100%);
+    --sk-sell: linear-gradient(180deg, #f57373 0%, #ef5252 52%, #dc4141 100%);
+    --sk-radius: 8px;
+}
+
+// ---- page, type ------------------------------------------------------------------------------
+html,
+body {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    // FE-speed's background colour stays; a faint cool sheen at the top edge
+    background-image: radial-gradient(1000px 420px at 50% -6%, rgba(120, 140, 215, 0.14), transparent 62%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    letter-spacing: 0.005em;
+}
+
+td,
+th,
+.mat-cell,
+.mat-header-cell,
+.market-price,
+.last-price {
+    font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #5d668a, #8f9abd 50%, #5d668a);
+}
+
+// ---- header: brushed steel over the panel colour --------------------------------------------------
+mat-toolbar.mat-toolbar {
+    background:
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 3px),
+        var(--sk-bar) !important;
+    border-bottom: 1px solid #0c0a18;
+    box-shadow: inset 0 1px 0 rgba(235, 240, 255, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.05), 0 3px 14px rgba(5, 3, 15, 0.55);
+
+    .left-side img {
+        filter: drop-shadow(0 0 7px rgba(69, 168, 251, 0.35));
+    }
+
+    .balance:hover {
+        color: var(--lightBlue) !important;
+    }
+}
+
+// ---- nav tabs: FE-speed's text, a chrome sheen on the active tab, a chrome indicator -----------
+.mat-tab-link:hover:not(.mat-tab-disabled) {
+    background: linear-gradient(180deg, rgba(235, 240, 255, 0.1), rgba(235, 240, 255, 0) 70%);
+}
+
+.mat-tab-link.mat-tab-label-active {
+    background: linear-gradient(180deg, rgba(223, 230, 250, 0.2) 0%, rgba(223, 230, 250, 0.05) 55%, rgba(223, 230, 250, 0) 100%);
+}
+
+.mat-tab-nav-bar .mat-ink-bar,
+.mat-tab-header .mat-ink-bar {
+    height: 3px !important;
+    background: var(--sk-sheen) !important;
+    box-shadow: 0 0 12px rgba(69, 168, 251, 0.6);
+}
+
+// ---- cards: metallic border, FE-speed's panel face with a sheen at the top ---------------------
+mat-card.mat-card {
+    background:
+        linear-gradient(180deg, rgba(235, 240, 255, 0.05) 0%, rgba(235, 240, 255, 0) 38%) padding-box,
+        linear-gradient(var(--darkBlue2), var(--darkBlue2)) padding-box,
+        var(--sk-card-edge) border-box !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--sk-radius) !important;
+    box-shadow: 0 8px 22px rgba(5, 3, 15, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+    color: var(--white);
+    position: relative;
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 14px;
+        right: 14px;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(232, 238, 255, 0.85), transparent);
+        pointer-events: none;
+    }
+
+    mat-card-title,
+    .mat-card-title {
+        letter-spacing: 0.04em;
+    }
+
+    .header-wrapper {
+        border-bottom: 1px solid transparent !important;
+        border-image: linear-gradient(90deg, rgba(170, 180, 215, 0.75), rgba(44, 48, 74, 0.35)) 1;
+    }
+}
+
+.sell td.cdk-column-price {
+    color: #ff7b7b !important;
+}
+
+.buy td.cdk-column-price {
+    color: #4be08b !important;
+}
+
+// ---- buttons ----------------------------------------------------------------------------------
+.mat-raised-button.mat-primary,
+.mat-flat-button.mat-primary,
+.mat-raised-button.mat-accent,
+.mat-flat-button.mat-accent,
+.blueButton,
+button.mat-button-base.new-address-buttton {
+    background: var(--sk-chrome) !important;
+    color: var(--sk-ink-on-steel) !important;
+    border: 1px solid #626b8f !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 2px 8px rgba(5, 3, 15, 0.5) !important;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+
+    &:hover:not(:disabled) {
+        background: var(--sk-chrome-hover) !important;
+        color: var(--sk-ink-on-steel) !important;
+        box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgba(69, 168, 251, 0.7), 0 0 14px rgba(69, 168, 251, 0.4) !important;
+    }
+
+    &:disabled,
+    &[disabled] {
+        background: var(--darkBlue) !important;
+        color: var(--greyBlue) !important;
+        border-color: var(--darkBlue) !important;
+        box-shadow: none !important;
+        text-shadow: none;
+    }
+}
+
+.mat-raised-button.mat-warn,
+.mat-flat-button.mat-warn,
+.redButton {
+    background: var(--sk-sell) !important;
+    color: var(--sk-ink-on-trade) !important;
+    border: 1px solid #b83a3a !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 2px 8px rgba(5, 3, 15, 0.5) !important;
+}
+
+.greenButton {
+    background: var(--sk-buy) !important;
+    color: var(--sk-ink-on-trade) !important;
+    border: 1px solid #228a4c !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 2px 8px rgba(5, 3, 15, 0.5) !important;
+}
+
+.mat-stroked-button {
+    border-color: var(--sk-steel-edge) !important;
+}
+
+.mat-dialog-container .mat-button.mat-warn {
+    color: #ff8a8a !important;
+}
+
+.window-wrapper .body .mat-button.mat-warn {
+    color: #b0201a !important;
+}
+
+// Long/Buy and Short/Sell: FE-speed's green and red, with a metallic sheen
+.buy-button,
+.sell-button {
+    color: var(--sk-ink-on-trade) !important;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    border-radius: 6px !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+    transition: filter 0.2s, box-shadow 0.2s !important;
+
+    &:hover:not(:disabled) {
+        filter: brightness(1.08) saturate(1.05);
+    }
+}
+
+.buy-button {
+    background: var(--sk-buy) !important;
+    border: 1px solid #228a4c !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 8px rgba(54, 201, 112, 0.25) !important;
+}
+
+.sell-button {
+    background: var(--sk-sell) !important;
+    border: 1px solid #b83a3a !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 8px rgba(239, 82, 82, 0.25) !important;
+}
+
+// ---- market tabs (spot/futures toolbars): FE-speed's panel colours, chrome on the selection ---------
+.main-market-nav .mat-tab-label {
+    background: linear-gradient(180deg, #23274a 0%, #1b1e34 100%) !important;
+}
+
+.main-market-nav .mat-tab-label.mat-tab-label-active {
+    background: linear-gradient(180deg, #343a63 0%, #272b49 100%) !important;
+    box-shadow: inset 0 1px 0 rgba(235, 240, 255, 0.25);
+}
+
+.main-market-nav .sub-market-nav .mat-tab-label {
+    border-radius: 6px;
+}
+
+// the selected market was white text on light blue (2.6:1); a light-blue chrome face with dark ink
+.main-market-nav .sub-market-nav .mat-tab-label.mat-tab-label-active {
+    background: linear-gradient(180deg, #a6d6ff 0%, #6bbcff 40%, #45a8fb 55%, #6bbcff 100%) !important;
+    color: var(--sk-ink-on-steel) !important;
+    font-weight: 500;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 0 12px rgba(69, 168, 251, 0.3);
+
+    .market-pair-span {
+        color: var(--sk-ink-on-steel) !important;
+    }
+}
+
+// the market icons are third-party image URLs the CSP does not allow; hide the broken-image glyph
+.market-icon[src^='http'] {
+    display: none;
+}
+
+// ---- floating windows (Synchronization, Servers, WebRTC) ---------------------------------------
+.window-wrapper {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--sk-steel-edge);
+    box-shadow: 0 18px 50px rgba(5, 3, 15, 0.7), 0 0 0 1px rgba(5, 3, 15, 0.6) !important;
+
+    .header {
+        background:
+            repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 3px),
+            var(--sk-bar) !important;
+        box-shadow: inset 0 1px 0 rgba(235, 240, 255, 0.3);
+        border-bottom: 1px solid #0c0a18;
+        letter-spacing: 0.03em;
+    }
+
+    .body {
+        background: var(--sk-bar-light) !important;
+    }
+}
+
+// ---- dialogs ----------------------------------------------------------------------------------
+.mat-dialog-container {
+    border: 1px solid var(--sk-steel-edge);
+    border-radius: 10px !important;
+    box-shadow: 0 24px 60px rgba(5, 3, 15, 0.7), inset 0 1px 0 rgba(235, 240, 255, 0.18) !important;
+    background-image: linear-gradient(180deg, rgba(235, 240, 255, 0.05), rgba(235, 240, 255, 0) 40%);
+}
+
+// ---- status bar ---------------------------------------------------------------------------------
+tl-info-line {
+    background:
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 3px),
+        var(--sk-bar) !important;
+    border-top: 1px solid #0c0a18;
+    box-shadow: inset 0 1px 0 rgba(235, 240, 255, 0.26), 0 -3px 12px rgba(5, 3, 15, 0.5) !important;
+
+    .tabs .tab {
+        background: linear-gradient(180deg, #3d4470, #2c304a) !important;
+        border: 1px solid #0c0a18 !important;
+        border-radius: 4px;
+        box-shadow: inset 0 1px 0 rgba(235, 240, 255, 0.22);
+        margin-right: 4px;
+
+        &:hover {
+            background: linear-gradient(180deg, #4d5584, #343a5f) !important;
+        }
+    }
+}
+
+// ---- home page title ----------------------------------------------------------------------------
+.home-page-container .logo .big:nth-child(2) {
+    background: linear-gradient(180deg, #d4ecff 0%, #8fd0ff 40%, #45a8fb 55%, #8fd0ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 16px rgba(69, 168, 251, 0.25));
+}
+
+// ---- focus ------------------------------------------------------------------------------------
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible {
+    outline: 2px solid var(--lightBlue);
+    outline-offset: 2px;
+}
+
+// ---- status line colours: FE-speed's blue and red are under 4.5:1 on the bar; same hues, lighter ----
+tl-info-line [style*='--blue'] {
+    color: #6fb7ff !important;
+}
+
+tl-info-line [style*='--redError'] {
+    color: #ff9d9d !important;
+}

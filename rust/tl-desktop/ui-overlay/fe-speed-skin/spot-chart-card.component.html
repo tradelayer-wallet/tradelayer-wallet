@@ -1,0 +1,28 @@
+<mat-card class="chart-card">
+  <mat-card-title>
+    <div class="header-wrapper">
+      <div class="title-text">
+        <span>Chart</span>
+        <span class="symbol-pill" *ngIf="plan?.state === 'chart'">{{ plan?.label }}</span>
+        <span
+          class="mode-pill"
+          *ngIf="plan?.state === 'chart'"
+          [class.live]="state === 'live'"
+          [class.warn]="state === 'stale' || state === 'disrupted' || state === 'unavailable'"
+        >{{ state === 'live' ? 'LIVE' : state === 'unavailable' ? 'UNAVAILABLE' : state === 'stale' ? 'STALE' : state === 'disrupted' ? 'RECONNECTING' : 'CONNECTING' }}{{ venue ? ' · ' + venue : '' }}</span>
+        <span class="symbol-pill muted" *ngIf="plan?.state === 'none'">No external market</span>
+      </div>
+    </div>
+  </mat-card-title>
+
+  <mat-card-content>
+    <tl-bitcorn-chart
+      [kind]="kind"
+      [base]="base"
+      [quote]="quote"
+      (planChange)="plan = $event"
+      (sourceChange)="source = $event"
+      (stateChange)="state = $event"
+    ></tl-bitcorn-chart>
+  </mat-card-content>
+</mat-card>
