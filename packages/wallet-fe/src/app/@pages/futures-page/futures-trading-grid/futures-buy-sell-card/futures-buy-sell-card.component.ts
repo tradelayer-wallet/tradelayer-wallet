@@ -45,7 +45,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     ) {}
 
     get futureKeyPair() {
-      return this.authService.walletKeys?.futures?.[0];
+      return this.authService.activeFuturesKey;
     }
 
     get futureAddress() {
@@ -189,26 +189,7 @@ export class FuturesBuySellCardComponent implements OnInit, OnDestroy {
     }
 
     async newFutureAddress() {
-    //   if (this.authService.walletKeys.futures.length) {
-    //     this.toastrService.error('The Limit of Futures Addresses is Reached');
-    //     return;
-    //   }
-    //   const passDialog = this.matDialog.open(PasswordDialog);
-    //   const password = await passDialog.afterClosed()
-    //       .pipe(first())
-    //       .toPromise();
-  
-    //   if (!password) return;
-    //   await this.authService.addKeyPair(EAddress.FUTURES, password);
-
-    //   if (this.rpcService.NETWORK?.endsWith('TEST') && this.authService.activeFuturesKey?.address) {
-    //     const fundRes = await this.reLayerApi.fundTestnetAddress(this.authService.activeFuturesKey.address).toPromise();
-    //     if (fundRes.error || !fundRes.data) {
-    //         this.toastrService.warning(fundRes.error, 'Faucet Error');
-    //     } else {
-    //         this.toastrService.success(`${this.authService.activeFuturesKey?.address} was Fund with small amount tLTC`, 'Testnet Faucet')
-    //     }
-    // }
+      await this.authService.addKeyPair(EAddress.FUTURES);
     }
 
     getNameBalanceInfo(token: IToken) {

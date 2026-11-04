@@ -100,8 +100,16 @@ export class AuthService {
         return this._activeSpotKey || this.walletKeys.spot?.[0];
     }
 
+    set activeSpotKey(value: IKeyPair) {
+        this._activeSpotKey = value;
+    }
+
     get activeFuturesKey() {
         return this._activeFuturesKey || this.walletKeys.futures?.[0];
+    }
+
+    set activeFuturesKey(value: IKeyPair) {
+        this._activeFuturesKey = value;
     }
 
     get activeMainKey() {
@@ -125,8 +133,8 @@ export class AuthService {
     }
 
     get listOfallAddresses() {
-        return (Object.values(this.walletKeys) as any)
-            .flat() as IKeyPair[];
+        const all = (Object.values(this.walletKeys) as any).flat() as IKeyPair[];
+        return all.filter((k, i) => all.findIndex(e => e.address === k.address) === i);
     }
 
     get walletAddresses() {
@@ -142,8 +150,31 @@ export class AuthService {
         return this.rpcService.isAbleToRpc;
     }
 
+    // The node wallet holds the keys and signs: key pairs carry no privkey or wif.
     getWifByAddress(address: string) {
-        return this.listOfallAddresses?.find(e => e.address === address)?.wif || null;
+        return this.listOfallAddresses?.find(e => e.address === address)?.wif || '';
+    }
+
+    private async getKeyPairFromWallet(address: string): Promise<IKeyPair | null> {
+        const existing = this.listOfallAddresses.find(e => e.address === address);
+        if (existing) return existing;
+        const res = await this.rpcService.rpc('getaddressinfo', [address]);
+        const pubkey = res.data?.pubkey || res.data?.embedded?.pubkey;
+        if (res.error || !pubkey) {
+            console.log(`getaddressinfo: no pubkey for ${address}: ${res.error || 'not available'}`);
+            return null;
+        }
+        return { address, pubkey, privkey: '', wif: '' };
+    }
+
+    // Every node-wallet address is a main, spot and futures key.
+    private async updateWalletKeys(addresses: string[]) {
+        const keys: IKeyPair[] = [];
+        for (const address of addresses) {
+            const keyPair = await this.getKeyPairFromWallet(address);
+            if (keyPair) keys.push(keyPair);
+        }
+        this._walletKeys = { ...this._walletKeys, main: keys, spot: [...keys], futures: [...keys] };
     }
 
     async getAddressesFromWallet() {
@@ -162,6 +193,7 @@ export class AuthService {
             }
 
             if (res.EECode === -11) {
+                await this.updateWalletKeys([]);
                 this.walletAddresses = [];
                 return;
             }
@@ -170,16 +202,21 @@ export class AuthService {
 
             const _addresses = Object.keys(res.data);
             const addresses = _addresses?.length ? _addresses : [];
+            await this.updateWalletKeys(addresses);
             this.walletAddresses = addresses;
         } catch (error: any) {
             // this.toastrService.error(error.message || error, 'Error');
         }
     }
 
-    async addKeyPair(): Promise<boolean> {
+    async addKeyPair(type: EAddress = EAddress.MAIN): Promise<boolean> {
         try {
-            await this.rpcService.rpc('getnewaddress', [this.walletLabel]);
+            const res = await this.rpcService.rpc('getnewaddress', [this.walletLabel]);
+            if (res.error || !res.data) throw new Error(res.error || 'getnewaddress: Error with creating an address');
             await this.getAddressesFromWallet();
+            const keyPair = this.listOfallAddresses.find(e => e.address === res.data);
+            if (keyPair && type === EAddress.SPOT) this.activeSpotKey = keyPair;
+            if (keyPair && type === EAddress.FUTURES) this.activeFuturesKey = keyPair;
             return true;
         } catch (error: any) {
             this.toastrService.error(error?.message || 'Undefined Error');
