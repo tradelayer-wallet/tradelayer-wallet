@@ -177,18 +177,21 @@ export class AuthService {
         this._walletKeys = { ...this._walletKeys, main: keys, spot: [...keys], futures: [...keys] };
     }
 
-    async getAddressesFromWallet() {
+    // `retried` bounds the create/load fallback to one attempt: a node that cannot create the
+    // wallet answers -18 again and must not recurse forever.
+    async getAddressesFromWallet(retried: boolean = false) {
         try {
             if (!this.isAbleToRpc) return;
             const res = await this.rpcService.rpc('getaddressesbylabel', [this.walletLabel]);
             if (res.EECode === -18) {
+                if (retried) throw new Error(res.error || 'getaddressesbylabel: wallet not available');
                 try {
                     await this.rpcService.rpc('createwallet', [this.walletLabel]);
                     await this.rpcService.rpc('loadwallet', [this.walletLabel]);
                 } catch (error) {
                     console.log(error);
                 }
-                await this.getAddressesFromWallet();
+                await this.getAddressesFromWallet(true);
                 return;
             }
 
@@ -211,6 +214,8 @@ export class AuthService {
 
     async addKeyPair(type: EAddress = EAddress.MAIN): Promise<boolean> {
         try {
+            // Creates and loads the node wallet first when it does not exist yet (-18).
+            await this.getAddressesFromWallet();
             const res = await this.rpcService.rpc('getnewaddress', [this.walletLabel]);
             if (res.error || !res.data) throw new Error(res.error || 'getnewaddress: Error with creating an address');
             await this.getAddressesFromWallet();
