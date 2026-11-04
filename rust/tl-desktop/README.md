@@ -27,6 +27,11 @@ members and fail on a frozen prototype.
 The UI build adds only an `angular.json` configuration `tauri` and `environment.tauri.ts`
 (`homeApiUrl`, critical-CSS and font inlining off so no inline event handler is emitted).
 
+The Spot Trading and Futures Trading screens and the Servers window are switched back on in
+`app-routing.module.ts`, the header menu and `windows.service.ts`. Commit `bd0ce5c` (2024-01-29,
+"update the app to work with vanilla litecoin wallets") had commented them out, and they are
+restored exactly as they were with no guards, like Portfolio. Node Reward and Login stay off.
+
 ## Second mode: Rust-held keys (`tl-desktop-core`)
 
 `src/main.rs` also exposes ten IPC commands over [`tl-desktop-core`](../tl-desktop-core):
@@ -119,6 +124,30 @@ on 127.0.0.1) and `import * as fs`.
 The ignored unit test `obrelay::tests::real_orderbook_server_round_trip` (`TL_OB_URL=<origin>`)
 passed against the same peer.
 
+`scripts/e2e-trading-ui.mjs <exe> <orderbook url> <out>` drives those screens against a regtest
+node and a running legacy `tl-orderbook-server`. The exe's CSP must allow the orderbook origin,
+because the market list is fetched from the page. A second trader, a direct socket.io client,
+first places a SELL order of 7.77 at 0.4321 on LTC/USDT. The run printed `E2E_TRADING_OK`:
+
+1. The menu shows Spot Trading and Futures Trading, and the node syncs (3/3).
+2. The Servers tab opens the original Servers window, a custom orderbook URL is entered and
+   connected through the Rust relay, and the disconnect button appears.
+3. Spot Trading lists the orderbook's five spot markets, and its Order Book shows the second
+   trader's order (0.4321 / 7.7700 / 3.3574).
+4. Futures Trading renders, and the page throws no uncaught exceptions.
+5. The UI's own Buy button stays disabled. In this snapshot `spotKeyPair` reads
+   `authService.walletKeys.spot[0]`, which node-wallet mode never fills; `bd0ce5c` also commented
+   out the body of Create Spot Address. Placing orders from the UI also needs a TradeLayer
+   attestation (`tl_*` RPCs), which a Bitcoin Core node cannot provide.
+
+Two more problems were found on the orderbook side:
+
+* `/markets/spot` and `/markets/futures` on tl-orderbook-server master `909332c` throw
+  `TBILL is not defined`: the 2025-08-22 commits renamed the `TBILL` token definitions to `USDT`
+  but kept the `TBILL` uses. The local test peer aliases `TBILL` to `USDT`.
+* Market icons are third-party image URLs supplied by the orderbook server, and the CSP
+  (`img-src 'self' data:`) blocks them, so they show as broken images.
+
 The Rust-held-key mode has its own run, `scripts/e2e-regtest.mjs`, against a build of the `ui/`
 surface with the strict CSP. Set this before `cargo build`:
 
@@ -147,10 +176,10 @@ The lockfile holds about 400 packages, almost all from Tauri.
 
 ## Gaps
 
-* **Trading screens disabled upstream:** in this wallet-fe snapshot the Spot and Futures routes
-  (`app-routing.module.ts`) and the Servers window (`windows.service.ts`) are commented out. No
-  screen opens an orderbook connection until those come back; the relay serves them when they do.
-  The relay was tested at the socket.io level, not through those screens.
+* **Placing orders from the UI:** the screens and the orderbook are live, but the snapshot's
+  buy/sell cards still read the pre-`bd0ce5c` key list and need a TradeLayer attestation, so the
+  UI cannot place an order yet. Finishing the node-wallet migration of those cards is upstream
+  wallet-fe work.
 * **Untested against the hosted orderbook:** the relay has not been run against the hosted
   orderbook servers or through a real two-party swap.
 * **TradeLayer RPCs** (`tl_*`) were not exercised. The regtest node is Bitcoin Core, and no
