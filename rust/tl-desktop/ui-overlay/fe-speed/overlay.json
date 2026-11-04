@@ -1,9 +1,17 @@
 {
   "files": {
-    "environment.tauri.ts": "src/environments/environment.tauri.ts"
+    "environment.tauri.ts": "src/environments/environment.tauri.ts",
+    "socket.service.ts": "src/app/@core/services/socket.service.ts"
   },
   "angular": {
     "environmentFile": "src/environments/environment.tauri.ts"
   },
-  "hoist": ["axios", "bignumber.js", "bitcoinjs-lib"]
+  "hoist": [
+    "axios",
+    "bignumber.js",
+    "bitcoinjs-lib"
+  ],
+  "bases": {
+    "src/app/@core/services/socket.service.ts": "c652d2d07e1ed948a788521918f81b92fe98a44c832949421dc6d3fb127d3fbd"
+  }
 }

@@ -55,6 +55,13 @@
       "to": "http://tlapi.localhost/tlraw/",
       "count": 1,
       "reason": "the Electron build reaches the TradeLayer listener on localhost:3000 directly; the desktop build has no such socket, so the call goes to the in-process tlapi /tlraw/ passthrough"
+    },
+    {
+      "file": "src/app/@core/services/connections.service.ts",
+      "from": "window.ononline = () => this.isOnline = true;",
+      "to": "window.ononline = () => {\n            this.isOnline = true;\n            // The network is back: bring the main socket back without waiting for its backoff.\n            this.socketService.reconnectNow(true);\n        };",
+      "count": 1,
+      "reason": "liveness: when the network returns, reopen the main socket at once (same change as the master UI, commit e3afb02); socket.service.ts is replaced by the overlay file"
     }
   ]
 }

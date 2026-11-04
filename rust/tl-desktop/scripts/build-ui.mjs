@@ -7,12 +7,14 @@
 // dist-ui-<name>/: packages/wallet-fe and the root package.json/package-lock.json are exported with
 // `git archive`, ui-overlay/<name>/ is applied (overlay.json: files copied over the sources and an
 // angular.json "tauri" configuration; rewrites.json: exact string replacements with expected match
-// counts, a differing count fails the build) and ui-shim/<name>-shim.js is injected.
+// counts, a differing count fails the build; "bases": SHA-256 of the files the overlay files were derived
+// from, checked before they are replaced) and ui-shim/<name>-shim.js is injected.
 // The repository checkout is never modified except for dist-ui: sources are mirrored into the work
 // dir (default %TEMP%/tl-desktop-ui-build, keeping the monorepo layout that info-line.component
 // needs for the root package.json), dependencies are installed there with lifecycle scripts
 // disabled, and the build output is copied back.
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -125,6 +127,14 @@ function exportRef(ref, name) {
   rmSync(tarFile, { force: true });
   console.log(`exported ${ref} (${execFileSync(git, ["-C", repo, "rev-parse", "--short", ref]).toString().trim()}) into ${work}`);
 
+  // An overlay file replaces a source file of the ref. overlay.json "bases" gives the SHA-256 of the
+  // original (line ends normalized) that the overlay was derived from; a ref whose file differs fails
+  // the build instead of silently dropping its changes.
+  for (const [to, sha] of Object.entries(overlayCfg.bases || {})) {
+    const original = readFileSync(join(fe, to), "utf8").replace(/\r\n/g, "\n");
+    const actual = createHash("sha256").update(original).digest("hex");
+    if (actual !== sha) throw new Error(`overlay base ${to}: the ref's file has SHA-256 ${actual}, the overlay was derived from ${sha}; rebase ui-overlay/${name}`);
+  }
   for (const [from, to] of Object.entries(overlayCfg.files)) {
     cpSync(join(dir, from), join(fe, to));
     console.log(`overlay ${from} -> ${to}`);
