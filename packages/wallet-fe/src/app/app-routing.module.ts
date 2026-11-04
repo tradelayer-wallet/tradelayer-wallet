@@ -34,16 +34,16 @@ export const routes: Routes = [
         component: PortfolioPageComponent,
         canActivate: [],
       },
-      // {
-      //   path: 'spot',
-      //   component: SpotPageComponent,
-      //   canActivate: [],
-      // },
-      // {
-      //   path: 'futures',
-      //   component: FuturesPageComponent,
-      //   canActivate: [],
-      // },
+      {
+        path: 'spot',
+        component: SpotPageComponent,
+        canActivate: [],
+      },
+      {
+        path: 'futures',
+        component: FuturesPageComponent,
+        canActivate: [],
+      },
       // {
       //   path: 'node-reward',
       //   component: NodeRewardPageComponent,

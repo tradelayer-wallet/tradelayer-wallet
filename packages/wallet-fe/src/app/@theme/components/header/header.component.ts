@@ -34,18 +34,18 @@ export class HeaderComponent implements OnInit {
       needAuthToShow: false,
       needFullSynced: false,
     },
-    // {
-    //   id: 3,
-    //   name: 'Spot Trading',
-    //   link: '/spot',
-    //   needAuthToShow: false,
-    // },
-    // {
-    //   id: 4,
-    //   name: 'Futures Trading',
-    //   link: '/futures',
-    //   needAuthToShow: false,
-    // },
+    {
+      id: 3,
+      name: 'Spot Trading',
+      link: '/spot',
+      needAuthToShow: false,
+    },
+    {
+      id: 4,
+      name: 'Futures Trading',
+      link: '/futures',
+      needAuthToShow: false,
+    },
     // {
     //   id: 5,
     //   name: 'Node Reward',
