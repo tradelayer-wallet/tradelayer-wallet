@@ -25,10 +25,12 @@
 //!
 //! ## Backends
 //!
-//! * Keys: refused. The legacy key routes return `privkey` and `wif` to the page; the desktop
-//!   build keeps key material out of the UI (keys live in the node wallet).
-//! * Signing: the node wallet signs ([`crate::nodewallet`]), behind the service's guards, and only
-//!   for `wif: ""`; a page-supplied WIF is refused.
+//! * Keys: FE-speed's login derives keys through `/keys/new-wallet` and `/keys/get-address*`.
+//!   [`keyvault::HandleKeys`] derives them in Rust and answers `privkey: ""` and a `tlk1:` handle
+//!   as `wif`: no private key, xprv or WIF reaches the page.
+//! * Signing: [`keyvault::HandleSigner`], behind the service's guards. `tlk1:` handles sign with
+//!   the in-memory key ([`localsign`]); `wif: ""` and `tln1:<address>` (what `dumpprivkey` answers)
+//!   go to the node wallet ([`crate::nodewallet`]); a page-supplied WIF is refused.
 //! * Node: generic JSON-RPC 1.0 over blocking `reqwest`, to the endpoint the UI names through
 //!   `start-wallet-node` (loopback `http`, or `https`).
 //! * Relayer: `POST <base>/rpc/<method>` with `{"params": [...]}`, `https` only, hosts allowlisted
@@ -44,14 +46,19 @@
 //! `endpoints.conf.ts`).
 
 pub mod fespeed;
+pub mod keyvault;
+pub mod localsign;
 
 use crate::config::LegacySettings;
 use crate::nodewallet::{NodeSlot, NodeWalletSigner, SharedConnector};
 use crate::obrelay::ObPolicy;
 use crate::socketio;
+use bitcoin::secp256k1::Secp256k1;
+use keyvault::{HandleKeys, HandleSigner, KeyTable};
 use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
+use std::rc::Rc;
 use std::sync::mpsc;
 use std::time::Duration;
 use tauri::http;
@@ -59,8 +66,8 @@ use tl_wallet_service::gate::{Gate, GateConfig, MethodAllowlist, SessionToken};
 use tl_wallet_service::jsval::encode_uri_component;
 use tl_wallet_service::nodecfg::RpcEndpoint;
 use tl_wallet_service::service::{
-    is_tl_route, CallResult, ConfStore, HttpRequest, HttpResponse, KeyBackend, NodeConnector,
-    RelayerBackend, RpcBackend, RpcOutcome, WalletService, MAX_BODY_BYTES,
+    is_tl_route, CallResult, ConfStore, HttpRequest, HttpResponse, NodeConnector, RelayerBackend,
+    RpcBackend, RpcOutcome, WalletService, MAX_BODY_BYTES,
 };
 
 /// The page origin under WebView2 on Windows.
@@ -78,9 +85,6 @@ const MAX_RESPONSE_BYTES: usize = 8 << 20;
 const MAX_CONF_BYTES: u64 = 1 << 20;
 const MAX_CONF_WRITE_BYTES: usize = 64 * 1024;
 const CONF_NAME: &str = "litecoin.conf";
-
-const KEYS_REFUSED: &str =
-    "key material stays out of the UI in the desktop build; keys live in the node wallet";
 
 // ------------------------------------------------------------------ replies
 
@@ -490,10 +494,16 @@ fn build_service(
     let settings = settings.map_err(|e| format!("config: {e}"))?;
     let dir = settings.node_data_dir.unwrap_or(default_node_dir);
     let slot = NodeSlot::default();
+    let table = KeyTable::shared();
+    let secp = Rc::new(Secp256k1::new());
     let mut service = WalletService::new(
         gate(token),
-        Box::new(RefuseKeys),
-        Box::new(NodeWalletSigner::new(slot.clone())),
+        Box::new(HandleKeys::new(table.clone(), secp.clone())),
+        Box::new(HandleSigner::new(
+            NodeWalletSigner::new(slot.clone()),
+            table,
+            secp,
+        )),
         Box::new(FsConfStore::new(dir.clone())),
         Box::new(SharedConnector::new(HttpConnector, slot)),
         Box::new(HttpRelayer::new()?),
@@ -508,21 +518,6 @@ fn build_service(
 }
 
 // ------------------------------------------------------------------ keys and signing
-
-/// The legacy key routes return `privkey` and `wif` to the page. In the desktop build the page is
-/// never trusted with key material: this backend refuses. Signing is the node wallet's
-/// ([`crate::nodewallet::NodeWalletSigner`], `wif: ""` only).
-struct RefuseKeys;
-
-impl KeyBackend for RefuseKeys {
-    fn new_mnemonic(&mut self, _network: &str) -> Result<String, String> {
-        Err(KEYS_REFUSED.into())
-    }
-
-    fn key_pair(&mut self, _network: &str, _mnemonic: &str, _path: &str) -> CallResult {
-        Err(KEYS_REFUSED.into())
-    }
-}
 
 // ------------------------------------------------------------------ HTTP plumbing
 
@@ -926,7 +921,14 @@ mod tests {
     use std::net::{TcpListener, TcpStream};
     use tl_wallet_service::mem::{MemConnector, MemRelayer, MemRpc, MemStore};
     use tl_wallet_service::nodecfg::RpcEndpoint;
-    use tl_wallet_service::service::SignBackend;
+    use tl_wallet_service::service::{KeyBackend, SignBackend};
+
+    fn test_keys() -> Box<dyn KeyBackend> {
+        Box::new(HandleKeys::new(
+            KeyTable::shared(),
+            Rc::new(Secp256k1::new()),
+        ))
+    }
 
     const TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
@@ -1078,10 +1080,16 @@ mod tests {
         let node = conn.node.clone();
         // start-wallet-node probes the node once before it reports the connection attached
         node.script("getblockchaininfo", json!({"blocks": 1, "headers": 1}));
+        let table = KeyTable::shared();
+        let secp = Rc::new(Secp256k1::new());
         let svc = WalletService::new(
             gate(token),
-            Box::new(RefuseKeys),
-            Box::new(NodeWalletSigner::new(NodeSlot::default())),
+            Box::new(HandleKeys::new(table.clone(), secp.clone())),
+            Box::new(HandleSigner::new(
+                NodeWalletSigner::new(NodeSlot::default()),
+                table,
+                secp,
+            )),
             Box::new(store.clone()),
             Box::new(conn),
             Box::new(MemRelayer::default()),
@@ -1185,8 +1193,105 @@ mod tests {
             .is_none());
     }
 
+    fn post(f: &mut Fixture, path: &str, body: Value) -> (u16, Value) {
+        let r = run(
+            f,
+            req(
+                "POST",
+                &format!("http://tlapi.localhost{path}"),
+                Some(ALLOWED_ORIGIN),
+                body.to_string().as_bytes(),
+            ),
+        );
+        (r.status().as_u16(), json_of(&r))
+    }
+
     #[test]
-    fn key_routes_are_refused_end_to_end() {
+    fn a_key_handle_signs_through_the_service_only_after_the_guards() {
+        let kat: Value =
+            serde_json::from_str(include_str!("legacy/fespeed_sign_kat.json")).unwrap();
+        let mut f = fixture();
+        f.store.0.borrow_mut().files.insert(
+            "/ltc/litecoin.conf".into(),
+            "rpcuser=u\nrpcpassword=p\nrpcport=19332\n".into(),
+        );
+        f.node.script("getblockchaininfo", json!({"chain": "test"}));
+        assert_eq!(
+            post(
+                &mut f,
+                "/api/start-wallet-node",
+                json!({"network": "LTCTEST"})
+            )
+            .0,
+            200
+        );
+        // log in the way FE-speed does: mnemonic and path in, address and handle out
+        let a = &kat["keys"]["A"];
+        let (st, pair) = post(
+            &mut f,
+            "/keys/get-address",
+            json!({"network": "LTCTEST", "mnemonic": kat["mnemonics"]["m1"], "derivatePath": a["path"]}),
+        );
+        assert_eq!(st, 200);
+        assert_eq!(
+            (pair["address"].clone(), pair["pubkey"].clone()),
+            (a["address"].clone(), a["pubkey"].clone())
+        );
+        let handle = pair["wif"].as_str().unwrap().to_string();
+        let case = kat["signPsbt"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == "native p2wpkh, key A")
+            .unwrap();
+        let body =
+            |wif: &str| json!({"psbtHex": case["psbtHex"], "wif": wif, "network": "LTCTEST"});
+
+        // the guard compares the PSBT's amount to the chain: a mismatch stops before any signing
+        f.node.script("gettxout", json!({"value": 0.002}));
+        let (st, v) = post(&mut f, "/api/sign-psbt", body(&handle));
+        assert_eq!(st, 500);
+        assert!(v["error"].as_str().unwrap().contains("sign guard"), "{v}");
+        // a real WIF is refused, handle or not
+        f.node.script("gettxout", json!({"value": 0.001}));
+        let (st, v) = post(&mut f, "/api/sign-psbt", body(a["wif"].as_str().unwrap()));
+        assert_eq!(st, 500);
+        assert_eq!(v["error"], crate::nodewallet::WIF_REFUSED);
+        // the handle signs once the chain agrees, and the answer is FE-speed's
+        let (st, v) = post(&mut f, "/api/sign-psbt", body(&handle));
+        assert_eq!(st, 200, "{v}");
+        let d = &case["expect"]["data"];
+        assert_eq!(v["data"]["psbtHex"], d["psbtHex"]);
+        assert_eq!(v["data"]["finalHex"], d["finalHex"]);
+        assert_eq!(v["data"]["isFinished"], json!(true));
+        // nothing in any reply carried the key
+        assert!(!v.to_string().contains(a["privkey"].as_str().unwrap()));
+        // dumpprivkey gives a node-wallet handle and never asks the node
+        let (st, v) = post(
+            &mut f,
+            "/api/rpc-call",
+            json!({"method": "dumpprivkey", "params": [pair["address"]]}),
+        );
+        assert_eq!(
+            (st, v["data"].as_str().unwrap().starts_with("tln1:")),
+            (200, true)
+        );
+        assert_eq!(f.node.calls_of("dumpprivkey"), 0);
+        // logout drops the key: the same handle no longer signs
+        assert_eq!(
+            post(&mut f, "/api/logout", json!({})),
+            (200, json!({"data": true}))
+        );
+        let (st, v) = post(&mut f, "/api/sign-psbt", body(&handle));
+        assert_eq!(st, 500);
+        assert!(
+            v["error"].as_str().unwrap().contains("unknown key handle"),
+            "{v}"
+        );
+    }
+
+    #[test]
+    fn key_routes_hand_the_page_handles_and_no_key_material() {
         let mut f = fixture();
         let r = run(
             &mut f,
@@ -1197,35 +1302,46 @@ mod tests {
                 br#"{"network":"LTC"}"#,
             ),
         );
-        assert_eq!(r.status(), 500);
-        let text = String::from_utf8(r.body().clone()).unwrap();
-        assert!(text.contains("key material stays out of the UI"));
-        assert!(!text.contains("mnemonic"));
-        assert!(json_of(&r).get("data").is_none());
+        assert_eq!(r.status(), 200);
+        let v = json_of(&r);
+        assert_eq!(v["mnemonic"].as_str().unwrap().split(' ').count(), 12);
 
-        let mnemonic = ["abandon"; 12].join(" ");
+        let mnemonic = ["abandon"; 11].join(" ") + " about";
         let r = run(
             &mut f,
             req(
                 "POST",
                 "http://tlapi.localhost/keys/get-address",
                 Some(ALLOWED_ORIGIN),
-                json!({"network":"LTC","mnemonic":mnemonic,"derivatePath":"m/84'/2'/0'/0/0"})
+                json!({"network":"LTCTEST","mnemonic":mnemonic,"derivatePath":"m/49/60/1/0/0"})
                     .to_string()
                     .as_bytes(),
             ),
         );
-        assert_eq!(r.status(), 500);
+        assert_eq!(r.status(), 200);
         let v = json_of(&r);
-        assert!(v.get("privkey").is_none() && v.get("wif").is_none());
-        assert!(v["error"]
-            .as_str()
-            .unwrap()
-            .contains("keys live in the node wallet"));
+        assert_eq!(v["privkey"], "");
+        let wif = v["wif"].as_str().unwrap();
+        assert!(wif.starts_with("tlk1:") && wif.len() == 5 + 32, "{wif}");
+        assert!(v["address"].as_str().unwrap().starts_with('Q'));
+        // nothing in the reply but the four fields, and no key in the text
+        assert_eq!(v.as_object().unwrap().len(), 4);
+        let text = String::from_utf8(r.body().clone()).unwrap();
+        assert!(!text.contains("cNff91FBazEMh4RDHEGiyzwScVRp71bia52GHBnCzztzYh4y7CnK"));
+        assert!(!text.contains("206327bf04f1da4ff1b8a7df4685eb7a4ef8ac3287f57c169419794a19a94403"));
 
-        let mut signer = NodeWalletSigner::new(NodeSlot::default());
+        // a handle is not a key: the signer refuses a real WIF and an unknown handle
+        let mut signer = HandleSigner::new(
+            NodeWalletSigner::new(NodeSlot::default()),
+            KeyTable::shared(),
+            Rc::new(Secp256k1::new()),
+        );
         assert!(signer.sign_tx("LTC", "00", "w", &[]).is_err());
         assert!(signer.sign_psbt("LTC", "w", "00").is_err());
+        assert!(signer
+            .sign_psbt("LTCTEST", wif, "00")
+            .unwrap_err()
+            .contains("unknown key handle"));
     }
 
     #[test]
@@ -1250,12 +1366,7 @@ mod tests {
         assert!(f.svc.node_connected());
         let after_start = f.node.total_calls();
 
-        for m in [
-            "dumpprivkey",
-            "stop",
-            "signrawtransactionwithwallet",
-            "DUMPPRIVKEY",
-        ] {
+        for m in ["stop", "signrawtransactionwithwallet", "DUMPPRIVKEY"] {
             let r = run(
                 &mut f,
                 req(
@@ -1292,7 +1403,7 @@ mod tests {
             move || {
                 Ok(WalletService::new(
                     gate(t2),
-                    Box::new(RefuseKeys),
+                    test_keys(),
                     Box::new(NodeWalletSigner::new(NodeSlot::default())),
                     Box::new(MemStore::default()),
                     Box::new(MemConnector::default()),
@@ -1315,7 +1426,8 @@ mod tests {
             Box::new(move |r| tx.send(r).unwrap()),
         );
         let r = rx.recv_timeout(Duration::from_secs(5)).unwrap();
-        assert_eq!(r.status, 500);
+        assert_eq!(r.status, 200);
+        assert!(r.body["mnemonic"].is_string());
         assert_eq!(r.allow_origin.as_deref(), Some(ALLOWED_ORIGIN));
 
         let broken = Bridge::start(|| Err("config: bad".into()), &token).unwrap();
@@ -1415,7 +1527,7 @@ mod tests {
                 );
                 Ok(WalletService::new(
                     gate(t2),
-                    Box::new(RefuseKeys),
+                    test_keys(),
                     Box::new(NodeWalletSigner::new(NodeSlot::default())),
                     Box::new(store),
                     Box::new(conn),
@@ -1857,8 +1969,18 @@ rpcport=9332
                 vec![json!("bcrt1qexample")]
             )
         );
-        // Same allowlist as rpc-call.
+        // Same rules as rpc-call: the allowlist, and dumpprivkey answers a node-wallet handle.
         let denied = run(
+            &mut f,
+            req(
+                "POST",
+                "http://tlapi.localhost/tl/stop",
+                Some(ALLOWED_ORIGIN),
+                br#"{"params":[]}"#,
+            ),
+        );
+        assert_eq!(denied.status(), 403);
+        let handle = run(
             &mut f,
             req(
                 "POST",
@@ -1867,7 +1989,9 @@ rpcport=9332
                 br#"{"params":["a"]}"#,
             ),
         );
-        assert_eq!(denied.status(), 403);
+        assert_eq!(handle.status(), 200);
+        assert_eq!(json_of(&handle), json!("tln1:a"));
+        assert!(!String::from_utf8_lossy(handle.body()).contains("L1leak"));
         assert_eq!(f.node.calls_of("dumpprivkey"), 0);
         // A node error is an HTTP error for the TL API client.
         f.node
@@ -2176,7 +2300,7 @@ rpcport=9332
                 );
                 Ok(WalletService::new(
                     gate(t2),
-                    Box::new(RefuseKeys),
+                    test_keys(),
                     Box::new(NodeWalletSigner::new(NodeSlot::default())),
                     Box::new(store),
                     Box::new(FlipConnector(r2, p2)),

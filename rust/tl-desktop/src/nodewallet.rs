@@ -11,8 +11,14 @@
 //!   node reports the PSBT complete; the reply is `{psbtHex, isValid, isFinished, finalHex?}`. The UI
 //!   speaks hex PSBTs (legacy bitcoinjs), the node speaks base64, so the signer converts both ways.
 //!
-//! A non-empty WIF is refused before any RPC: the desktop build never signs with a page-supplied
-//! key. The key routes stay refused as well (`legacy::RefuseKeys`).
+//! FE-speed fetches a WIF with `dumpprivkey` and posts it back. The service answers
+//! `dumpprivkey` with the handle `tln1:<address>`, and a request carrying that handle gets the
+//! same node signing, restricted to inputs that belong to the address ([`Scope`]): an input is
+//! the address's own when its scriptPubKey is the address's script or its witness/redeem script
+//! holds the address's public key (a channel multisig); no such input, or an input that belongs to
+//! another address of the node wallet, is refused before the node is asked to sign. A raw key is
+//! refused before any RPC: the desktop build never signs with a page-supplied key. `tlk1:`
+//! handles are the in-memory keys of [`crate::legacy::keyvault`], resolved before this signer.
 //!
 //! ## Which node, which wallet
 //!
@@ -23,14 +29,23 @@
 //! wallet those calls see. When `start-wallet-node` replaces the connection or `stop-wallet-node`
 //! drops it, the signer's weak handle expires with it.
 
+use bitcoin::hashes::{hash160, Hash};
+use bitcoin::hex::FromHex;
+use bitcoin::psbt::Psbt;
+use bitcoin::script::Instruction;
+use bitcoin::{Script, ScriptBuf};
 use serde_json::{json, Value};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
+use tl_wallet_core::{Address, Network};
 use tl_wallet_service::nodecfg::RpcEndpoint;
-use tl_wallet_service::service::{CallResult, NodeConnector, RpcBackend, RpcOutcome, SignBackend};
+use tl_wallet_service::service::{
+    CallResult, NodeConnector, RpcBackend, RpcOutcome, SignBackend, NODE_HANDLE_PREFIX,
+};
 use tl_wallet_service::txbuilder::Utxo;
 
-pub const WIF_REFUSED: &str = "WIF signing is disabled in the desktop build; the node wallet signs";
+pub const WIF_REFUSED: &str =
+    "raw private keys are not accepted in the desktop build; sign with a key handle or the node wallet";
 const NO_NODE: &str = "No RPC Client initialized";
 /// Both hex strings the service accepts are capped at 400k characters; the same bound here keeps
 /// the base64 conversion bounded.
@@ -103,7 +118,8 @@ impl<C: NodeConnector> NodeConnector for SharedConnector<C> {
     }
 }
 
-/// `SignBackend` that has the node wallet sign. Accepts only `wif == ""`.
+/// `SignBackend` that has the node wallet sign. Accepts `wif == ""` (every input the wallet can
+/// sign) and `tln1:<address>` (only that address's inputs).
 pub struct NodeWalletSigner {
     node: NodeSlot,
 }
@@ -150,9 +166,25 @@ fn flag(v: &Value, k: &str) -> bool {
 }
 
 impl SignBackend for NodeWalletSigner {
-    fn sign_tx(&mut self, _network: &str, rawtx: &str, wif: &str, inputs: &[Utxo]) -> CallResult {
-        if !wif.is_empty() {
-            return Err(WIF_REFUSED.into());
+    fn sign_tx(&mut self, network: &str, rawtx: &str, wif: &str, inputs: &[Utxo]) -> CallResult {
+        if let Some(scope) = self.scope(network, wif)? {
+            let mut views = Vec::with_capacity(inputs.len());
+            for u in inputs {
+                if u.script_pub_key.is_empty() {
+                    return Err("input.scriptPubKey missing".into());
+                }
+                let spk = ScriptBuf::from_bytes(
+                    hex_to_bytes(&u.script_pub_key).map_err(|_| "input.scriptPubKey malformed")?,
+                );
+                let ws = match &u.redeem_script {
+                    Some(r) => Some(ScriptBuf::from_bytes(
+                        hex_to_bytes(r).map_err(|_| "input.redeemScript malformed")?,
+                    )),
+                    None => None,
+                };
+                views.push((spk, None, ws));
+            }
+            self.check_scope(&scope, &views)?;
         }
         let prev = prevtxs(inputs)?;
         let r = self
@@ -163,12 +195,24 @@ impl SignBackend for NodeWalletSigner {
         Ok(json!({ "isValid": complete, "signedHex": hex, "isFinished": complete }))
     }
 
-    fn sign_psbt(&mut self, _network: &str, wif: &str, psbt_hex: &str) -> CallResult {
-        if !wif.is_empty() {
-            return Err(WIF_REFUSED.into());
-        }
+    fn sign_psbt(&mut self, network: &str, wif: &str, psbt_hex: &str) -> CallResult {
+        let scope = self.scope(network, wif)?;
         if psbt_hex.len() > MAX_PSBT_HEX_CHARS {
             return Err("psbtHex too large".into());
+        }
+        if let Some(scope) = scope {
+            let bytes = Vec::<u8>::from_hex(psbt_hex).map_err(|_| "psbtHex malformed")?;
+            let psbt = Psbt::deserialize(&bytes).map_err(|e| format!("psbt: {e}"))?;
+            let mut views = Vec::with_capacity(psbt.inputs.len());
+            for (i, pi) in psbt.inputs.iter().enumerate() {
+                let spk = pi
+                    .witness_utxo
+                    .as_ref()
+                    .map(|o| o.script_pubkey.clone())
+                    .ok_or_else(|| format!("input {i} has no witness UTXO"))?;
+                views.push((spk, pi.redeem_script.clone(), pi.witness_script.clone()));
+            }
+            self.check_scope(&scope, &views)?;
         }
         let b64_in = b64_encode(&hex_to_bytes(psbt_hex).map_err(|_| "psbtHex malformed")?);
         let r = self.node.call(
@@ -197,6 +241,93 @@ impl SignBackend for NodeWalletSigner {
             }
         }
         Ok(out)
+    }
+}
+
+/// What a `tln1:<address>` handle allows the node wallet to sign for.
+struct Scope {
+    network: Network,
+    script: ScriptBuf,
+    pubkey: Option<Vec<u8>>,
+}
+
+type InputView = (ScriptBuf, Option<ScriptBuf>, Option<ScriptBuf>);
+
+fn script_has_key(key: &[u8], script: &Script) -> bool {
+    let hash = hash160::Hash::hash(key).to_byte_array();
+    script.instructions().flatten().any(|i| match i {
+        Instruction::PushBytes(p) => p.as_bytes() == key || p.as_bytes() == hash,
+        Instruction::Op(_) => false,
+    })
+}
+
+impl NodeWalletSigner {
+    /// `None` for the empty placeholder, the address scope for `tln1:<address>`; any other
+    /// string is a raw key and is refused before the node is asked anything.
+    fn scope(&self, network: &str, wif: &str) -> Result<Option<Scope>, String> {
+        if wif.is_empty() {
+            return Ok(None);
+        }
+        let Some(addr) = wif.strip_prefix(NODE_HANDLE_PREFIX) else {
+            return Err(WIF_REFUSED.into());
+        };
+        let net = Network::parse(network).map_err(|_| "Network not found!".to_string())?;
+        let script = Address::parse(net, addr)
+            .map_err(|e| format!("handle address: {e}"))?
+            .script_pubkey()
+            .to_owned();
+        let info = self.node.call("getaddressinfo", &[json!(addr)])?;
+        if !flag(&info, "ismine") {
+            return Err("handle address is not in the node wallet".into());
+        }
+        let pubkey = [
+            info.get("pubkey"),
+            info.get("embedded").and_then(|e| e.get("pubkey")),
+        ]
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .find_map(|h| {
+            hex_to_bytes(h)
+                .ok()
+                .filter(|b| b.len() == 33 || b.len() == 65)
+        });
+        Ok(Some(Scope {
+            network: net,
+            script,
+            pubkey,
+        }))
+    }
+
+    /// Every input must be the address's or nobody's in the wallet, and at least one must be the
+    /// address's. Each view is scriptPubKey, redeem script, witness script.
+    fn check_scope(&self, scope: &Scope, inputs: &[InputView]) -> Result<(), String> {
+        let mut own = 0usize;
+        for (i, (spk, redeem, witness)) in inputs.iter().enumerate() {
+            let belongs = *spk == scope.script
+                || scope.pubkey.as_deref().is_some_and(|k| {
+                    [redeem, witness]
+                        .into_iter()
+                        .flatten()
+                        .any(|s| script_has_key(k, s))
+                });
+            if belongs {
+                own += 1;
+                continue;
+            }
+            if let Ok(a) = Address::from_script(scope.network, spk).and_then(|a| a.encode()) {
+                let info = self.node.call("getaddressinfo", &[json!(a)])?;
+                if flag(&info, "ismine") {
+                    return Err(format!(
+                        "input {i} belongs to another address of the node wallet"
+                    ));
+                }
+            }
+        }
+        if own == 0 {
+            return Err("no input belongs to the handle address".into());
+        }
+        Ok(())
     }
 }
 
@@ -769,3 +900,7 @@ mod tests {
         assert!(f.slot.call("signrawtransactionwithwallet", &[]).is_ok());
     }
 }
+
+#[cfg(test)]
+#[path = "nodewallet_scope_tests.rs"]
+mod scope_tests;
