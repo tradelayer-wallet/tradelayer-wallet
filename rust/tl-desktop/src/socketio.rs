@@ -382,6 +382,9 @@ pub struct Engine {
     ob_live: Option<u64>,
     ob_gen: u64,
     ob_phase: ObPhase,
+    /// The server's `connected` hello while the client is up: replayed to a session that takes
+    /// the relay over, so the UI learns its orderbook socket id again.
+    ob_hello: Option<Value>,
     /// Session that asked for the client; its events go there.
     ob_owner: Option<String>,
     /// The owner's session ended without an explicit stop: the client lives until this time (ms)
@@ -415,6 +418,7 @@ impl Engine {
             ob_live: None,
             ob_gen: 0,
             ob_phase: ObPhase::Connecting,
+            ob_hello: None,
             ob_owner: None,
             ob_orphan_until: None,
             ob_out: Vec::new(),
@@ -678,6 +682,7 @@ impl Engine {
         }
         self.ob_owner = None;
         self.ob_orphan_until = None;
+        self.ob_hello = None;
     }
 
     /// The owner's session is gone but nobody asked to stop: keep the client for the grace window.
@@ -698,12 +703,19 @@ impl Engine {
         self.ob_owner = Some(sid.to_string());
         self.ob_orphan_until = None;
         let packet = match self.ob_phase {
-            ObPhase::Up => Some(obrelay::encode_event("OB_SOCKET::connect", None)),
+            ObPhase::Up => Some(obrelay::connect_packet()),
             ObPhase::Down => Some(obrelay::encode_event("OB_SOCKET::disconnect", None)),
             ObPhase::Connecting => None,
         };
         if let Some(p) = packet {
             self.sessions[i].push(p);
+        }
+        // The server's hello carries the id the UI needs for its swap channel; the new session
+        // never saw it, so it is replayed.
+        if self.ob_phase == ObPhase::Up {
+            if let Some(hello) = self.ob_hello.clone() {
+                self.sessions[i].push(obrelay::encode_event("OB_SOCKET::connected", Some(&hello)));
+            }
         }
     }
 
@@ -771,8 +783,16 @@ impl Engine {
         }
         match &ev {
             ObEvent::Connected => self.ob_phase = ObPhase::Up,
-            ObEvent::Disconnected => self.ob_phase = ObPhase::Down,
-            ObEvent::ConnectError(_) | ObEvent::Relay { .. } => {}
+            ObEvent::Disconnected => {
+                self.ob_phase = ObPhase::Down;
+                self.ob_hello = None;
+            }
+            ObEvent::ConnectError(_) => {}
+            ObEvent::Relay { name, payload } => {
+                if name == "OB_SOCKET::connected" {
+                    self.ob_hello = payload.clone();
+                }
+            }
         }
         let ended = matches!(ev, ObEvent::ConnectError(_));
         let owner = self.ob_owner.clone();
@@ -782,7 +802,7 @@ impl Engine {
             return;
         }
         let packet = match ev {
-            ObEvent::Connected => obrelay::encode_event("OB_SOCKET::connect", None),
+            ObEvent::Connected => obrelay::connect_packet(),
             ObEvent::ConnectError(reason) => {
                 obrelay::encode_event("OB_SOCKET::connect_error", Some(&Value::String(reason)))
             }
@@ -1156,7 +1176,7 @@ mod tests {
         assert_ne!(v["sid"], sid.as_str());
     }
 
-    const OB: &str = "http://172.81.181.19:9190";
+    const OB: &str = "ws://172.81.181.19:3001/ws";
 
     /// An engine with a connected namespace, plus its sid.
     fn connected_engine() -> (Engine, String) {
@@ -1188,7 +1208,7 @@ mod tests {
     fn packets_in_one_post_are_split_on_the_record_separator() {
         let (mut e, sid) = connected_engine();
         let body = format!(
-            "3{SEP}42[\"ob-sockets-connect\",\"wss://ob.example\"]{SEP}42[\"ob-sockets-connect\",\"{OB}\"]"
+            "3{SEP}42[\"ob-sockets-connect\",\"ftp://ob.example\"]{SEP}42[\"ob-sockets-connect\",\"{OB}\"]"
         );
         emit(&mut e, 1, &sid, &body);
         // The first request was refused, the second asked for a client.
@@ -1196,7 +1216,7 @@ mod tests {
         assert_eq!(
             out,
             vec![
-                r#"42["OB_SOCKET::connect_error","orderbook URL must be http or https"]"#
+                r#"42["OB_SOCKET::connect_error","orderbook URL must be ws, wss, http or https"]"#
                     .to_string()
             ]
         );
@@ -1209,16 +1229,16 @@ mod tests {
         let (mut e, sid) = connected_engine();
         let cases = [
             (
-                "http://127.0.0.1:9190",
+                "ws://127.0.0.1:3001/ws",
                 "orderbook URL is not in orderbook_urls",
             ),
             (
-                "http://172.81.181.19:9191",
+                "ws://172.81.181.19:3002/ws",
                 "orderbook URL is not in orderbook_urls",
             ),
             (
-                "http://172.81.181.19:9190/ns",
-                "orderbook URL must be an origin without a path",
+                "ws://172.81.181.19:3001/ns",
+                "orderbook URL path must be / or /ws",
             ),
             ("not a url", "orderbook URL is malformed"),
         ];
@@ -1253,12 +1273,12 @@ mod tests {
         let [ObCmd::Connect { gen, url }] = cmds.as_slice() else {
             panic!("{cmds:?}")
         };
-        assert_eq!((*gen, url.as_str()), (1, "http://172.81.181.19:9190/"));
+        assert_eq!((*gen, url.as_str()), (1, "ws://172.81.181.19:3001/ws"));
         // A held poll is released by a relayed event.
         let (held, done) = slot();
         e.handle(2, request("GET", &q(&sid), ""), done);
         e.ob_event(1, ObEvent::Connected);
-        assert_eq!(taken(&held).unwrap().body, r#"42["OB_SOCKET::connect"]"#);
+        assert_eq!(taken(&held).unwrap().body, r#"42["OB_SOCKET::connect",{}]"#);
         e.ob_event(
             1,
             ObEvent::Relay {
@@ -1284,7 +1304,7 @@ mod tests {
         e.ob_event(1, ObEvent::Connected);
         assert_eq!(
             queued(&mut e, 6, &sid),
-            vec![r#"42["OB_SOCKET::connect"]"#.to_string()]
+            vec![r#"42["OB_SOCKET::connect",{}]"#.to_string()]
         );
         // A failed first attempt ends the client.
         e.ob_event(1, ObEvent::ConnectError("no".into()));
@@ -1316,7 +1336,7 @@ mod tests {
             r#"42["many-orders",[1,2]]"#,
             r#"42["abc-1::swap",{"s":1}]"#,
             r#"42["evil",1]"#,
-            r#"42["OB_SOCKET::connect"]"#,
+            r#"42["OB_SOCKET::connect",{}]"#,
             r#"42["a b::swap",1]"#,
         ] {
             emit(&mut e, 2, &sid, p);
@@ -1626,7 +1646,7 @@ mod tests {
 
         // Flooding events overflows the queue and closes the session instead of growing it.
         connect(&mut e, 0, &sid);
-        let one = r#"42["ob-sockets-connect","http://x.example"]"#;
+        let one = r#"42["ob-sockets-connect","ws://x.example"]"#;
         let flood = vec![one; MAX_QUEUE + 5].join(&SEP.to_string());
         assert_eq!(
             call(&mut e, 1, "POST", &q(&sid), &flood).unwrap().body,
@@ -1734,7 +1754,7 @@ mod tests {
         e.ob_event(1, ObEvent::Connected);
         assert_eq!(
             queued(&mut e, now, &sid),
-            vec![r#"42["OB_SOCKET::connect"]"#.to_string()]
+            vec![r#"42["OB_SOCKET::connect",{}]"#.to_string()]
         );
         (e, sid)
     }
@@ -1756,7 +1776,7 @@ mod tests {
         let (new, packets) = reconnect_session(&mut e, 1_000 + GRACE - 1);
         assert_eq!(packets.len(), 2, "{packets:?}");
         assert!(packets[0].starts_with("40{"));
-        assert_eq!(packets[1], r#"42["OB_SOCKET::connect"]"#);
+        assert_eq!(packets[1], r#"42["OB_SOCKET::connect",{}]"#);
         // No new client was requested, and the new session owns the old one.
         assert!(e.take_ob().is_empty());
         emit(&mut e, 2_000, &new, r#"42["new-order",{"a":1}]"#);
@@ -1785,7 +1805,7 @@ mod tests {
         let (mut e, _old) = engine_with_relay(1);
         let (new, packets) = reconnect_session(&mut e, 2);
         assert_eq!(e.session_count(), 1);
-        assert_eq!(packets.last().unwrap(), r#"42["OB_SOCKET::connect"]"#);
+        assert_eq!(packets.last().unwrap(), r#"42["OB_SOCKET::connect",{}]"#);
         assert!(e.take_ob().is_empty());
         emit(&mut e, 3, &new, r#"42["close-order","u1"]"#);
         assert_eq!(e.take_ob().len(), 1);
@@ -1829,7 +1849,7 @@ mod tests {
         e.ob_event(1, ObEvent::Connected);
         assert_eq!(
             queued(&mut e, 2_001, &new),
-            vec![r#"42["OB_SOCKET::connect"]"#.to_string()]
+            vec![r#"42["OB_SOCKET::connect",{}]"#.to_string()]
         );
     }
 
@@ -1947,7 +1967,7 @@ mod tests {
         e.ob_event(1, ObEvent::Disconnected);
         e.ob_event(1, ObEvent::Connected);
         let (_new, packets) = reconnect_session(&mut e, 2_100);
-        assert_eq!(packets.last().unwrap(), r#"42["OB_SOCKET::connect"]"#);
+        assert_eq!(packets.last().unwrap(), r#"42["OB_SOCKET::connect",{}]"#);
         assert!(e.take_ob().is_empty());
     }
 

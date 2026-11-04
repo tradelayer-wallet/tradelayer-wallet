@@ -11,8 +11,9 @@
 //!
 //! Optional fields for the legacy-API bridge (see `LegacySettings`): `node_data_dir` (absolute),
 //! `relayer_hosts` (bare hostnames; default none),
-//! `orderbook_urls` (exact `http://host:port` or `https://host` origins the UI may connect its
-//! orderbook socket to; default the two servers of `endpoints.conf.ts`, `[]` disables the relay),
+//! `orderbook_urls` (exact `ws://host:port` or `wss://host` origins, `http`/`https` spellings
+//! accepted, that the UI may connect its orderbook WebSocket to; default FE-speed's
+//! `ws://172.81.181.19:3001`, `[]` disables the relay),
 //! `tl_listener_url` (the TradeLayer listener the FE-speed UI's `/tl/*` and `/tlraw/*` routes
 //! reach: an `http`/`https` loopback origin, default `http://127.0.0.1:3000`) and
 //! `tl_rpc_via_listener` (`true` makes `rpc-call` answer `tl_*` methods the way FE-speed's
@@ -89,7 +90,8 @@ fn read_bounded(path: &Path) -> Result<String, String> {
 ///   in (default: the platform Litecoin data dir). Must be absolute.
 /// * `relayer_hosts`: hostnames the UI may name as its relayer API (default empty: relayer off).
 /// * `orderbook_urls`: exact origins the UI may connect its orderbook socket to, normalized
-///   (default: the two orderbook servers of the legacy `endpoints.conf.ts`; empty: relay off).
+///   (`ws`/`wss`; default: the orderbook server of FE-speed's `endpoints.conf.ts`; empty: relay
+///   off).
 /// * `tl_listener_url`: origin of the TradeLayer listener, normalised (default
 ///   `http://127.0.0.1:3000`).
 /// * `tl_rpc_via_listener`: `rpc-call` of `tl_*` as FE-speed's wallet-server answers it.
@@ -340,28 +342,25 @@ mod tests {
     #[test]
     fn orderbook_urls_default_normalize_and_reject_bad_entries() {
         let defaults = validate_legacy(None, None, None).unwrap().orderbook_urls;
-        assert_eq!(
-            defaults,
-            vec![
-                "http://172.81.181.19:9190".to_string(),
-                "http://172.81.181.19:8190".to_string()
-            ]
-        );
+        assert_eq!(defaults, vec!["ws://172.81.181.19:3001".to_string()]);
         let s = validate_legacy(
             None,
             None,
             Some(vec![
                 "HTTPS://Ob.Example:443/".into(),
-                "https://ob.example".into(),
+                "wss://ob.example".into(),
                 "http://127.0.0.1:18190".into(),
+                "ws://127.0.0.1:3001".into(),
             ]),
         )
         .unwrap();
+        // `http`/`https` are the same origins as `ws`/`wss`; duplicates collapse.
         assert_eq!(
             s.orderbook_urls,
             vec![
-                "https://ob.example".to_string(),
-                "http://127.0.0.1:18190".to_string()
+                "wss://ob.example".to_string(),
+                "ws://127.0.0.1:18190".to_string(),
+                "ws://127.0.0.1:3001".to_string()
             ]
         );
         assert!(validate_legacy(None, None, Some(vec![]))
@@ -371,7 +370,8 @@ mod tests {
         for bad in [
             "",
             "ob.example",
-            "ws://ob.example",
+            "ftp://ob.example",
+            "ws://ob.example/ws",
             "http://ob.example/ns",
             "http://u:p@ob.example",
             "http://ob.example/?q=1",

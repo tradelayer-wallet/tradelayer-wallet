@@ -19,6 +19,7 @@ bitcoin = { version = "0.32", default-features = false, features = ["std", "secp
 tl-desktop-core = { path = "../tl-desktop-core" }
 tl-wallet-service = { path = "../tl-wallet-service" }
 reqwest = { version = "=0.12.24", default-features = false, features = ["blocking", "rustls-tls"] }
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
 tl-wallet-core = { git = "https://github.com/tradelayer-wallet/TL-Extension", rev = "0f296d6310e4e4eb4d4de08744d72eee0cb934c0" }
 tl-rpc-client = { git = "https://github.com/tradelayer-wallet/tl-rpc", rev = "398d8cb80ec466cd1aace352d18c9449343e5848" }
 
