@@ -62,6 +62,48 @@
       "to": "window.ononline = () => {\n            this.isOnline = true;\n            // The network is back: bring the main socket back without waiting for its backoff.\n            this.socketService.reconnectNow(true);\n        };",
       "count": 1,
       "reason": "liveness: when the network returns, reopen the main socket at once (same change as the master UI, commit e3afb02); socket.service.ts is replaced by the overlay file"
+    },
+    {
+      "file": "src/app/utils/swapper/seller.ts",
+      "from": "o?.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address",
+      "to": "(o?.scriptPubKey?.address ?? o?.scriptPubKey?.addresses?.[0]) === this.multySigChannelData?.address",
+      "count": 1,
+      "reason": "swap: Bitcoin Core 22+ and the Litecoin/Bitcoin nodes behind descriptor wallets describe a script with scriptPubKey.address; the `addresses` array is gone, so the seller never found the commit output ('No matching vout for commit UTXO') and the swap stalled"
+    },
+    {
+      "file": "src/app/utils/swapper/buyer.ts",
+      "from": "o.scriptPubKey?.addresses?.[0] === this.multySigChannelData?.address",
+      "to": "(o.scriptPubKey?.address ?? o.scriptPubKey?.addresses?.[0]) === this.multySigChannelData?.address",
+      "count": 1,
+      "reason": "swap: same `addresses` removal as in seller.ts, spot commit output lookup"
+    },
+    {
+      "file": "src/app/utils/swapper/buyer.ts",
+      "from": "o.scriptPubKey?.addresses?.includes(this.multySigChannelData?.address || '')",
+      "to": "[o.scriptPubKey?.address, ...(o.scriptPubKey?.addresses ?? [])].includes(this.multySigChannelData?.address || '')",
+      "count": 1,
+      "reason": "swap: same `addresses` removal as in seller.ts, futures commit output lookup"
+    },
+    {
+      "file": "src/app/utils/swapper/buyer.ts",
+      "from": "const swapEvent = new SwapEvent('BUYER:STEP6', this.myInfo.socketId, finalTxIdRes.data);",
+      "to": "if (finalTxIdRes.error || !finalTxIdRes.data) return this.terminateTrade(`Step 5: sendrawtransaction: ${finalTxIdRes.error || 'no txid'}`);\n        const swapEvent = new SwapEvent('BUYER:STEP6', this.myInfo.socketId, finalTxIdRes.data);",
+      "count": 1,
+      "reason": "swap: the buyer announced 'Trade completed: undefined' and sent STEP6 when the broadcast of the final transaction failed; it now terminates the trade with the node's error"
+    },
+    {
+      "file": "src/app/utils/swapper/buyer.ts",
+      "from": "this.toastrService.info('Trade completed: ' + finalTxIdRes.data);",
+      "to": "this.toastrService.info('Trade completed: ' + finalTxIdRes.data);\n        this.readyRes({ data: { txid: finalTxIdRes.data, seller: false, trade: this.tradeInfo } });",
+      "count": 1,
+      "reason": "swap: the buyer never settled its ready promise on success, so SwapService waited for the 60 s timer and showed 'Trade Error: Undefined Error code 1' on a completed trade; it now resolves with the final txid like the seller does"
+    },
+    {
+      "file": "src/app/utils/swapper/swap.ts",
+      "from": "setTimeout(() => this.terminateTrade('Undefined Error code 1'), 60000);",
+      "to": "{ const self: any = this; clearTimeout(self.__readyTimer); self.__readyTimer = setTimeout(() => this.terminateTrade('Undefined Error code 1'), 60000); const settle = this.readyRes; this.readyRes = (v: { data?: any, error?: any }) => { clearTimeout(self.__readyTimer); settle(v); }; }",
+      "count": 1,
+      "reason": "swap: the 60 s whole-trade timer was never cleared (and the constructor and SwapService each started one), so every finished trade sent TERMINATE_TRADE to the counterparty a minute later; settling the promise now clears it"
     }
   ]
 }
