@@ -202,6 +202,10 @@ FE-speed's UI runs against it exactly as against `tradelayer-listenerd`.
 * Create the store once on the command line (`tradelayer-node --initialize ...`, optionally with
   `--anchor-height` / `--anchor-hash`); the app only restarts an existing store. `--initialize`, the anchor
   flags and `--max-blocks` are not config fields.
+* The anchor is the economy's base tip, and the rules see absolute Bitcoin heights from it (TradeLayer-Rust
+  e010b64). On `BTC-TESTNET4`, initialize with an anchor above height 0, at a recent testnet4 block: at
+  height 0 the economy's anchor is the mainnet genesis. The anchor is part of the store's config identity,
+  so a store initialized before e010b64 is refused on load and has to be initialized again.
 
 ```json
 { "network": "BTC",
