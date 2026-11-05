@@ -271,3 +271,58 @@ fn sign_tx_under_a_handle_needs_every_input_script() {
         .is_ok());
     assert_eq!(node.calls_of("getaddressinfo"), before);
 }
+
+/// FE-speed's network label is Litecoin Testnet by default, but a regtest node's addresses carry its
+/// own prefix; the handle address is read with the chain's format, not the label's.
+#[test]
+fn a_regtest_node_overrides_the_network_label_for_handle_addresses() {
+    for (subversion, net) in [
+        ("/Satoshi:31.1.0/", Network::BtcRegtest),
+        ("/LitecoinCore:0.21.5/", Network::LtcRegtest),
+    ] {
+        let own = p2sh(0x11);
+        let node = node_owning(&own, &[]);
+        let addr = Address::from_script(net, &own).unwrap().encode().unwrap();
+        {
+            let mut s = node.0.borrow_mut();
+            s.info.insert(
+                addr.clone(),
+                json!({"ismine": true, "embedded": {"pubkey": bytes_to_hex(&PK_A)}}),
+            );
+            for fill in [0x22u8, 0x33, 0x44] {
+                let a = Address::from_script(net, &p2sh(fill))
+                    .unwrap()
+                    .encode()
+                    .unwrap();
+                s.info.entry(a).or_insert(json!({"ismine": false}));
+            }
+            s.other
+                .insert("getblockchaininfo".into(), json!({"chain": "regtest"}));
+            s.other
+                .insert("getnetworkinfo".into(), json!({"subversion": subversion}));
+        }
+        let (mut s, _keep) = signer(&node);
+        let h = format!("{NODE_HANDLE_PREFIX}{addr}");
+        let p = psbt(&[(own.clone(), None), (p2sh(0x22), None)]);
+        let r = s
+            .sign_psbt(NET, &h, &p)
+            .unwrap_or_else(|e| panic!("{subversion}: {e}"));
+        assert_eq!(r["isValid"], json!(true), "{subversion}");
+    }
+    // the same handle without a regtest chain is read with the label's format, which it does not match
+    let own = p2sh(0x11);
+    let node = node_owning(&own, &[]);
+    let addr = Address::from_script(Network::BtcRegtest, &own)
+        .unwrap()
+        .encode()
+        .unwrap();
+    let (mut s, _keep) = signer(&node);
+    let e = s
+        .sign_psbt(
+            NET,
+            &format!("{NODE_HANDLE_PREFIX}{addr}"),
+            &psbt(&[(own, None)]),
+        )
+        .unwrap_err();
+    assert!(e.starts_with("handle address:"), "{e}");
+}

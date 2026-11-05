@@ -389,6 +389,37 @@ fn script_has_key(key: &[u8], script: &Script) -> bool {
 }
 
 impl NodeWalletSigner {
+    /// The network whose address format the node wallet's addresses have. That is the UI's network
+    /// label, except on a regtest node: Bitcoin Core there answers `bcrt1...` and Litecoin Core
+    /// `rltc1...` addresses whichever network the UI has selected (FE-speed's default is Litecoin
+    /// Testnet), so a regtest chain overrides the label.
+    fn chain_network(&self, label: &str) -> Result<Network, String> {
+        let net = Network::parse(label).map_err(|_| "Network not found!".to_string())?;
+        let on_regtest = self
+            .node
+            .call("getblockchaininfo", &[])
+            .ok()
+            .is_some_and(|i| i.get("chain").and_then(Value::as_str) == Some("regtest"));
+        if !on_regtest {
+            return Ok(net);
+        }
+        let litecoin = self
+            .node
+            .call("getnetworkinfo", &[])
+            .ok()
+            .and_then(|n| {
+                n.get("subversion")
+                    .and_then(Value::as_str)
+                    .map(str::to_ascii_lowercase)
+            })
+            .is_some_and(|v| v.contains("litecoin"));
+        Ok(if litecoin {
+            Network::LtcRegtest
+        } else {
+            Network::BtcRegtest
+        })
+    }
+
     /// `None` for the empty placeholder, the address scope for `tln1:<address>`; any other
     /// string is a raw key and is refused before the node is asked anything.
     fn scope(&self, network: &str, wif: &str) -> Result<Option<Scope>, String> {
@@ -398,7 +429,7 @@ impl NodeWalletSigner {
         let Some(addr) = wif.strip_prefix(NODE_HANDLE_PREFIX) else {
             return Err(WIF_REFUSED.into());
         };
-        let net = Network::parse(network).map_err(|_| "Network not found!".to_string())?;
+        let net = self.chain_network(network)?;
         let script = Address::parse(net, addr)
             .map_err(|e| format!("handle address: {e}"))?
             .script_pubkey()
