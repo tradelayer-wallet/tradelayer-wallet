@@ -5,14 +5,76 @@ reaches it two ways: the `/tlraw/*` passthrough (the UI's direct `http://localho
 rewritten at build time) and FE-speed's `/tl/*` routes (`routes/tradelayer.route.ts`, served by
 `tl-wallet-service`). Both go through one seam, `ListenerBackend`.
 
-Two backends exist:
+Three ways to run it:
 
-* **default**: `ListenerClient`, plain HTTP to `tl_listener_url`. Unchanged.
+* **default**: `ListenerClient`, plain HTTP to `tl_listener_url`. Point it at `tradelayer-listenerd`
+  (below) and the UI works with no adapter.
+* **`tl_engine = "tradelayer-listenerd"`**: the same `ListenerClient`, plus the daemon as an optional
+  sidecar (README, "Running tradelayer-listenerd").
 * **opt-in**: `RustEngineListener` (`src/engine.rs`), selected with `tl_engine = "tradelayer-rust"`.
   Each listener endpoint is mapped to a JSON-RPC method of `tradelayer-rpcd` and the reply is
   reshaped to what FE-speed parses.
 
-## What TradeLayer-Rust ships today
+## tradelayer-listenerd: the listener replacement (no adapter)
+
+`tradelayer-listenerd` (TradeLayer-Rust `9b586a0`, `docs/LISTENERD.md`) serves all 62 routes of the pinned
+`listener.js` / `walletListener.js` over one restored store on loopback, status
+`authenticated_admission:false` (no live chain ingest). Routes its store cannot back answer
+`503 {"error":"unavailable","capability":...}`; a route it does not have answers
+`404 {"error":"not_found"}`. With `tl_listener_url` at the daemon the passthrough carries FE-speed's calls
+unchanged; `src/legacy/listenerd.rs` applies the few shape mappings below, each keyed on a marker only
+the daemon's reply has (a Node listener's replies pass through untouched).
+
+Class per FE-speed endpoint (30: 19 POST, 11 GET), probed against a `--demo-seed` store:
+**served** = 2xx with data, **mapped** = the daemon's reply reshaped for the UI (what changes is in the
+last column), **typed 503** = the daemon's own typed-unavailable reply, passed through. The rpcd columns
+are the table further down.
+
+| FE-speed endpoint | rpcd adapter | listenerd | Mapping applied (`legacy/listenerd.rs`) |
+|---|---|---|---|
+| POST `tl_initmain` | adapted | served | none |
+| POST `tl_getSyncStatus` | adapted | **mapped** | the daemon has no such route (404); `tl_checkSync` stands in: `{available:false, consensus:h, synced:null, source:"listenerd", initialized:true}` |
+| POST `tl_getMaxParsedHeight` | adapted | served | none (`{"maxParsedHeight":null}`) |
+| POST `tl_getMaxProcessedHeight` | adapted | served | none |
+| POST `tl_getTrackHeight` | adapted | served | none (`source:"maxProcessed"`) |
+| POST `tl_checkSync` | adapted | served | none |
+| POST `tl_loadWallet` | missing | typed 503 `wallet_rpc` | none |
+| POST `tl_getStateSnapshot` | missing | **mapped** to typed 503 `state_snapshot` | daemon 404 to its own typed-unavailable shape |
+| POST `tl_getAllBalancesForAddress` | adapted | served, **mapped** | rows gain JSON numbers `amount`, `available`, `reserved`, `margin`, `channel` (atoms / 1e8) from `ownedAtoms`, `availableAtoms`, `contractReserveAtoms + spotReserveAtoms`, `contractMarginAtoms`, `channelAtoms`; the atom fields stay; the daemon's string `available:"79899.85"` becomes a number. `{params:[a]}` becomes `{params:a}` |
+| POST `tl_getChannel` | missing | served, **mapped** | unknown channel: daemon `404 not_found` becomes the listener's `200 {message:"No channel found for the given address", channel:null}` |
+| POST `tl_getChannelColumn` | missing | typed 503 `channel_lifecycle_view` | body gets `newCommitAddress` from `buyerAddress`/`myAddress`: the UI's direct call names the buyer, the listener (and the daemon, 400 otherwise) reads `newCommitAddress` |
+| POST `tl_listProperties` | adapted | served, **mapped** | rows gain `id` (= `propertyId`) |
+| POST `tl_getProperty` | adapted | served, **mapped** | row gains `id`; `{method, params:[7]}` (`rpc-call` of `tl_getproperty`) becomes `{params:7}` |
+| POST `tl_getAttestations` | missing | served | none (`[]` for an unattested address) |
+| POST `tl_getTransaction` | missing | typed 503 `authenticated_transaction_index` | none |
+| POST `tl_getClearlistById` | missing | served | none (`404 not_found` for an unknown list) |
+| POST `tl_listContractSeries` | missing | typed 503 `accepted_contract_catalog` / `accepted_contract_definition` | none |
+| POST `tl_watchonly_register`, `tl_watchonly_utxos` | missing | **mapped** to typed 503 `watchonly_index` | daemon 404 to typed-unavailable |
+| GET `tl_contractPosition` | missing | served, **mapped** | gains `avgPrice`, `margin`, `unrealizedPNL` (numbers) and numeric `contracts`; no `bankruptcyPrice` (not served, stays absent) |
+| GET `tl_getInitMargin` | missing | served | none (a JSON string, `Number()`-ed by the UI) |
+| GET `tl_channelBalanceForCommiter` | missing | served | none (`{scope:"ledger_channel", channelAtoms}`; the UI reads `rows`/`total`, absent here, and shows none) |
+| GET `tl_getContractInfo`, `tl_getMaxSynth` | missing | typed 503 `accepted_contract_definition`, `synthetic_vault_store` | none |
+| GET `tl_tokenTradeHistoryForAddress`, `tl_contractTradeHistoryForAddress`, `tl_totalTradeHistoryForAddress`, `tl_contractTradeHistory` | missing | typed 503 `spot_fill_owner_history`, `contract_owner_history` | none |
+| GET `tl_fundingHistory`, `tl_oracleHistory` | missing | typed 503 `funding_history`, `retained_oracle_observations` | none |
+
+Counts: 14 served (5 of them mapped), 1 answered by fallback (`tl_getSyncStatus`), 15 typed 503 (3 of them
+produced from the daemon's 404). The rpcd adapter answers 9 of the 30. `tl_check_kyc` and
+`tl_check_commits` (patched-Litecoin-Core RPCs in the legacy stack; the daemon answers 503 with
+`node_kyc_attestation_rpc` / `node_channel_commit_rpc`) are not in FE-speed's listener allowlist and are not
+routed through `/tlraw/`.
+
+The UI tolerates the 503s: `enrichWithContractInfo`, `predictColumn` and the trade-history and channel
+services catch the axios error and keep their empty state; through `/tl/*` a non-2xx is FE-speed's
+`Error: Request failed with status code N` reply, as with a failing Node listener. Gaps the daemon owns,
+not papered over here: no `ticker` or `name` on properties (balance rows show `-`), no contract series or
+contract info (the futures cards cannot compute leverage), no trade history, no channel view, and a static
+store (`authenticated_admission:false`). `tl_getContractInfo` has no catch in `txs.service.ts`; the order
+flow that calls it needs a store with an accepted contract.
+
+Run the integration test against a running daemon (README, "Running tradelayer-listenerd"):
+`real_listenerd_serves_fe_speeds_routes_through_the_tlapi_bridge`, 30+ bridge calls.
+
+## What TradeLayer-Rust shipped when the rpcd adapter was written
 
 Read at TradeLayer-Rust `f3fea57fe0f6e83188c22b32f4117db01b285012` (read-only).
 
@@ -29,8 +91,8 @@ Consequences for this adapter:
 * Of FE-speed's 30 listener endpoints, rpcd can answer 9 (shape-adapted). The other 21 need
   state rpcd's checkpoint view does not expose. They answer the listener's own *unavailable* reply.
 * The complete answer is the library's `EconomicHttpService`, which already speaks FE-speed's
-  listener routes. When TradeLayer-Rust gains a launcher binary for it, point `tl_listener_url` at it
-  (default engine, no adapter) and these 21 gaps close on the TradeLayer-Rust side. The shapes it
+  listener routes. TradeLayer-Rust has since gained its launcher, `tradelayer-listenerd` (section above):
+  point `tl_listener_url` at it (default engine, no adapter). The shapes it
   uses (heights, `{"error":"unavailable","capability":...}`, `No channel found` reply) are the ones
   this adapter copies where rpcd gives it no data of its own.
 

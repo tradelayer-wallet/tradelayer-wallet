@@ -7,8 +7,9 @@
 //! no redirects, bounded response, per-request timeout); which endpoints the page may reach is
 //! decided by `tl_wallet_service::service`.
 
+use super::listenerd;
 use super::{http_client_with, read_bounded, MAX_RESPONSE_BYTES};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::time::Duration;
 use tl_wallet_service::service::{ListenerBackend, ListenerReply};
 
@@ -88,9 +89,10 @@ fn well_formed_endpoint(e: &str) -> bool {
     !e.is_empty() && e.len() <= 64 && e.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
-impl ListenerBackend for ListenerClient {
-    fn request(
-        &mut self,
+impl ListenerClient {
+    /// One HTTP exchange with the listener, as it answers.
+    fn send(
+        &self,
         method: &str,
         endpoint: &str,
         query: &str,
@@ -153,6 +155,34 @@ impl ListenerBackend for ListenerClient {
                 .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()))
         };
         Ok(ListenerReply { status, body })
+    }
+}
+
+impl ListenerBackend for ListenerClient {
+    /// The listener's answer, with the small mappings of [`listenerd`] applied so FE-speed's UI
+    /// works unchanged against `tradelayer-listenerd`; a Node listener's replies pass untouched.
+    fn request(
+        &mut self,
+        method: &str,
+        endpoint: &str,
+        query: &str,
+        body: Option<&Value>,
+        timeout: Duration,
+    ) -> Result<ListenerReply, String> {
+        let mapped = listenerd::map_request(method, endpoint, body);
+        let reply = self.send(method, endpoint, query, mapped.as_ref().or(body), timeout)?;
+        // `tl_getSyncStatus` is not a route of the pinned listener: the daemon's `tl_checkSync`
+        // stands in so the wallet sees a reachable, initialised listener
+        if method == "POST"
+            && endpoint.eq_ignore_ascii_case("tl_getSyncStatus")
+            && listenerd::is_not_found(&reply)
+        {
+            let check = self.send("POST", "tl_checkSync", "", Some(&json!({})), timeout)?;
+            if let Some(status) = listenerd::sync_status(&check) {
+                return Ok(status);
+            }
+        }
+        Ok(listenerd::map_reply(method, endpoint, reply))
     }
 
     fn origin(&self) -> String {

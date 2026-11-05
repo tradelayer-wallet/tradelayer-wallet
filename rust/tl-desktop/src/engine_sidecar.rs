@@ -1,9 +1,12 @@
-//! Optional `tradelayer-rpcd` sidecar.
+//! Optional `tradelayer-rpcd` / `tradelayer-listenerd` sidecar.
 //!
-//! Started only when the config names `tl_engine = "tradelayer-rust"` and a `tl_engine_cmd`;
+//! Started only when the config names `tl_engine = "tradelayer-rust"` and a `tl_engine_cmd`, or
+//! `tl_engine = "tradelayer-listenerd"` with a `tl_listenerd` object;
 //! otherwise [`Sidecar::from_settings`] returns `None` and no process is ever spawned. One
 //! supervisor thread owns the child: it restarts it with exponential backoff when it exits, and
-//! [`Sidecar::stop`] (the app's exit hook, also `Drop`) kills it and joins the thread.
+//! [`Sidecar::stop`] (the app's exit hook, also `Drop`) stops it and joins the thread: a child
+//! with a stop file (`tradelayer-listenerd --stop-file`) is asked to exit by creating the file and
+//! is killed only when it is still running after `stop_grace`; any other child is killed at once.
 //!
 //! The child gets no stdin and no console window; its stderr is read by a second thread that
 //! keeps the last line for [`Sidecar::status`]. A hard crash of the app cannot run the exit
@@ -56,6 +59,13 @@ pub struct Spec {
     pub cmd: PathBuf,
     pub args: Vec<String>,
     pub env: Vec<(String, String)>,
+    /// The file the child exits on when it appears (`tradelayer-listenerd --stop-file`). The
+    /// supervisor removes a stale one before each start (the daemon refuses to start with one),
+    /// [`Sidecar::stop`] creates it, and a child that exits with it present is not restarted.
+    pub stop_file: Option<PathBuf>,
+    /// How long [`Sidecar::stop`] waits for the child to exit after creating the stop file
+    /// before it kills it.
+    pub stop_grace: Duration,
 }
 
 const POLL: Duration = Duration::from_millis(50);
@@ -83,13 +93,15 @@ struct Shared {
 pub struct Sidecar {
     shared: Arc<Shared>,
     join: Mutex<Option<JoinHandle<()>>>,
+    stop_file: Option<PathBuf>,
+    stop_grace: Duration,
 }
 
 impl Sidecar {
-    /// The sidecar the config asks for: `None` unless `tl_engine = "tradelayer-rust"` with a
-    /// `tl_engine_cmd`.
+    /// The sidecar the config asks for: `None` unless the engine is `tradelayer-rust` or `tradelayer-listenerd`
+    /// and the config names the command to run.
     pub fn from_settings(s: &EngineSettings) -> Option<std::io::Result<Sidecar>> {
-        if s.engine != Engine::TradelayerRust {
+        if !matches!(s.engine, Engine::TradelayerRust | Engine::Listenerd) {
             return None;
         }
         let cmd = s.cmd.clone()?;
@@ -98,6 +110,8 @@ impl Sidecar {
                 cmd,
                 args: s.args.clone(),
                 env: Vec::new(),
+                stop_file: s.stop_file.clone(),
+                stop_grace: s.stop_grace,
             },
             Backoff::default(),
         ))
@@ -111,12 +125,15 @@ impl Sidecar {
             last_message: Mutex::new(String::new()),
         });
         let s = shared.clone();
+        let (stop_file, stop_grace) = (spec.stop_file.clone(), spec.stop_grace);
         let join = std::thread::Builder::new()
             .name("tl-engine".into())
             .spawn(move || supervise(&s, &spec, backoff))?;
         Ok(Sidecar {
             shared,
             join: Mutex::new(Some(join)),
+            stop_file,
+            stop_grace,
         })
     }
 
@@ -142,14 +159,28 @@ impl Sidecar {
     /// Stop restarting, kill the child and wait for the supervisor. Safe to call twice.
     pub fn stop(&self) {
         self.shared.stop.store(true, Ordering::SeqCst);
+        let handle = self.join.lock().ok().and_then(|mut j| j.take());
+        // a child with a stop file is asked to exit first and killed only after the grace period
+        let asked = self
+            .stop_file
+            .as_ref()
+            .is_some_and(|f| std::fs::write(f, b"stop").is_ok());
+        if asked {
+            let end = Instant::now() + self.stop_grace;
+            while Instant::now() < end && handle.as_ref().is_some_and(|h| !h.is_finished()) {
+                std::thread::sleep(POLL);
+            }
+        }
         if let Ok(mut c) = self.shared.child.lock() {
             if let Some(child) = c.as_mut() {
                 let _ = child.kill();
             }
         }
-        let handle = self.join.lock().ok().and_then(|mut j| j.take());
         if let Some(h) = handle {
             let _ = h.join();
+        }
+        if let Some(f) = &self.stop_file {
+            let _ = std::fs::remove_file(f);
         }
     }
 }
@@ -210,6 +241,10 @@ fn supervise(shared: &Arc<Shared>, spec: &Spec, backoff: Backoff) {
     let mut delay = backoff.base;
     while !shared.stop.load(Ordering::SeqCst) {
         let started = Instant::now();
+        // the daemon refuses to start while a stop file exists
+        if let Some(f) = &spec.stop_file {
+            let _ = std::fs::remove_file(f);
+        }
         match command(spec).spawn() {
             Ok(mut child) => {
                 shared.starts.fetch_add(1, Ordering::SeqCst);
@@ -240,6 +275,13 @@ fn supervise(shared: &Arc<Shared>, spec: &Spec, backoff: Backoff) {
                 }
                 if let Some(r) = reader {
                     let _ = r.join();
+                }
+                // exited with its stop file present: someone asked it to stop, so it stays down
+                if let Some(f) = spec.stop_file.as_ref().filter(|f| f.exists()) {
+                    let _ = std::fs::remove_file(f);
+                    set_message(shared, "stopped through its stop file".into());
+                    shared.stop.store(true, Ordering::SeqCst);
+                    break;
                 }
             }
             Err(e) => set_message(shared, format!("spawn {}: {e}", spec.cmd.display())),
@@ -292,6 +334,19 @@ mod tests {
         eprintln!("helper up: {mode}");
         match mode.as_str() {
             "exit1" => std::process::exit(1),
+            // like tradelayer-listenerd: serve until the stop file exists, then exit 0
+            "stopfile" => {
+                let file = std::env::var("TL_SIDECAR_STOPFILE").unwrap();
+                while !std::path::Path::new(&file).exists() {
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                if let Ok(log) = std::env::var("TL_SIDECAR_LOG") {
+                    use std::io::Write;
+                    let mut f = std::fs::OpenOptions::new().append(true).open(log).unwrap();
+                    let _ = writeln!(f, "clean-exit");
+                }
+                std::process::exit(0);
+            }
             _ => std::thread::sleep(Duration::from_secs(120)),
         }
     }
@@ -310,7 +365,27 @@ mod tests {
                 ("TL_SIDECAR_HELPER".into(), mode.into()),
                 ("TL_SIDECAR_LOG".into(), log.to_string_lossy().into_owned()),
             ],
+            stop_file: None,
+            stop_grace: Duration::from_secs(5),
         }
+    }
+
+    /// [`spec`] whose child exits when `stop_file` appears (mode `stopfile`), or ignores it
+    /// (any other mode).
+    fn spec_with_stop_file(
+        mode: &str,
+        log: &std::path::Path,
+        stop_file: &std::path::Path,
+        grace: Duration,
+    ) -> Spec {
+        let mut s = spec(mode, log);
+        s.env.push((
+            "TL_SIDECAR_STOPFILE".into(),
+            stop_file.to_string_lossy().into_owned(),
+        ));
+        s.stop_file = Some(stop_file.to_path_buf());
+        s.stop_grace = grace;
+        s
     }
 
     fn fast() -> Backoff {
@@ -323,7 +398,7 @@ mod tests {
 
     fn starts_in(log: &std::path::Path) -> usize {
         std::fs::read_to_string(log)
-            .map(|t| t.lines().count())
+            .map(|t| t.lines().filter(|l| *l == "start").count())
             .unwrap_or(0)
     }
 
@@ -356,6 +431,12 @@ mod tests {
         // a command with the default engine is rejected by config validation, and ignored here
         let s = EngineSettings {
             cmd: Some(PathBuf::from("/x")),
+            ..EngineSettings::default()
+        };
+        assert!(Sidecar::from_settings(&s).is_none());
+        // listenerd without the tl_listenerd object: the user runs the daemon
+        let s = EngineSettings {
+            engine: Engine::Listenerd,
             ..EngineSettings::default()
         };
         assert!(Sidecar::from_settings(&s).is_none());
@@ -419,6 +500,8 @@ mod tests {
             cmd: std::env::temp_dir().join("tl-sidecar-no-such-binary.exe"),
             args: vec![],
             env: vec![],
+            stop_file: None,
+            stop_grace: Duration::from_secs(5),
         };
         let sc = Sidecar::start(spec, fast()).unwrap();
         wait_until("spawn error", || {
@@ -426,6 +509,74 @@ mod tests {
         });
         assert_eq!(sc.status().starts, 0);
         drop(sc); // Drop stops it
+    }
+
+    #[test]
+    fn a_child_with_a_stop_file_is_asked_to_exit_and_not_killed() {
+        let dir = tmp("graceful");
+        let log = dir.join("starts.log");
+        let stop = dir.join("stop");
+        // a stale stop file from an earlier run must not stop the new child
+        std::fs::write(&stop, b"stale").unwrap();
+        let sc = Sidecar::start(
+            spec_with_stop_file("stopfile", &log, &stop, Duration::from_secs(10)),
+            fast(),
+        )
+        .unwrap();
+        wait_until("child up", || sc.status().running && starts_in(&log) == 1);
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(sc.status().running, "the stale stop file stopped the child");
+        let started = Instant::now();
+        sc.stop();
+        assert!(started.elapsed() < Duration::from_secs(8));
+        let text = std::fs::read_to_string(&log).unwrap();
+        assert!(text.lines().any(|l| l == "clean-exit"), "{text}");
+        assert_eq!(starts_in(&log), 1);
+        assert!(!stop.exists(), "the stop file is removed after the stop");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_child_that_ignores_its_stop_file_is_killed_after_the_grace_period() {
+        let dir = tmp("stubborn");
+        let log = dir.join("starts.log");
+        let stop = dir.join("stop");
+        let sc = Sidecar::start(
+            spec_with_stop_file("sleep", &log, &stop, Duration::from_millis(400)),
+            fast(),
+        )
+        .unwrap();
+        wait_until("child up", || sc.status().running);
+        let started = Instant::now();
+        sc.stop();
+        let took = started.elapsed();
+        assert!(took >= Duration::from_millis(400), "{took:?}");
+        assert!(took < Duration::from_secs(10), "{took:?}");
+        assert!(!sc.status().running);
+        assert!(!stop.exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_child_stopped_through_its_stop_file_from_outside_stays_down() {
+        let dir = tmp("outside");
+        let log = dir.join("starts.log");
+        let stop = dir.join("stop");
+        let sc = Sidecar::start(
+            spec_with_stop_file("stopfile", &log, &stop, Duration::from_secs(5)),
+            fast(),
+        )
+        .unwrap();
+        wait_until("child up", || sc.status().running && starts_in(&log) == 1);
+        std::fs::write(&stop, b"stop").unwrap();
+        wait_until("child gone", || {
+            !sc.status().running && sc.status().last_message.contains("stop file")
+        });
+        std::thread::sleep(Duration::from_millis(500));
+        assert_eq!(starts_in(&log), 1, "restarted after an operator stop");
+        assert!(!stop.exists());
+        sc.stop();
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

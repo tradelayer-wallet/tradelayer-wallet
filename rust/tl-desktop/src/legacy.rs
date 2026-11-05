@@ -47,6 +47,7 @@
 
 pub mod fespeed;
 pub mod keyvault;
+pub mod listenerd;
 pub mod localsign;
 
 use crate::authsign::{self, JobQueue, LocalAuthSigner, NodeTap, QueueSigner, SignJob, TapSlot};
@@ -2232,11 +2233,10 @@ rpcport=9332
             "{raw}"
         );
         let sent: Value = serde_json::from_str(raw.split("\r\n\r\n").nth(1).unwrap_or("")).unwrap();
-        assert_eq!(
-            sent,
-            serde_json::from_slice::<Value>(body).unwrap(),
-            "{raw}"
-        );
+        // the page's body, plus `newCommitAddress` (the listener reads it; the UI names the buyer)
+        let mut want = serde_json::from_slice::<Value>(body).unwrap();
+        want["newCommitAddress"] = json!("b");
+        assert_eq!(sent, want, "{raw}");
 
         // /tl/getChannel with the body the UI sends
         let (port, h) = mock_server(http_response("200 OK", br#"{"channel":"ch1"}"#));

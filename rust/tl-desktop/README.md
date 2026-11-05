@@ -134,6 +134,80 @@ encoders, the rest through the listener) and makes the transaction builder write
 `listunspent`, so a plain Bitcoin Core node works; set `false` for the 2024 UI, which sends `tl_*` to the node
 and builds hex payloads.
 
+## Running tradelayer-listenerd
+
+TradeLayer-Rust's `tradelayer-listenerd` (`9b586a0`, `docs/LISTENERD.md`) replaces the Node
+`tradelayer.js` listener on `:3000`: it serves the legacy listener routes over one restored store on
+loopback (`authenticated_admission:false`, no live chain ingest). FE-speed's UI runs against it with
+`tl_listener_url` alone; `docs/listener-map.md` has the per-endpoint table (14 of FE-speed's 30
+listener endpoints answer with data, 15 answer typed 503) and the shape mappings in
+`src/legacy/listenerd.rs`.
+
+Start it yourself and keep the default engine:
+
+```bat
+tradelayer-listenerd --demo-seed C:\tl\demo
+tradelayer-listenerd --root C:\tl\demo --bind 127.0.0.1:3000 --expected-head <expectedHead printed by the seed> ^
+  --config C:\tl\demo\listenerd.conf --stop-file C:\tl\demo.stop
+:: config.json: { "tl_listener_url": "http://127.0.0.1:3000" }
+type nul > C:\tl\demo.stop
+```
+
+Or let the app run it. `tl_engine = "tradelayer-listenerd"` plus a `tl_listenerd` object starts the
+daemon with the app and stops it with the app:
+
+```json
+{ "network": "BTCREGTEST",
+  "node_url": "http://127.0.0.1:18443",
+  "rpc_cookie_file": "C:/path/to/.cookie",
+  "tl_listener_url": "http://127.0.0.1:3000",
+  "tl_engine": "tradelayer-listenerd",
+  "tl_listenerd": {
+    "cmd": "C:/tl/tradelayer-listenerd.exe",
+    "root": "C:/tl/store",
+    "expected_head": "5:4:64656d6f00000000000000040000000000000000000000000000000000000000:865460d34f4f361d69f9674dd3ad22f6f37bca0bd835557ec9b2581adf6f2777",
+    "config": "C:/tl/store/listenerd.conf",
+    "stop_file": "C:/tl/listenerd.stop",
+    "timeout_ms": 2000,
+    "stop_grace_ms": 5000 } }
+```
+
+* `cmd`, `root`, `config`, `stop_file` are absolute paths; `expected_head` is the
+  `SEQUENCE:HEIGHT:HASH:COMMITMENT` token `--demo-seed` and `tl_observe` print (the daemon refuses a store
+  whose head differs). `timeout_ms` (1..=60000, optional) is `--timeout-ms`; `stop_grace_ms`
+  (100..=60000, default 5000) is the wait described below.
+* `--bind` is the `tl_listener_url` authority, which must be `http` with a loopback IP literal
+  (`127.0.0.1`, `[::1]`): the daemon takes nothing else, so `localhost` is a config error.
+* Without `tl_listenerd` nothing is started and `tl_engine = "tradelayer-listenerd"` only selects the
+  passthrough (the `tl_engine_url`, `tl_engine_cmd` and `tl_engine_args` fields belong to the rpcd engine
+  and are refused here).
+* The sidecar (`src/engine_sidecar.rs`) removes a stale stop file before each start (the daemon refuses to
+  start with one), restarts the daemon with backoff when it dies, and stops it on exit by creating the stop file,
+  waiting `stop_grace_ms` for exit code 0, and killing it only if it is still running. A daemon stopped by someone else creating
+  the stop file stays down.
+
+Integration test against a running daemon on a demo store (30+ bridge calls):
+
+```bat
+set TL_LISTENERD_URL=http://127.0.0.1:3000
+build-desktop.cmd test --locked -- --ignored real_listenerd
+```
+
+Run of 2026-11-05 (Windows 11, TradeLayer-Rust `9b586a0` built from a `git archive` export, Rust 1.90.0, demo store
+from `--demo-seed`: head 5:4, DemoAlice long 2 on contract 1):
+
+* `real_listenerd_serves_fe_speeds_routes_through_the_tlapi_bridge`: 1 passed, 30+ calls through the bridge.
+* The default exe with the sidecar config above (`TL_DESKTOP_CONFIG`): the app started the daemon, the UI
+  bootstrapped (`RENDER_OK`, no exceptions), and a CDP probe in the page called the listener routes through
+  `tlapi` and passed 16 of 16 shape checks (balance numbers add up, properties carry `id`, position numbers,
+  `listenerReachable`, the `tl_getSyncStatus` fallback, typed 503s). A probe panel in the screenshot
+  shows DemoAlice's balances (99,899.85 tUSD owned, 79,899.85 available, 20,000 margin) and her position.
+* Not rendered by the UI itself: Portfolio and the market lists need a node and wallet addresses of the
+  UI's own, and the demo addresses are not those; the market list comes from the orderbook, not the listener.
+* A stop file created by hand stopped the daemon with exit 0 (`{"event":"stopped",...}`). A hard kill of
+  the app does not run the exit hook, so the daemon keeps serving until its stop file is created, as the rpcd
+  sidecar notes for rpcd.
+
 ## Commands and results (2026-11-02/03, Windows 11, MSVC 14.44, Rust 1.90.0, Node 24.19)
 
 ```bat

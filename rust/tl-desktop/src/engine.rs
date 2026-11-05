@@ -11,9 +11,14 @@
 //! uses). No endpoint is answered with an invented empty result.
 //!
 //! The default (`tl_engine` absent or `"http"`) is the unchanged HTTP listener passthrough.
+//!
+//! `tl_engine = "tradelayer-listenerd"` is the same passthrough (no adapter: the daemon speaks
+//! FE-speed's listener routes itself) plus an optional sidecar that starts and stops
+//! `tradelayer-listenerd`, described by the `tl_listenerd` object ([`RawListenerd`]).
 
 use crate::legacy::fespeed::{normalize_listener_url, ListenerClient};
 use crate::legacy::{http_client_with, read_bounded};
+use serde::Deserialize;
 use serde_json::{json, Map, Number, Value};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -23,6 +28,11 @@ use tl_wallet_service::service::{ListenerBackend, ListenerReply};
 pub const DEFAULT_ENGINE_URL: &str = "http://127.0.0.1:7360";
 pub const ENGINE_HTTP: &str = "http";
 pub const ENGINE_RUST: &str = "tradelayer-rust";
+pub const ENGINE_LISTENERD: &str = "tradelayer-listenerd";
+/// How long the sidecar waits for `tradelayer-listenerd` to exit after its stop file is created.
+pub const DEFAULT_STOP_GRACE: Duration = Duration::from_secs(5);
+const MIN_STOP_GRACE_MS: u64 = 100;
+const MAX_STOP_GRACE_MS: u64 = 60_000;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 /// rpcd's own whole-request deadline is 5 s.
@@ -44,6 +54,9 @@ pub enum Engine {
     Http,
     /// `tradelayer-rpcd` JSON-RPC at `tl_engine_url`, adapted by [`RustEngineListener`].
     TradelayerRust,
+    /// `tradelayer-listenerd`: FE-speed's listener contract over HTTP at `tl_listener_url`, like
+    /// `Http`, with the daemon optionally run as the sidecar.
+    Listenerd,
 }
 
 /// `tl_engine*` settings of the config file, validated.
@@ -55,6 +68,10 @@ pub struct EngineSettings {
     /// Sidecar: rpcd binary to start with the app. `None`: never started.
     pub cmd: Option<PathBuf>,
     pub args: Vec<String>,
+    /// Sidecar stop file: the sidecar creates it to ask the child to exit and waits
+    /// `stop_grace` before killing it (`tradelayer-listenerd --stop-file`). `None`: kill at once.
+    pub stop_file: Option<PathBuf>,
+    pub stop_grace: Duration,
 }
 
 impl Default for EngineSettings {
@@ -64,8 +81,32 @@ impl Default for EngineSettings {
             url: DEFAULT_ENGINE_URL.to_string(),
             cmd: None,
             args: Vec::new(),
+            stop_file: None,
+            stop_grace: DEFAULT_STOP_GRACE,
         }
     }
+}
+
+/// The `tl_listenerd` config object: how to start `tradelayer-listenerd` with the app. Its
+/// `--bind` is the `tl_listener_url` authority (the daemon takes a literal loopback `IP:PORT`).
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct RawListenerd {
+    /// Absolute path of `tradelayer-listenerd`.
+    pub cmd: Option<PathBuf>,
+    /// `--root`: absolute path of the existing store directory.
+    pub root: Option<PathBuf>,
+    /// `--expected-head`: `SEQUENCE:HEIGHT:HASH:COMMITMENT`.
+    pub expected_head: Option<String>,
+    /// `--config`: absolute path of the daemon's config file.
+    pub config: Option<PathBuf>,
+    /// `--stop-file`: absolute path the sidecar creates to stop the daemon.
+    pub stop_file: Option<PathBuf>,
+    /// `--timeout-ms`: per-connection I/O timeout (1..=60000); absent: the daemon's default.
+    pub timeout_ms: Option<u64>,
+    /// Milliseconds to wait for the daemon to exit after the stop file is created, before it is
+    /// killed (100..=60000, default 5000).
+    pub stop_grace_ms: Option<u64>,
 }
 
 /// The raw `tl_engine*` config fields.
@@ -75,6 +116,7 @@ pub struct RawEngine {
     pub url: Option<String>,
     pub cmd: Option<PathBuf>,
     pub args: Option<Vec<String>>,
+    pub listenerd: Option<RawListenerd>,
 }
 
 /// `host:port` of a normalised loopback origin, as rpcd's `--bind` spells it.
@@ -85,6 +127,12 @@ fn bind_authority(origin: &str) -> Result<String, String> {
     Ok(format!("{host}:{port}"))
 }
 
+/// [`validate_with_listener`] with the default listener URL (the engine tests).
+#[cfg(test)]
+pub fn validate(raw: RawEngine) -> Result<EngineSettings, String> {
+    validate_with_listener(raw, crate::legacy::fespeed::DEFAULT_LISTENER_URL)
+}
+
 /// Validate the `tl_engine*` fields.
 ///
 /// * `tl_engine`: `"http"` (default) or `"tradelayer-rust"`.
@@ -93,17 +141,38 @@ fn bind_authority(origin: &str) -> Result<String, String> {
 ///   started). `tl_engine_args`: its arguments. `--allow-nonloopback` is refused, and a `--bind`
 ///   must equal the `tl_engine_url` authority so the adapter talks to the process it started.
 ///
-/// Every `tl_engine_*` field requires `tl_engine = "tradelayer-rust"`.
-pub fn validate(raw: RawEngine) -> Result<EngineSettings, String> {
+/// * `tl_engine = "tradelayer-listenerd"`: the HTTP passthrough to `tl_listener_url` plus, when
+///   the `tl_listenerd` object is present, the daemon as sidecar ([`validate_listenerd`]).
+///
+/// Every `tl_engine_*` field requires `tl_engine = "tradelayer-rust"`; `tl_listenerd` requires
+/// `tl_engine = "tradelayer-listenerd"`. `listener_url` is the validated `tl_listener_url`.
+pub fn validate_with_listener(
+    raw: RawEngine,
+    listener_url: &str,
+) -> Result<EngineSettings, String> {
     let engine = match raw.engine.as_deref() {
         None | Some(ENGINE_HTTP) => Engine::Http,
         Some(ENGINE_RUST) => Engine::TradelayerRust,
+        Some(ENGINE_LISTENERD) => Engine::Listenerd,
         Some(other) => {
             return Err(format!(
-                "config: tl_engine {other:?} must be \"{ENGINE_HTTP}\" or \"{ENGINE_RUST}\""
+                "config: tl_engine {other:?} must be \"{ENGINE_HTTP}\", \"{ENGINE_RUST}\" or \"{ENGINE_LISTENERD}\""
             ))
         }
     };
+    if engine != Engine::Listenerd && raw.listenerd.is_some() {
+        return Err(format!(
+            "config: tl_listenerd needs tl_engine = \"{ENGINE_LISTENERD}\""
+        ));
+    }
+    if engine == Engine::Listenerd {
+        if raw.url.is_some() || raw.cmd.is_some() || raw.args.is_some() {
+            return Err(format!(
+                "config: tl_engine_url, tl_engine_cmd and tl_engine_args are for tl_engine = \"{ENGINE_RUST}\"; \"{ENGINE_LISTENERD}\" takes the tl_listenerd object and tl_listener_url"
+            ));
+        }
+        return validate_listenerd(raw.listenerd.unwrap_or_default(), listener_url);
+    }
     if engine == Engine::Http {
         if raw.url.is_some() || raw.cmd.is_some() || raw.args.is_some() {
             return Err(format!(
@@ -153,16 +222,105 @@ pub fn validate(raw: RawEngine) -> Result<EngineSettings, String> {
         url,
         cmd: raw.cmd,
         args,
+        stop_file: None,
+        stop_grace: DEFAULT_STOP_GRACE,
     })
 }
 
-/// The listener the service uses: the HTTP passthrough, or the rpcd adapter.
+/// `SEQUENCE:HEIGHT:HASH:COMMITMENT`, as `tl_observe` and `tradelayer-listenerd --demo-seed`
+/// print it: four non-empty alphanumeric fields. The daemon checks the values against the store.
+fn valid_head_token(t: &str) -> bool {
+    t.len() <= 512
+        && t.split(':').count() == 4
+        && t.split(':')
+            .all(|f| !f.is_empty() && f.bytes().all(|b| b.is_ascii_alphanumeric()))
+}
+
+fn absolute(name: &str, p: &Option<PathBuf>) -> Result<PathBuf, String> {
+    match p {
+        Some(p) if p.is_absolute() => Ok(p.clone()),
+        Some(_) => Err(format!(
+            "config: tl_listenerd.{name} must be an absolute path"
+        )),
+        None => Err(format!("config: tl_listenerd.{name} is required")),
+    }
+}
+
+/// The `tl_listenerd` object. Absent: no sidecar, the user runs the daemon. Present: `cmd`,
+/// `root`, `expected_head`, `config` and `stop_file` are all required, and the daemon's
+/// arguments are built from them with `--bind` taken from `tl_listener_url`, which must name a
+/// literal loopback IP over plain http because the daemon accepts nothing else.
+fn validate_listenerd(l: RawListenerd, listener_url: &str) -> Result<EngineSettings, String> {
+    let mut settings = EngineSettings {
+        engine: Engine::Listenerd,
+        url: listener_url.to_string(),
+        ..EngineSettings::default()
+    };
+    if l == RawListenerd::default() {
+        return Ok(settings);
+    }
+    let cmd = absolute("cmd", &l.cmd)?;
+    let root = absolute("root", &l.root)?;
+    let config = absolute("config", &l.config)?;
+    let stop_file = absolute("stop_file", &l.stop_file)?;
+    let head = l
+        .expected_head
+        .as_deref()
+        .ok_or("config: tl_listenerd.expected_head is required")?;
+    if !valid_head_token(head) {
+        return Err(
+            "config: tl_listenerd.expected_head must be SEQUENCE:HEIGHT:HASH:COMMITMENT".into(),
+        );
+    }
+    let host = bind_authority(listener_url).map_err(|e| format!("config: tl_listener_url: {e}"))?;
+    let literal_ip = host
+        .rsplit_once(':')
+        .map(|(h, _)| h.trim_start_matches('[').trim_end_matches(']'))
+        .is_some_and(|h| h.parse::<std::net::IpAddr>().is_ok());
+    if !listener_url.starts_with("http://") || !literal_ip {
+        return Err(
+            "config: tl_listenerd needs tl_listener_url to be http with a loopback IP literal (http://127.0.0.1:3000)"
+                .into(),
+        );
+    }
+    let mut args: Vec<String> = vec![
+        "--root".into(),
+        root.to_string_lossy().into_owned(),
+        "--bind".into(),
+        host,
+        "--expected-head".into(),
+        head.to_string(),
+        "--config".into(),
+        config.to_string_lossy().into_owned(),
+        "--stop-file".into(),
+        stop_file.to_string_lossy().into_owned(),
+    ];
+    if let Some(ms) = l.timeout_ms {
+        if !(1..=60_000).contains(&ms) {
+            return Err("config: tl_listenerd.timeout_ms must be 1..=60000".into());
+        }
+        args.push("--timeout-ms".into());
+        args.push(ms.to_string());
+    }
+    if let Some(ms) = l.stop_grace_ms {
+        if !(MIN_STOP_GRACE_MS..=MAX_STOP_GRACE_MS).contains(&ms) {
+            return Err("config: tl_listenerd.stop_grace_ms must be 100..=60000".into());
+        }
+        settings.stop_grace = Duration::from_millis(ms);
+    }
+    settings.cmd = Some(cmd);
+    settings.args = args;
+    settings.stop_file = Some(stop_file);
+    Ok(settings)
+}
+
+/// The listener the service uses: the HTTP passthrough (listenerd included), or the rpcd adapter.
 pub fn listener_for(
     engine: &EngineSettings,
     tl_listener_url: &str,
 ) -> Result<Box<dyn ListenerBackend>, String> {
     match engine.engine {
-        Engine::Http => Ok(Box::new(ListenerClient::new(tl_listener_url)?)),
+        Engine::Http | Engine::Listenerd => Ok(Box::new(ListenerClient::new(tl_listener_url)?)),
         Engine::TradelayerRust => Ok(Box::new(RustEngineListener::new(&engine.url)?)),
     }
 }
@@ -825,6 +983,27 @@ mod tests {
             url: url.map(str::to_string),
             cmd: cmd.map(PathBuf::from),
             args: (!args.is_empty()).then(|| args.iter().map(|a| a.to_string()).collect()),
+            listenerd: None,
+        }
+    }
+
+    fn listenerd_raw(l: RawListenerd) -> RawEngine {
+        RawEngine {
+            engine: Some("tradelayer-listenerd".into()),
+            listenerd: Some(l),
+            ..RawEngine::default()
+        }
+    }
+
+    fn full_listenerd() -> RawListenerd {
+        RawListenerd {
+            cmd: Some(PathBuf::from(abs("tl/tradelayer-listenerd.exe"))),
+            root: Some(PathBuf::from(abs("tl/store"))),
+            expected_head: Some("5:4:64656d6f:865460d3".into()),
+            config: Some(PathBuf::from(abs("tl/store/listenerd.conf"))),
+            stop_file: Some(PathBuf::from(abs("tl/listenerd.stop"))),
+            timeout_ms: None,
+            stop_grace_ms: None,
         }
     }
 
@@ -919,6 +1098,166 @@ mod tests {
             &["--bind", "127.0.0.1:7360"]
         ))
         .is_ok());
+    }
+
+    #[test]
+    fn listenerd_settings_build_the_daemons_arguments_from_the_config() {
+        // no object: the daemon is run by the user, the passthrough is all that changes
+        let s = validate_with_listener(
+            listenerd_raw(RawListenerd::default()),
+            "http://127.0.0.1:3000",
+        )
+        .unwrap();
+        assert_eq!(s.engine, Engine::Listenerd);
+        assert!(s.cmd.is_none() && s.args.is_empty() && s.stop_file.is_none());
+
+        let mut l = full_listenerd();
+        l.timeout_ms = Some(1500);
+        l.stop_grace_ms = Some(2500);
+        let s = validate_with_listener(listenerd_raw(l.clone()), "http://127.0.0.1:3000").unwrap();
+        assert_eq!(s.cmd, l.cmd);
+        assert_eq!(s.stop_file, l.stop_file);
+        assert_eq!(s.stop_grace, Duration::from_millis(2500));
+        let want: Vec<String> = [
+            "--root",
+            &abs("tl/store"),
+            "--bind",
+            "127.0.0.1:3000",
+            "--expected-head",
+            "5:4:64656d6f:865460d3",
+            "--config",
+            &abs("tl/store/listenerd.conf"),
+            "--stop-file",
+            &abs("tl/listenerd.stop"),
+            "--timeout-ms",
+            "1500",
+        ]
+        .map(String::from)
+        .to_vec();
+        let norm = |v: &[String]| v.iter().map(|a| a.replace('\\', "/")).collect::<Vec<_>>();
+        assert_eq!(norm(&s.args), norm(&want));
+        // the default listener port is the daemon's bind, whatever port the config names
+        let s = validate_with_listener(listenerd_raw(l), "http://127.0.0.1:3100").unwrap();
+        assert!(s.args.contains(&"127.0.0.1:3100".to_string()));
+    }
+
+    #[test]
+    fn listenerd_settings_reject_what_the_daemon_would_refuse() {
+        let ok = full_listenerd();
+        let url = "http://127.0.0.1:3000";
+        let bad_cases: Vec<(&str, RawListenerd, &str)> = vec![
+            (
+                "relative cmd",
+                RawListenerd {
+                    cmd: Some("listenerd.exe".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "relative root",
+                RawListenerd {
+                    root: Some("store".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "relative config",
+                RawListenerd {
+                    config: Some("c.conf".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "relative stop file",
+                RawListenerd {
+                    stop_file: Some("stop".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "missing root",
+                RawListenerd {
+                    root: None,
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "missing head",
+                RawListenerd {
+                    expected_head: None,
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "short head",
+                RawListenerd {
+                    expected_head: Some("5:4:abc".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "head with a space",
+                RawListenerd {
+                    expected_head: Some("5:4:a b:c".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "timeout 0",
+                RawListenerd {
+                    timeout_ms: Some(0),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "timeout too big",
+                RawListenerd {
+                    timeout_ms: Some(60_001),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "grace too small",
+                RawListenerd {
+                    stop_grace_ms: Some(1),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            ("hostname bind", ok.clone(), "http://localhost:3000"),
+            ("https bind", ok.clone(), "https://127.0.0.1:3000"),
+        ];
+        for (what, l, u) in bad_cases {
+            assert!(
+                validate_with_listener(listenerd_raw(l), u).is_err(),
+                "{what}"
+            );
+        }
+        // the rpcd fields belong to the other engine, and the object to this one
+        let mut r = listenerd_raw(ok.clone());
+        r.cmd = Some(PathBuf::from(abs("x")));
+        assert!(validate_with_listener(r, url).is_err());
+        let mut r = listenerd_raw(ok.clone());
+        r.url = Some("http://127.0.0.1:7360".into());
+        assert!(validate_with_listener(r, url).is_err());
+        for engine in [None, Some("http"), Some("tradelayer-rust")] {
+            let r = RawEngine {
+                engine: engine.map(str::to_string),
+                listenerd: Some(ok.clone()),
+                ..RawEngine::default()
+            };
+            assert!(validate_with_listener(r, url).is_err(), "{engine:?}");
+        }
     }
 
     #[test]
@@ -1362,7 +1701,7 @@ mod tests {
     /// `legacy::GATE_PORT`, the fixed port `translate` presents to the gate.
     const GATE_PORT: u16 = 1;
 
-    fn service(l: RustEngineListener) -> WalletService {
+    fn service(l: impl ListenerBackend + 'static) -> WalletService {
         let token = SessionToken::from_hex(TOKEN).unwrap();
         let gate = Gate::new(GateConfig {
             port: GATE_PORT,
@@ -1549,6 +1888,8 @@ mod tests {
                 .map(String::from)
                 .to_vec(),
                 env: vec![],
+                stop_file: None,
+                stop_grace: DEFAULT_STOP_GRACE,
             },
             Backoff::default(),
         )
@@ -1627,5 +1968,224 @@ mod tests {
         assert_eq!((s, b["error"].clone()), (503, json!("unavailable")));
         sidecar.stop();
         assert!(!sidecar.status().running);
+    }
+
+    /// Drives the real `tradelayer-listenerd` (a store seeded with `--demo-seed`) through the
+    /// tlapi bridge with the routes FE-speed's UI calls. Run with
+    /// `TL_LISTENERD_URL=http://127.0.0.1:3000 cargo test --locked -- --ignored real_listenerd`;
+    /// `TL_LISTENERD_ADDRESS` names the holder (default `DemoAlice`, long 2 contracts on
+    /// contract 1 with 100,000 tUSD granted and 20,000 posted as margin).
+    #[test]
+    #[ignore = "needs TL_LISTENERD_URL, a running tradelayer-listenerd on a demo store"]
+    fn real_listenerd_serves_fe_speeds_routes_through_the_tlapi_bridge() {
+        let url = std::env::var("TL_LISTENERD_URL").expect("TL_LISTENERD_URL");
+        let who = std::env::var("TL_LISTENERD_ADDRESS").unwrap_or_else(|_| "DemoAlice".into());
+        let mut svc = service(ListenerClient::new(&url).unwrap());
+        svc.set_tl_rpc_via_listener(true);
+        let mut answered = 0usize;
+        let mut call = |svc: &mut WalletService, method: &str, path: &str, body: &str| {
+            answered += 1;
+            via_bridge(svc, method, path, body)
+        };
+
+        // readiness and heights
+        let (s, b) = call(&mut svc, "POST", "/tl/init", "{}");
+        assert_eq!(
+            (s, b),
+            (200, json!({"message": "TL Main initialized successfully"}))
+        );
+        let (s, b) = call(&mut svc, "POST", "/tlraw/tl_initmain", r#"{"wallet":true}"#);
+        assert_eq!((s, b["initialized"].clone()), (200, json!(true)));
+        let (s, b) = call(&mut svc, "POST", "/tlraw/tl_getSyncStatus", "{}");
+        assert_eq!(
+            (
+                s,
+                b["source"].clone(),
+                b["initialized"].clone(),
+                b["synced"].clone()
+            ),
+            (200, json!("listenerd"), json!(true), Value::Null)
+        );
+        let (s, b) = call(&mut svc, "POST", "/tlraw/tl_checkSync", "{}");
+        assert_eq!((s, b["available"].clone()), (200, json!(false)));
+        let (s, b) = call(&mut svc, "POST", "/tl/getMaxProcessedHeight", "{}");
+        assert_eq!(s, 200);
+        let height = b["maxProcessedHeight"].as_u64().expect("a height");
+        assert!(height > 0, "{b}");
+        let (s, b) = call(&mut svc, "POST", "/tlraw/tl_getTrackHeight", "{}");
+        assert_eq!((s, b["trackHeight"].as_u64()), (200, Some(height)));
+        let (s, _) = call(&mut svc, "POST", "/tl/getMaxParsedHeight", "{}");
+        assert_eq!(s, 200);
+        let (s, b) = call(&mut svc, "GET", "/api/tradelayer/sync-status", "");
+        assert_eq!(s, 200);
+        assert_eq!(b["data"]["listenerReachable"], json!(true), "{b}");
+
+        // balances: FE-speed's number fields, derived from the daemon's atoms
+        let body = format!(r#"{{"params":["{who}"]}}"#);
+        let (s, b) = call(&mut svc, "POST", "/tl/getAllBalancesForAddress", &body);
+        assert_eq!(s, 200);
+        let rows = b.as_array().expect("rows");
+        assert!(rows.len() >= 2, "{b}");
+        let row = &rows[0];
+        let (amount, available, margin) = (
+            row["amount"].as_f64().expect("amount is a number"),
+            row["available"].as_f64().expect("available is a number"),
+            row["margin"].as_f64().expect("margin is a number"),
+        );
+        assert!(
+            amount > 0.0 && available > 0.0 && available < amount,
+            "{row}"
+        );
+        assert!((amount - available - margin).abs() < 1e-6, "{row}");
+        assert_eq!(row["propertyId"], json!(7));
+        let (s, b) = call(
+            &mut svc,
+            "POST",
+            "/tlraw/tl_getAllBalancesForAddress",
+            r#"{"params":"Nobody"}"#,
+        );
+        assert_eq!(s, 200);
+        assert_eq!(b[0]["amount"], json!(0.0));
+
+        // properties
+        let (s, b) = call(&mut svc, "POST", "/tl/listProperties", "{}");
+        assert_eq!(s, 200);
+        assert!(b
+            .as_array()
+            .is_some_and(|a| a.len() >= 2 && a.iter().all(|p| p["id"] == p["propertyId"])));
+        let (s, b) = call(&mut svc, "POST", "/tl/getProperty", r#"{"params":[9]}"#);
+        assert_eq!((s, b["id"].clone()), (200, json!(9)));
+        // rpc-call of a lower-case tl_* method sends `params:[7]`, answered verbatim
+        let (s, b) = call(
+            &mut svc,
+            "POST",
+            "/api/rpc-call",
+            r#"{"method":"tl_getproperty","params":[7]}"#,
+        );
+        assert_eq!((s, b["propertyId"].clone()), (200, json!(7)), "{b}");
+        let (s, b) = call(
+            &mut svc,
+            "POST",
+            "/tlraw/tl_getProperty",
+            r#"{"params":99}"#,
+        );
+        assert_eq!((s, b), (404, json!({"error": "not_found"})));
+
+        // channels, attestations, positions
+        let (s, b) = call(&mut svc, "POST", "/tl/getChannel", &body);
+        assert_eq!(
+            (s, b["channel"].clone()),
+            (200, Value::Null),
+            "unknown channel"
+        );
+        let (s, b) = call(
+            &mut svc,
+            "POST",
+            "/tl/getAttestations",
+            &format!(r#"{{"params":["{who}",0]}}"#),
+        );
+        assert_eq!((s, b), (200, json!([])));
+        let (s, b) = call(
+            &mut svc,
+            "POST",
+            "/tl/contractPosition",
+            &format!(r#"{{"params":{{"address":"{who}","contractId":1}}}}"#),
+        );
+        assert_eq!(s, 200, "{b}");
+        assert!(
+            b["contracts"].is_number() && b["avgPrice"].is_number() && b["margin"].is_number(),
+            "{b}"
+        );
+        let (s, b) = call(
+            &mut svc,
+            "GET",
+            &format!("/tlraw/tl_contractPosition?address={who}&contractId=1"),
+            "",
+        );
+        assert_eq!((s, b["contracts"].clone()), (200, json!(2.0)));
+        let (s, b) = call(
+            &mut svc,
+            "GET",
+            "/tlraw/tl_getInitMargin?contractId=1&price=100000",
+            "",
+        );
+        assert_eq!((s, b), (200, json!("10000")));
+        let (s, b) = call(
+            &mut svc,
+            "GET",
+            &format!("/tlraw/tl_channelBalanceForCommiter?address={who}&propertyId=7"),
+            "",
+        );
+        assert_eq!((s, b["channelAtoms"].clone()), (200, json!("0")));
+        // the UI's direct column call names the buyer; the daemon reads newCommitAddress
+        let (s, b) = call(
+            &mut svc,
+            "POST",
+            "/tlraw/tl_getChannelColumn",
+            r#"{"channelAddress":"c","buyerAddress":"b","cpAddress":"p"}"#,
+        );
+        assert_eq!(
+            (s, b["capability"].clone()),
+            (503, json!("channel_lifecycle_view"))
+        );
+
+        // typed unavailable answers reach the page as they are
+        for (method, path, capability) in [
+            (
+                "POST",
+                "/tlraw/tl_listContractSeries",
+                "accepted_contract_catalog",
+            ),
+            (
+                "GET",
+                "/tlraw/tl_getContractInfo?contractId=1",
+                "accepted_contract_definition",
+            ),
+            (
+                "GET",
+                "/tlraw/tl_tokenTradeHistoryForAddress?propertyId1=7&propertyId2=9&address=x",
+                "spot_fill_owner_history",
+            ),
+            (
+                "GET",
+                "/tlraw/tl_contractTradeHistory?contractId=1",
+                "contract_owner_history",
+            ),
+            (
+                "GET",
+                "/tlraw/tl_fundingHistory?contractId=1",
+                "funding_history",
+            ),
+            (
+                "GET",
+                "/tlraw/tl_oracleHistory?contractId=1",
+                "retained_oracle_observations",
+            ),
+            ("POST", "/tlraw/tl_loadWallet", "wallet_rpc"),
+            ("POST", "/tlraw/tl_getStateSnapshot", "state_snapshot"),
+            ("POST", "/tlraw/tl_watchonly_register", "watchonly_index"),
+            ("POST", "/tlraw/tl_watchonly_utxos", "watchonly_index"),
+        ] {
+            let body = if method == "POST" { "{}" } else { "" };
+            let (s, b) = call(&mut svc, method, path, body);
+            assert_eq!(
+                (s, b["error"].clone(), b["capability"].clone()),
+                (503, json!("unavailable"), json!(capability)),
+                "{path}"
+            );
+        }
+        // through /tl/* a non-2xx is FE-speed's own error reply
+        let (s, _) = call(&mut svc, "POST", "/tl/loadWallet", "{}");
+        assert_eq!(s, 500);
+        // a request the daemon rejects stays its 400
+        let (s, b) = call(
+            &mut svc,
+            "POST",
+            "/tlraw/tl_getTransaction",
+            r#"{"txid":"00"}"#,
+        );
+        assert_eq!((s, b["error"].clone()), (400, json!("invalid_request")));
+
+        assert!(answered >= 30, "{answered}");
     }
 }

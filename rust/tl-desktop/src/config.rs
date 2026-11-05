@@ -24,8 +24,12 @@
 //! `tl_engine` (`"http"` or `"tradelayer-rust"`), `tl_engine_url` (plain-http loopback origin of
 //! `tradelayer-rpcd`, default `http://127.0.0.1:7360`), `tl_engine_cmd` (absolute path of the rpcd
 //! binary to start and stop with the app; absent: never started) and `tl_engine_args`.
+//! `tl_engine = "tradelayer-listenerd"` keeps the HTTP listener at `tl_listener_url` (an `http` loopback IP
+//! literal) and, with a `tl_listenerd` object (`cmd`, `root`, `expected_head`, `config`, `stop_file`,
+//! optional `timeout_ms` and `stop_grace_ms`), starts `tradelayer-listenerd` with the app and stops it
+//! through its stop file.
 
-use crate::engine::{self, EngineSettings, RawEngine};
+use crate::engine::{self, EngineSettings, RawEngine, RawListenerd};
 use crate::legacy::fespeed::{normalize_listener_url, DEFAULT_LISTENER_URL};
 use crate::obrelay::{normalize_origin, DEFAULT_ORDERBOOK_URLS, MAX_ORDERBOOK_URLS};
 use serde::Deserialize;
@@ -68,6 +72,8 @@ struct RawConfig {
     tl_engine_cmd: Option<PathBuf>,
     #[serde(default)]
     tl_engine_args: Option<Vec<String>>,
+    #[serde(default)]
+    tl_listenerd: Option<RawListenerd>,
 }
 
 pub struct DesktopConfig {
@@ -160,6 +166,8 @@ struct LegacyRaw {
     tl_engine_cmd: Option<PathBuf>,
     #[serde(default)]
     tl_engine_args: Option<Vec<String>>,
+    #[serde(default)]
+    tl_listenerd: Option<RawListenerd>,
 }
 
 const MAX_RELAYER_HOSTS: usize = 16;
@@ -246,13 +254,14 @@ fn validate_legacy_full(input: LegacyInput) -> Result<LegacySettings, String> {
             normalize_listener_url(&u).map_err(|e| format!("config: tl_listener_url {u:?}: {e}"))?
         }
     };
+    let engine = engine::validate_with_listener(engine, &tl_listener_url)?;
     Ok(LegacySettings {
         node_data_dir,
         relayer_hosts: hosts,
         orderbook_urls,
         tl_listener_url,
         tl_rpc_via_listener: tl_rpc_via_listener.unwrap_or(true),
-        engine: engine::validate(engine)?,
+        engine,
     })
 }
 
@@ -274,6 +283,7 @@ pub fn load_legacy(path: &Path) -> Result<LegacySettings, String> {
             url: raw.tl_engine_url,
             cmd: raw.tl_engine_cmd,
             args: raw.tl_engine_args,
+            listenerd: raw.tl_listenerd,
         },
     })
 }
@@ -314,6 +324,7 @@ pub fn parse(text: &str, default_data_dir: &Path) -> Result<DesktopConfig, Strin
             url: raw.tl_engine_url,
             cmd: raw.tl_engine_cmd,
             args: raw.tl_engine_args,
+            listenerd: raw.tl_listenerd,
         },
     })?;
     let idle_minutes = raw.idle_lock_minutes.unwrap_or(10);
