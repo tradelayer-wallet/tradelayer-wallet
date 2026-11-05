@@ -9,6 +9,8 @@
 //   LITECOIN_BIN  bin dir of Litecoin Core (required for --chain ltc)
 //   TL_CARGO      command that runs cargo with the build environment (default `cargo`); it receives
 //                 `test --locked -- --ignored --nocapture <test>` and runs in rust/tl-desktop
+// `--chain ltc` needs a Litecoin Core built with descriptor wallets (sqlite); the official 0.21.5.8
+// Windows and Linux releases are not (createwallet answers "Descriptor wallets not supported").
 // Only the node this script spawns is stopped (by its PID); no other process or datadir is touched.
 import { spawn, execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, existsSync } from "node:fs";

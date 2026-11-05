@@ -99,7 +99,8 @@ Angular UI does not call them yet.
   (`BITCOIN_BIN` / `LITECOIN_BIN`), creates two descriptor wallets and runs the ignored cargo test
   `nodewallet::regtest_tests` (`TL_CARGO` names the cargo wrapper): both wallets sign a 2-of-2
   channel spend through `tln1:` handles, the spend is broadcast and mined. It stops the node it
-  started by PID and deletes the datadir.
+  started by PID and deletes the datadir. `--chain ltc` needs a Litecoin Core with descriptor
+  wallets; the official 0.21.5.8 releases are built without them.
 
 ## Configuration
 
