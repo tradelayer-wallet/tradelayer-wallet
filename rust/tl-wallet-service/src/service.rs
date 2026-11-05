@@ -280,6 +280,24 @@ fn check_hex(s: &str, max: usize) -> bool {
         && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
+/// A payload as FE-speed's wallet-server takes it: printable ASCII text (`tl4...`), written to the
+/// OP_RETURN output as its UTF-8 bytes.
+fn check_text_payload(s: &str) -> Result<(), String> {
+    if !s.is_empty() && s.len() <= 4096 && s.bytes().all(|b| (0x20..0x7f).contains(&b)) {
+        Ok(())
+    } else {
+        Err("payload must be printable ASCII text".into())
+    }
+}
+
+fn hex_of(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes.iter().fold(String::new(), |mut s, b| {
+        let _ = write!(s, "{b:02x}");
+        s
+    })
+}
+
 fn check_address(a: &str) -> Result<(), String> {
     if !a.is_empty() && a.len() <= 100 && a.bytes().all(|b| b.is_ascii_alphanumeric()) {
         Ok(())
@@ -550,6 +568,10 @@ impl WalletService {
     }
 
     fn min_vout_amount(&mut self, to: &str, api: bool) -> Result<Amount, String> {
+        if self.tl_rpc_via_listener {
+            // FE-speed's wallet-server returns 0.0000546 without asking the node (`getMinVoutAmount`)
+            return Amount::from_coin_f64(0.0000546).map_err(|e| e.to_string());
+        }
         let raw = self.smart_rpc("tl_createrawtx_reference", &[json!(""), json!(to)], api)?;
         let raw = raw
             .as_str()
@@ -569,12 +591,18 @@ impl WalletService {
         Ok(a)
     }
 
-    fn list_unspent(&mut self, addr: &str, pubkey: Option<&str>) -> Result<Vec<Utxo>, String> {
-        // Always through the relayer API, as in the legacy builder.
+    fn list_unspent(
+        &mut self,
+        addr: &str,
+        pubkey: Option<&str>,
+        api: bool,
+    ) -> Result<Vec<Utxo>, String> {
+        // The legacy builder always asks the relayer API; FE-speed's asks the local node unless the
+        // request says API mode (`api` is that choice, made by the caller).
         let r = self.smart_rpc(
             "listunspent",
             &[json!(0), json!(999_999_999), json!([addr])],
-            true,
+            api,
         )?;
         let arr = r.as_array().ok_or("listunspent: no data")?;
         if arr.len() > 10_000 {
@@ -606,6 +634,38 @@ impl WalletService {
         let r = self.smart_rpc(
             "createrawtransaction",
             &[Value::Array(ins), Value::Object(o)],
+            api,
+        )?;
+        r.as_str()
+            .map(str::to_string)
+            .ok_or_else(|| "createrawtransaction: no data".into())
+    }
+
+    /// FE-speed's `createRawTransactionWithOptionalPayload`: one `createrawtransaction` call whose
+    /// outputs are the address outputs in order followed by `{"data": <hex of the text payload>}`.
+    fn create_raw_with_data(
+        &mut self,
+        inputs: &[Utxo],
+        outs: &[(String, Amount)],
+        text: &str,
+        api: bool,
+    ) -> Result<String, String> {
+        let ins: Vec<Value> = inputs
+            .iter()
+            .map(|u| json!({ "txid": u.txid, "vout": u.vout }))
+            .collect();
+        let mut o: Vec<Value> = outs
+            .iter()
+            .map(|(a, v)| {
+                let mut m = Map::new();
+                m.insert(a.clone(), v.to_json_number());
+                Value::Object(m)
+            })
+            .collect();
+        o.push(json!({ "data": hex_of(text.as_bytes()) }));
+        let r = self.smart_rpc(
+            "createrawtransaction",
+            &[Value::Array(ins), Value::Array(o)],
             api,
         )?;
         r.as_str()
@@ -655,7 +715,9 @@ impl WalletService {
             .and_then(Value::as_str)
             .filter(|p| !p.is_empty());
         if let Some(p) = payload {
-            if !check_hex(p, 8192) {
+            if self.tl_rpc_via_listener {
+                check_text_payload(p)?;
+            } else if !check_hex(p, 8192) {
                 return Err("payload must be hex".into());
             }
         }
@@ -666,7 +728,8 @@ impl WalletService {
 
         self.validate_address(&from, api)?;
         self.validate_address(&to, api)?;
-        let wallet = self.list_unspent(&from, from_pub.as_deref())?;
+        let wallet =
+            self.list_unspent(&from, from_pub.as_deref(), api || !self.tl_rpc_via_listener)?;
         let min_out = self.min_vout_amount(&to, api)?;
         let plan = plan_payment(&PaymentRequest {
             amount,
@@ -678,10 +741,16 @@ impl WalletService {
         .map_err(|e| e.to_string())?;
         let outs = merged_outputs(&[(to.clone(), plan.to_amount), (from.clone(), plan.change)])
             .map_err(|e| e.to_string())?;
-        let mut raw = self.create_raw(&plan.inputs, &outs, api)?;
-        if let Some(p) = payload {
-            raw = self.add_payload(&raw, p, api)?;
-        }
+        let raw = match payload {
+            Some(p) if self.tl_rpc_via_listener => {
+                self.create_raw_with_data(&plan.inputs, &outs, p, api)?
+            }
+            Some(p) => {
+                let raw = self.create_raw(&plan.inputs, &outs, api)?;
+                self.add_payload(&raw, p, api)?
+            }
+            None => self.create_raw(&plan.inputs, &outs, api)?,
+        };
         let mut data = Map::new();
         data.insert("rawtx".into(), json!(raw));
         data.insert(
@@ -719,7 +788,9 @@ impl WalletService {
         )
         .map_err(|e| format!("amount: {e}"))?;
         let payload = req_str(b, "payload")?;
-        if !check_hex(payload, 8192) {
+        if self.tl_rpc_via_listener {
+            check_text_payload(payload)?;
+        } else if !check_hex(payload, 8192) {
             return Err("payload must be hex".into());
         }
         let commit = parse_utxos(b.get("commitUTXOs"))?;
@@ -728,7 +799,7 @@ impl WalletService {
 
         self.validate_address(&buyer, api)?;
         self.validate_address(&seller, api)?;
-        let wallet = self.list_unspent(&buyer, buyer_pub.as_deref())?;
+        let wallet = self.list_unspent(&buyer, buyer_pub.as_deref(), !self.tl_rpc_via_listener)?;
         let min_out = self.min_vout_amount(&seller, api)?;
         let plan = plan_instant_trade(&InstantTradeRequest {
             amount,
@@ -742,8 +813,12 @@ impl WalletService {
             (seller.clone(), plan.seller_amount),
         ])
         .map_err(|e| e.to_string())?;
-        let raw = self.create_raw(&plan.inputs, &outs, api)?;
-        let raw = self.add_payload(&raw, payload, api)?;
+        let raw = if self.tl_rpc_via_listener {
+            self.create_raw_with_data(&plan.inputs, &outs, payload, api)?
+        } else {
+            let raw = self.create_raw(&plan.inputs, &outs, api)?;
+            self.add_payload(&raw, payload, api)?
+        };
         let psbt = build_psbt(&raw, &plan.inputs).map_err(|e| format!("buildPsbt: {e}"))?;
         Ok(ok(json!({
             "rawtx": raw,

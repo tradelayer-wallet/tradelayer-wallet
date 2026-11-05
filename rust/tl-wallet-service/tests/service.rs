@@ -927,3 +927,173 @@ fn sign_routes_hand_handles_to_the_backend_only_after_the_guards() {
     assert!(f.signer.0.borrow().signed_tx.is_empty());
     assert!(f.signer.0.borrow().signed_psbt.is_empty());
 }
+
+// ---------------- build-tx / build-ltcit-tx the way FE-speed's wallet-server does ----------------
+//
+// With `set_tl_rpc_via_listener(true)` (FE-speed semantics) the payload is printable ASCII text that
+// goes into the OP_RETURN output as UTF-8 inside one `createrawtransaction` call, the dust minimum is
+// 0.0000546 without asking the node, and `listunspent` asks the local node, not a relayer. A plain
+// Bitcoin Core node needs no `tl_createrawtx_*` methods then.
+
+const COMMIT_TEXT: &str = "tl4,5f5e100,ref:0";
+
+fn fespeed_fixture() -> Fx {
+    let mut f = fixture();
+    f.svc.set_tl_rpc_via_listener(true);
+    start_node(&mut f);
+    for rpc in [&f.node, &f.relayer] {
+        rpc.script("validateaddress", json!({"isvalid": true}));
+        rpc.script("listunspent", wallet_utxos());
+        rpc.script("createrawtransaction", json!("0100raw"));
+    }
+    f
+}
+
+fn created_raw(f: &Fx) -> Vec<Value> {
+    f.node
+        .0
+        .borrow()
+        .calls
+        .iter()
+        .filter(|(m, _)| m == "createrawtransaction")
+        .map(|(_, p)| Value::Array(p.clone()))
+        .collect()
+}
+
+#[test]
+fn fespeed_build_tx_writes_the_text_payload_as_a_data_output_on_a_plain_node() {
+    let mut f = fespeed_fixture();
+    let r = call(
+        &mut f,
+        "/api/build-tx",
+        json!({
+            "fromKeyPair": {"address": FROM},
+            "toKeyPair": {"address": TO},
+            "payload": COMMIT_TEXT,
+            "network": "LTCTEST",
+        }),
+    );
+    assert_eq!(r.status, 200, "{:?}", r.body);
+    assert_eq!(r.body["data"]["rawtx"], "0100raw");
+    let calls = created_raw(&f);
+    assert_eq!(calls.len(), 1, "one createrawtransaction call");
+    let outs = calls[0][1]
+        .as_array()
+        .expect("outputs are an array with the data entry last");
+    // address outputs in order, then the data output carrying the UTF-8 bytes of the text
+    assert_eq!(
+        outs.last().unwrap(),
+        &json!({"data": "746c342c356635653130302c7265663a30"})
+    );
+    assert_eq!(
+        outs[0][TO].as_f64().unwrap(),
+        0.0000546,
+        "the dust minimum is FE-speed's constant"
+    );
+    assert!(outs[1][FROM].as_f64().unwrap() > 0.49);
+    // nothing asked a TradeLayer node, and the coins came from the local node, not a relayer
+    assert_eq!(f.node.calls_of("tl_createrawtx_reference"), 0);
+    assert_eq!(f.node.calls_of("tl_createrawtx_opreturn"), 0);
+    assert_eq!(f.node.calls_of("listunspent"), 1);
+    assert_eq!(f.relayer.calls_of("listunspent"), 0);
+    assert_eq!(f.relayer.total_calls(), 0);
+}
+
+#[test]
+fn fespeed_build_tx_without_payload_uses_the_object_form_and_the_constant_minimum() {
+    let mut f = fespeed_fixture();
+    let r = call(
+        &mut f,
+        "/api/build-tx",
+        json!({"fromKeyPair": {"address": FROM}, "toKeyPair": {"address": TO}, "amount": 0.1, "network": "LTCTEST"}),
+    );
+    assert_eq!(r.status, 200, "{:?}", r.body);
+    assert!(created_raw(&f)[0][1].is_object());
+    assert_eq!(f.node.calls_of("tl_createrawtx_reference"), 0);
+    // the 0.0000546 minimum applies without a payload as well
+    let r = call(
+        &mut f,
+        "/api/build-tx",
+        json!({"fromKeyPair": {"address": FROM}, "toKeyPair": {"address": TO}, "amount": 0.00001, "network": "LTCTEST"}),
+    );
+    assert_eq!(r.status, 500);
+    assert!(
+        r.body["error"]
+            .as_str()
+            .unwrap()
+            .starts_with("Minimum amount is"),
+        "{:?}",
+        r.body
+    );
+}
+
+#[test]
+fn fespeed_payload_must_be_printable_ascii_and_legacy_payload_must_stay_hex() {
+    let mut f = fespeed_fixture();
+    for bad in ["tl4\n", "tl4\u{e9}", "tl4\u{7f}"] {
+        let r = call(
+            &mut f,
+            "/api/build-tx",
+            json!({"fromKeyPair": {"address": FROM}, "toKeyPair": {"address": TO}, "payload": bad, "network": "LTCTEST"}),
+        );
+        assert_eq!(r.status, 500, "{bad:?}: {:?}", r.body);
+        assert_eq!(r.body["error"], "payload must be printable ASCII text");
+    }
+    let r = call(
+        &mut f,
+        "/api/build-tx",
+        json!({"fromKeyPair": {"address": FROM}, "toKeyPair": {"address": TO}, "payload": COMMIT_TEXT, "network": "LTCTEST"}),
+    );
+    assert_eq!(r.status, 200);
+    // the 2024 builder (flag off) still refuses text
+    let mut g = fixture();
+    start_node(&mut g);
+    script_chain(&mut g, wallet_utxos());
+    let r = call(
+        &mut g,
+        "/api/build-tx",
+        json!({"fromKeyPair": {"address": FROM}, "toKeyPair": {"address": TO}, "payload": COMMIT_TEXT, "network": "LTCTEST"}),
+    );
+    assert_eq!(
+        (r.status, r.body["error"].as_str()),
+        (500, Some("payload must be hex"))
+    );
+}
+
+#[test]
+fn fespeed_build_ltcit_tx_keeps_the_commit_utxo_first_and_the_text_payload_last() {
+    let mut f = fespeed_fixture();
+    let commit = json!({"txid": txid(9), "vout": 0, "amount": 0.000036, "confirmations": 0, "scriptPubKey": "a914cc", "redeemScript": "52ae"});
+    let r = call(
+        &mut f,
+        "/api/build-ltcit-tx",
+        json!({
+            "buyerKeyPair": {"address": FROM, "pubkey": G},
+            "sellerKeyPair": {"address": TO},
+            "payload": "tlk1,5,5f5e100,2faf080,1,2s,0",
+            "amount": 0,
+            "commitUTXOs": [commit],
+            "network": "LTCTEST",
+        }),
+    );
+    // the fake raw tx cannot become a PSBT, which is reported
+    assert_eq!(r.status, 500);
+    assert!(
+        r.body["error"].as_str().unwrap().starts_with("buildPsbt"),
+        "{:?}",
+        r.body
+    );
+    let calls = created_raw(&f);
+    assert_eq!(calls[0][0][0]["txid"], txid(9));
+    assert_eq!(calls[0][0][1]["txid"], txid(1));
+    let outs = calls[0][1].as_array().unwrap();
+    assert!(outs[0][FROM].as_f64().is_some(), "buyer change first");
+    assert_eq!(outs[1][TO].as_f64().unwrap(), 0.0000546);
+    assert!(outs[2]["data"]
+        .as_str()
+        .unwrap()
+        .starts_with("746c6b312c35"));
+    assert_eq!(f.node.calls_of("tl_createrawtx_opreturn"), 0);
+    assert_eq!(f.node.calls_of("listunspent"), 1);
+    assert_eq!(f.relayer.total_calls(), 0);
+}
