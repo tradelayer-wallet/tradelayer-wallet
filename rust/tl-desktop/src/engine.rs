@@ -322,11 +322,13 @@ fn absolute_opt(object: &str, name: &str, p: &Option<PathBuf>) -> Result<Option<
 /// literal IP because the daemon and the node accept nothing else.
 fn sidecar_bind(object: &str, listener_url: &str) -> Result<String, String> {
     let host = bind_authority(listener_url).map_err(|e| format!("config: tl_listener_url: {e}"))?;
-    let literal_ip = host
+    // The daemons refuse a non-loopback bind themselves; say so here, before anything starts.
+    let loopback_ip = host
         .rsplit_once(':')
         .map(|(h, _)| h.trim_start_matches('[').trim_end_matches(']'))
-        .is_some_and(|h| h.parse::<std::net::IpAddr>().is_ok());
-    if !listener_url.starts_with("http://") || !literal_ip {
+        .and_then(|h| h.parse::<std::net::IpAddr>().ok())
+        .is_some_and(|ip| ip.is_loopback());
+    if !listener_url.starts_with("http://") || !loopback_ip {
         return Err(format!(
             "config: {object} needs tl_listener_url to be http with a loopback IP literal (http://127.0.0.1:3000)"
         ));
@@ -1456,6 +1458,8 @@ mod tests {
             ),
             ("hostname bind", ok.clone(), "http://localhost:3000"),
             ("https bind", ok.clone(), "https://127.0.0.1:3000"),
+            ("non-loopback bind", ok.clone(), "http://10.0.0.5:3000"),
+            ("unspecified bind", ok.clone(), "http://0.0.0.0:3000"),
         ];
         for (what, l, u) in bad_cases {
             assert!(
@@ -1799,6 +1803,8 @@ mod tests {
             ),
             ("hostname bind", ok.clone(), "http://localhost:3000"),
             ("https bind", ok.clone(), "https://127.0.0.1:3000"),
+            ("non-loopback bind", ok.clone(), "http://10.0.0.5:3000"),
+            ("unspecified bind", ok.clone(), "http://0.0.0.0:3000"),
         ];
         for (what, n, u) in bad_cases {
             assert!(validate_with_listener(node_raw(n), u).is_err(), "{what}");
