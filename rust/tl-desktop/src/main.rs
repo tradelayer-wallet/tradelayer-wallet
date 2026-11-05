@@ -13,6 +13,7 @@
 
 mod config;
 mod engine;
+mod engine_sidecar;
 mod legacy;
 mod node;
 mod nodewallet;
@@ -299,6 +300,14 @@ fn main() {
             let data_dir = app.path().app_data_dir()?;
             let node_dir =
                 legacy::default_node_dir(&app.path().data_dir()?, &app.path().home_dir()?);
+            // the rpcd sidecar exists only when the config asks for one
+            let sidecar = match config::load_legacy(&config_path) {
+                Ok(s) => engine_sidecar::Sidecar::from_settings(&s.engine).transpose()?,
+                Err(_) => None,
+            };
+            app.manage(engine_sidecar::EngineProcess(std::sync::Mutex::new(
+                sidecar,
+            )));
             app.manage(legacy::start(config::load_legacy(&config_path), node_dir)?);
             app.manage(start_wallet_thread(config_path, data_dir)?);
             Ok(())
@@ -315,6 +324,13 @@ fn main() {
             confirm_send,
             cancel_send
         ])
-        .run(tauri::generate_context!())
-        .expect("tauri runtime failed to start");
+        .build(tauri::generate_context!())
+        .expect("tauri runtime failed to start")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                if let Some(p) = app.try_state::<engine_sidecar::EngineProcess>() {
+                    p.stop();
+                }
+            }
+        });
 }

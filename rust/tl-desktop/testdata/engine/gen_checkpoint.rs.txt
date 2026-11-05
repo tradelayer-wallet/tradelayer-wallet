@@ -1,0 +1,46 @@
+//! Writes the TLJP checkpoint fixture used by tl-desktop's ignored rpcd integration test.
+//! Same seeding as TradeLayer-Rust's tests/rpc_server.rs (finalized_state), with whole-unit
+//! amounts (1e8 atoms per unit) so the adapter's atoms-to-units reshaping is visible.
+use std::collections::BTreeSet;
+use tradelayer_core::joint::JointProtocolState;
+use tradelayer_core::ledger::{AccountId, Ledger, Operation, PropertyId, PropertyKind, TxId};
+use tradelayer_core::network_profile::TradeLayerMainnet;
+use tradelayer_core::registry::Registry;
+use tradelayer_core::spot::SpotExchange;
+
+fn p(n: u32) -> PropertyId {
+    PropertyId::try_from(n).unwrap()
+}
+fn a(s: &str) -> AccountId {
+    AccountId::try_from(s).unwrap()
+}
+fn tx(n: u64) -> TxId {
+    let mut b = [0_u8; 32];
+    b[24..].copy_from_slice(&n.to_be_bytes());
+    TxId::from_bytes(b)
+}
+
+fn main() {
+    let out = std::env::args().nth(1).expect("output path");
+    let mut ledger = Ledger::new();
+    let ops = [
+        Operation::CreateProperty { id: p(7), issuer: a("alice"), kind: PropertyKind::Fixed, initial_atoms: 100_000_000_000 },
+        Operation::CreateProperty { id: p(9), issuer: a("bob"), kind: PropertyKind::Managed, initial_atoms: 500_000_000 },
+        Operation::Transfer { id: p(7), from: a("alice"), to: a("carol"), amount_atoms: 25_000_000_000 },
+        Operation::Transfer { id: p(9), from: a("bob"), to: a("carol"), amount_atoms: 150_000_000 },
+    ];
+    for (i, op) in ops.into_iter().enumerate() {
+        ledger.apply(tx(i as u64 + 1), op).unwrap();
+    }
+    let permitted: BTreeSet<PropertyId> = [p(7), p(9)].into_iter().collect();
+    let mut spot = SpotExchange::from_ledger_unverified(ledger, permitted).unwrap();
+    spot.process_through_unverified(42).unwrap();
+    let state = JointProtocolState::migrate_spot_components_unverified(
+        TradeLayerMainnet::Litecoin,
+        Registry::new(a("admin")),
+        spot,
+        42,
+    )
+    .unwrap();
+    std::fs::write(&out, state.snapshot_bytes().unwrap()).unwrap();
+}

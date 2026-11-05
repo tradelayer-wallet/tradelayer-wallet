@@ -1513,4 +1513,119 @@ mod tests {
             "{raw}"
         );
     }
+
+    // ---- the real tradelayer-rpcd, end to end (ignored: needs the rpcd binary)
+
+    /// Starts the real `tradelayer-rpcd` as the sidecar on a fixture checkpoint and drives it
+    /// through the tlapi bridge. Run with
+    /// `TL_RPCD_BIN=<path to tradelayer-rpcd(.exe)> cargo test --locked -- --ignored real_rpcd`.
+    /// The checkpoint is `testdata/engine/rpcd_checkpoint.tljp` (generator recipe in
+    /// `docs/listener-map.md`): litecoin, admin `admin`, permitted 7 and 9, finalized height 42,
+    /// property 7 (alice, 1000 units) with carol holding 250, property 9 (bob) with carol 1.5.
+    #[test]
+    #[ignore = "needs TL_RPCD_BIN, the tradelayer-rpcd binary"]
+    fn real_rpcd_serves_fe_speeds_endpoints_through_the_tlapi_bridge() {
+        use crate::engine_sidecar::{Backoff, Sidecar, Spec};
+        let bin = std::env::var("TL_RPCD_BIN").expect("TL_RPCD_BIN");
+        let checkpoint = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/engine/rpcd_checkpoint.tljp"
+        );
+        let sidecar = Sidecar::start(
+            Spec {
+                cmd: PathBuf::from(bin),
+                args: [
+                    "--checkpoint",
+                    checkpoint,
+                    "--network",
+                    "litecoin",
+                    "--admin",
+                    "admin",
+                    "--permitted",
+                    "7,9",
+                    "--bind",
+                    "127.0.0.1:0",
+                ]
+                .map(String::from)
+                .to_vec(),
+                env: vec![],
+            },
+            Backoff::default(),
+        )
+        .unwrap();
+        let end = std::time::Instant::now() + Duration::from_secs(30);
+        let addr = loop {
+            let m = sidecar.status().last_message;
+            if let Some(a) = m
+                .rsplit("listening on ")
+                .next()
+                .filter(|_| m.contains("listening on "))
+            {
+                break a.trim().to_string();
+            }
+            assert!(std::time::Instant::now() < end, "rpcd did not start: {m:?}");
+            std::thread::sleep(Duration::from_millis(50));
+        };
+        let mut svc = service(RustEngineListener::new(&format!("http://{addr}")).unwrap());
+
+        let (s, b) = via_bridge(&mut svc, "POST", "/tl/init", "{}");
+        assert_eq!(
+            (s, b),
+            (200, json!({"message": "TL Main initialized successfully"}))
+        );
+        let (s, b) = via_bridge(&mut svc, "POST", "/tl/getMaxProcessedHeight", "{}");
+        assert_eq!((s, b), (200, json!({"maxProcessedHeight": 42})));
+        let (s, b) = via_bridge(&mut svc, "POST", "/tlraw/tl_getSyncStatus", "{}");
+        assert_eq!(
+            (s, b["consensus"].clone(), b["source"].clone()),
+            (200, json!(42), json!("checkpoint"))
+        );
+        let (s, b) = via_bridge(
+            &mut svc,
+            "POST",
+            "/tl/getAllBalancesForAddress",
+            r#"{"params":["carol"]}"#,
+        );
+        assert_eq!(s, 200);
+        assert_eq!(
+            (b[0]["propertyId"].clone(), b[0]["available"].clone()),
+            (json!(7), json!(250.0))
+        );
+        assert_eq!(
+            (b[1]["propertyId"].clone(), b[1]["available"].clone()),
+            (json!(9), json!(1.5))
+        );
+        let (s, b) = via_bridge(&mut svc, "POST", "/tl/listProperties", "{}");
+        assert_eq!(s, 200);
+        assert_eq!(b.as_array().map(Vec::len), Some(2));
+        assert_eq!(
+            (b[0]["issuer"].clone(), b[0]["totalSupply"].clone()),
+            (json!("alice"), json!(1000.0))
+        );
+        let (s, b) = via_bridge(&mut svc, "POST", "/tl/getProperty", r#"{"params":[9]}"#);
+        assert_eq!((s, b["kind"].clone()), (200, json!("managed")));
+        let (s, _) = via_bridge(&mut svc, "POST", "/tl/getProperty", r#"{"params":[8]}"#);
+        assert_eq!(
+            s, 500,
+            "unknown property: the 404 becomes FE-speed's Error: reply"
+        );
+        let (s, b) = via_bridge(&mut svc, "POST", "/tlraw/tl_getProperty", r#"{"params":8}"#);
+        assert_eq!((s, b), (404, json!({"error": "not_found"})));
+        let (s, b) = via_bridge(
+            &mut svc,
+            "POST",
+            "/tlraw/tl_getAllBalancesForAddress",
+            r#"{"params":"nobody"}"#,
+        );
+        assert_eq!((s, b), (200, json!([])));
+        let (s, b) = via_bridge(
+            &mut svc,
+            "POST",
+            "/tlraw/tl_getAttestations",
+            r#"{"address":"carol","id":0}"#,
+        );
+        assert_eq!((s, b["error"].clone()), (503, json!("unavailable")));
+        sidecar.stop();
+        assert!(!sidecar.status().running);
+    }
 }
