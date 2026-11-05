@@ -2,6 +2,9 @@ name: Rust supply chain
 on:
   pull_request:
     paths: ['rust/**', '.github/workflows/supply-chain.yml']
+  push:
+    branches: [master, feat/rust-port]
+    paths: ['rust/**', '.github/workflows/supply-chain.yml']
   schedule:
     # Weekly: new RustSec advisories can affect unchanged lockfiles.
     - cron: '17 4 * * 1'
@@ -22,12 +25,14 @@ jobs:
         run: |
           set -euo pipefail
           status=0
+          # cargo-audit takes the advisory ignores reviewed in rust/deny.toml (one list, with reasons)
+          ignores=$(grep -oE 'RUSTSEC-[0-9]{4}-[0-9]{4}' rust/deny.toml | sort -u | sed 's/^/--ignore /' | tr '\n' ' ')
           while IFS= read -r lock; do
             dir=$(dirname "$lock")
             echo "::group::$dir"
             cargo deny --manifest-path "$dir/Cargo.toml" --locked --config rust/deny.toml \
               check advisories bans licenses sources || status=1
-            cargo audit --deny unsound --deny yanked --file "$lock" || status=1
+            cargo audit --deny unsound --deny yanked $ignores --file "$lock" || status=1
             echo "::endgroup::"
           done < <(find rust -name Cargo.lock -not -path '*/target/*' | sort)
           exit $status

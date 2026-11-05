@@ -3,7 +3,7 @@ on:
   pull_request:
     paths: ['rust/tl-desktop-core/**', '.github/workflows/rust-tl-desktop-core.yml']
   push:
-    branches: [master]
+    branches: [master, feat/rust-port]
     paths: ['rust/tl-desktop-core/**', '.github/workflows/rust-tl-desktop-core.yml']
   workflow_dispatch:
 permissions:

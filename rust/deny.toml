@@ -9,7 +9,12 @@ version = 2
 yanked = "deny"
 unmaintained = "all"
 unsound = "all"
-ignore = []
+ignore = [
+  # Both come only from Tauri's Linux backend (webkit2gtk / gtk-rs). tl-desktop ships for Windows,
+  # where wry uses WebView2 and neither crate is compiled (cargo tree --target x86_64-pc-windows-msvc).
+  { id = "RUSTSEC-2024-0429", reason = "glib VariantStrIter unsoundness; glib is Linux-only here" },
+  { id = "RUSTSEC-2024-0370", reason = "proc-macro-error unmaintained; reached only via gtk3-macros (Linux)" },
+]
 
 [licenses]
 version = 2
@@ -19,6 +24,15 @@ allow = [
   "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.8
+# MPL-2.0 (file-level copyleft) only for these unmodified Tauri dependencies: Servo's CSS parser
+# stack via tauri-utils, and option-ext via dirs. Any change to their files would be MPL-2.0.
+exceptions = [
+  { crate = "cssparser", allow = ["MPL-2.0"] },
+  { crate = "cssparser-macros", allow = ["MPL-2.0"] },
+  { crate = "dtoa-short", allow = ["MPL-2.0"] },
+  { crate = "selectors", allow = ["MPL-2.0"] },
+  { crate = "option-ext", allow = ["MPL-2.0"] },
+]
 
 [licenses.private]
 # First-party crates are publish = false; their licence follows the repository.
@@ -34,3 +48,6 @@ unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
+# First-party crates from the same GitHub org, pinned by rev in Cargo.toml (TL-Extension tl-wallet-core,
+# tl-rpc tl-rpc-client).
+allow-org = { github = ["tradelayer-wallet"] }

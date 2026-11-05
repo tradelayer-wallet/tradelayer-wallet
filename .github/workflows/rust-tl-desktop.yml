@@ -3,7 +3,7 @@ on:
   pull_request:
     paths: ['rust/tl-desktop/**', 'rust/tl-desktop-core/**', 'rust/tl-wallet-service/**', 'packages/wallet-fe/**', '.github/workflows/rust-tl-desktop.yml']
   push:
-    branches: [master]
+    branches: [master, feat/rust-port]
     paths: ['rust/tl-desktop/**', 'rust/tl-desktop-core/**', 'rust/tl-wallet-service/**', 'packages/wallet-fe/**', '.github/workflows/rust-tl-desktop.yml']
   workflow_dispatch:
 permissions:
