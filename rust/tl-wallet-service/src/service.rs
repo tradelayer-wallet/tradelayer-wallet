@@ -650,9 +650,12 @@ impl WalletService {
         text: &str,
         api: bool,
     ) -> Result<String, String> {
+        // FE-speed's seller refuses a commit transaction that signals replaceability (an input
+        // sequence below 0xfffffffe), and Bitcoin Core 24+ marks createrawtransaction inputs
+        // replaceable unless told otherwise, so the payload transactions carry 0xfffffffe.
         let ins: Vec<Value> = inputs
             .iter()
-            .map(|u| json!({ "txid": u.txid, "vout": u.vout }))
+            .map(|u| json!({ "txid": u.txid, "vout": u.vout, "sequence": 0xffff_fffe_u32 }))
             .collect();
         let mut o: Vec<Value> = outs
             .iter()

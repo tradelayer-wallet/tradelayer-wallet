@@ -977,6 +977,12 @@ fn fespeed_build_tx_writes_the_text_payload_as_a_data_output_on_a_plain_node() {
     assert_eq!(r.body["data"]["rawtx"], "0100raw");
     let calls = created_raw(&f);
     assert_eq!(calls.len(), 1, "one createrawtransaction call");
+    // no input signals replaceability: FE-speed's seller aborts the trade on an RBF commit transaction
+    assert!(calls[0][0]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|i| i["sequence"] == json!(4294967294u32)));
     let outs = calls[0][1]
         .as_array()
         .expect("outputs are an array with the data entry last");
