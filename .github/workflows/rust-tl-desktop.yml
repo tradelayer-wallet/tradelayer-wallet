@@ -27,11 +27,22 @@ jobs:
           persist-credentials: false
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt --component clippy
+      - name: Install pinned Node.js (the UI build is verified on Node 24)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.19.0'
       - name: Build the FE-speed UI with the skin layer into dist-ui-fe-speed-skin (lifecycle scripts disabled)
         working-directory: rust/tl-desktop
         env:
           BITCORN_WISDOM_DIR: ${{ github.workspace }}/_bitcornwisdom
-        run: node scripts/build-ui.mjs --ref origin/FE-speed --name fe-speed --skin fe-speed-skin "${{ runner.temp }}/ui-build"
+        shell: bash
+        # Job logs need a GitHub sign-in; the tail of a failed build is also emitted as a (public) annotation.
+        run: |
+          set -o pipefail
+          node scripts/build-ui.mjs --ref origin/FE-speed --name fe-speed --skin fe-speed-skin "${{ runner.temp }}/ui-build" 2>&1 | tee "$RUNNER_TEMP/build-ui.log" || {
+            echo "::error title=build-ui failed::$(tail -n 40 "$RUNNER_TEMP/build-ui.log" | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')"
+            exit 1
+          }
       - name: Fetch pinned crates
         working-directory: rust/tl-desktop
         run: cargo fetch --locked
@@ -66,11 +77,22 @@ jobs:
           persist-credentials: false
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.90.0 --profile minimal
+      - name: Install pinned Node.js (the UI build is verified on Node 24)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.19.0'
       - name: Build the FE-speed UI with the skin layer into dist-ui-fe-speed-skin (lifecycle scripts disabled)
         working-directory: rust/tl-desktop
         env:
           BITCORN_WISDOM_DIR: ${{ github.workspace }}/_bitcornwisdom
-        run: node scripts/build-ui.mjs --ref origin/FE-speed --name fe-speed --skin fe-speed-skin "${{ runner.temp }}/ui-build"
+        shell: bash
+        # Job logs need a GitHub sign-in; the tail of a failed build is also emitted as a (public) annotation.
+        run: |
+          set -o pipefail
+          node scripts/build-ui.mjs --ref origin/FE-speed --name fe-speed --skin fe-speed-skin "${{ runner.temp }}/ui-build" 2>&1 | tee "$RUNNER_TEMP/build-ui.log" || {
+            echo "::error title=build-ui failed::$(tail -n 40 "$RUNNER_TEMP/build-ui.log" | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')"
+            exit 1
+          }
       - name: Install pinned tauri-cli
         run: cargo install tauri-cli --version 2.12.4 --locked
       - name: Build the NSIS installer
