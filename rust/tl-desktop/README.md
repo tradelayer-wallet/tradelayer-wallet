@@ -297,6 +297,69 @@ Two protocol points of the server and FE-speed that the relay does not paper ove
 * `close-order` is answered to the canceller only (no market broadcast), so other clients see the
   cancel at their next snapshot.
 
+## FE-speed two-party swap (2026-11-05)
+
+`scripts/e2e-swap-fe-speed.mjs <exe> <orderbook origin> <out dir>` drives two instances of the default
+build (FE-speed with the chrome skin) through a spot swap on two peered Bitcoin Core 31.1 regtest nodes
+with descriptor wallets and a local `tl-orderbook-server` (branch `auth`, BIP-322 login enforced):
+Select Network, Start Node, the Servers window connects the orderbook, Portfolio creates the spot
+address (`getnewaddress` in the `tl-wallet` node wallet the UI creates itself; the wallet-encryption
+prompt is cancelled), the miner funds both addresses (coinbase plus 101 blocks to a `raw(51)` burn
+script) and keeps running, the seller places a SELL and the buyer the matching BUY on TLt/USDTt
+(properties 1 and 5). It then checks the chain: both commit transactions (`tl4...`) pay the same sorted
+2-of-2 P2WSH channel multisig from the two traders' addresses, the trade transaction (`tlk...`) spends
+the channel output with two signatures from the two node wallets (`tln1:` handles, PSBT) and is mined,
+both UIs toast the completion, and no "Trade Error" or `TERMINATE_TRADE` appears, also after the
+swapper's 60 s timer (`SWAP_LATE_S`). Each trader gets its own `tl-listener-double.mjs` as
+`tl_listener_url`; the nodes need no TradeLayer methods because the FE-speed builder (see
+`tl_rpc_via_listener`) uses plain `createrawtransaction`.
+
+```bat
+:: build the exe: default UI, CSP with the local orderbook
+node scripts\skin-csp.mjs "<csp of tauri.conf.json>" --dist dist-ui-fe-speed-skin --connect http://127.0.0.1:3001 --connect ws://127.0.0.1:3001
+:: -> set TAURI_CONFIG to the printed JSON, then: cargo build --locked
+:: orderbook: tl-orderbook-server @ 8af3556, WSL node 24:  TL_OB_BIND=127.0.0.1 TL_OB_WSS_PORT=0 TL_OB_WS_PORT=3001 node dist/index.js
+node scripts\e2e-swap-fe-speed.mjs <exe> ws://127.0.0.1:3001 <out dir>
+node --test scripts\tl-listener-double.test.mjs
+```
+
+Run of 2026-11-05 (Windows 11, WebView2, Bitcoin Core 31.1 regtest, orderbook on `127.0.0.1:3017`):
+`E2E_SWAP_FE_SPEED_OK`, 54 checks passed, none failed. Seller commit `9322c933...` (block 107), buyer commit `50e03a0b...` and
+trade `2c6b6df9c41cfcdf7b2caccb2c99376b8d107318ab0d37b44ac190bb7581c65b` (block 108, witness
+`[4, 2]` items for the channel and the buyer's P2WPKH input); both UIs toasted "Trade Completed".
+
+What the run found and fixed on the wallet side:
+
+* `/api/compute-multisig` answered `tltc1...` for a regtest node (FE-speed selects Litecoin Testnet by
+  default); a connected regtest node now decides the prefix (`bcrt` for Bitcoin Core, `rltc` for Litecoin
+  Core). `nodewallet.rs` does the same for `tln1:` handle addresses.
+* FE-speed's builder sends text payloads and expects no TradeLayer node: with `tl_rpc_via_listener`
+  (now the default) the payload is one `createrawtransaction` data output, the dust minimum is the
+  constant 0.0000546 and `listunspent` asks the local node. Payload transactions carry sequence
+  `0xfffffffe` (FE-speed's seller aborts on an RBF commit; Core 24+ makes inputs replaceable).
+* `getblockcount` joined the `rpc-call` allowlist (the buyer's step 3 reads it).
+* Overlay rewrites (`ui-overlay/fe-speed/rewrites.json`): commit output lookup by
+  `scriptPubKey.address`, buyer settles its ready promise and checks the final broadcast, the 60 s
+  whole-trade timer is cleared when the promise settles.
+
+Open items in other components, not patched here:
+
+* Relay login (`authsign.rs`) parses the address with the UI's network label too, so on a regtest
+  node every login fails with `signing failed: address: InvalidAddress("base58check")`. The same
+  regtest override as in `nodewallet.rs::chain_network` fixes it; the run above used that change in a
+  scratch copy of `authsign.rs` only.
+* tl-orderbook-server `channel-swap.class.js` builds the client-to-dealer swap event with
+  `{...raw.data, tradeUUID}`: a string `data` (the buyer's `BUYER:STEP6` txid and a `TERMINATE_TRADE`
+  reason) reaches the seller as `{"0":"c","1":"c",...}` (toast "[object Object] Trade Completed").
+* The server's matched-trade `props` pair the amounts with the wrong property ids
+  (`manager_class.js` around line 754: `amountDesired = quantity * price`, `amountForSale = quantity`,
+  while `id_desired` is the base property), so the swappers commit 0.5 of the base and 1 of the quote for
+  an order of 1 at 0.5, and the trade payload reads `tlk5,1,...`: the buyer offers 1 USDT for 0.5 TL.
+* FE-speed's swapper (not patched): `buyer.ts` computes `utxoData` for its own commit and never uses
+  it; the constructor and `SwapService` both call `onReady()`; `seller.ts` step 2 has its `try` commented
+  out, so an error there is an unhandled rejection and not a `terminateTrade`; the completion sound
+  throws `NotAllowedError` without a user gesture.
+
 ## Orderbook login
 
 `tl-orderbook-server` (branch `auth`) refuses a `web` client's `new-order`, `many-orders`,

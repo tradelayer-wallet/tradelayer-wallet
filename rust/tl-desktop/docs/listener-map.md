@@ -178,3 +178,14 @@ whole-unit amounts): Litecoin, admin `admin`, permitted properties 7 and 9, fina
 property 7 issued by alice (1000 units) with carol holding 250, property 9 issued by bob (5 units,
 managed) with carol holding 1.5. Start rpcd on it with
 `--network litecoin --admin admin --permitted 7,9`.
+
+## Test double for the swap run
+
+`scripts/tl-listener-double.mjs` answers the endpoints above over plain HTTP for runs against a
+Bitcoin Core regtest node (see the README, "FE-speed two-party swap"). It is not TradeLayer consensus:
+it reads the `tl4...` (commit) and `tlk...` (channel trade) OP_RETURN strings FE-speed's encoder writes,
+keeps mined balances, channel balances (`channel` in `tl_getAllBalancesForAddress`) and token trade
+history from them, and derives channels and columns (first committer is `A`, mempool commits count)
+for `tl_getChannel`, `tl_getChannelColumn` and `tl_channelBalanceForCommiter`. Attestations answer
+`active` for every address, `tl_getInitMargin` a constant, positions are flat. Tests:
+`node --test scripts/tl-listener-double.test.mjs`.
