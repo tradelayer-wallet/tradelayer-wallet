@@ -127,9 +127,12 @@ relayer API (default none). `orderbook_urls` lists the exact orderbook origins t
 connect to (`ws://host:port` or `wss://host`, `http`/`https` spellings accepted as the same origin; at most 16; default
 FE-speed's `ENDPOINTS` orderbook, `ws://172.81.181.19:3001`; `[]` turns the relay off). `tl_listener_url` (default `http://127.0.0.1:3000`; an `http` or
 `https` loopback origin, nothing else) is the TradeLayer listener behind the FE-speed UI's `/tl/*` and
-`/tlraw/*` routes and the `tradelayer/sync-status` report. `tl_rpc_via_listener` (default `false`) makes
-`rpc-call` of `tl_*` methods answer as FE-speed's wallet-server does (seven local payload encoders, the rest
-through the listener); leave it off for the 2024 UI, which sends them to the node.
+`/tlraw/*` routes and the `tradelayer/sync-status` report. `tl_rpc_via_listener` (default `true`, the shipped
+UI is FE-speed) makes `rpc-call` of `tl_*` methods answer as FE-speed's wallet-server does (seven local payload
+encoders, the rest through the listener) and makes the transaction builder write FE-speed's text payloads
+(`tl4...`) as one `createrawtransaction` data output with the 0.0000546 dust minimum and the local node's
+`listunspent`, so a plain Bitcoin Core node works; set `false` for the 2024 UI, which sends `tl_*` to the node
+and builds hex payloads.
 
 ## Commands and results (2026-11-02/03, Windows 11, MSVC 14.44, Rust 1.90.0, Node 24.19)
 

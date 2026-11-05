@@ -17,7 +17,8 @@
 //! `tl_listener_url` (the TradeLayer listener the FE-speed UI's `/tl/*` and `/tlraw/*` routes
 //! reach: an `http`/`https` loopback origin, default `http://127.0.0.1:3000`) and
 //! `tl_rpc_via_listener` (`true` makes `rpc-call` answer `tl_*` methods the way FE-speed's
-//! wallet-server does; default `false`, which sends them to the node as the 2024 UI expects).
+//! wallet-server does and the transaction builder writes FE-speed text payloads; default `true`, the
+//! shipped UI is FE-speed; `false` sends `tl_*` to the node and builds hex payloads as the 2024 UI expects).
 //!
 //! Optional TradeLayer-Rust engine (`engine.rs`; the default is the HTTP listener above):
 //! `tl_engine` (`"http"` or `"tradelayer-rust"`), `tl_engine_url` (plain-http loopback origin of
@@ -131,7 +132,7 @@ impl Default for LegacySettings {
                 .map(|s| s.to_string())
                 .collect(),
             tl_listener_url: DEFAULT_LISTENER_URL.to_string(),
-            tl_rpc_via_listener: false,
+            tl_rpc_via_listener: true,
             engine: EngineSettings::default(),
         }
     }
@@ -250,7 +251,7 @@ fn validate_legacy_full(input: LegacyInput) -> Result<LegacySettings, String> {
         relayer_hosts: hosts,
         orderbook_urls,
         tl_listener_url,
-        tl_rpc_via_listener: tl_rpc_via_listener.unwrap_or(false),
+        tl_rpc_via_listener: tl_rpc_via_listener.unwrap_or(true),
         engine: engine::validate(engine)?,
     })
 }
@@ -457,15 +458,15 @@ mod tests {
     fn tl_listener_settings_default_normalize_and_reject_non_loopback_origins() {
         let d = validate_legacy(None, None, None).unwrap();
         assert_eq!(d.tl_listener_url, "http://127.0.0.1:3000");
-        assert!(!d.tl_rpc_via_listener);
+        assert!(d.tl_rpc_via_listener, "the default build runs FE-speed");
         let s = validate_legacy_full(LegacyInput {
             tl_listener_url: Some("HTTP://LocalHost:3001/".into()),
-            tl_rpc_via_listener: Some(true),
+            tl_rpc_via_listener: Some(false),
             ..LegacyInput::default()
         })
         .unwrap();
         assert_eq!(s.tl_listener_url, "http://localhost:3001");
-        assert!(s.tl_rpc_via_listener);
+        assert!(!s.tl_rpc_via_listener, "the 2024 UI turns it off");
         for bad in [
             "",
             "http://example.com:3000",
