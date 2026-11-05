@@ -95,6 +95,11 @@ Angular UI does not call them yet.
   overlay files (checked against a SHA-256 of the file they replace), count-checked rewrites.
 * `scripts/e2e-orderbook-relay.mjs`, `scripts/soak-fe-speed.mjs`: the relay and FE-speed runs
   described below; `scripts/soak-liveness.mjs` is the 2024 master UI's soak (legacy orderbook).
+* `scripts/regtest-multisig-descriptor.mjs [--chain btc|ltc]`: starts a throwaway regtest node
+  (`BITCOIN_BIN` / `LITECOIN_BIN`), creates two descriptor wallets and runs the ignored cargo test
+  `nodewallet::regtest_tests` (`TL_CARGO` names the cargo wrapper): both wallets sign a 2-of-2
+  channel spend through `tln1:` handles, the spend is broadcast and mined. It stops the node it
+  started by PID and deletes the datadir.
 
 ## Configuration
 

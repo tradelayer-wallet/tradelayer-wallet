@@ -1037,3 +1037,7 @@ mod scope_tests;
 #[cfg(test)]
 #[path = "nodewallet_descriptor_tests.rs"]
 mod descriptor_tests;
+
+#[cfg(test)]
+#[path = "nodewallet_regtest_tests.rs"]
+mod regtest_tests;
