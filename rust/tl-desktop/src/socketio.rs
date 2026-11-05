@@ -47,6 +47,7 @@
 //!   answering.
 
 use crate::legacy::ALLOWED_ORIGIN;
+use crate::obauth::AuthHub;
 use crate::obrelay::{self, Manager, ObCmd, ObEvent, ObPolicy};
 use serde_json::Value;
 use std::collections::VecDeque;
@@ -961,16 +962,29 @@ fn wall_ms() -> u64 {
 }
 
 /// Start the `socketio` thread with the default [`Liveness`].
+#[cfg(test)]
 pub fn start(source: Box<dyn NodeProbe>, cfg: Config, policy: ObPolicy) -> std::io::Result<Handle> {
     start_with(source, cfg, policy, Liveness::default())
 }
 
 /// Start the `socketio` thread.
+#[cfg(test)]
 pub fn start_with(
     source: Box<dyn NodeProbe>,
     cfg: Config,
     policy: ObPolicy,
     live: Liveness,
+) -> std::io::Result<Handle> {
+    start_with_auth(source, cfg, policy, live, None)
+}
+
+/// [`start_with`] with the orderbook login ([`crate::obauth`]) for the relay clients.
+pub fn start_with_auth(
+    source: Box<dyn NodeProbe>,
+    cfg: Config,
+    policy: ObPolicy,
+    live: Liveness,
+    auth: Option<Arc<AuthHub>>,
 ) -> std::io::Result<Handle> {
     let (tx, rx) = mpsc::sync_channel::<Cmd>(QUEUE_DEPTH);
     let probe_tx = tx.clone();
@@ -987,6 +1001,9 @@ pub fn start_with(
                     cap_ms: live.ob_backoff_cap_ms,
                 },
             );
+            if let Some(hub) = auth {
+                relay = relay.with_auth(hub);
+            }
             loop {
                 let now = elapsed_ms(start);
                 engine.observe_clock(now, wall_ms());

@@ -112,7 +112,7 @@ impl LocalKey {
         self.public.serialize().as_slice().to_lower_hex_string()
     }
 
-    pub(super) fn compressed(&self) -> CompressedPublicKey {
+    pub(crate) fn compressed(&self) -> CompressedPublicKey {
         CompressedPublicKey(self.public)
     }
 
@@ -121,7 +121,7 @@ impl LocalKey {
     }
 
     /// Deterministic RFC 6979 ECDSA without low-R grinding, what `tiny-secp256k1` produces.
-    pub(super) fn sign_digest(
+    pub(crate) fn sign_digest(
         &self,
         secp: &Secp256k1<All>,
         msg: &Message,
@@ -242,6 +242,21 @@ impl KeyTable {
         Ok(format!("{KEY_HANDLE_PREFIX}{id}"))
     }
 
+    /// The key whose address is `address` on `network`, for the orderbook login. Unlike
+    /// [`KeyTable::resolve`] this does not refresh the idle clock: a login renewed every few minutes
+    /// must not keep an unused key alive past [`IDLE_TTL`].
+    pub fn by_address(&self, address: &str, network: Network) -> Option<Rc<LocalKey>> {
+        let now = (self.now)();
+        self.entries
+            .values()
+            .find(|e| {
+                e.key.network() == network
+                    && e.key.address() == address
+                    && now.saturating_sub(e.last_used) < self.ttl
+            })
+            .map(|e| e.key.clone())
+    }
+
     /// The key behind `handle`, which must be for `network`. Resolving refreshes the idle clock.
     pub fn resolve(&mut self, handle: &str, network: Network) -> R<Rc<LocalKey>> {
         let id = handle
@@ -277,11 +292,22 @@ impl Default for KeyTable {
 pub struct HandleKeys {
     table: SharedKeys,
     secp: Rc<Secp256k1<All>>,
+    on_clear: Option<Box<dyn Fn()>>,
 }
 
 impl HandleKeys {
     pub fn new(table: SharedKeys, secp: Rc<Secp256k1<All>>) -> HandleKeys {
-        HandleKeys { table, secp }
+        HandleKeys {
+            table,
+            secp,
+            on_clear: None,
+        }
+    }
+
+    /// Call `hook` whenever the table is emptied (UI logout, lock, `stop-wallet-node`).
+    pub fn with_clear_hook(mut self, hook: Box<dyn Fn()>) -> HandleKeys {
+        self.on_clear = Some(hook);
+        self
     }
 }
 
@@ -319,6 +345,9 @@ impl KeyBackend for HandleKeys {
 
     fn clear(&mut self) {
         self.table.borrow_mut().clear();
+        if let Some(hook) = &self.on_clear {
+            hook();
+        }
     }
 }
 

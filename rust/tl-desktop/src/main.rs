@@ -11,12 +11,15 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod authsign;
+mod bip322;
 mod config;
 mod engine;
 mod engine_sidecar;
 mod legacy;
 mod node;
 mod nodewallet;
+mod obauth;
 mod obrelay;
 mod socketio;
 

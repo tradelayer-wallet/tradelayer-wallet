@@ -52,7 +52,7 @@ override of `frontendDist` to `dist-ui`. Its e2e scripts target the legacy socke
 |---|---|
 | Node `wallet-server` on `localhost:1986` (Fastify + socket.io, no authentication; see `rust/tl-wallet-service/README.md`) | No listening socket. The UI's `homeApiUrl` is `http://tlapi.localhost`, a Tauri custom URI scheme served in-process (`src/legacy.rs`) by `tl-wallet-service`, so only this webview can reach it. The bridge holds the session token itself. |
 | socket.io server for the main socket, `new-block`, `core-error` | `src/socketio.rs`: Engine.IO v4 long-polling + socket.io v5 on the same scheme; `new-block`/`core-error` from a 5 s `getblockchaininfo` probe through the same gate as page calls |
-| `ob-sockets.service.ts`: a raw WebSocket client (`ws`) to whatever orderbook URL the page names, relaying `OB_SOCKET::*` events, the order events and `<socketId>::swap` between the orderbook server (HyperExpress/uWebSockets, JSON text messages) and the UI's socket.io main socket | `src/obrelay.rs`: the same relay, a blocking `tungstenite` client (rustls for `wss://`) on its own threads, with the same message mapping (table in the module doc). Server→UI: the flat message `{event, ...}` becomes `OB_SOCKET::<event>` with the whole message for `connected` (the hello with the socket id), `order:error`, `order:saved`, `placed-orders`, `orderbook-data`, `update-orders-request`, `amended`, `auth_ok`, `auth_ignored`; `new-channel` and `<counterparty>::swap` are unwrapped from `msg.data`; open/close/failure become `OB_SOCKET::connect` (payload `{}`), `disconnect`, `connect_error`. UI→server: `update-orderbook`, `new-order`, `close-order`, `many-orders`, `orderbook:join`, `orderbook:leave`, `amend-order`, `auth` and `OB_SOCKET::new-channel` as flat `{event, ...payload}` (an `event` key in the payload never replaces the name); `<own id>::swap` as `{event, eventName, socketId, data}`. Only origins in `orderbook_urls` are contacted (legacy connected to any URL), the path must be `/` or `/ws`; event names outside these lists are dropped; messages and queues are bounded. The server's `desktop`/`bot` classes need an upgrade header the server does not read yet, so the relay is a `web` class client: reads work, mutations get the server's `order:error` ("Authentication required (web client)...") until the server's session flow exists |
+| `ob-sockets.service.ts`: a raw WebSocket client (`ws`) to whatever orderbook URL the page names, relaying `OB_SOCKET::*` events, the order events and `<socketId>::swap` between the orderbook server (HyperExpress/uWebSockets, JSON text messages) and the UI's socket.io main socket | `src/obrelay.rs`: the same relay, a blocking `tungstenite` client (rustls for `wss://`) on its own threads, with the same message mapping (table in the module doc). Server→UI: the flat message `{event, ...}` becomes `OB_SOCKET::<event>` with the whole message for `connected` (the hello with the socket id), `order:error`, `order:saved`, `placed-orders`, `orderbook-data`, `update-orders-request`, `amended`, `auth_ok`, `auth_ignored`; `new-channel` and `<counterparty>::swap` are unwrapped from `msg.data`; open/close/failure become `OB_SOCKET::connect` (payload `{}`), `disconnect`, `connect_error`. UI→server: `update-orderbook`, `new-order`, `close-order`, `many-orders`, `orderbook:join`, `orderbook:leave`, `amend-order`, `auth` and `OB_SOCKET::new-channel` as flat `{event, ...payload}` (an `event` key in the payload never replaces the name); `<own id>::swap` as `{event, eventName, socketId, data}`. Only origins in `orderbook_urls` are contacted (legacy connected to any URL), the path must be `/` or `/ws`; event names outside these lists are dropped; messages and queues are bounded. The relay is a `web` class client and logs the UI's trading addresses in to the orderbook itself (`src/obauth.rs`, see "Orderbook login") before it forwards their orders, so the page never handles a key or a session token |
 | `rpc-call` forwards any node method, including `dumpprivkey` | `tl-wallet-service` gate method allowlist. `dumpprivkey` is never forwarded: it answers the node-wallet handle `tln1:<address>` (FE-speed posts what it gets to the sign routes). `signrawtransaction` refuses private keys in its key list. `signrawtransactionwithwallet [rawtx]`, the swapper's commit-transaction call, runs the sign guard (chain amounts, fee ceiling) before the node wallet signs |
 | `keys/*` routes return mnemonic, private key and WIF to the page; `sign-tx`/`sign-psbt` take a WIF from the page | Key handles (`src/legacy/keyvault.rs`, `localsign.rs`). `keys/get-address*` derive in Rust from the mnemonic the page supplies (FE-speed shows and stores the mnemonic for backup, unchanged) and answer `{address, pubkey, privkey: "", wif: "tlk1:<128-bit id>"}`; the key stays in a bounded in-memory table (1024 keys, least recently used evicted, 12 h idle expiry, erased on drop, emptied by `/api/logout`, `/keys/logout` and `stop-wallet-node`). `sign-tx`/`sign-psbt` run the service guards, then resolve `tlk1:` to the key and sign with FE-speed's semantics, byte-identical to its `crypto.util.ts`; `tln1:<address>` and an empty `wif` go to the node wallet (a `tln1:` handle only for inputs of that address); on descriptor wallets (Bitcoin Core 30+/31, Litecoin Core) a `tln1:` PSBT signature first adds the address key's `bip32_derivation` (key origin from `getaddressinfo`) to each channel-multisig input, so the node signs a `wsh(multi(2,A,B))` script it never imported, and `isValid` means the node signed with that key; the added entries are stripped from the returned PSBT; a real WIF is refused |
 | Electron main process: `window.require('electron')` IPC for the folder picker and auto-updater | `ui-shim/electron-shim.js`, loaded before the bundles, provides the `ipcRenderer` the UI calls. `check-version` is answered with the updater's "up to date" state (no auto-updater in this build); folder picker and download are dropped (the dialog keeps its text field) |
@@ -87,6 +87,9 @@ Angular UI does not call them yet.
 * `src/socketio.rs`: the socket.io server.
 * `src/obrelay.rs`: the orderbook relay (allowlist, the socket.io packet codec for the UI side,
   relay mapping, WebSocket client on its own threads).
+* `src/obauth.rs`: the orderbook login state machine and its HTTP worker; `src/authsign.rs`:
+  signing the challenge on the `legacy` thread (key handles, node wallet); `src/bip322.rs`:
+  BIP-322 simple signatures.
 * `src/node.rs`: `NodeRpc` over `tl-rpc-client` for the Rust-held-key mode.
 * `src/config.rs`: config file.
 * `scripts/build-ui.mjs`: builds `packages/wallet-fe` (configuration `tauri`) in a scratch copy
@@ -291,6 +294,65 @@ Two protocol points of the server and FE-speed that the relay does not paper ove
 * `close-order` is answered to the canceller only (no market broadcast), so other clients see the
   cancel at their next snapshot.
 
+## Orderbook login
+
+`tl-orderbook-server` (branch `auth`) refuses a `web` client's `new-order`, `many-orders`,
+`amend-order` and `close-order` until the address they trade for has logged in. The relay does that
+for the UI (`src/obauth.rs`):
+
+1. `GET <origin>/auth/challenge` answers `{nonce, message, expiresAt}`. The HTTP origin is the
+   WebSocket origin (`ws` to `http`, `wss` to `https`, same host and port), so `orderbook_urls`
+   covers it; there are no redirects and no proxy, and every call times out after 5 s.
+2. The address signs `message` (`src/authsign.rs`, on the `legacy` thread that owns the keys and
+   the node connection):
+   * a `tlk1:` key (P2SH-P2WPKH) signs BIP-322 simple in Rust (`src/bip322.rs`);
+   * a node-wallet address (P2WPKH, P2SH-P2WPKH or P2TR) gets the BIP-322 `to_sign` PSBT
+     (`witness_utxo` is the virtual output, plus the BIP-32 origin from `getaddressinfo` and the
+     redeem script of a P2SH address) and the node signs it with `walletprocesspsbt`; the
+     signature is the finalized input's witness. A P2PKH address is signed by the node's
+     `signmessage` (BIP-137). An address that is neither in the key table nor `ismine` in the node
+     wallet is refused. The node is reached through a second handle on the connection the service
+     holds, so no method is added to the page's `rpc-call` allowlist.
+3. `POST <origin>/auth/verify` `{address, message, signature}` answers `{token, expiresAt}` (the
+   older `sessionToken` name is accepted), then the relay sends `{event: "auth", token}` and the
+   server answers `auth_ok {address, expiresAt}`. A socket may authenticate several addresses.
+
+Which addresses: the ones the UI trades with, read from its own `new-order` and `many-orders`
+payloads (`keypair.address`, `address`, `order.keypair.address`, `order.address`, with `network`
+from the payload or the last one the UI named). `close-order` and `amend-order` carry no address
+and use the connection's active one. The key-handle table and the node wallet decide whether the
+relay can sign for an address at all. An event whose address is not logged in waits in a queue of
+at most 16 (in order, 15 s), the login runs on a worker thread (at most 8 at once), and the event
+is forwarded on `auth_ok`. A failure reaches the UI as `OB_SOCKET::order:error` ("Orderbook login
+failed: ..."), and the address is not tried again for 5 s.
+
+Tokens are held only inside the login worker and for the instant of the `auth` frame; they are not
+stored, logged or sent to the page, and token fields are stripped from server messages. A login
+is renewed at 80 % of its lifetime (the server's `expiresAt`, 10 minutes). After a lost
+connection, a hand-over to a new relay client or a resume from sleep, the client logs its known
+addresses in again as soon as the new hello arrives. `/api/logout`, `/keys/logout` and
+`stop-wallet-node` make every client forget its addresses and queued events. A server whose hello
+does not say `authRequired: true` gets everything unchanged.
+
+Tests (`cargo test --locked`, Windows MSVC 14.44, Rust 1.90.0):
+
+* `bip322`: the BIP-322 test vectors (message hashes, `to_spend`/`to_sign` ids, and both simple
+  signatures of the P2WPKH vector reproduced byte for byte and verified), P2SH-P2WPKH, tampering.
+* `obauth`: the state machine with an injected clock (renewal at 80 %, queue and login timeouts,
+  cooldown, bounds, reconnect and seed, logout, ordering, many-orders, `close-order`), and the
+  login worker against a mock HTTP server (every failure has a plain reason, nothing is signed for
+  a malformed challenge, the 5 s timeout, the worker bound).
+* `authsign`: the `tlk1` path, the node paths against a scripted node, the tap, the job queue.
+* `obrelay` (`include!`d `obrelay_auth_tests.rs`): a mock orderbook with the WebSocket and the
+  `/auth` routes on one port; the order is held until `auth_ok` and then forwarded, a failed
+  login reaches the UI, no login for a server that needs none, re-login after a reconnect and
+  after `Resume`, renewal before expiry, logout, and no token in anything the UI receives.
+* `legacy`: a sign job and a logout through the bridge's `legacy` thread.
+* Ignored: `authsign::tests::regtest_node_wallet_signatures_verify` (Bitcoin Core 31.1 regtest,
+  throwaway datadir; the node wallet's signatures for bech32, p2sh-segwit, legacy and bech32m
+  addresses verify with the Rust verifier; passed), and `real_orderbook_server_login_round_trip`
+  (`TL_OB_URL`, needs the server's `/auth` routes).
+
 ## Dependencies
 
 * `tauri`/`tauri-build` 2: the shell.
@@ -311,7 +373,8 @@ The lockfile holds about 400 packages, almost all from Tauri.
 
 ## Gaps
 
-* **Placing orders from the UI:** the screens and the orderbook are live, but the snapshot's
+* **Placing orders from the UI:** the relay now logs addresses in by itself (see "Orderbook
+  login"); the screens and the orderbook are live, but the snapshot's
   buy/sell cards still read the pre-`bd0ce5c` key list and need a TradeLayer attestation, so the
   UI cannot place an order yet. Finishing the node-wallet migration of those cards is upstream
   wallet-fe work.

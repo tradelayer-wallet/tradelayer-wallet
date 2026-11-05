@@ -49,8 +49,10 @@ pub mod fespeed;
 pub mod keyvault;
 pub mod localsign;
 
+use crate::authsign::{self, JobQueue, LocalAuthSigner, NodeTap, QueueSigner, SignJob, TapSlot};
 use crate::config::LegacySettings;
 use crate::nodewallet::{NodeSlot, NodeWalletSigner, SharedConnector};
+use crate::obauth::AuthHub;
 use crate::obrelay::ObPolicy;
 use crate::socketio;
 use bitcoin::secp256k1::Secp256k1;
@@ -59,7 +61,7 @@ use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 use std::time::Duration;
 use tauri::http;
 use tl_wallet_service::gate::{Gate, GateConfig, MethodAllowlist, SessionToken};
@@ -256,7 +258,22 @@ pub fn handle_request(s: &mut WalletService, req: &HttpRequest) -> Reply {
 // ------------------------------------------------------------------ the legacy thread
 
 type Done = Box<dyn FnOnce(Reply) + Send>;
-type Job = (Box<HttpRequest>, Done);
+
+/// Work for the `legacy` thread: a request from the page, or a challenge to sign for the
+/// orderbook login ([`crate::authsign`]; only the relay can queue those).
+enum Job {
+    Http(Box<HttpRequest>, Done),
+    Sign(SignJob),
+}
+
+/// The `legacy` thread's queue as [`authsign::QueueSigner`] sees it.
+struct SignQueue(mpsc::SyncSender<Job>);
+
+impl JobQueue for SignQueue {
+    fn submit(&self, job: SignJob) -> bool {
+        self.0.try_send(Job::Sign(job)).is_ok()
+    }
+}
 
 /// What Tauri holds: a bounded channel to the `legacy` thread plus the bridge's session token.
 pub struct Bridge {
@@ -283,30 +300,40 @@ impl Bridge {
         token: &SessionToken,
         sio_config: socketio::Config,
     ) -> std::io::Result<Bridge> {
-        Bridge::start_full(build, token, sio_config, ObPolicy::default())
+        Bridge::start_full(
+            build,
+            token,
+            sio_config,
+            ObPolicy::default(),
+            AuthHub::new(),
+        )
     }
 
-    /// [`Bridge::start_with`] with an explicit orderbook allowlist.
+    /// [`Bridge::start_with`] with an explicit orderbook allowlist and the orderbook login `hub`
+    /// (its signer is the `legacy` thread; the key table's clear hook calls `hub.forget_all`).
     pub fn start_full(
         build: impl FnOnce() -> Result<WalletService, String> + Send + 'static,
         token: &SessionToken,
         sio_config: socketio::Config,
         policy: ObPolicy,
+        hub: Arc<AuthHub>,
     ) -> std::io::Result<Bridge> {
         let (tx, rx) = mpsc::sync_channel::<Job>(QUEUE_DEPTH);
+        hub.set_signer(Box::new(QueueSigner(SignQueue(tx.clone()))));
         std::thread::Builder::new()
             .name("legacy".into())
             .spawn(move || {
                 let mut service = build();
                 loop {
                     match rx.recv_timeout(PENDING_NODE_POLL) {
-                        Ok((req, done)) => {
+                        Ok(Job::Http(req, done)) => {
                             let reply = match service.as_mut() {
                                 Ok(s) => handle_request(s, &req),
                                 Err(e) => Reply::early(500, e, req.origin.as_deref()),
                             };
                             done(reply);
                         }
+                        Ok(Job::Sign(job)) => authsign::run(job),
                         // a node that was still loading at start-wallet-node keeps being tried
                         Err(mpsc::RecvTimeoutError::Timeout) => {
                             if let Ok(s) = service.as_mut() {
@@ -321,7 +348,13 @@ impl Bridge {
             tx: tx.clone(),
             token: token.to_hex(),
         };
-        let sio = socketio::start(Box::new(probe), sio_config, policy)?;
+        let sio = socketio::start_with_auth(
+            Box::new(probe),
+            sio_config,
+            policy,
+            socketio::Liveness::default(),
+            Some(hub),
+        )?;
         Ok(Bridge {
             tx,
             token: token.to_hex(),
@@ -367,14 +400,15 @@ impl Bridge {
     }
 
     fn forward(&self, r: Box<HttpRequest>, done: Done) {
-        match self.tx.try_send((r, done)) {
+        match self.tx.try_send(Job::Http(r, done)) {
             Ok(()) => {}
-            Err(mpsc::TrySendError::Full((_, done))) => {
+            Err(mpsc::TrySendError::Full(Job::Http(_, done))) => {
                 done(Reply::early(503, "legacy bridge busy", None))
             }
-            Err(mpsc::TrySendError::Disconnected((_, done))) => {
+            Err(mpsc::TrySendError::Disconnected(Job::Http(_, done))) => {
                 done(Reply::early(503, "legacy bridge stopped", None))
             }
+            Err(_) => {}
         }
     }
 }
@@ -401,12 +435,15 @@ impl socketio::NodeProbe for ServiceProbe {
             body,
             query: String::new(),
         };
-        let job: Job = (
+        let job = Job::Http(
             Box::new(req),
             Box::new(move |reply: Reply| done(interpret_probe(&reply))),
         );
-        if let Err(e) = self.tx.try_send(job) {
-            let (mpsc::TrySendError::Full((_, d)) | mpsc::TrySendError::Disconnected((_, d))) = e;
+        if let Err(
+            mpsc::TrySendError::Full(Job::Http(_, d))
+            | mpsc::TrySendError::Disconnected(Job::Http(_, d)),
+        ) = self.tx.try_send(job)
+        {
             d(Reply::early(503, "legacy bridge busy", None));
         }
     }
@@ -454,16 +491,19 @@ pub fn start(
     let token = SessionToken::from_bytes(&bytes)
         .map_err(|e| std::io::Error::other(format!("session token: {e:?}")))?;
     let gate_token = token.clone();
+    let hub = AuthHub::new();
+    let service_hub = hub.clone();
     // An unreadable config file leaves the orderbook allowlist empty rather than the defaults.
     let policy = match &settings {
         Ok(s) => ObPolicy::new(s.orderbook_urls.clone()),
         Err(_) => ObPolicy::none(),
     };
     Bridge::start_full(
-        move || build_service(settings, default_node_dir, gate_token),
+        move || build_service(settings, default_node_dir, gate_token, service_hub),
         &token,
         socketio::Config::default(),
         policy,
+        hub,
     )
 }
 
@@ -490,22 +530,33 @@ fn build_service(
     settings: Result<LegacySettings, String>,
     default_node_dir: PathBuf,
     token: SessionToken,
+    hub: Arc<AuthHub>,
 ) -> Result<WalletService, String> {
     let settings = settings.map_err(|e| format!("config: {e}"))?;
     let dir = settings.node_data_dir.unwrap_or(default_node_dir);
     let slot = NodeSlot::default();
+    let tap = TapSlot::default();
     let table = KeyTable::shared();
     let secp = Rc::new(Secp256k1::new());
+    // The orderbook login signs with the same key table and node connection, on this thread.
+    authsign::install(LocalAuthSigner::new(
+        table.clone(),
+        secp.clone(),
+        tap.clone(),
+    ));
     let mut service = WalletService::new(
         gate(token),
-        Box::new(HandleKeys::new(table.clone(), secp.clone())),
+        Box::new(
+            HandleKeys::new(table.clone(), secp.clone())
+                .with_clear_hook(Box::new(move || hub.forget_all())),
+        ),
         Box::new(HandleSigner::new(
             NodeWalletSigner::new(slot.clone()),
             table,
             secp,
         )),
         Box::new(FsConfStore::new(dir.clone())),
-        Box::new(SharedConnector::new(HttpConnector, slot)),
+        Box::new(NodeTap::new(SharedConnector::new(HttpConnector, slot), tap)),
         Box::new(HttpRelayer::new()?),
         settings.relayer_hosts,
         dir.to_string_lossy().into_owned(),
@@ -1440,6 +1491,94 @@ mod tests {
         let r = rx.recv_timeout(Duration::from_secs(5)).unwrap();
         assert_eq!(r.status, 500);
         assert_eq!(r.body["error"], "config: bad");
+    }
+
+    #[test]
+    fn the_login_signs_on_the_legacy_thread_and_a_logout_reaches_the_hub() {
+        let token = SessionToken::from_hex(TOKEN).unwrap();
+        let t2 = token.clone();
+        let hub = AuthHub::new();
+        let hub2 = hub.clone();
+        let (atx, arx) = mpsc::channel::<String>();
+        let bridge = Bridge::start_full(
+            move || {
+                let table = KeyTable::shared();
+                let secp = Rc::new(Secp256k1::new());
+                // A key derived on the legacy thread; its address goes back to the test.
+                let key = keyvault::LocalKey::derive(
+                    &secp,
+                    tl_wallet_core::Network::LtcTest,
+                    &[3u8; 64],
+                    "m/0'",
+                )
+                .unwrap();
+                atx.send(key.address().to_string()).unwrap();
+                table.borrow_mut().insert(key).unwrap();
+                authsign::install(LocalAuthSigner::new(
+                    table.clone(),
+                    secp.clone(),
+                    TapSlot::default(),
+                ));
+                Ok(WalletService::new(
+                    gate(t2),
+                    Box::new(
+                        HandleKeys::new(table.clone(), secp.clone())
+                            .with_clear_hook(Box::new(move || hub2.forget_all())),
+                    ),
+                    Box::new(HandleSigner::new(
+                        NodeWalletSigner::new(NodeSlot::default()),
+                        table,
+                        secp,
+                    )),
+                    Box::new(MemStore::default()),
+                    Box::new(MemConnector::default()),
+                    Box::new(MemRelayer::default()),
+                    vec![],
+                    "/ltc".into(),
+                ))
+            },
+            &token,
+            socketio::Config::default(),
+            ObPolicy::none(),
+            hub.clone(),
+        )
+        .unwrap();
+        let address = arx.recv_timeout(Duration::from_secs(5)).unwrap();
+        // The hub's signer reaches the key through the legacy thread's queue.
+        let sig = hub
+            .signer()
+            .unwrap()
+            .sign(
+                "LTCTEST",
+                &address,
+                "TradeLayer session authentication\nnonce=01",
+            )
+            .unwrap();
+        assert!(!sig.is_empty());
+        assert_eq!(hub.epoch(), 0);
+        // A UI logout empties the key table and tells the hub.
+        let (tx, rx) = mpsc::channel();
+        bridge.submit(
+            &req(
+                "POST",
+                "http://tlapi.localhost/keys/logout",
+                Some(ALLOWED_ORIGIN),
+                b"{}",
+            ),
+            Box::new(move |r| tx.send(r).unwrap()),
+        );
+        assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap().status, 200);
+        assert_eq!(hub.epoch(), 1);
+        // The key is gone: the same signer now has nothing to sign with.
+        assert!(hub
+            .signer()
+            .unwrap()
+            .sign(
+                "LTCTEST",
+                &address,
+                "TradeLayer session authentication\nnonce=02"
+            )
+            .is_err());
     }
 
     fn probe_reply(status: u16, body: Value) -> Reply {

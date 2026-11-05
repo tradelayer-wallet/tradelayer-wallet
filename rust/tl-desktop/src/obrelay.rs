@@ -53,14 +53,17 @@
 //!
 //! ## Authentication
 //!
-//! The server's hello says `authRequired: true` for a `web` class client. Its `desktop` and `bot`
-//! classes come from upgrade headers that the server does not read yet (`handleOpen(ws)` gets no
-//! request), so this client sends none and relies on nothing but the hello. The `auth` event is
-//! relayed so a session token can be presented, but the server's `/auth` routes do not build, so
-//! there is nothing to obtain one from. Reads (`update-orderbook`, `orderbook:join`) work; a
-//! mutation (`new-order`, `many-orders`, `amend-order`, `close-order`) gets the server's own
-//! `order:error` ("Authentication required (web client)...") relayed to the UI as
-//! `OB_SOCKET::order:error`.
+//! The server's hello says `authRequired: true` for a `web` class client, which this client is (it
+//! sends no class header). Reads (`update-orderbook`, `orderbook:join`) need no login. A mutation
+//! (`new-order`, `many-orders`, `amend-order`, `close-order`) does, and the client supplies it
+//! itself ([`crate::obauth`]): before such an event is forwarded, the address it names is logged in
+//! (`GET /auth/challenge`, a BIP-322 or BIP-137 signature made on the `legacy` thread from the key
+//! handles or the node wallet, `POST /auth/verify`, then `{event: "auth", token}` on the socket).
+//! The event waits in a bounded queue and is forwarded on `auth_ok`; a failed login reaches the UI
+//! as `OB_SOCKET::order:error`. Tokens never leave Rust, are renewed at 80 % of their lifetime and
+//! are made again after every reconnect, hand-over to a new client and resume from sleep. A server
+//! whose hello has no `authRequired: true` is relayed to unchanged. The `auth` event the UI may
+//! still send is relayed as before.
 //!
 //! ## Repaired defects (the Node service did none of these)
 //!
@@ -81,11 +84,12 @@
 //! * Replaced clients were never joined; here at most [`MAX_LIVE_CLIENTS`] exist at once and a
 //!   stopped client's late events are discarded by generation number.
 
-use serde_json::{Map, Value};
+use crate::obauth::{self, Action, AuthHub, AuthState, LoginDone};
+use serde_json::{json, Map, Value};
 use std::collections::VecDeque;
 use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{mpsc, Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use tungstenite::client::IntoClientRequest;
 use tungstenite::protocol::WebSocketConfig;
@@ -649,10 +653,23 @@ struct Shared {
     ever_up: AtomicBool,
     /// The client is over: its first attempt failed, or the engine is gone.
     finished: AtomicBool,
+    /// The orderbook login ([`crate::obauth`]); `None` relays mutations untouched.
+    hub: Option<Arc<AuthHub>>,
+    auth: Mutex<AuthState>,
+    /// Zero of the monotonic time the login state runs on.
+    started: Instant,
 }
 
 impl Shared {
-    fn new(gen: u64, sink: Sink, reconnect: Reconnect, timing: LinkTiming) -> Shared {
+    fn new(
+        gen: u64,
+        sink: Sink,
+        reconnect: Reconnect,
+        timing: LinkTiming,
+        hub: Option<Arc<AuthHub>>,
+        seed: Vec<(String, String)>,
+    ) -> Shared {
+        let auth = AuthState::new(hub.as_ref().map(|h| h.timing()).unwrap_or_default(), seed);
         Shared {
             gen,
             sink,
@@ -665,7 +682,15 @@ impl Shared {
             up: AtomicBool::new(false),
             ever_up: AtomicBool::new(false),
             finished: AtomicBool::new(false),
+            hub,
+            auth: Mutex::new(auth),
+            started: Instant::now(),
         }
+    }
+
+    /// Milliseconds on the login state's clock.
+    fn now_ms(&self) -> u64 {
+        u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX)
     }
 
     fn done(&self) -> bool {
@@ -724,6 +749,7 @@ pub struct Manager {
     timing: LinkTiming,
     live: Arc<AtomicUsize>,
     current: Option<Running>,
+    hub: Option<Arc<AuthHub>>,
 }
 
 impl Manager {
@@ -738,15 +764,25 @@ impl Manager {
             timing,
             live: Arc::new(AtomicUsize::new(0)),
             current: None,
+            hub: None,
         }
     }
 
-    fn new_shared(&self, gen: u64) -> Arc<Shared> {
+    /// Log the UI's trading addresses in to the orderbook ([`crate::obauth`]) before their
+    /// mutating events are forwarded.
+    pub fn with_auth(mut self, hub: Arc<AuthHub>) -> Manager {
+        self.hub = Some(hub);
+        self
+    }
+
+    fn new_shared(&self, gen: u64, seed: Vec<(String, String)>) -> Arc<Shared> {
         Arc::new(Shared::new(
             gen,
             self.sink.clone(),
             self.reconnect,
             self.timing,
+            self.hub.clone(),
+            seed,
         ))
     }
 
@@ -779,7 +815,7 @@ impl Manager {
                         ),
                     ));
                 }
-                let shared = self.new_shared(gen);
+                let shared = self.new_shared(gen, Vec::new());
                 self.start_client(shared, url)
             }
             ObCmd::Resume => {
@@ -791,7 +827,9 @@ impl Manager {
                     return None;
                 }
                 let (gen, url) = (r.shared.gen, r.url.clone());
-                let shared = self.new_shared(gen);
+                // The new client logs the same addresses in again once its hello arrives.
+                let seed = r.shared.auth().known();
+                let shared = self.new_shared(gen, seed);
                 shared
                     .up
                     .store(r.shared.up.load(Ordering::SeqCst), Ordering::SeqCst);
@@ -1027,18 +1065,148 @@ fn connect_and_relay(shared: &Arc<Shared>, url: &reqwest::Url) -> Result<(), End
     }
     *shared.relay.lock().unwrap_or_else(PoisonError::into_inner) = Relay::default();
     shared.outbox.clear();
+    let io = AuthIo::new(shared, url);
+    shared.auth().reset_connection();
     shared.up.store(true, Ordering::SeqCst);
     shared.ever_up.store(true, Ordering::SeqCst);
     if !shared.deliver(ObEvent::Connected) {
         return Ok(());
     }
     let started = Instant::now();
-    let out = relay_loop(shared, &mut ws);
+    let out = relay_loop(shared, &mut ws, &io);
     let stable = started.elapsed() >= STABLE_AFTER;
     out.map_err(|reason| Ended { reason, stable })
 }
 
-fn relay_loop(shared: &Arc<Shared>, ws: &mut Ws) -> Result<(), String> {
+/// What the relay loop needs to run logins: where they report, the orderbook's HTTP origin, and the
+/// logout epoch it has seen.
+struct AuthIo {
+    tx: mpsc::Sender<LoginDone>,
+    rx: mpsc::Receiver<LoginDone>,
+    base: Option<String>,
+    epoch: std::cell::Cell<u64>,
+}
+
+impl AuthIo {
+    fn new(shared: &Shared, url: &reqwest::Url) -> AuthIo {
+        let (tx, rx) = mpsc::channel();
+        AuthIo {
+            tx,
+            rx,
+            base: obauth::http_base(url),
+            epoch: std::cell::Cell::new(shared.hub.as_ref().map_or(0, |h| h.epoch())),
+        }
+    }
+}
+
+impl Shared {
+    fn auth(&self) -> std::sync::MutexGuard<'_, AuthState> {
+        self.auth.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// Map a UI event and send it to the server.
+fn send_ui(
+    shared: &Shared,
+    ws: &mut Ws,
+    name: &str,
+    payload: Option<&Value>,
+) -> Result<(), String> {
+    let text = shared
+        .relay
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .map_ui_event(name, payload);
+    if let Some(text) = text {
+        ws.send(Message::text(text))
+            .map_err(|e| ws_error_message(&e))?;
+    }
+    Ok(())
+}
+
+/// Carry out what the login state asked for. Never holds a lock across I/O.
+fn run_actions(
+    shared: &Arc<Shared>,
+    ws: &mut Ws,
+    io: &AuthIo,
+    acts: Vec<Action>,
+) -> Result<(), String> {
+    let mut queue: VecDeque<Action> = acts.into();
+    while let Some(a) = queue.pop_front() {
+        match a {
+            Action::Forward { name, payload } => send_ui(shared, ws, &name, payload.as_ref())?,
+            Action::SendAuth { token } => {
+                let frame = json!({"event": "auth", "token": token.expose()}).to_string();
+                ws.send(Message::text(frame))
+                    .map_err(|e| ws_error_message(&e))?;
+            }
+            Action::FailUi { message } => {
+                shared.deliver(ObEvent::Relay {
+                    name: "OB_SOCKET::order:error".into(),
+                    payload: Some(json!({"event": "order:error", "message": message})),
+                });
+            }
+            Action::Login {
+                ticket,
+                network,
+                address,
+            } => {
+                let started = match (&shared.hub, &io.base) {
+                    (Some(hub), Some(base)) => obauth::spawn_login(
+                        hub,
+                        base.clone(),
+                        network,
+                        address.clone(),
+                        ticket,
+                        io.tx.clone(),
+                    ),
+                    _ => Err("the orderbook has no HTTP origin".to_string()),
+                };
+                if let Err(reason) = started {
+                    let more = shared.auth().on_login_result(
+                        shared.now_ms(),
+                        obauth::wall_ms(),
+                        ticket,
+                        &address,
+                        Err(reason),
+                    );
+                    queue.extend(more);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Login housekeeping once per loop turn: a logout, finished logins, timers.
+fn auth_turn(shared: &Arc<Shared>, ws: &mut Ws, io: &AuthIo) -> Result<(), String> {
+    let Some(hub) = &shared.hub else {
+        return Ok(());
+    };
+    let now = shared.now_ms();
+    let mut acts = Vec::new();
+    {
+        let mut st = shared.auth();
+        let epoch = hub.epoch();
+        if epoch != io.epoch.get() {
+            io.epoch.set(epoch);
+            st.forget();
+        }
+        while let Ok(done) = io.rx.try_recv() {
+            acts.extend(st.on_login_result(
+                now,
+                obauth::wall_ms(),
+                done.ticket,
+                &done.address,
+                done.result,
+            ));
+        }
+        acts.extend(st.tick(now));
+    }
+    run_actions(shared, ws, io, acts)
+}
+
+fn relay_loop(shared: &Arc<Shared>, ws: &mut Ws, io: &AuthIo) -> Result<(), String> {
     let timing = shared.timing;
     let (ping_every, dead_after) = (
         Duration::from_millis(timing.ping_ms.max(1)),
@@ -1053,16 +1221,14 @@ fn relay_loop(shared: &Arc<Shared>, ws: &mut Ws) -> Result<(), String> {
             }
             return Ok(());
         }
+        auth_turn(shared, ws, io)?;
         // UI -> server.
         while let Some((name, payload)) = shared.outbox.pop() {
-            let text = shared
-                .relay
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .map_ui_event(&name, payload.as_ref());
-            if let Some(text) = text {
-                ws.send(Message::text(text))
-                    .map_err(|e| ws_error_message(&e))?;
+            if shared.hub.is_some() {
+                let acts = shared.auth().handle_ui(shared.now_ms(), name, payload);
+                run_actions(shared, ws, io, acts)?;
+            } else {
+                send_ui(shared, ws, &name, payload.as_ref())?;
             }
         }
         if last_ping.elapsed() >= ping_every {
@@ -1077,9 +1243,11 @@ fn relay_loop(shared: &Arc<Shared>, ws: &mut Ws) -> Result<(), String> {
         match ws.read() {
             Ok(Message::Text(t)) => {
                 last_rx = Instant::now();
-                if !on_text(shared, t.as_str()) {
+                let mut acts = Vec::new();
+                if !on_text(shared, t.as_str(), &mut acts) {
                     return Ok(());
                 }
+                run_actions(shared, ws, io, acts)?;
             }
             Ok(Message::Close(_)) => return Err("orderbook closed the connection".into()),
             Ok(_) => last_rx = Instant::now(),
@@ -1093,11 +1261,34 @@ fn relay_loop(shared: &Arc<Shared>, ws: &mut Ws) -> Result<(), String> {
     }
 }
 
-/// One server text message. `false` when the engine is gone and the client should end.
-fn on_text(shared: &Arc<Shared>, text: &str) -> bool {
-    let Ok(msg) = serde_json::from_str::<Value>(text) else {
+/// One server text message. `false` when the engine is gone and the client should end. With the
+/// login enabled the hello (`authRequired`) and `auth_ok` also drive the login state, whose
+/// follow-up work lands in `acts`, and token fields never reach the UI.
+fn on_text(shared: &Arc<Shared>, text: &str, acts: &mut Vec<Action>) -> bool {
+    let Ok(mut msg) = serde_json::from_str::<Value>(text) else {
         return true;
     };
+    if shared.hub.is_some() {
+        let now = shared.now_ms();
+        match msg.get("event").and_then(Value::as_str) {
+            Some("connected") => {
+                let required = msg.get("authRequired") == Some(&Value::Bool(true));
+                acts.extend(shared.auth().on_hello(now, required));
+            }
+            Some("auth_ok") => {
+                if let Some(address) = msg.get("address").and_then(Value::as_str) {
+                    let expires = msg.get("expiresAt").and_then(Value::as_u64);
+                    acts.extend(
+                        shared
+                            .auth()
+                            .on_auth_ok(now, obauth::wall_ms(), address, expires),
+                    );
+                }
+            }
+            _ => {}
+        }
+        obauth::scrub_tokens(&mut msg);
+    }
     let mapped = shared
         .relay
         .lock()
@@ -1516,6 +1707,8 @@ mod tests {
         epoch: u32,
         /// Send the hello on connect.
         greet: bool,
+        /// The hello's `authRequired`.
+        auth_required: bool,
     }
 
     enum MockOut {
@@ -1528,6 +1721,25 @@ mod tests {
     struct Mock {
         addr: SocketAddr,
         st: Arc<(Mutex<MockState>, Condvar)>,
+        /// Answers `/auth/...` HTTP requests that arrive on the same port.
+        http: Arc<Mutex<Option<crate::obauth::tests::Handler>>>,
+    }
+
+    /// Whether the connection opens with an HTTP request for the auth routes rather than a
+    /// WebSocket upgrade.
+    fn is_auth_http(stream: &TcpStream) -> bool {
+        let mut b = [0u8; 16];
+        let end = Instant::now() + Duration::from_secs(2);
+        loop {
+            match stream.peek(&mut b) {
+                Ok(n) if n >= 10 => {
+                    return b[..n].starts_with(b"GET /auth") || b[..n].starts_with(b"POST /auth")
+                }
+                Ok(0) | Err(_) => return false,
+                Ok(_) if Instant::now() > end => return false,
+                Ok(_) => std::thread::sleep(Duration::from_millis(1)),
+            }
+        }
     }
 
     const HELLO_ID: &str = "Hello_1";
@@ -1537,11 +1749,26 @@ mod tests {
             let listener = TcpListener::bind("127.0.0.1:0").unwrap();
             let addr = listener.local_addr().unwrap();
             let st: Arc<(Mutex<MockState>, Condvar)> = Arc::default();
-            st.0.lock().unwrap().greet = true;
+            {
+                let mut g = st.0.lock().unwrap();
+                g.greet = true;
+                g.auth_required = true;
+            }
             let st2 = st.clone();
+            let http: Arc<Mutex<Option<crate::obauth::tests::Handler>>> = Arc::default();
+            let http2 = http.clone();
             std::thread::spawn(move || {
                 for conn in listener.incoming() {
                     let Ok(stream) = conn else { continue };
+                    if is_auth_http(&stream) {
+                        let h = http2.lock().unwrap().clone();
+                        if let Some(h) = h {
+                            std::thread::spawn(move || {
+                                crate::obauth::tests::serve_http(stream, &h)
+                            });
+                        }
+                        continue;
+                    }
                     let st = st2.clone();
                     {
                         let mut g = st.0.lock().unwrap();
@@ -1553,7 +1780,11 @@ mod tests {
                     std::thread::spawn(move || mock_connection(stream, &st));
                 }
             });
-            Mock { addr, st }
+            Mock { addr, st, http }
+        }
+
+        fn set_http(&self, h: crate::obauth::tests::Handler) {
+            *self.http.lock().unwrap() = Some(h);
         }
 
         fn url(&self) -> String {
@@ -1648,16 +1879,16 @@ mod tests {
         let Ok(mut ws) = tungstenite::accept_hdr(stream, cb) else {
             return;
         };
-        let (mine, greet, id) = {
+        let (mine, greet, id, auth_required) = {
             let g = st.0.lock().unwrap();
-            (g.epoch, g.greet, g.connections)
+            (g.epoch, g.greet, g.connections, g.auth_required)
         };
         let _ = ws
             .get_mut()
             .set_read_timeout(Some(Duration::from_millis(10)));
         if greet {
             let hello = format!(
-                r#"{{"event":"connected","id":"{HELLO_ID}{}","clientClass":"web","authRequired":true}}"#,
+                r#"{{"event":"connected","id":"{HELLO_ID}{}","clientClass":"web","authRequired":{auth_required}}}"#,
                 if id > 1 {
                     format!("_{id}")
                 } else {
@@ -2430,4 +2661,6 @@ mod tests {
         ui.emit(r#"42["ob-sockets-disconnect"]"#);
         ui.wait_for("OB_SOCKET::disconnect");
     }
+
+    include!("obrelay_auth_tests.rs");
 }
