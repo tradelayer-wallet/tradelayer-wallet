@@ -1,11 +1,12 @@
-//! Optional `tradelayer-rpcd` / `tradelayer-listenerd` sidecar.
+//! Optional `tradelayer-rpcd` / `tradelayer-listenerd` / `tradelayer-node` sidecar.
 //!
 //! Started only when the config names `tl_engine = "tradelayer-rust"` and a `tl_engine_cmd`, or
-//! `tl_engine = "tradelayer-listenerd"` with a `tl_listenerd` object;
+//! `tl_engine = "tradelayer-listenerd"` with a `tl_listenerd` object, or
+//! `tl_engine = "tradelayer-node"` with a `tl_node` object;
 //! otherwise [`Sidecar::from_settings`] returns `None` and no process is ever spawned. One
 //! supervisor thread owns the child: it restarts it with exponential backoff when it exits, and
 //! [`Sidecar::stop`] (the app's exit hook, also `Drop`) stops it and joins the thread: a child
-//! with a stop file (`tradelayer-listenerd --stop-file`) is asked to exit by creating the file and
+//! with a stop file (`--stop-file` of the daemon and the node) is asked to exit by creating the file and
 //! is killed only when it is still running after `stop_grace`; any other child is killed at once.
 //!
 //! The child gets no stdin and no console window; its stderr is read by a second thread that
@@ -98,23 +99,28 @@ pub struct Sidecar {
 }
 
 impl Sidecar {
-    /// The sidecar the config asks for: `None` unless the engine is `tradelayer-rust` or `tradelayer-listenerd`
-    /// and the config names the command to run.
+    /// The sidecar the config asks for: `None` unless the engine is `tradelayer-rust`,
+    /// `tradelayer-listenerd` or `tradelayer-node` and the config names the command to run.
     pub fn from_settings(s: &EngineSettings) -> Option<std::io::Result<Sidecar>> {
-        if !matches!(s.engine, Engine::TradelayerRust | Engine::Listenerd) {
+        Some(Sidecar::start(Sidecar::spec_for(s)?, Backoff::default()))
+    }
+
+    /// What [`Sidecar::from_settings`] runs. The child inherits the app's environment, which is
+    /// where the node finds `RPC_USER` and `RPC_PASS`; `env` adds nothing.
+    fn spec_for(s: &EngineSettings) -> Option<Spec> {
+        if !matches!(
+            s.engine,
+            Engine::TradelayerRust | Engine::Listenerd | Engine::Node
+        ) {
             return None;
         }
-        let cmd = s.cmd.clone()?;
-        Some(Sidecar::start(
-            Spec {
-                cmd,
-                args: s.args.clone(),
-                env: Vec::new(),
-                stop_file: s.stop_file.clone(),
-                stop_grace: s.stop_grace,
-            },
-            Backoff::default(),
-        ))
+        Some(Spec {
+            cmd: s.cmd.clone()?,
+            args: s.args.clone(),
+            env: Vec::new(),
+            stop_file: s.stop_file.clone(),
+            stop_grace: s.stop_grace,
+        })
     }
 
     pub fn start(spec: Spec, backoff: Backoff) -> std::io::Result<Sidecar> {
@@ -440,6 +446,62 @@ mod tests {
             ..EngineSettings::default()
         };
         assert!(Sidecar::from_settings(&s).is_none());
+        // the same for the node without the tl_node object
+        let s = EngineSettings {
+            engine: Engine::Node,
+            ..EngineSettings::default()
+        };
+        assert!(Sidecar::from_settings(&s).is_none());
+    }
+
+    #[test]
+    fn the_node_engine_runs_its_command_with_the_built_arguments_and_stops_on_its_stop_file() {
+        let dir = tmp("node-engine");
+        let log = dir.join("starts.log");
+        let stop = dir.join("node.stop");
+        let s = EngineSettings {
+            engine: Engine::Node,
+            cmd: Some(std::env::current_exe().unwrap()),
+            args: [
+                "--exact",
+                "engine_sidecar::tests::helper_child",
+                "--nocapture",
+            ]
+            .map(String::from)
+            .to_vec(),
+            stop_file: Some(stop.clone()),
+            stop_grace: Duration::from_secs(10),
+            ..EngineSettings::default()
+        };
+        // the settings become a spec with the same command, arguments, stop file and grace
+        let mut spec = Sidecar::spec_for(&s).expect("a node spec");
+        assert_eq!(Some(spec.cmd.clone()), s.cmd);
+        assert_eq!(spec.args, s.args);
+        assert_eq!(spec.stop_file, s.stop_file);
+        assert_eq!(spec.stop_grace, s.stop_grace);
+        assert!(
+            spec.env.is_empty(),
+            "the node inherits RPC_USER and RPC_PASS"
+        );
+        // the fake child (this test binary) exits 0 when the stop file appears, like the node
+        spec.env = vec![
+            ("TL_SIDECAR_HELPER".into(), "stopfile".into()),
+            ("TL_SIDECAR_LOG".into(), log.to_string_lossy().into_owned()),
+            (
+                "TL_SIDECAR_STOPFILE".into(),
+                stop.to_string_lossy().into_owned(),
+            ),
+        ];
+        let sc = Sidecar::start(spec, fast()).unwrap();
+        wait_until("child up", || sc.status().running && starts_in(&log) == 1);
+        let started = Instant::now();
+        sc.stop();
+        assert!(started.elapsed() < Duration::from_secs(8));
+        let text = std::fs::read_to_string(&log).unwrap();
+        assert!(text.lines().any(|l| l == "clean-exit"), "{text}");
+        assert_eq!(starts_in(&log), 1);
+        assert!(!stop.exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

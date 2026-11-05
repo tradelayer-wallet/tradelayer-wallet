@@ -15,6 +15,11 @@
 //! `tl_engine = "tradelayer-listenerd"` is the same passthrough (no adapter: the daemon speaks
 //! FE-speed's listener routes itself) plus an optional sidecar that starts and stops
 //! `tradelayer-listenerd`, described by the `tl_listenerd` object ([`RawListenerd`]).
+//!
+//! `tl_engine = "tradelayer-node"` is the same passthrough again, with the live node as the
+//! optional sidecar: `tradelayer-node` follows a Bitcoin Core node, applies authenticated blocks
+//! and serves the same listener routes on a loopback bind. It is described by the `tl_node`
+//! object ([`RawNode`]).
 
 use crate::legacy::fespeed::{normalize_listener_url, ListenerClient};
 use crate::legacy::{http_client_with, read_bounded};
@@ -29,7 +34,10 @@ pub const DEFAULT_ENGINE_URL: &str = "http://127.0.0.1:7360";
 pub const ENGINE_HTTP: &str = "http";
 pub const ENGINE_RUST: &str = "tradelayer-rust";
 pub const ENGINE_LISTENERD: &str = "tradelayer-listenerd";
-/// How long the sidecar waits for `tradelayer-listenerd` to exit after its stop file is created.
+pub const ENGINE_NODE: &str = "tradelayer-node";
+/// The networks `tradelayer-node --network` accepts.
+const NODE_NETWORKS: [&str; 2] = ["BTC", "BTC-TESTNET4"];
+/// How long the sidecar waits for `tradelayer-listenerd` or `tradelayer-node` to exit after its stop file is created.
 pub const DEFAULT_STOP_GRACE: Duration = Duration::from_secs(5);
 const MIN_STOP_GRACE_MS: u64 = 100;
 const MAX_STOP_GRACE_MS: u64 = 60_000;
@@ -57,6 +65,9 @@ pub enum Engine {
     /// `tradelayer-listenerd`: FE-speed's listener contract over HTTP at `tl_listener_url`, like
     /// `Http`, with the daemon optionally run as the sidecar.
     Listenerd,
+    /// `tradelayer-node`: the same listener contract over HTTP at `tl_listener_url`, served by
+    /// the live node, optionally run as the sidecar.
+    Node,
 }
 
 /// `tl_engine*` settings of the config file, validated.
@@ -109,6 +120,44 @@ pub struct RawListenerd {
     pub stop_grace_ms: Option<u64>,
 }
 
+/// The `tl_node` config object: how to start `tradelayer-node` with the app. Its `--bind` is the
+/// `tl_listener_url` authority. `RPC_USER` and `RPC_PASS` for Core's RPC stay in the user's
+/// environment, which the node inherits; the app neither reads nor logs them. The store is
+/// created beforehand with `tradelayer-node --initialize`; the sidecar only restarts it.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct RawNode {
+    /// Absolute path of `tradelayer-node`.
+    pub cmd: Option<PathBuf>,
+    /// `--root`: absolute path of the existing node directory.
+    pub root: Option<PathBuf>,
+    /// `--network`: `BTC` or `BTC-TESTNET4`.
+    pub network: Option<String>,
+    /// `--rpc-address`: Core's RPC as a literal `IP:PORT`.
+    pub rpc_address: Option<String>,
+    /// `--cookie-file`: absolute path of Core's cookie file; absent: `RPC_USER` / `RPC_PASS`.
+    pub cookie_file: Option<PathBuf>,
+    /// `--config`: absolute path of the economic (listenerd) config file.
+    pub config: Option<PathBuf>,
+    /// `--source-config`: absolute path of the source-consensus config file.
+    pub source_config: Option<PathBuf>,
+    /// `--head-log`: absolute path of the observer's head log.
+    pub head_log: Option<PathBuf>,
+    /// `--economic-head-log`: absolute path of the economic head log; absent: the node's default.
+    pub economic_head_log: Option<PathBuf>,
+    /// `--resume`: clear a paused or quarantined observer at start.
+    pub resume: Option<bool>,
+    /// `--stop-file`: absolute path the sidecar creates to stop the node.
+    pub stop_file: Option<PathBuf>,
+    /// `--timeout-ms`: per-connection I/O timeout (1..=60000); absent: the node's default.
+    pub timeout_ms: Option<u64>,
+    /// `--rpc-timeout-ms`: Core RPC timeout (1..=60000); absent: the node's default.
+    pub rpc_timeout_ms: Option<u64>,
+    /// Milliseconds to wait for the node to exit after the stop file is created, before it is
+    /// killed (100..=60000, default 5000).
+    pub stop_grace_ms: Option<u64>,
+}
+
 /// The raw `tl_engine*` config fields.
 #[derive(Default)]
 pub struct RawEngine {
@@ -117,6 +166,7 @@ pub struct RawEngine {
     pub cmd: Option<PathBuf>,
     pub args: Option<Vec<String>>,
     pub listenerd: Option<RawListenerd>,
+    pub node: Option<RawNode>,
 }
 
 /// `host:port` of a normalised loopback origin, as rpcd's `--bind` spells it.
@@ -135,7 +185,8 @@ pub fn validate(raw: RawEngine) -> Result<EngineSettings, String> {
 
 /// Validate the `tl_engine*` fields.
 ///
-/// * `tl_engine`: `"http"` (default) or `"tradelayer-rust"`.
+/// * `tl_engine`: `"http"` (default), `"tradelayer-rust"`, `"tradelayer-listenerd"` or
+///   `"tradelayer-node"`.
 /// * `tl_engine_url`: plain-`http` loopback origin of rpcd (default `http://127.0.0.1:7360`).
 /// * `tl_engine_cmd`: absolute path of the rpcd binary to start with the app (default: not
 ///   started). `tl_engine_args`: its arguments. `--allow-nonloopback` is refused, and a `--bind`
@@ -144,8 +195,10 @@ pub fn validate(raw: RawEngine) -> Result<EngineSettings, String> {
 /// * `tl_engine = "tradelayer-listenerd"`: the HTTP passthrough to `tl_listener_url` plus, when
 ///   the `tl_listenerd` object is present, the daemon as sidecar ([`validate_listenerd`]).
 ///
+/// * `tl_engine = "tradelayer-node"`: the same, with the `tl_node` object ([`validate_node`]).
+///
 /// Every `tl_engine_*` field requires `tl_engine = "tradelayer-rust"`; `tl_listenerd` requires
-/// `tl_engine = "tradelayer-listenerd"`. `listener_url` is the validated `tl_listener_url`.
+/// `tl_engine = "tradelayer-listenerd"` and `tl_node` requires `tl_engine = "tradelayer-node"`. `listener_url` is the validated `tl_listener_url`.
 pub fn validate_with_listener(
     raw: RawEngine,
     listener_url: &str,
@@ -154,9 +207,10 @@ pub fn validate_with_listener(
         None | Some(ENGINE_HTTP) => Engine::Http,
         Some(ENGINE_RUST) => Engine::TradelayerRust,
         Some(ENGINE_LISTENERD) => Engine::Listenerd,
+        Some(ENGINE_NODE) => Engine::Node,
         Some(other) => {
             return Err(format!(
-                "config: tl_engine {other:?} must be \"{ENGINE_HTTP}\", \"{ENGINE_RUST}\" or \"{ENGINE_LISTENERD}\""
+                "config: tl_engine {other:?} must be \"{ENGINE_HTTP}\", \"{ENGINE_RUST}\", \"{ENGINE_LISTENERD}\" or \"{ENGINE_NODE}\""
             ))
         }
     };
@@ -165,13 +219,27 @@ pub fn validate_with_listener(
             "config: tl_listenerd needs tl_engine = \"{ENGINE_LISTENERD}\""
         ));
     }
-    if engine == Engine::Listenerd {
+    if engine != Engine::Node && raw.node.is_some() {
+        return Err(format!(
+            "config: tl_node needs tl_engine = \"{ENGINE_NODE}\""
+        ));
+    }
+    if matches!(engine, Engine::Listenerd | Engine::Node) {
+        let (name, object) = if engine == Engine::Node {
+            (ENGINE_NODE, "tl_node")
+        } else {
+            (ENGINE_LISTENERD, "tl_listenerd")
+        };
         if raw.url.is_some() || raw.cmd.is_some() || raw.args.is_some() {
             return Err(format!(
-                "config: tl_engine_url, tl_engine_cmd and tl_engine_args are for tl_engine = \"{ENGINE_RUST}\"; \"{ENGINE_LISTENERD}\" takes the tl_listenerd object and tl_listener_url"
+                "config: tl_engine_url, tl_engine_cmd and tl_engine_args are for tl_engine = \"{ENGINE_RUST}\"; \"{name}\" takes the {object} object and tl_listener_url"
             ));
         }
-        return validate_listenerd(raw.listenerd.unwrap_or_default(), listener_url);
+        return if engine == Engine::Node {
+            validate_node(raw.node.unwrap_or_default(), listener_url)
+        } else {
+            validate_listenerd(raw.listenerd.unwrap_or_default(), listener_url)
+        };
     }
     if engine == Engine::Http {
         if raw.url.is_some() || raw.cmd.is_some() || raw.args.is_some() {
@@ -236,13 +304,64 @@ fn valid_head_token(t: &str) -> bool {
             .all(|f| !f.is_empty() && f.bytes().all(|b| b.is_ascii_alphanumeric()))
 }
 
-fn absolute(name: &str, p: &Option<PathBuf>) -> Result<PathBuf, String> {
+/// A required absolute path of the config object `object` (`tl_listenerd`, `tl_node`).
+fn absolute(object: &str, name: &str, p: &Option<PathBuf>) -> Result<PathBuf, String> {
     match p {
         Some(p) if p.is_absolute() => Ok(p.clone()),
+        Some(_) => Err(format!("config: {object}.{name} must be an absolute path")),
+        None => Err(format!("config: {object}.{name} is required")),
+    }
+}
+
+/// An optional absolute path of the config object `object`.
+fn absolute_opt(object: &str, name: &str, p: &Option<PathBuf>) -> Result<Option<PathBuf>, String> {
+    p.as_ref().map(|_| absolute(object, name, p)).transpose()
+}
+
+/// The sidecar's `--bind`: the `tl_listener_url` authority, which must be plain http with a
+/// literal IP because the daemon and the node accept nothing else.
+fn sidecar_bind(object: &str, listener_url: &str) -> Result<String, String> {
+    let host = bind_authority(listener_url).map_err(|e| format!("config: tl_listener_url: {e}"))?;
+    let literal_ip = host
+        .rsplit_once(':')
+        .map(|(h, _)| h.trim_start_matches('[').trim_end_matches(']'))
+        .is_some_and(|h| h.parse::<std::net::IpAddr>().is_ok());
+    if !listener_url.starts_with("http://") || !literal_ip {
+        return Err(format!(
+            "config: {object} needs tl_listener_url to be http with a loopback IP literal (http://127.0.0.1:3000)"
+        ));
+    }
+    Ok(host)
+}
+
+/// `FLAG MS` for an optional timeout of `object`, bounded 1..=60000.
+fn push_timeout(
+    object: &str,
+    name: &str,
+    flag: &str,
+    ms: Option<u64>,
+    args: &mut Vec<String>,
+) -> Result<(), String> {
+    if let Some(ms) = ms {
+        if !(1..=60_000).contains(&ms) {
+            return Err(format!("config: {object}.{name} must be 1..=60000"));
+        }
+        args.push(flag.into());
+        args.push(ms.to_string());
+    }
+    Ok(())
+}
+
+/// `stop_grace_ms` of `object`, 100..=60000; absent: the default.
+fn stop_grace(object: &str, ms: Option<u64>) -> Result<Duration, String> {
+    match ms {
+        None => Ok(DEFAULT_STOP_GRACE),
+        Some(ms) if (MIN_STOP_GRACE_MS..=MAX_STOP_GRACE_MS).contains(&ms) => {
+            Ok(Duration::from_millis(ms))
+        }
         Some(_) => Err(format!(
-            "config: tl_listenerd.{name} must be an absolute path"
+            "config: {object}.stop_grace_ms must be 100..=60000"
         )),
-        None => Err(format!("config: tl_listenerd.{name} is required")),
     }
 }
 
@@ -259,10 +378,11 @@ fn validate_listenerd(l: RawListenerd, listener_url: &str) -> Result<EngineSetti
     if l == RawListenerd::default() {
         return Ok(settings);
     }
-    let cmd = absolute("cmd", &l.cmd)?;
-    let root = absolute("root", &l.root)?;
-    let config = absolute("config", &l.config)?;
-    let stop_file = absolute("stop_file", &l.stop_file)?;
+    const OBJ: &str = "tl_listenerd";
+    let cmd = absolute(OBJ, "cmd", &l.cmd)?;
+    let root = absolute(OBJ, "root", &l.root)?;
+    let config = absolute(OBJ, "config", &l.config)?;
+    let stop_file = absolute(OBJ, "stop_file", &l.stop_file)?;
     let head = l
         .expected_head
         .as_deref()
@@ -272,17 +392,7 @@ fn validate_listenerd(l: RawListenerd, listener_url: &str) -> Result<EngineSetti
             "config: tl_listenerd.expected_head must be SEQUENCE:HEIGHT:HASH:COMMITMENT".into(),
         );
     }
-    let host = bind_authority(listener_url).map_err(|e| format!("config: tl_listener_url: {e}"))?;
-    let literal_ip = host
-        .rsplit_once(':')
-        .map(|(h, _)| h.trim_start_matches('[').trim_end_matches(']'))
-        .is_some_and(|h| h.parse::<std::net::IpAddr>().is_ok());
-    if !listener_url.starts_with("http://") || !literal_ip {
-        return Err(
-            "config: tl_listenerd needs tl_listener_url to be http with a loopback IP literal (http://127.0.0.1:3000)"
-                .into(),
-        );
-    }
+    let host = sidecar_bind(OBJ, listener_url)?;
     let mut args: Vec<String> = vec![
         "--root".into(),
         root.to_string_lossy().into_owned(),
@@ -295,32 +405,114 @@ fn validate_listenerd(l: RawListenerd, listener_url: &str) -> Result<EngineSetti
         "--stop-file".into(),
         stop_file.to_string_lossy().into_owned(),
     ];
-    if let Some(ms) = l.timeout_ms {
-        if !(1..=60_000).contains(&ms) {
-            return Err("config: tl_listenerd.timeout_ms must be 1..=60000".into());
-        }
-        args.push("--timeout-ms".into());
-        args.push(ms.to_string());
-    }
-    if let Some(ms) = l.stop_grace_ms {
-        if !(MIN_STOP_GRACE_MS..=MAX_STOP_GRACE_MS).contains(&ms) {
-            return Err("config: tl_listenerd.stop_grace_ms must be 100..=60000".into());
-        }
-        settings.stop_grace = Duration::from_millis(ms);
-    }
+    push_timeout(OBJ, "timeout_ms", "--timeout-ms", l.timeout_ms, &mut args)?;
+    settings.stop_grace = stop_grace(OBJ, l.stop_grace_ms)?;
     settings.cmd = Some(cmd);
     settings.args = args;
     settings.stop_file = Some(stop_file);
     Ok(settings)
 }
 
-/// The listener the service uses: the HTTP passthrough (listenerd included), or the rpcd adapter.
+/// `IP:PORT` with a literal IP and a nonzero port, as `tradelayer-node --rpc-address` takes it.
+fn valid_rpc_address(a: &str) -> bool {
+    a.parse::<std::net::SocketAddr>()
+        .is_ok_and(|s| s.port() != 0)
+}
+
+/// The `tl_node` object. Absent: no sidecar, the user runs the node. Present: `cmd`, `root`,
+/// `network`, `rpc_address`, `config`, `source_config`, `head_log` and `stop_file` are required
+/// and the node's arguments are built from them, `--bind` taken from `tl_listener_url` as for
+/// the daemon. `--initialize`, the anchor flags and `--max-blocks` are one-off operator steps
+/// and are not offered: the sidecar restarts an existing store.
+fn validate_node(n: RawNode, listener_url: &str) -> Result<EngineSettings, String> {
+    let mut settings = EngineSettings {
+        engine: Engine::Node,
+        url: listener_url.to_string(),
+        ..EngineSettings::default()
+    };
+    if n == RawNode::default() {
+        return Ok(settings);
+    }
+    const OBJ: &str = "tl_node";
+    let cmd = absolute(OBJ, "cmd", &n.cmd)?;
+    let root = absolute(OBJ, "root", &n.root)?;
+    let config = absolute(OBJ, "config", &n.config)?;
+    let source_config = absolute(OBJ, "source_config", &n.source_config)?;
+    let head_log = absolute(OBJ, "head_log", &n.head_log)?;
+    let stop_file = absolute(OBJ, "stop_file", &n.stop_file)?;
+    let cookie_file = absolute_opt(OBJ, "cookie_file", &n.cookie_file)?;
+    let economic_head_log = absolute_opt(OBJ, "economic_head_log", &n.economic_head_log)?;
+    let network = n
+        .network
+        .as_deref()
+        .ok_or("config: tl_node.network is required")?;
+    if !NODE_NETWORKS.contains(&network) {
+        return Err("config: tl_node.network must be \"BTC\" or \"BTC-TESTNET4\"".into());
+    }
+    let rpc_address = n
+        .rpc_address
+        .as_deref()
+        .ok_or("config: tl_node.rpc_address is required")?;
+    if !valid_rpc_address(rpc_address) {
+        return Err(
+            "config: tl_node.rpc_address must be a literal IP:PORT (127.0.0.1:48332)".into(),
+        );
+    }
+    let host = sidecar_bind(OBJ, listener_url)?;
+    let path = |p: &PathBuf| p.to_string_lossy().into_owned();
+    let mut args: Vec<String> = vec![
+        "--root".into(),
+        path(&root),
+        "--network".into(),
+        network.to_string(),
+        "--rpc-address".into(),
+        rpc_address.to_string(),
+    ];
+    if let Some(c) = &cookie_file {
+        args.extend(["--cookie-file".into(), path(c)]);
+    }
+    args.extend([
+        "--config".into(),
+        path(&config),
+        "--source-config".into(),
+        path(&source_config),
+        "--bind".into(),
+        host,
+        "--stop-file".into(),
+        path(&stop_file),
+        "--head-log".into(),
+        path(&head_log),
+    ]);
+    if let Some(l) = &economic_head_log {
+        args.extend(["--economic-head-log".into(), path(l)]);
+    }
+    if n.resume == Some(true) {
+        args.push("--resume".into());
+    }
+    push_timeout(OBJ, "timeout_ms", "--timeout-ms", n.timeout_ms, &mut args)?;
+    push_timeout(
+        OBJ,
+        "rpc_timeout_ms",
+        "--rpc-timeout-ms",
+        n.rpc_timeout_ms,
+        &mut args,
+    )?;
+    settings.stop_grace = stop_grace(OBJ, n.stop_grace_ms)?;
+    settings.cmd = Some(cmd);
+    settings.args = args;
+    settings.stop_file = Some(stop_file);
+    Ok(settings)
+}
+
+/// The listener the service uses: the HTTP passthrough (listenerd and node included), or the rpcd adapter.
 pub fn listener_for(
     engine: &EngineSettings,
     tl_listener_url: &str,
 ) -> Result<Box<dyn ListenerBackend>, String> {
     match engine.engine {
-        Engine::Http | Engine::Listenerd => Ok(Box::new(ListenerClient::new(tl_listener_url)?)),
+        Engine::Http | Engine::Listenerd | Engine::Node => {
+            Ok(Box::new(ListenerClient::new(tl_listener_url)?))
+        }
         Engine::TradelayerRust => Ok(Box::new(RustEngineListener::new(&engine.url)?)),
     }
 }
@@ -984,6 +1176,34 @@ mod tests {
             cmd: cmd.map(PathBuf::from),
             args: (!args.is_empty()).then(|| args.iter().map(|a| a.to_string()).collect()),
             listenerd: None,
+            node: None,
+        }
+    }
+
+    fn node_raw(n: RawNode) -> RawEngine {
+        RawEngine {
+            engine: Some("tradelayer-node".into()),
+            node: Some(n),
+            ..RawEngine::default()
+        }
+    }
+
+    fn full_node() -> RawNode {
+        RawNode {
+            cmd: Some(PathBuf::from(abs("tl/tradelayer-node.exe"))),
+            root: Some(PathBuf::from(abs("tl/node"))),
+            network: Some("BTC-TESTNET4".into()),
+            rpc_address: Some("127.0.0.1:48332".into()),
+            cookie_file: None,
+            config: Some(PathBuf::from(abs("tl/node/listenerd.conf"))),
+            source_config: Some(PathBuf::from(abs("tl/node/source.conf"))),
+            head_log: Some(PathBuf::from(abs("tl/node/observer.head"))),
+            economic_head_log: None,
+            resume: None,
+            stop_file: Some(PathBuf::from(abs("tl/node.stop"))),
+            timeout_ms: None,
+            rpc_timeout_ms: None,
+            stop_grace_ms: None,
         }
     }
 
@@ -1258,6 +1478,372 @@ mod tests {
             };
             assert!(validate_with_listener(r, url).is_err(), "{engine:?}");
         }
+    }
+
+    #[test]
+    fn node_settings_build_the_nodes_arguments_from_the_config() {
+        let url = "http://127.0.0.1:3000";
+        let norm = |v: &[String]| v.iter().map(|a| a.replace('\\', "/")).collect::<Vec<_>>();
+        // no object: the node is run by the user, the passthrough is all that changes
+        let s = validate_with_listener(node_raw(RawNode::default()), url).unwrap();
+        assert_eq!(s.engine, Engine::Node);
+        assert_eq!(s.url, url);
+        assert!(s.cmd.is_none() && s.args.is_empty() && s.stop_file.is_none());
+
+        let n = full_node();
+        let s = validate_with_listener(node_raw(n.clone()), url).unwrap();
+        assert_eq!(s.cmd, n.cmd);
+        assert_eq!(s.stop_file, n.stop_file);
+        assert_eq!(s.stop_grace, DEFAULT_STOP_GRACE);
+        let want: Vec<String> = [
+            "--root",
+            &abs("tl/node"),
+            "--network",
+            "BTC-TESTNET4",
+            "--rpc-address",
+            "127.0.0.1:48332",
+            "--config",
+            &abs("tl/node/listenerd.conf"),
+            "--source-config",
+            &abs("tl/node/source.conf"),
+            "--bind",
+            "127.0.0.1:3000",
+            "--stop-file",
+            &abs("tl/node.stop"),
+            "--head-log",
+            &abs("tl/node/observer.head"),
+        ]
+        .map(String::from)
+        .to_vec();
+        assert_eq!(norm(&s.args), norm(&want));
+
+        // every optional field, on mainnet, with an IPv6 RPC address and bind
+        let mut n = full_node();
+        n.network = Some("BTC".into());
+        n.rpc_address = Some("[::1]:8332".into());
+        n.cookie_file = Some(PathBuf::from(abs("btc/.cookie")));
+        n.economic_head_log = Some(PathBuf::from(abs("tl/node/economic.head")));
+        n.resume = Some(true);
+        n.timeout_ms = Some(1500);
+        n.rpc_timeout_ms = Some(20_000);
+        n.stop_grace_ms = Some(2500);
+        let s = validate_with_listener(node_raw(n), "http://[::1]:3100").unwrap();
+        assert_eq!(s.stop_grace, Duration::from_millis(2500));
+        let want: Vec<String> = [
+            "--root",
+            &abs("tl/node"),
+            "--network",
+            "BTC",
+            "--rpc-address",
+            "[::1]:8332",
+            "--cookie-file",
+            &abs("btc/.cookie"),
+            "--config",
+            &abs("tl/node/listenerd.conf"),
+            "--source-config",
+            &abs("tl/node/source.conf"),
+            "--bind",
+            "[::1]:3100",
+            "--stop-file",
+            &abs("tl/node.stop"),
+            "--head-log",
+            &abs("tl/node/observer.head"),
+            "--economic-head-log",
+            &abs("tl/node/economic.head"),
+            "--resume",
+            "--timeout-ms",
+            "1500",
+            "--rpc-timeout-ms",
+            "20000",
+        ]
+        .map(String::from)
+        .to_vec();
+        assert_eq!(norm(&s.args), norm(&want));
+        // resume = false adds nothing
+        let mut n = full_node();
+        n.resume = Some(false);
+        let s = validate_with_listener(node_raw(n), url).unwrap();
+        assert!(!s.args.contains(&"--resume".to_string()));
+        // the credentials are never part of the arguments
+        assert!(!s.args.iter().any(|a| a.contains("RPC_")));
+    }
+
+    #[test]
+    fn node_settings_reject_what_the_node_would_refuse() {
+        let ok = full_node();
+        let url = "http://127.0.0.1:3000";
+        let bad_cases: Vec<(&str, RawNode, &str)> = vec![
+            (
+                "relative cmd",
+                RawNode {
+                    cmd: Some("node.exe".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "relative root",
+                RawNode {
+                    root: Some("node".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "relative config",
+                RawNode {
+                    config: Some("c.conf".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "relative source config",
+                RawNode {
+                    source_config: Some("s.conf".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "relative head log",
+                RawNode {
+                    head_log: Some("head".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "relative stop file",
+                RawNode {
+                    stop_file: Some("stop".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "relative cookie file",
+                RawNode {
+                    cookie_file: Some(".cookie".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "relative economic head log",
+                RawNode {
+                    economic_head_log: Some("e.head".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "missing cmd",
+                RawNode {
+                    cmd: None,
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "missing root",
+                RawNode {
+                    root: None,
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "missing source config",
+                RawNode {
+                    source_config: None,
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "missing head log",
+                RawNode {
+                    head_log: None,
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "missing stop file",
+                RawNode {
+                    stop_file: None,
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "missing network",
+                RawNode {
+                    network: None,
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "litecoin network",
+                RawNode {
+                    network: Some("LTC".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "lower-case network",
+                RawNode {
+                    network: Some("btc".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "regtest network",
+                RawNode {
+                    network: Some("BTCREGTEST".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "missing rpc address",
+                RawNode {
+                    rpc_address: None,
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "hostname rpc address",
+                RawNode {
+                    rpc_address: Some("localhost:8332".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "rpc address without a port",
+                RawNode {
+                    rpc_address: Some("127.0.0.1".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "rpc address port 0",
+                RawNode {
+                    rpc_address: Some("127.0.0.1:0".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "rpc address with a scheme",
+                RawNode {
+                    rpc_address: Some("http://127.0.0.1:8332".into()),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "timeout 0",
+                RawNode {
+                    timeout_ms: Some(0),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "timeout too big",
+                RawNode {
+                    timeout_ms: Some(60_001),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "rpc timeout 0",
+                RawNode {
+                    rpc_timeout_ms: Some(0),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "rpc timeout too big",
+                RawNode {
+                    rpc_timeout_ms: Some(60_001),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "grace too small",
+                RawNode {
+                    stop_grace_ms: Some(99),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            (
+                "grace too big",
+                RawNode {
+                    stop_grace_ms: Some(60_001),
+                    ..ok.clone()
+                },
+                url,
+            ),
+            ("hostname bind", ok.clone(), "http://localhost:3000"),
+            ("https bind", ok.clone(), "https://127.0.0.1:3000"),
+        ];
+        for (what, n, u) in bad_cases {
+            assert!(validate_with_listener(node_raw(n), u).is_err(), "{what}");
+        }
+        // the boundaries themselves are accepted
+        let mut n = full_node();
+        n.timeout_ms = Some(60_000);
+        n.rpc_timeout_ms = Some(1);
+        n.stop_grace_ms = Some(100);
+        assert!(validate_with_listener(node_raw(n), url).is_ok());
+        // the rpcd fields belong to the other engine
+        let mut r = node_raw(ok.clone());
+        r.cmd = Some(PathBuf::from(abs("x")));
+        assert!(validate_with_listener(r, url).is_err());
+        let mut r = node_raw(ok.clone());
+        r.url = Some("http://127.0.0.1:7360".into());
+        assert!(validate_with_listener(r, url).is_err());
+        let mut r = node_raw(ok.clone());
+        r.args = Some(vec!["--bind".into()]);
+        assert!(validate_with_listener(r, url).is_err());
+        // tl_listenerd is the other engine's object, tl_node needs this engine
+        let mut r = node_raw(ok.clone());
+        r.listenerd = Some(full_listenerd());
+        assert!(validate_with_listener(r, url).is_err());
+        let mut r = listenerd_raw(full_listenerd());
+        r.node = Some(ok.clone());
+        assert!(validate_with_listener(r, url).is_err());
+        for engine in [None, Some("http"), Some("tradelayer-rust")] {
+            let r = RawEngine {
+                engine: engine.map(str::to_string),
+                node: Some(ok.clone()),
+                ..RawEngine::default()
+            };
+            assert!(validate_with_listener(r, url).is_err(), "{engine:?}");
+        }
+    }
+
+    #[test]
+    fn node_engine_is_the_http_passthrough() {
+        let node = EngineSettings {
+            engine: Engine::Node,
+            ..EngineSettings::default()
+        };
+        let l = listener_for(&node, "http://127.0.0.1:3000").unwrap();
+        assert_eq!(l.origin(), "http://127.0.0.1:3000");
     }
 
     #[test]

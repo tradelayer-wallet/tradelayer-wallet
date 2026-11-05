@@ -186,6 +186,61 @@ daemon with the app and stops it with the app:
   waiting `stop_grace_ms` for exit code 0, and killing it only if it is still running. A daemon stopped by someone else creating
   the stop file stays down.
 
+## Running tradelayer-node
+
+TradeLayer-Rust's `tradelayer-node` (`docs/NODE.md`) is the live counterpart of the daemon: one process that
+follows a Bitcoin Core node, authenticates the TradeLayer candidates of each new block, applies them to its
+durable economic chain, rolls back on a reorg, and serves the same legacy listener routes on a loopback bind.
+FE-speed's UI runs against it exactly as against `tradelayer-listenerd`.
+
+* BTC only: `network` is `BTC` (mainnet addresses) or `BTC-TESTNET4`; Litecoin is not offered.
+* `authenticated_admission` in `tl_initmain` / `GET /initstatus` is `false` until the running node has applied
+  a block it admitted, and then describes that tip: the sender is the address of the parent output of
+  input 0 (P2PKH or P2WPKH, SIGHASH_ALL), proven by signature, and the candidate is proven included in the
+  block. Other inputs, parent unspentness and full Bitcoin consensus are not proven; Core's active chain is
+  taken as given. `docs/NODE.md` has the exact scope.
+* Create the store once on the command line (`tradelayer-node --initialize ...`, optionally with
+  `--anchor-height` / `--anchor-hash`); the app only restarts an existing store. `--initialize`, the anchor
+  flags and `--max-blocks` are not config fields.
+
+```json
+{ "network": "BTC",
+  "node_url": "http://127.0.0.1:8332",
+  "rpc_cookie_file": "C:/path/to/.cookie",
+  "tl_listener_url": "http://127.0.0.1:3000",
+  "tl_engine": "tradelayer-node",
+  "tl_node": {
+    "cmd": "C:/tl/tradelayer-node.exe",
+    "root": "C:/tl/node",
+    "network": "BTC",
+    "rpc_address": "127.0.0.1:8332",
+    "cookie_file": "C:/path/to/.cookie",
+    "config": "C:/tl/node/listenerd.conf",
+    "source_config": "C:/tl/node/source.conf",
+    "head_log": "C:/tl/node/observer.head",
+    "stop_file": "C:/tl/node.stop",
+    "rpc_timeout_ms": 10000,
+    "stop_grace_ms": 10000 } }
+```
+
+* `cmd`, `root`, `config`, `source_config`, `head_log`, `stop_file` are absolute paths, as are the optional
+  `cookie_file` (Core's cookie for the node's `--rpc-address`) and `economic_head_log`. `rpc_address` is a
+  literal `IP:PORT` (not a host name, port not 0). `resume` (optional, `--resume`) clears a paused or
+  quarantined observer at start. `timeout_ms` and `rpc_timeout_ms` (1..=60000, optional) are
+  `--timeout-ms` and `--rpc-timeout-ms`; `stop_grace_ms` (100..=60000, default 5000) is the stop wait.
+* Without `cookie_file` the node reads `RPC_USER` and `RPC_PASS` from its environment, which it inherits from
+  the app. tl-desktop never reads, passes on the command line or logs them.
+* `--bind` is the `tl_listener_url` authority, `http` with a loopback IP literal as for the daemon.
+* Without `tl_node` nothing is started and `tl_engine = "tradelayer-node"` only selects the passthrough. The
+  `tl_engine_*` fields and `tl_listenerd` are refused with this engine, and `tl_node` with any other.
+* The sidecar is the daemon's (`src/engine_sidecar.rs`): stale stop file removed before each start, restart
+  with backoff, stop through the stop file with the grace wait, and a node stopped by someone else creating the
+  stop file stays down. The node's JSON lines go to its standard output, which the sidecar discards; its last
+  standard-error line is kept.
+
+Not run against a live node by this crate: the tests cover the arguments, the rejections and the stop-file
+shutdown with a stand-in child process.
+
 Integration test against a running daemon on a demo store (30+ bridge calls):
 
 ```bat

@@ -11,9 +11,23 @@ Three ways to run it:
   (below) and the UI works with no adapter.
 * **`tl_engine = "tradelayer-listenerd"`**: the same `ListenerClient`, plus the daemon as an optional
   sidecar (README, "Running tradelayer-listenerd").
+* **`tl_engine = "tradelayer-node"`**: the same `ListenerClient`, plus the live node as an optional sidecar
+  (below; README, "Running tradelayer-node").
 * **opt-in**: `RustEngineListener` (`src/engine.rs`), selected with `tl_engine = "tradelayer-rust"`.
   Each listener endpoint is mapped to a JSON-RPC method of `tradelayer-rpcd` and the reply is
   reshaped to what FE-speed parses.
+
+## tradelayer-node: the live listener (no adapter)
+
+`tradelayer-node` (TradeLayer-Rust `docs/NODE.md`) follows a Bitcoin Core node (BTC or BTC-TESTNET4), applies
+authenticated blocks to a durable economic chain and serves the same legacy listener routes as
+`tradelayer-listenerd` on a loopback bind, so the passthrough and the mappings of the next section apply to it
+unchanged. What differs is the status: `tl_initmain` / `GET /initstatus` reports `scope:"node"` and
+`authenticated_admission:true` once the running node has applied an admitted block (input 0 only, P2PKH or
+P2WPKH parents, SIGHASH_ALL; inclusion proven against the header), with `admitted_blocks`, `height_base`,
+`observed_tip` and `economicHead`. Config: `tl_engine = "tradelayer-node"` plus a `tl_node` object
+(README, "Running tradelayer-node"). The per-endpoint table below was probed against `tradelayer-listenerd`
+only; the node's replies were not probed through this crate.
 
 ## tradelayer-listenerd: the listener replacement (no adapter)
 

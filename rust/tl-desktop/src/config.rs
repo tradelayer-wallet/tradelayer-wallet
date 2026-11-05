@@ -27,9 +27,12 @@
 //! `tl_engine = "tradelayer-listenerd"` keeps the HTTP listener at `tl_listener_url` (an `http` loopback IP
 //! literal) and, with a `tl_listenerd` object (`cmd`, `root`, `expected_head`, `config`, `stop_file`,
 //! optional `timeout_ms` and `stop_grace_ms`), starts `tradelayer-listenerd` with the app and stops it
-//! through its stop file.
+//! through its stop file. `tl_engine = "tradelayer-node"` is the same with a `tl_node` object
+//! (`cmd`, `root`, `network`, `rpc_address`, `config`, `source_config`, `head_log`, `stop_file`,
+//! optional `cookie_file`, `economic_head_log`, `resume`, `timeout_ms`, `rpc_timeout_ms`,
+//! `stop_grace_ms`) for the live node.
 
-use crate::engine::{self, EngineSettings, RawEngine, RawListenerd};
+use crate::engine::{self, EngineSettings, RawEngine, RawListenerd, RawNode};
 use crate::legacy::fespeed::{normalize_listener_url, DEFAULT_LISTENER_URL};
 use crate::obrelay::{normalize_origin, DEFAULT_ORDERBOOK_URLS, MAX_ORDERBOOK_URLS};
 use serde::Deserialize;
@@ -74,6 +77,8 @@ struct RawConfig {
     tl_engine_args: Option<Vec<String>>,
     #[serde(default)]
     tl_listenerd: Option<RawListenerd>,
+    #[serde(default)]
+    tl_node: Option<RawNode>,
 }
 
 pub struct DesktopConfig {
@@ -168,6 +173,8 @@ struct LegacyRaw {
     tl_engine_args: Option<Vec<String>>,
     #[serde(default)]
     tl_listenerd: Option<RawListenerd>,
+    #[serde(default)]
+    tl_node: Option<RawNode>,
 }
 
 const MAX_RELAYER_HOSTS: usize = 16;
@@ -284,6 +291,7 @@ pub fn load_legacy(path: &Path) -> Result<LegacySettings, String> {
             cmd: raw.tl_engine_cmd,
             args: raw.tl_engine_args,
             listenerd: raw.tl_listenerd,
+            node: raw.tl_node,
         },
     })
 }
@@ -325,6 +333,7 @@ pub fn parse(text: &str, default_data_dir: &Path) -> Result<DesktopConfig, Strin
             cmd: raw.tl_engine_cmd,
             args: raw.tl_engine_args,
             listenerd: raw.tl_listenerd,
+            node: raw.tl_node,
         },
     })?;
     let idle_minutes = raw.idle_lock_minutes.unwrap_or(10);
@@ -544,6 +553,50 @@ mod tests {
         assert_eq!(s.engine.engine, engine::Engine::TradelayerRust);
         assert_eq!(s.engine.url, engine::DEFAULT_ENGINE_URL);
         assert!(s.engine.cmd.is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn tl_node_object_is_parsed_and_checked_with_the_listener_url() {
+        let (cmd, root, stop) = if cfg!(windows) {
+            ("C:/tl/tradelayer-node.exe", "C:/tl/node", "C:/tl/node.stop")
+        } else {
+            ("/tl/tradelayer-node", "/tl/node", "/tl/node.stop")
+        };
+        let node = format!(
+            r#"{{"cmd":"{cmd}","root":"{root}","network":"BTC","rpc_address":"127.0.0.1:8332","config":"{root}/l.conf","source_config":"{root}/s.conf","head_log":"{root}/h","stop_file":"{stop}","rpc_timeout_ms":5000}}"#
+        );
+        let dir = std::env::temp_dir().join(format!("tl-cfg-node-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("config.json");
+        let write = |body: &str| std::fs::write(&f, body).unwrap();
+        write(&format!(
+            r#"{{"tl_engine":"tradelayer-node","tl_listener_url":"http://127.0.0.1:3100","tl_node":{node}}}"#
+        ));
+        let s = load_legacy(&f).unwrap();
+        assert_eq!(s.engine.engine, engine::Engine::Node);
+        assert!(s
+            .engine
+            .args
+            .windows(2)
+            .any(|w| w == ["--bind", "127.0.0.1:3100"]));
+        assert!(s
+            .engine
+            .args
+            .windows(2)
+            .any(|w| w == ["--rpc-timeout-ms", "5000"]));
+        // an unknown key, the object without its engine and a hostname bind are all refused
+        write(&format!(
+            r#"{{"tl_engine":"tradelayer-node","tl_node":{}}}"#,
+            node.replacen('{', r#"{"bogus":1,"#, 1)
+        ));
+        assert!(load_legacy(&f).is_err());
+        write(&format!(r#"{{"tl_node":{node}}}"#));
+        assert!(load_legacy(&f).is_err());
+        write(&format!(
+            r#"{{"tl_engine":"tradelayer-node","tl_listener_url":"http://localhost:3000","tl_node":{node}}}"#
+        ));
+        assert!(load_legacy(&f).is_err());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
