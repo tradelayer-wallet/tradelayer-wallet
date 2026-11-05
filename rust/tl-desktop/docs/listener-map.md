@@ -59,9 +59,10 @@ are the table further down.
 
 Counts: 14 served (5 of them mapped), 1 answered by fallback (`tl_getSyncStatus`), 15 typed 503 (3 of them
 produced from the daemon's 404). The rpcd adapter answers 9 of the 30. `tl_check_kyc` and
-`tl_check_commits` (patched-Litecoin-Core RPCs in the legacy stack; the daemon answers 503 with
-`node_kyc_attestation_rpc` / `node_channel_commit_rpc`) are not in FE-speed's listener allowlist and are not
-routed through `/tlraw/`.
+`tl_check_commits` are TradeLayer protocol queries (the attestation registry and channel commit
+records, `clearlist.js` and `channels.js` in tradelayer.js), not node RPCs: the 2024 UI sends them as
+`rpc-call`, and tl-wallet-service answers both from the listener in every mode (body `{address}`, reply in
+the `{data}` envelope; see "KYC and commit checks" below). They are not in FE-speed's `/tlraw/` allowlist.
 
 The UI tolerates the 503s: `enrichWithContractInfo`, `predictColumn` and the trade-history and channel
 services catch the axios error and keep their empty state; through `/tl/*` a non-2xx is FE-speed's
@@ -194,9 +195,24 @@ invented empty result. rpcd is never called for these.
 | `tl_oracleHistory` | GET | `oracle_history` | no history |
 
 That is 10 POST and 11 GET: 21 endpoints. `tl_check_kyc` and `tl_check_commits` are not in
-FE-speed's listener allowlist (porting map 1.8) and are not routed by tl-desktop at all (`/tlraw/`
-answers 404 for them, as for any name off the list); the adapter itself answers an unlisted endpoint with
-`404 {"error":"not_found"}`.
+FE-speed's listener allowlist (porting map 1.8; `/tlraw/` answers 404 for them, as for any name off the
+list). `rpc-call` sends them to the listener as `POST /tl_check_kyc` / `POST /tl_check_commits` with
+`{address}`; the adapter answers an unlisted endpoint with `404 {"error":"not_found"}`, which `rpc-call`
+reports as a 500.
+
+### KYC and commit checks
+
+Both are protocol state, so they are answered by whichever engine holds TradeLayer state, whatever chain
+the node runs. Expected listener replies (raw JSON; tl-wallet-service wraps them in `{data}`):
+
+| Endpoint | Reply | Source of truth |
+| --- | --- | --- |
+| `tl_check_kyc` | `{"result: ": "enabled(kyc_0)" \| "enabled" \| "disabled"}` (key keeps the trailing space) | an active attestation for the address gives `enabled(kyc_0)` (`clearlist.js` `isAddressInClearlist`, revoked records excluded); an address that administers a clearlist gives `enabled`; otherwise `disabled` (tradelayer-core `tl_check_kyc` gives the same three values) |
+| `tl_check_commits` | `[{sender, channel, propertyId, amount, block}]` | every commit record whose `senderAddress` is the address, across channels (`channels.js` `recordCommitToChannel` pushes `{senderAddress, propertyId, tokenAmount, block}` onto `channel.commits`) |
+
+The 2024 UI reads `data['result: '] === 'enabled(kyc_0)'` and `parseFloat(amount)` / `parseFloat(propertyId)`,
+so string or number values both work. FE-speed calls neither: it uses `tl_getAttestations` and
+`tl_channelBalanceForCommiter`.
 
 `/tl/*` routes that are not listener-backed (`/tl/test`, `/api/*`) are untouched.
 

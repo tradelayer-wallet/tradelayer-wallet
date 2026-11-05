@@ -91,6 +91,10 @@ pub const TLRAW_GET: &[&str] = &[
 ];
 
 /// FE-speed's `/tl/<name>` routes (exact, case-sensitive).
+/// TradeLayer protocol-state queries the 2024 UI sends as node RPCs. With a listener installed
+/// they go to it in every mode ([`WalletService::protocol_query`]); without one, to the node.
+const PROTOCOL_QUERIES: &[&str] = &["tl_check_kyc", "tl_check_commits"];
+
 pub const TL_ROUTES: &[&str] = &[
     "init",
     "getAllBalancesForAddress",
@@ -986,6 +990,9 @@ impl WalletService {
                 "rpc method denied: private keys are not accepted",
             ));
         }
+        if PROTOCOL_QUERIES.contains(&method) && self.listener.is_some() {
+            return Ok(self.protocol_query(method, &params));
+        }
         if self.tl_rpc_via_listener && method.starts_with("tl_") {
             return Ok(self.tl_rpc(method, b));
         }
@@ -1058,6 +1065,24 @@ impl WalletService {
     }
 
     /// `tl_*` through `rpc-call` in listener mode (`proxyWalletMethod`).
+    /// `rpc-call` of `tl_check_kyc [address]` / `tl_check_commits [address]` while the listener
+    /// is the TradeLayer state (any `tl_rpc_via_listener` mode). Both read protocol state (the
+    /// attestation registry, channel commit records), so the listener answers them, whatever chain
+    /// the node runs; the body is `{address}` and the reply the `{data}` envelope a node RPC
+    /// gets, which is what the 2024 UI reads (`data['result: ']`, `data[].amount`).
+    fn protocol_query(&mut self, method: &str, params: &[Value]) -> (u16, Value) {
+        let address = match params {
+            [Value::String(a)] if !a.is_empty() => a.clone(),
+            _ => return fail(400, format!("{method}: expected [address]")),
+        };
+        let body = json!({ "address": address });
+        match self.listener_data("POST", method, "", Some(&body), LISTENER_TIMEOUT) {
+            Ok(d) => ok(d),
+            Err(e) if is_transient(&e) => (200, json!({ "error": e })),
+            Err(e) => fail(500, e),
+        }
+    }
+
     fn tl_rpc(&mut self, method: &str, b: &Value) -> (u16, Value) {
         match build_payload(method, b) {
             Ok(Some(payload)) => return ok(Value::String(payload)),

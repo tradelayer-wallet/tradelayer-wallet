@@ -779,6 +779,71 @@ fn tl_methods_go_to_the_node_by_default_and_to_fe_speeds_paths_in_listener_mode(
     assert_eq!(f.node.calls_of("tl_getproperty"), 0);
 }
 
+#[test]
+fn kyc_and_commit_checks_are_protocol_queries_answered_by_the_listener_in_both_modes() {
+    let mut f = fixture();
+    start_node(&mut f);
+    f.node.script("tl_check_kyc", json!({"node": true}));
+    f.listener.script(
+        "POST",
+        "tl_check_kyc",
+        200,
+        json!({"result: ": "enabled(kyc_0)"}),
+    );
+    let commits = json!([{"sender":"tltc1qa","channel":"tltc1qc","propertyId":"5","amount":"1.5","block":120}]);
+    f.listener
+        .script("POST", "tl_check_commits", 200, commits.clone());
+    for via_listener in [false, true] {
+        f.svc.set_tl_rpc_via_listener(via_listener);
+        let r = post(
+            &mut f,
+            "/api/rpc-call",
+            json!({"method":"tl_check_kyc","params":["tltc1qa"]}),
+        );
+        // the {data} envelope the 2024 UI reads as data['result: ']
+        assert_eq!(
+            (r.status, r.body),
+            (200, json!({"data": {"result: ": "enabled(kyc_0)"}}))
+        );
+        let r = post(
+            &mut f,
+            "/api/rpc-call",
+            json!({"method":"tl_check_commits","params":["tltc1qa"]}),
+        );
+        assert_eq!((r.status, r.body), (200, json!({ "data": commits })));
+    }
+    // the listener gets {address}, never the node
+    assert_eq!(
+        f.listener.calls_of("tl_check_kyc")[0].body,
+        Some(json!({"address": "tltc1qa"}))
+    );
+    assert_eq!(f.listener.calls_of("tl_check_commits").len(), 2);
+    assert_eq!(f.node.calls_of("tl_check_kyc"), 0);
+    // one address string is the only accepted parameter
+    for params in [json!([]), json!([""]), json!([1]), json!(["a", "b"])] {
+        let r = post(
+            &mut f,
+            "/api/rpc-call",
+            json!({"method":"tl_check_kyc","params":params}),
+        );
+        assert_eq!(r.status, 400, "{params}");
+    }
+    assert_eq!(f.listener.calls_of("tl_check_kyc").len(), 2);
+    // a listener without the route (tl-rpcd adapter, tradelayer.js) is a 500 with its status
+    f.listener.script(
+        "POST",
+        "tl_check_commits",
+        404,
+        json!({"error": "not_found"}),
+    );
+    let r = post(
+        &mut f,
+        "/api/rpc-call",
+        json!({"method":"tl_check_commits","params":["tltc1qa"]}),
+    );
+    assert_eq!(r.status, 500);
+}
+
 // ---------------------------------------------------------------- compute-multisig
 
 #[test]
