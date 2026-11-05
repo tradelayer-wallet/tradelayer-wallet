@@ -562,6 +562,7 @@ fn widened_allowlist_serves_the_ui_methods_and_still_refuses_signing() {
         "getwalletinfo",
         "getrawmempool",
         "gettransaction",
+        "getblockcount",
         "getrawtransaction",
         "finalizepsbt",
         "tl_loadwallet",

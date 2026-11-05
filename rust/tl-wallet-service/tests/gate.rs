@@ -168,6 +168,7 @@ fn repaired_rpc_proxy_forwards_only_allowlisted_methods() {
         "tl_createpayload_simplesend",
         "tl_createpayload_instant_trade",
         // FE-speed's UI call sites (porting map 1.7)
+        "getblockcount",
         "getrawtransaction",
         "getrawmempool",
         "gettransaction",

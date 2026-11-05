@@ -130,6 +130,7 @@ const EXACT_METHODS: &[&str] = &[
     // purpose: dumpprivkey (exports a key) and signrawtransactionwithwallet (signs). `rpc-call`
     // answers both itself before the node is reached: dumpprivkey with a `tln1:` handle,
     // signrawtransactionwithwallet through the sign guard (`service::fespeed`).
+    "getblockcount",
     "getrawtransaction",
     "getrawmempool",
     "gettransaction",
