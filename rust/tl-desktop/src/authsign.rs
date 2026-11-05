@@ -168,6 +168,29 @@ fn hints_from(info: &Value, spk: &ScriptBuf) -> NodeHints {
     }
 }
 
+/// The network whose format `address` is in. FE-speed labels the network Litecoin Testnet by
+/// default, but a regtest node's wallet answers regtest addresses: a `bcrt1`/`rltc1` bech32 prefix
+/// says so by itself, and a well-formed base58 address the label does not parse asks the node
+/// (`regtest`) whether it runs regtest. Anything else keeps the label, so malformed input is refused
+/// by the caller without a node call.
+fn address_network(
+    label: Network,
+    address: &str,
+    regtest: impl FnOnce() -> Option<Network>,
+) -> Network {
+    let lower = address.to_ascii_lowercase();
+    if lower.starts_with("bcrt1") {
+        return Network::BtcRegtest;
+    }
+    if lower.starts_with("rltc1") {
+        return Network::LtcRegtest;
+    }
+    if script_of(label, address).is_ok() || bitcoin::base58::decode_check(address).is_err() {
+        return label;
+    }
+    regtest().unwrap_or(label)
+}
+
 impl LocalAuthSigner {
     pub fn new(table: SharedKeys, secp: Rc<Secp256k1<All>>, node: TapSlot) -> LocalAuthSigner {
         LocalAuthSigner { table, secp, node }
@@ -177,7 +200,10 @@ impl LocalAuthSigner {
         if message.is_empty() || message.len() > MAX_MESSAGE_BYTES {
             return Err("the challenge has an unusable size".into());
         }
-        let net = Network::parse(network).map_err(|_| "unknown network".to_string())?;
+        let label = Network::parse(network).map_err(|_| "unknown network".to_string())?;
+        let net = address_network(label, address, || {
+            crate::nodewallet::regtest_override(|m| self.node.call(m, &[]).ok())
+        });
         let spk = script_of(net, address)?;
         let key = self.table.borrow_mut().by_address(address, net);
         if let Some(key) = key {

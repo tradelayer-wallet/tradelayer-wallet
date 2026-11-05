@@ -134,6 +134,30 @@ impl<C: NodeConnector> NodeConnector for SharedConnector<C> {
     }
 }
 
+/// The regtest network whose address format a node's wallet uses, or `None` off regtest. Bitcoin
+/// Core answers `bcrt1...` and Litecoin Core `rltc1...` addresses on regtest whichever network the
+/// UI has selected (FE-speed's default label is Litecoin Testnet). `call` runs one parameterless
+/// node RPC.
+pub(crate) fn regtest_override(call: impl Fn(&str) -> Option<Value>) -> Option<Network> {
+    let on_regtest = call("getblockchaininfo")
+        .is_some_and(|i| i.get("chain").and_then(Value::as_str) == Some("regtest"));
+    if !on_regtest {
+        return None;
+    }
+    let litecoin = call("getnetworkinfo")
+        .and_then(|n| {
+            n.get("subversion")
+                .and_then(Value::as_str)
+                .map(str::to_ascii_lowercase)
+        })
+        .is_some_and(|v| v.contains("litecoin"));
+    Some(if litecoin {
+        Network::LtcRegtest
+    } else {
+        Network::BtcRegtest
+    })
+}
+
 /// `SignBackend` that has the node wallet sign. Accepts `wif == ""` (every input the wallet can
 /// sign) and `tln1:<address>` (only that address's inputs).
 pub struct NodeWalletSigner {
@@ -395,29 +419,7 @@ impl NodeWalletSigner {
     /// Testnet), so a regtest chain overrides the label.
     fn chain_network(&self, label: &str) -> Result<Network, String> {
         let net = Network::parse(label).map_err(|_| "Network not found!".to_string())?;
-        let on_regtest = self
-            .node
-            .call("getblockchaininfo", &[])
-            .ok()
-            .is_some_and(|i| i.get("chain").and_then(Value::as_str) == Some("regtest"));
-        if !on_regtest {
-            return Ok(net);
-        }
-        let litecoin = self
-            .node
-            .call("getnetworkinfo", &[])
-            .ok()
-            .and_then(|n| {
-                n.get("subversion")
-                    .and_then(Value::as_str)
-                    .map(str::to_ascii_lowercase)
-            })
-            .is_some_and(|v| v.contains("litecoin"));
-        Ok(if litecoin {
-            Network::LtcRegtest
-        } else {
-            Network::BtcRegtest
-        })
+        Ok(regtest_override(|m| self.node.call(m, &[]).ok()).unwrap_or(net))
     }
 
     /// `None` for the empty placeholder, the address scope for `tln1:<address>`; any other

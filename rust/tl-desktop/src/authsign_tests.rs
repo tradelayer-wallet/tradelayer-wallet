@@ -159,6 +159,60 @@ fn a_node_wallet_p2wpkh_address_signs_the_challenge_psbt_with_its_origin() {
     assert!(input.final_script_witness.is_none() && input.partial_sigs.is_empty());
 }
 
+/// FE-speed labels the network Litecoin Testnet by default; a regtest node's wallet answers
+/// regtest addresses (`bcrt1...` on Bitcoin Core), so the label must not decide the format.
+#[test]
+fn a_regtest_node_wallet_address_signs_under_the_ui_testnet_label() {
+    let key = secret(3);
+    let pk = CompressedPublicKey(key.public_key(&Secp256k1::new()));
+    let address = Address::for_account_key(Network::BtcRegtest, &pk)
+        .encode()
+        .unwrap();
+    assert!(address.starts_with("bcrt1"));
+    let spk = spk_of(Network::BtcRegtest, &address);
+    let info = json!({"ismine": true, "pubkey": pk.to_string(),
+                      "hdmasterfingerprint": "aabbccdd", "hdkeypath": "m/84h/1h/0h/0/1"});
+    let node = scripted_node(&spk, &address, info, &key);
+    let (signer, _held) = signer_with(KeyTable::shared(), &node);
+    let sig = signer.sign("LTCTEST", &address, MSG).unwrap();
+    verify_simple(&spk, MSG.as_bytes(), &sig).unwrap();
+    // The bech32 prefix decides without asking the node about its chain.
+    assert!(!node
+        .0
+        .borrow()
+        .calls
+        .iter()
+        .any(|(m, _)| m == "getblockchaininfo"));
+}
+
+/// A base58 address in a regtest format the label does not parse (Bitcoin Core regtest P2SH `2...`
+/// under the Litecoin Testnet label) asks the node whether it runs regtest.
+#[test]
+fn a_base58_regtest_address_is_resolved_by_asking_the_node() {
+    let btc_regtest_p2sh = Address::from_script(
+        Network::BtcRegtest,
+        &bitcoin::ScriptBuf::new_p2sh(
+            &<bitcoin::ScriptHash as bitcoin::hashes::Hash>::from_byte_array([9u8; 20]),
+        ),
+    )
+    .unwrap()
+    .encode()
+    .unwrap();
+    let asked = std::cell::Cell::new(false);
+    let net = address_network(Network::LtcTest, &btc_regtest_p2sh, || {
+        asked.set(true);
+        Some(Network::BtcRegtest)
+    });
+    assert!(asked.get());
+    assert_eq!(net, Network::BtcRegtest);
+    // Garbage never asks the node.
+    let never = || -> Option<Network> { panic!("must not ask the node") };
+    assert_eq!(
+        address_network(Network::LtcTest, "not-an-address", never),
+        Network::LtcTest
+    );
+}
+
 #[test]
 fn a_node_wallet_p2sh_p2wpkh_address_gets_its_redeem_script() {
     let key = secret(2);
