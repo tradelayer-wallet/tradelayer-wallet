@@ -20,6 +20,19 @@
 //! refused before any RPC: the desktop build never signs with a page-supplied key. `tlk1:`
 //! handles are the in-memory keys of [`crate::legacy::keyvault`], resolved before this signer.
 //!
+//! ## Channel multisig on descriptor wallets
+//!
+//! A legacy wallet signs a `wsh(multi(2,A,B))` input because `addmultisigaddress` imported the
+//! script. A descriptor wallet (Bitcoin Core 30+/31, Litecoin Core descriptor wallets) never
+//! imported it and signs a PSBT input only when the PSBT says which of its keys is involved. For
+//! each input whose witness/redeem script pushes the handle address's public key, `sign-psbt`
+//! therefore adds a `bip32_derivation` entry for that key with the key origin `getaddressinfo`
+//! reports (`hdmasterfingerprint` + `hdkeypath`) before `walletprocesspsbt`; no key leaves the
+//! wallet and no script is imported. The reply's `isValid` then means the node put this key's
+//! signature on every such input (or finalized it). The entries the signer added are removed from
+//! the PSBT it hands back, so the counterparty does not receive this wallet's key origin. An
+//! address without key origin (non-HD legacy wallet) takes the unhinted path above.
+//!
 //! ## Which node, which wallet
 //!
 //! The signer calls the same client the service uses for `rpc-call` ([`SharedConnector`] hands the
@@ -29,14 +42,17 @@
 //! wallet those calls see. When `start-wallet-node` replaces the connection or `stop-wallet-node`
 //! drops it, the signer's weak handle expires with it.
 
+use bitcoin::bip32::{DerivationPath, Fingerprint};
 use bitcoin::hashes::{hash160, Hash};
-use bitcoin::hex::FromHex;
 use bitcoin::psbt::Psbt;
 use bitcoin::script::Instruction;
+use bitcoin::secp256k1::PublicKey as SecpKey;
 use bitcoin::{Script, ScriptBuf};
 use serde_json::{json, Value};
 use std::cell::RefCell;
+use std::collections::btree_map::Entry;
 use std::rc::{Rc, Weak};
+use std::str::FromStr;
 use tl_wallet_core::{Address, Network};
 use tl_wallet_service::nodecfg::RpcEndpoint;
 use tl_wallet_service::service::{
@@ -200,9 +216,11 @@ impl SignBackend for NodeWalletSigner {
         if psbt_hex.len() > MAX_PSBT_HEX_CHARS {
             return Err("psbtHex too large".into());
         }
+        let raw = hex_to_bytes(psbt_hex).map_err(|_| "psbtHex malformed")?;
+        let mut hinted = Hinted::default();
+        let mut b64_in = b64_encode(&raw);
         if let Some(scope) = scope {
-            let bytes = Vec::<u8>::from_hex(psbt_hex).map_err(|_| "psbtHex malformed")?;
-            let psbt = Psbt::deserialize(&bytes).map_err(|e| format!("psbt: {e}"))?;
+            let mut psbt = Psbt::deserialize(&raw).map_err(|e| format!("psbt: {e}"))?;
             let mut views = Vec::with_capacity(psbt.inputs.len());
             for (i, pi) in psbt.inputs.iter().enumerate() {
                 let spk = pi
@@ -213,20 +231,40 @@ impl SignBackend for NodeWalletSigner {
                 views.push((spk, pi.redeem_script.clone(), pi.witness_script.clone()));
             }
             self.check_scope(&scope, &views)?;
+            hinted = add_key_origin_hints(&mut psbt, &scope);
+            if !hinted.added.is_empty() {
+                b64_in = b64_encode(&psbt.serialize());
+            }
         }
-        let b64_in = b64_encode(&hex_to_bytes(psbt_hex).map_err(|_| "psbtHex malformed")?);
         let r = self.node.call(
             "walletprocesspsbt",
             &[json!(b64_in), json!(true), json!("ALL"), json!(true)],
         )?;
-        let b64_out = str_field(&r, "psbt", "walletprocesspsbt")?;
-        let psbt_out =
-            bytes_to_hex(&b64_decode(b64_out).map_err(|_| "walletprocesspsbt: psbt malformed")?);
+        let mut b64_out = str_field(&r, "psbt", "walletprocesspsbt")?.to_string();
         let complete = flag(&r, "complete");
-        // A partial PSBT counts as signed when the node changed it (it added a signature).
+        let valid = match hinted.key.filter(|_| !hinted.inputs.is_empty()) {
+            Some(key) => {
+                let bytes =
+                    b64_decode(&b64_out).map_err(|_| "walletprocesspsbt: psbt malformed")?;
+                let mut psbt = Psbt::deserialize(&bytes)
+                    .map_err(|e| format!("walletprocesspsbt: psbt malformed: {e}"))?;
+                let signed = hinted
+                    .inputs
+                    .iter()
+                    .all(|&i| input_signed_by(&psbt, i, &key));
+                if hinted.strip(&mut psbt) {
+                    b64_out = b64_encode(&psbt.serialize());
+                }
+                signed
+            }
+            // A partial PSBT counts as signed when the node changed it (it added a signature).
+            None => complete || b64_out != b64_in,
+        };
+        let psbt_out =
+            bytes_to_hex(&b64_decode(&b64_out).map_err(|_| "walletprocesspsbt: psbt malformed")?);
         let mut out = json!({
             "psbtHex": psbt_out,
-            "isValid": complete || b64_out != b64_in,
+            "isValid": valid,
             "isFinished": false,
         });
         if complete {
@@ -249,6 +287,95 @@ struct Scope {
     network: Network,
     script: ScriptBuf,
     pubkey: Option<Vec<u8>>,
+    /// The address key as a curve point with the origin the node reports for it.
+    origin: Option<KeyOrigin>,
+}
+
+struct KeyOrigin {
+    key: SecpKey,
+    fingerprint: Fingerprint,
+    path: DerivationPath,
+}
+
+/// What [`add_key_origin_hints`] found in a PSBT.
+#[derive(Default)]
+struct Hinted {
+    key: Option<SecpKey>,
+    /// Inputs whose script holds the key: the node must sign each of them.
+    inputs: Vec<usize>,
+    /// Inputs that got a derivation entry from the signer (they had none for the key).
+    added: Vec<usize>,
+}
+
+impl Hinted {
+    /// Drops the entries the signer added; `true` when the PSBT changed.
+    fn strip(&self, psbt: &mut Psbt) -> bool {
+        let Some(key) = self.key else { return false };
+        let mut changed = false;
+        for &i in &self.added {
+            if let Some(pi) = psbt.inputs.get_mut(i) {
+                changed |= pi.bip32_derivation.remove(&key).is_some();
+            }
+        }
+        changed
+    }
+}
+
+/// `true` when the script pushes exactly this public key (not merely its hash).
+fn script_pushes_key(key: &[u8], script: &Script) -> bool {
+    script
+        .instructions()
+        .flatten()
+        .any(|i| matches!(i, Instruction::PushBytes(p) if p.as_bytes() == key))
+}
+
+/// Adds the key-origin entry a descriptor wallet needs to recognise its key inside a witness
+/// script it never imported. Without origin data nothing is added and `inputs` stays empty.
+fn add_key_origin_hints(psbt: &mut Psbt, scope: &Scope) -> Hinted {
+    let (Some(origin), Some(raw)) = (&scope.origin, scope.pubkey.as_deref()) else {
+        return Hinted::default();
+    };
+    let mut hinted = Hinted {
+        key: Some(origin.key),
+        ..Hinted::default()
+    };
+    for (i, pi) in psbt.inputs.iter_mut().enumerate() {
+        let holds_key = [&pi.witness_script, &pi.redeem_script]
+            .into_iter()
+            .flatten()
+            .any(|s| script_pushes_key(raw, s));
+        if !holds_key {
+            continue;
+        }
+        hinted.inputs.push(i);
+        if let Entry::Vacant(slot) = pi.bip32_derivation.entry(origin.key) {
+            slot.insert((origin.fingerprint, origin.path.clone()));
+            hinted.added.push(i);
+        }
+    }
+    hinted
+}
+
+/// The node signed input `i` with `key`: its partial signature is there, or the input is final.
+fn input_signed_by(psbt: &Psbt, i: usize, key: &SecpKey) -> bool {
+    psbt.inputs.get(i).is_some_and(|pi| {
+        pi.partial_sigs.keys().any(|k| k.inner == *key)
+            || pi.final_script_witness.is_some()
+            || pi.final_script_sig.is_some()
+    })
+}
+
+/// The key origin `getaddressinfo` reports (`hdmasterfingerprint`, `hdkeypath`); descriptor
+/// wallets and HD legacy wallets give both, a non-HD legacy key gives neither.
+fn key_origin(info: &Value, pubkey: &[u8]) -> Option<KeyOrigin> {
+    let key = SecpKey::from_slice(pubkey).ok()?;
+    let fingerprint = Fingerprint::from_str(info.get("hdmasterfingerprint")?.as_str()?).ok()?;
+    let path = DerivationPath::from_str(info.get("hdkeypath")?.as_str()?).ok()?;
+    Some(KeyOrigin {
+        key,
+        fingerprint,
+        path,
+    })
 }
 
 type InputView = (ScriptBuf, Option<ScriptBuf>, Option<ScriptBuf>);
@@ -292,10 +419,12 @@ impl NodeWalletSigner {
                 .ok()
                 .filter(|b| b.len() == 33 || b.len() == 65)
         });
+        let origin = pubkey.as_deref().and_then(|k| key_origin(&info, k));
         Ok(Some(Scope {
             network: net,
             script,
             pubkey,
+            origin,
         }))
     }
 
@@ -904,3 +1033,7 @@ mod tests {
 #[cfg(test)]
 #[path = "nodewallet_scope_tests.rs"]
 mod scope_tests;
+
+#[cfg(test)]
+#[path = "nodewallet_descriptor_tests.rs"]
+mod descriptor_tests;
