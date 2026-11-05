@@ -47,3 +47,39 @@ jobs:
       - name: Release build
         working-directory: rust/tl-desktop
         run: cargo build --locked --offline --release
+  installer:
+    # The per-user NSIS installer from the same UI build, uploaded as an artifact. Unsigned: no
+    # code-signing certificate is configured.
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check out BitcornWisdom at the pinned chart commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: patrickdugan/BitcornWisdom
+          ref: 2cbef833fc11b5b66f72257728365e5f794a32e1
+          path: _bitcornwisdom
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.90.0 --profile minimal
+      - name: Build the FE-speed UI with the skin layer into dist-ui-fe-speed-skin (lifecycle scripts disabled)
+        working-directory: rust/tl-desktop
+        env:
+          BITCORN_WISDOM_DIR: ${{ github.workspace }}/_bitcornwisdom
+        run: node scripts/build-ui.mjs --ref origin/FE-speed --name fe-speed --skin fe-speed-skin "${{ runner.temp }}/ui-build"
+      - name: Install pinned tauri-cli
+        run: cargo install tauri-cli --version 2.12.4 --locked
+      - name: Build the NSIS installer
+        working-directory: rust/tl-desktop
+        run: cargo tauri build --bundles nsis --ci -- --locked
+      - name: Upload the installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: tl-desktop-installer
+          path: rust/tl-desktop/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 14

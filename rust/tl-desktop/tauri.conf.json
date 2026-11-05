@@ -7,7 +7,7 @@
     "frontendDist": "dist-ui-fe-speed-skin"
   },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [
       {
         "label": "main",
@@ -27,7 +27,9 @@
     }
   },
   "bundle": {
-    "active": false,
+    "active": true,
+    "targets": ["nsis"],
+    "windows": { "nsis": { "installMode": "currentUser" } },
     "icon": [
       "icons/icon.ico",
       "icons/icon.png"

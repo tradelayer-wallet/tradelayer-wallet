@@ -292,7 +292,7 @@ The Rust-held-key mode has its own run, `scripts/e2e-regtest.mjs`, against a bui
 surface with the strict CSP. Set this before `cargo build`:
 
 ```bat
-set TAURI_CONFIG={"build":{"frontendDist":"ui"},"app":{"security":{"csp":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'","dangerousDisableAssetCspModification":false,"freezePrototype":true}}}
+set TAURI_CONFIG={"build":{"frontendDist":"ui"},"app":{"withGlobalTauri":true,"security":{"csp":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'","dangerousDisableAssetCspModification":false,"freezePrototype":true}}}
 ```
 
 The run printed `E2E_OK` and covers:
@@ -530,7 +530,12 @@ The lockfile holds about 400 packages, almost all from Tauri.
 * **Fonts:** Roboto and Material Icons load from Google at startup, as in legacy. Vendoring them
   would remove that request.
 * **Not wired yet:**
-  * There is no auto-updater, installer or code signing (`bundle.active` is false).
+  * The installer is NSIS, per-user (`bundle.targets`, `installMode: currentUser`); CI builds it with
+    `cargo tauri build --bundles nsis` and uploads it as the `tl-desktop-installer` artifact. It is unsigned:
+    no code-signing certificate is configured, so SmartScreen warns on first run. There is no auto-updater.
+  * `withGlobalTauri` is off: the FE-speed UI talks to Rust only over `tlapi` and the orderbook relay, never
+    over IPC, so `window.__TAURI__` is not exposed. The `ui/` vault test surface turns it back on through
+    its `TAURI_CONFIG` override.
   * The native folder picker is not wired.
   * The Angular UI does not use the Rust-held-key mode.
 * **Platforms and CI:**
