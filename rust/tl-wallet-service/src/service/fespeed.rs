@@ -27,7 +27,7 @@ use super::{
 };
 use crate::amount::Amount;
 use crate::jsval::{encode_uri_component, js_string, nullish, to_number, truthy};
-use crate::multisig::compute_multisig;
+use crate::multisig::compute_multisig_with_hrp;
 use crate::nodecfg::{is_testnet, launch_args, parse_conf, rpc_endpoint, LaunchOptions};
 use crate::psbt::{decode_tx, guard_sign, UtxoView};
 use crate::service::RpcOutcome;
@@ -622,7 +622,34 @@ impl WalletService {
             .get("network")
             .and_then(Value::as_str)
             .unwrap_or("undefined");
-        Ok(ok(compute_multisig(b.get("m"), b.get("pubKeys"), network)?))
+        let chain_hrp = self.regtest_hrp();
+        Ok(ok(compute_multisig_with_hrp(
+            b.get("m"),
+            b.get("pubKeys"),
+            network,
+            chain_hrp,
+        )?))
+    }
+
+    /// The bech32 prefix a connected regtest node insists on (`bcrt` for Bitcoin Core, `rltc` for
+    /// Litecoin Core), or `None` for any other chain and when no node is connected: the network
+    /// label picks the prefix then.
+    fn regtest_hrp(&mut self) -> Option<&'static str> {
+        let node = self.node.as_mut()?;
+        let info = node.call("getblockchaininfo", &[]).ok()?;
+        if info.get("chain").and_then(Value::as_str) != Some("regtest") {
+            return None;
+        }
+        let litecoin = node
+            .call("getnetworkinfo", &[])
+            .ok()
+            .and_then(|n| {
+                n.get("subversion")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .is_some_and(|v| v.to_ascii_lowercase().contains("litecoin"));
+        Some(if litecoin { "rltc" } else { "bcrt" })
     }
 
     fn init_tradelayer(&mut self) -> Result<(u16, Value), String> {

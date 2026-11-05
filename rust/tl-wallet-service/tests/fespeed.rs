@@ -1215,3 +1215,43 @@ fn rpc_call_signing_takes_only_the_raw_transaction() {
     assert_eq!(f.node.calls_of("signrawtransactionwithwallet"), 0);
     assert_eq!(f.node.calls_of("gettxout"), 0);
 }
+
+#[test]
+fn compute_multisig_takes_the_prefix_of_a_connected_regtest_node() {
+    let addr = |f: &mut Fx| {
+        let r = post(
+            f,
+            "/api/compute-multisig",
+            json!({"m": 2, "pubKeys": [B, A], "network": "LTCTEST"}),
+        );
+        assert_eq!(r.status, 200, "{:?}", r.body);
+        r.body["data"]["address"].as_str().unwrap().to_string()
+    };
+    // no node connected: the label picks the prefix
+    let mut f = fixture();
+    assert!(addr(&mut f).starts_with("tltc1q"));
+    // Bitcoin Core on regtest: the UI's network label cannot be what the node accepts
+    let mut f = fixture();
+    start_node(&mut f);
+    f.node.script(
+        "getblockchaininfo",
+        json!({"blocks": 120, "headers": 150, "chain": "regtest"}),
+    );
+    f.node
+        .script("getnetworkinfo", json!({"subversion": "/Satoshi:31.1.0/"}));
+    let on_bitcoin = addr(&mut f);
+    assert!(on_bitcoin.starts_with("bcrt1q"), "{on_bitcoin}");
+    f.node.script(
+        "getnetworkinfo",
+        json!({"subversion": "/LitecoinCore:0.21.5/"}),
+    );
+    assert!(addr(&mut f).starts_with("rltc1q"));
+    // a node that is not on regtest keeps the label's prefix
+    let mut f = fixture();
+    start_node(&mut f);
+    f.node.script(
+        "getblockchaininfo",
+        json!({"blocks": 120, "headers": 150, "chain": "test"}),
+    );
+    assert!(addr(&mut f).starts_with("tltc1q"));
+}

@@ -3,8 +3,10 @@
 //!
 //! Public keys are put in BIP-67 order (byte-wise sort) before the script is built, so the same
 //! key set always yields the same address whatever order the two parties list them in. The
-//! network picks only the bech32 prefix: `ltc`, `tltc`, `bc`, `tb`. The `bitcoin` crate's own
-//! address type has no Litecoin prefix, so the witness program is bech32-encoded directly.
+//! network picks only the bech32 prefix: `ltc`, `tltc`, `bc`, `tb`. A node on a regtest chain accepts
+//! only its own prefix (`bcrt` for Bitcoin Core, `rltc` for Litecoin Core), whichever network the UI
+//! has selected, so the caller may pass that prefix and it replaces the label's. The `bitcoin` crate's
+//! own address type has no Litecoin prefix, so the witness program is bech32-encoded directly.
 
 use bitcoin::bech32::{segwit, Hrp};
 use bitcoin::hex::{DisplayHex, FromHex};
@@ -34,7 +36,23 @@ pub fn compute_multisig(
     pub_keys: Option<&Value>,
     network: &str,
 ) -> Result<Value, String> {
-    let hrp = hrp_for(network).ok_or_else(|| format!("Unknown network: {network}"))?;
+    compute_multisig_with_hrp(m, pub_keys, network, None)
+}
+
+/// [`compute_multisig`] with the bech32 prefix of the connected node's chain taking the place of the
+/// network label's (`Some("bcrt")` or `Some("rltc")` on regtest). The label is still checked.
+pub fn compute_multisig_with_hrp(
+    m: Option<&Value>,
+    pub_keys: Option<&Value>,
+    network: &str,
+    chain_hrp: Option<&str>,
+) -> Result<Value, String> {
+    let label_hrp = hrp_for(network).ok_or_else(|| format!("Unknown network: {network}"))?;
+    let hrp = match chain_hrp {
+        Some(h @ ("bcrt" | "rltc")) => h,
+        Some(other) => return Err(format!("unsupported chain prefix: {other}")),
+        None => label_hrp,
+    };
     let keys = match pub_keys {
         Some(Value::Array(a)) => a,
         _ => return Err("Invalid pubKeys".into()),
@@ -95,6 +113,38 @@ mod tests {
 
     const A: &str = "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5";
     const B: &str = "03f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9";
+
+    #[test]
+    fn regtest_prefix_replaces_the_label_prefix_and_keeps_the_script() {
+        let keys = json!([A, B]);
+        let label = compute_multisig(Some(&json!(2)), Some(&keys), "LTCTEST").unwrap();
+        let on_bitcoin_regtest =
+            compute_multisig_with_hrp(Some(&json!(2)), Some(&keys), "LTCTEST", Some("bcrt"))
+                .unwrap();
+        let on_litecoin_regtest =
+            compute_multisig_with_hrp(Some(&json!(2)), Some(&keys), "BTC", Some("rltc")).unwrap();
+        assert!(label["address"].as_str().unwrap().starts_with("tltc1q"));
+        assert!(on_bitcoin_regtest["address"]
+            .as_str()
+            .unwrap()
+            .starts_with("bcrt1q"));
+        assert!(on_litecoin_regtest["address"]
+            .as_str()
+            .unwrap()
+            .starts_with("rltc1q"));
+        // same witness program, only the prefix differs
+        assert_eq!(label["scriptPubKey"], on_bitcoin_regtest["scriptPubKey"]);
+        assert_eq!(label["redeemScript"], on_litecoin_regtest["redeemScript"]);
+        let strip =
+            |v: &Value| v["address"].as_str().unwrap().split_once('1').unwrap().1[1..].to_string();
+        assert_eq!(strip(&label).len(), strip(&on_bitcoin_regtest).len());
+        assert!(
+            compute_multisig_with_hrp(Some(&json!(2)), Some(&keys), "LTCTEST", Some("tb")).is_err()
+        );
+        assert!(
+            compute_multisig_with_hrp(Some(&json!(2)), Some(&keys), "NOPE", Some("bcrt")).is_err()
+        );
+    }
 
     #[test]
     fn order_of_the_keys_does_not_matter() {
