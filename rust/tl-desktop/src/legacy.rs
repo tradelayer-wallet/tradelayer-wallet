@@ -510,9 +510,10 @@ fn build_service(
         settings.relayer_hosts,
         dir.to_string_lossy().into_owned(),
     );
-    service.set_listener(Box::new(fespeed::ListenerClient::new(
+    service.set_listener(crate::engine::listener_for(
+        &settings.engine,
         &settings.tl_listener_url,
-    )?));
+    )?);
     service.set_tl_rpc_via_listener(settings.tl_rpc_via_listener);
     Ok(service)
 }

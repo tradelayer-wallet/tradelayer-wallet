@@ -18,7 +18,13 @@
 //! reach: an `http`/`https` loopback origin, default `http://127.0.0.1:3000`) and
 //! `tl_rpc_via_listener` (`true` makes `rpc-call` answer `tl_*` methods the way FE-speed's
 //! wallet-server does; default `false`, which sends them to the node as the 2024 UI expects).
+//!
+//! Optional TradeLayer-Rust engine (`engine.rs`; the default is the HTTP listener above):
+//! `tl_engine` (`"http"` or `"tradelayer-rust"`), `tl_engine_url` (plain-http loopback origin of
+//! `tradelayer-rpcd`, default `http://127.0.0.1:7360`), `tl_engine_cmd` (absolute path of the rpcd
+//! binary to start and stop with the app; absent: never started) and `tl_engine_args`.
 
+use crate::engine::{self, EngineSettings, RawEngine};
 use crate::legacy::fespeed::{normalize_listener_url, DEFAULT_LISTENER_URL};
 use crate::obrelay::{normalize_origin, DEFAULT_ORDERBOOK_URLS, MAX_ORDERBOOK_URLS};
 use serde::Deserialize;
@@ -53,6 +59,14 @@ struct RawConfig {
     tl_listener_url: Option<String>,
     #[serde(default)]
     tl_rpc_via_listener: Option<bool>,
+    #[serde(default)]
+    tl_engine: Option<String>,
+    #[serde(default)]
+    tl_engine_url: Option<String>,
+    #[serde(default)]
+    tl_engine_cmd: Option<PathBuf>,
+    #[serde(default)]
+    tl_engine_args: Option<Vec<String>>,
 }
 
 pub struct DesktopConfig {
@@ -95,6 +109,8 @@ fn read_bounded(path: &Path) -> Result<String, String> {
 /// * `tl_listener_url`: origin of the TradeLayer listener, normalised (default
 ///   `http://127.0.0.1:3000`).
 /// * `tl_rpc_via_listener`: `rpc-call` of `tl_*` as FE-speed's wallet-server answers it.
+/// * `engine`: the `tl_engine*` fields (`engine.rs`): which listener backend serves `/tl/*` and
+///   `/tlraw/*`, and the optional rpcd sidecar.
 #[derive(Debug, PartialEq, Eq)]
 pub struct LegacySettings {
     pub node_data_dir: Option<PathBuf>,
@@ -102,6 +118,7 @@ pub struct LegacySettings {
     pub orderbook_urls: Vec<String>,
     pub tl_listener_url: String,
     pub tl_rpc_via_listener: bool,
+    pub engine: EngineSettings,
 }
 
 impl Default for LegacySettings {
@@ -115,6 +132,7 @@ impl Default for LegacySettings {
                 .collect(),
             tl_listener_url: DEFAULT_LISTENER_URL.to_string(),
             tl_rpc_via_listener: false,
+            engine: EngineSettings::default(),
         }
     }
 }
@@ -133,6 +151,14 @@ struct LegacyRaw {
     tl_listener_url: Option<String>,
     #[serde(default)]
     tl_rpc_via_listener: Option<bool>,
+    #[serde(default)]
+    tl_engine: Option<String>,
+    #[serde(default)]
+    tl_engine_url: Option<String>,
+    #[serde(default)]
+    tl_engine_cmd: Option<PathBuf>,
+    #[serde(default)]
+    tl_engine_args: Option<Vec<String>>,
 }
 
 const MAX_RELAYER_HOSTS: usize = 16;
@@ -153,16 +179,34 @@ fn validate_legacy(
     relayer_hosts: Option<Vec<String>>,
     orderbook_urls: Option<Vec<String>>,
 ) -> Result<LegacySettings, String> {
-    validate_legacy_full(node_data_dir, relayer_hosts, orderbook_urls, None, None)
+    validate_legacy_full(LegacyInput {
+        node_data_dir,
+        relayer_hosts,
+        orderbook_urls,
+        ..LegacyInput::default()
+    })
 }
 
-fn validate_legacy_full(
+/// The legacy-bridge fields of the config file, before validation.
+#[derive(Default)]
+struct LegacyInput {
     node_data_dir: Option<PathBuf>,
     relayer_hosts: Option<Vec<String>>,
     orderbook_urls: Option<Vec<String>>,
     tl_listener_url: Option<String>,
     tl_rpc_via_listener: Option<bool>,
-) -> Result<LegacySettings, String> {
+    engine: RawEngine,
+}
+
+fn validate_legacy_full(input: LegacyInput) -> Result<LegacySettings, String> {
+    let LegacyInput {
+        node_data_dir,
+        relayer_hosts,
+        orderbook_urls,
+        tl_listener_url,
+        tl_rpc_via_listener,
+        engine,
+    } = input;
     if let Some(d) = &node_data_dir {
         if !d.is_absolute() {
             return Err("config: node_data_dir must be an absolute path".into());
@@ -207,6 +251,7 @@ fn validate_legacy_full(
         orderbook_urls,
         tl_listener_url,
         tl_rpc_via_listener: tl_rpc_via_listener.unwrap_or(false),
+        engine: engine::validate(engine)?,
     })
 }
 
@@ -217,13 +262,19 @@ pub fn load_legacy(path: &Path) -> Result<LegacySettings, String> {
     }
     let text = read_bounded(path)?;
     let raw: LegacyRaw = serde_json::from_str(&text).map_err(|e| format!("config: {e}"))?;
-    validate_legacy_full(
-        raw.node_data_dir,
-        raw.relayer_hosts,
-        raw.orderbook_urls,
-        raw.tl_listener_url,
-        raw.tl_rpc_via_listener,
-    )
+    validate_legacy_full(LegacyInput {
+        node_data_dir: raw.node_data_dir,
+        relayer_hosts: raw.relayer_hosts,
+        orderbook_urls: raw.orderbook_urls,
+        tl_listener_url: raw.tl_listener_url,
+        tl_rpc_via_listener: raw.tl_rpc_via_listener,
+        engine: RawEngine {
+            engine: raw.tl_engine,
+            url: raw.tl_engine_url,
+            cmd: raw.tl_engine_cmd,
+            args: raw.tl_engine_args,
+        },
+    })
 }
 
 /// Parse a config file. `default_data_dir` is used when the file names no `data_dir`.
@@ -251,13 +302,19 @@ pub fn parse(text: &str, default_data_dir: &Path) -> Result<DesktopConfig, Strin
             )
         }
     };
-    validate_legacy_full(
-        raw.node_data_dir,
-        raw.relayer_hosts,
-        raw.orderbook_urls,
-        raw.tl_listener_url,
-        raw.tl_rpc_via_listener,
-    )?;
+    validate_legacy_full(LegacyInput {
+        node_data_dir: raw.node_data_dir,
+        relayer_hosts: raw.relayer_hosts,
+        orderbook_urls: raw.orderbook_urls,
+        tl_listener_url: raw.tl_listener_url,
+        tl_rpc_via_listener: raw.tl_rpc_via_listener,
+        engine: RawEngine {
+            engine: raw.tl_engine,
+            url: raw.tl_engine_url,
+            cmd: raw.tl_engine_cmd,
+            args: raw.tl_engine_args,
+        },
+    })?;
     let idle_minutes = raw.idle_lock_minutes.unwrap_or(10);
     if !(1..=24 * 60).contains(&idle_minutes) {
         return Err("config: idle_lock_minutes must be 1..=1440".into());
@@ -401,13 +458,11 @@ mod tests {
         let d = validate_legacy(None, None, None).unwrap();
         assert_eq!(d.tl_listener_url, "http://127.0.0.1:3000");
         assert!(!d.tl_rpc_via_listener);
-        let s = validate_legacy_full(
-            None,
-            None,
-            None,
-            Some("HTTP://LocalHost:3001/".into()),
-            Some(true),
-        )
+        let s = validate_legacy_full(LegacyInput {
+            tl_listener_url: Some("HTTP://LocalHost:3001/".into()),
+            tl_rpc_via_listener: Some(true),
+            ..LegacyInput::default()
+        })
         .unwrap();
         assert_eq!(s.tl_listener_url, "http://localhost:3001");
         assert!(s.tl_rpc_via_listener);
@@ -419,7 +474,11 @@ mod tests {
             "http://u:p@127.0.0.1:3000",
         ] {
             assert!(
-                validate_legacy_full(None, None, None, Some(bad.into()), None).is_err(),
+                validate_legacy_full(LegacyInput {
+                    tl_listener_url: Some(bad.into()),
+                    ..LegacyInput::default()
+                })
+                .is_err(),
                 "{bad:?}"
             );
         }
@@ -437,6 +496,43 @@ mod tests {
             p
         )
         .is_err());
+    }
+
+    #[test]
+    fn tl_engine_fields_default_to_the_http_listener_and_validate() {
+        let d = validate_legacy(None, None, None).unwrap();
+        assert_eq!(d.engine, EngineSettings::default());
+        let base = r#"{"network":"BTCREGTEST","node_url":"x","rpc_user":"u","rpc_password":"p""#;
+        let p = Path::new("/data");
+        let cmd = if cfg!(windows) {
+            "C:/tl/rpcd.exe"
+        } else {
+            "/tl/rpcd"
+        };
+        assert!(parse(
+            &format!(
+                r#"{base},"tl_engine":"tradelayer-rust","tl_engine_url":"http://127.0.0.1:7361","tl_engine_cmd":"{cmd}","tl_engine_args":["--bind","127.0.0.1:7361"]}}"#
+            ),
+            p
+        )
+        .is_ok());
+        for bad in [
+            r#","tl_engine":"tradelayer-rust","tl_engine_url":"http://example.com:7360""#,
+            r#","tl_engine":"nope""#,
+            r#","tl_engine_url":"http://127.0.0.1:7360""#,
+            r#","tl_engine":"tradelayer-rust","tl_engine_cmd":"rpcd.exe""#,
+        ] {
+            assert!(parse(&format!("{base}{bad}}}"), p).is_err(), "{bad}");
+        }
+        let dir = std::env::temp_dir().join(format!("tl-cfg-engine-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("config.json");
+        std::fs::write(&f, r#"{"tl_engine":"tradelayer-rust"}"#).unwrap();
+        let s = load_legacy(&f).unwrap();
+        assert_eq!(s.engine.engine, engine::Engine::TradelayerRust);
+        assert_eq!(s.engine.url, engine::DEFAULT_ENGINE_URL);
+        assert!(s.engine.cmd.is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

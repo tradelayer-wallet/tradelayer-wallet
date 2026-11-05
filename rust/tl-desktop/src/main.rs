@@ -12,6 +12,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod config;
+mod engine;
 mod legacy;
 mod node;
 mod nodewallet;
