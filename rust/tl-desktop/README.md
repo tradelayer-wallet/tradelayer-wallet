@@ -206,6 +206,13 @@ FE-speed's UI runs against it exactly as against `tradelayer-listenerd`.
   e010b64). On `BTC-TESTNET4`, initialize with an anchor above height 0, at a recent testnet4 block: at
   height 0 the economy's anchor is the mainnet genesis. The anchor is part of the store's config identity,
   so a store initialized before e010b64 is refused on load and has to be initialized again.
+* End to end: `node scripts/e2e-node-sidecar.mjs <tl-desktop.exe> <tradelayer-node.exe>` against a synced
+  Bitcoin Core testnet4 node (cookie auth, RPC on `127.0.0.1:48332` by default). It initializes a store 12
+  blocks below Core's tip, starts the app with the node as its sidecar, and requires the node to reach the tip
+  with `authenticated_admission:true`, `/tlraw/tl_getMaxProcessedHeight` to equal Core's absolute tip height,
+  `rpc-call` of `tl_check_kyc` / `tl_check_commits` to be answered by the node, the node to exit on its stop
+  file when the window closes, and the store to restart cleanly. Run 2026-11-06 with TradeLayer-Rust
+  0.1.0-rc.2 (22ad645) at testnet4 height 159,367: E2E_NODE_SIDECAR_OK.
 
 ```json
 { "network": "BTC",
